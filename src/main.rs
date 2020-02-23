@@ -1,6 +1,12 @@
 extern crate ndarray;
+extern crate geo;
 
+pub use crate::geo::*;
 use ndarray::prelude::*;
+use geo::algorithm::contains::Contains;
+use geo::algorithm::closest_point::ClosestPoint;
+//use geo::prelude::*;
+//use geo::geo_types::*;
 use rand::Rng;
 use std::error::Error;
 use std::fs::File;
@@ -47,14 +53,15 @@ pub struct Material {
     Z: f64,
     Eb: f64,
     Es: f64,
-    surface_position: f64,
-    energy_barrier: f64,
-    simulation_boundary: f64,
+    surface: Polygon<f64>,
+    energy_surface: Polygon<f64>,
+    simulation_surface: Polygon<f64>,
 }
 
 impl Material {
-    fn inside(&self, x: f64) -> bool {
-        return x > self.surface_position;
+    fn inside(&self, x: f64, y: f64) -> bool {
+        let p = point!(x: x, y: y);
+        return self.surface.contains(&p);
     }
     fn mfp(&self, x: f64) -> f64 {
         return self.n.powf(-1_f64/3_f64);
@@ -62,27 +69,33 @@ impl Material {
     fn number_density(&self, x: f64) -> f64 {
         return self.n;
     }
-    fn inside_energy_barrier(&self, x: f64) -> bool {
-        return x > self.energy_barrier;
+    fn inside_energy_barrier(&self, x: f64, y: f64) -> bool {
+        let p = point!(x: x, y: y);
+        return self.energy_surface.contains(&p);
     }
-    fn inside_simulation_boundary(&self, x:f64) -> bool {
-        return x > self.simulation_boundary;
+    fn inside_simulation_boundary(&self, x:f64, y: f64) -> bool {
+        let p = point!(x: x, y: y);
+        return self.simulation_surface.contains(&p);
     }
 }
 
 fn phi(xi: f64) -> f64 {
+    //Moliere potential
     return 0.191*(-0.279*xi).exp() + 0.474*(-0.637*xi).exp() + 0.335*(-1.919*xi).exp();
 }
 
 fn dphi(xi: f64) -> f64 {
+    //First differential of Moliere potential
     return -0.279*0.191*(-0.279*xi).exp() - 0.637*0.474*(-0.637*xi).exp() - 0.335*1.919*(-1.919*xi).exp();
 }
 
 fn screening_length(Za: f64, Zb: f64) -> f64 {
+    //Lindhard screening length
     return 0.8853*A0/(Za.sqrt() + Zb.sqrt()).powf(2./3.);
 }
 
 fn doca_function(x0: f64, beta: f64, reduced_energy: f64) -> f64 {
+    //Transcendental function to determine distance of closest approach
     return x0 - phi(x0)/reduced_energy - beta*beta/x0;
 }
 
@@ -91,11 +104,29 @@ fn diff_doca_function(x0: f64, beta: f64, reduced_energy: f64) -> f64 {
 }
 
 fn f(x: f64, beta: f64, reduced_energy: f64) -> f64 {
+    //Function for scattering integral - see Mendenhall and Weller, 1991 & 2005
     return (1_f64 - phi(x)/x/reduced_energy - beta*beta/x/x).powf(-0.5);
 }
 
+fn rotate_around_axis_by_pi(vector: &Array1<f64>, axis: &Array1<f64>) -> Array1<f64> {
+    //Rotate a vector around an axis by pi (180 degrees) - used for reflection at surface
+    let axis_mag = (axis[0]*axis[0] + axis[1]*axis[1] + axis[2]*axis[2]).sqrt();
+    let ux = axis[0]/axis_mag;
+    let uy = axis[1]/axis_mag;
+    let uz = axis[2]/axis_mag;
+
+    let R = array![
+        [2.*ux*ux - 1., 2.*ux*uy, 2.*ux*uz],
+        [2.*uy*ux, 2.*uy*uy - 1., 2.*uy*uz],
+        [2.*uz*ux, 2.*uz*uy, 2.*uz*uz - 1.]
+    ];
+
+    return R.dot(vector);
+}
+
 fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Material, impact_parameter: f64, tol: f64, max_iter: i32) -> (f64, f64, f64, f64, f64) {
-    if !material.inside(particle_2.pos[0]) {
+    if !material.inside(particle_2.pos[0], particle_2.pos[1]) {
+        //If the chosen collision partner is not within the target, skip collision
         return (0., 0., 0., 0., 0.);
     } else {
         let Za: f64 = particle_1.Z;
@@ -109,6 +140,7 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
         let reduced_energy: f64 = K*a*mu/(Za*Zb*Q*Q)*E0;
         let beta: f64 = impact_parameter/a;
 
+        //Guess for large reduced energy from Mendenhall and Weller, 1991
         let mut x0 = 1_f64;
         let mut xn: f64;
         if reduced_energy > 5_f64 {
@@ -116,6 +148,7 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
             x0 = inv_er_2 + (inv_er_2.powf(2_f64) + beta.powf(2_f64)).sqrt();
         }
 
+        //Newton-Raphson to determine distance of closest approach
         let mut err: f64;
         for iter in 0..max_iter {
             xn = x0 - doca_function(x0, beta, reduced_energy)/diff_doca_function(x0, beta, reduced_energy);
@@ -126,10 +159,12 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
             }
         }
 
+        //Scattering integral quadrature from Mendenhall and Weller, 2005
         let lambda_0 = (0.5 + beta*beta/x0/x0/2. - dphi(x0)/2_f64/reduced_energy).powf(-0.5);
         let alpha = 1_f64/12_f64*(1_f64 + lambda_0 + 5_f64*(0.4206_f64*f(x0/0.9072_f64, beta, reduced_energy) + 0.9072_f64*f(x0/0.4206, beta, reduced_energy)));
         let theta = PI*(1_f64 - beta*alpha/x0);
 
+        //See Eckstein 1991 for details on center of mass and lab frame angles
         let t = x0*a*(theta/2.).sin();
         let psi = (theta.sin()).atan2(Ma/Mb + theta.cos());
         let T = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*((theta/2.).sin()).powf(2.);
@@ -143,18 +178,17 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
 
     particle_1.pos_old.assign(&particle_1.pos); //Replace array with other array values
 
+    //TRIDYN-style atomically rough surface - scatters initial collisions by up to 1 mfp
     if particle_1.first_step {
-        //let mut rng = rand::thread_rng();
         mfp *= rand::random::<f64>();
         particle_1.first_step = false;
     }
 
-    //println!("{} {} {}", particle_1.pos[0], particle_1.pos[1], particle_1.pos[2]);
-
+    //path length - must subtract next asymptotic deflection and add previous to obtain correct trajectory
     let ffp: f64 = mfp - t + particle_1.t;
 
+    //There's got to be a better way to do this...
     let new_pos: Array1<f64> = array![particle_1.pos[0] + ffp*particle_1.dir[0], particle_1.pos[1] + ffp*particle_1.dir[1], particle_1.pos[2] + ffp*particle_1.dir[2]];
-    //let new_pos: Array1<f64> = particle_1.pos + Array1::from_elem(3, ffp)*particle_1.dir;
     particle_1.pos.assign(&new_pos);
     particle_1.t = t;
 
@@ -163,8 +197,9 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
     let cg: f64 = particle_1.dir[2];
     let cphi: f64 = phi_azimuthal.cos();
     let sphi: f64 = phi_azimuthal.sin();
-
     let sa = (1_f64 - ca.powf(2_f64)).sqrt();
+
+    //Update particle 1 direction
     {
         let cpsi: f64 = psi.cos();
         let spsi: f64 = psi.sin();
@@ -177,6 +212,7 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
         particle_1.dir.assign(&dir_new);
     }
 
+    //Update particle 2 direction
     {
         let psi_b: f64 = (-(theta.sin())).atan2(1. - theta.cos());
         //println!("{}", psi_b);
@@ -191,6 +227,7 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
         particle_2.dir.assign(&dir_new);
     }
 
+    //Update particle energies
     {
         let Za = particle_1.Z;
         let Ma = particle_1.m;
@@ -199,18 +236,21 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
         let E = particle_1.E;
         let a = screening_length(Za, Zb);
 
+        //Lindhard-Scharff electronic stopping
         let mut stopping_factor = 0.;
-        if material.inside(particle_1.pos[0]) {
+        if material.inside(particle_1.pos[0], particle_1.pos[1]) {
             let Sel = 1.212*(Za.powf(7./6.)*Zb)/((Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.))*(E/Ma*AMU/Q).sqrt();
             stopping_factor = material.number_density(particle_1.pos[0])*Sel*ANGSTROM*ANGSTROM*Q;
         }
         let Enl = ffp*stopping_factor;
 
+        //Ensure that energies do not go negative
         particle_1.E = E - T - Enl;
         if particle_1.E < 0_f64 {
             particle_1.E = 0_f64;
         }
 
+        //Ensure that energies do not go negative
         particle_2.E = T - material.Eb;
         if particle_2.E < 0_f64 {
             particle_2.E = 0_f64;
@@ -219,7 +259,7 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
 }
 
 fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f64, Array1<f64>, Array1<f64>) {
-
+    //Liquid model of amorphous material - see Eckstein 1991
     let mfp: f64 = material.mfp(particle_1.pos[0]);
     let pmax : f64 = mfp/SQRTPI;
     let impact_parameter: f64 = pmax*(rand::random::<f64>()).sqrt();
@@ -244,14 +284,44 @@ fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f
 }
 
 fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) -> bool {
+    //Planar energy barrier will refract particle and deflect it towards surface
+    if !material.inside_energy_barrier(particle_1.pos[0], particle_1.pos[1]) & material.inside_energy_barrier(particle_1.pos_old[0], particle_1.pos_old[1]) {
+        let p = point!(x: particle_1.pos[0], y: particle_1.pos[1]);
 
-    if !material.inside_energy_barrier(particle_1.pos[0]) & material.inside_energy_barrier(particle_1.pos_old[0]) {
-        let leaving_energy = particle_1.E*particle_1.dir[0]*particle_1.dir[0];
-        //println!("leaving_energy: {}", leaving_energy/Q);
+        let mut leaving_energy;
+
+        //Find closest point to surface, and use line from particle to point as normal to refract
+        if let Closest::SinglePoint(p2) = material.surface.closest_point(&p) {
+            let dx = p2.x() - p.x();
+            let dy = p2.y() - p.y();
+            let dz: f64 = 0.;
+
+            let magnitude = (dx*dx + dy*dy + dz*dz).sqrt();
+
+            leaving_energy = particle_1.E*(dx/magnitude*particle_1.dir[0] + dy/magnitude*particle_1.dir[1] + dz/magnitude*particle_1.dir[2]);
+        } else {
+            leaving_energy = particle_1.E;
+        }
 
         if leaving_energy < material.Es {
-            particle_1.dir[0] = -particle_1.dir[0];
-            particle_1.pos[0] = material.energy_barrier;
+            let p = point!(x: particle_1.pos[0], y: particle_1.pos[1]);
+
+            //This syntax is a kind of enum matching - closest_point doesn't return the point,
+            //Since there are multiple kinds of nearest-point solutions, so it returns an enum
+            //That stores the point inside. This code extracts it
+            if let Closest::SinglePoint(p2) = material.surface.closest_point(&p) {
+                let dx = p2.x() - p.x();
+                let dy = p2.y() - p.y();
+
+                let axis = array![dx, dy, 0.];
+
+                particle_1.dir[0] *= -1.;
+                particle_1.dir[1] *= -1.;
+
+                let new_dir: Array1<f64> = rotate_around_axis_by_pi(&particle_1.dir, &axis);
+
+                particle_1.dir.assign(&new_dir);
+            }
             return false;
         } else {
             surface_refraction(particle_1, &material, -1_f64);
@@ -263,35 +333,67 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) ->
 }
 
 fn surface_refraction(particle_1: &mut Particle, material: &Material, sign: f64) {
+    //Deflection code for planar surface refraction
     let Es = material.Es;
     let E0 = particle_1.E;
+
     let cosx0 = particle_1.dir[0];
-    let sinx0 = (1_f64 - cosx0*cosx0).sqrt();
-    particle_1.dir[0] = ((E0*cosx0*cosx0 + sign*Es)/(E0 +  sign*Es)).sqrt();
-    let sinx = (1_f64 - particle_1.dir[0]*particle_1.dir[0]).sqrt();
-    particle_1.dir[1] = particle_1.dir[1]*sinx/sinx0;
-    particle_1.dir[2] = particle_1.dir[2]*sinx/sinx0;
-    particle_1.E = particle_1.E - material.Es;
+    let cosy0 = particle_1.dir[1];
+    let cosz0 = particle_1.dir[2];
+
+    let p = point!(x: particle_1.pos[0], y: particle_1.pos[1]);
+
+    if let Closest::SinglePoint(p2) = material.surface.closest_point(&p) {
+        let dx = p2.x() - p.x();
+        let dy = p2.y() - p.y();
+        let dz: f64 = 0.;
+
+        let magnitude = (dx*dx + dy*dy + dz*dz).sqrt();
+
+        let new_cosx = ((cosx0*cosx0 + sign*Es*dx/magnitude)/(E0 + sign*Es)).sqrt();
+        let new_cosy = ((cosy0*cosy0 + sign*Es*dy/magnitude)/(E0 + sign*Es)).sqrt();
+
+        let dir_mag = (new_cosx*new_cosx + new_cosy*new_cosy + cosz0*cosz0).sqrt();
+        particle_1.dir[0] = new_cosx/dir_mag;
+        particle_1.dir[1] = new_cosy/dir_mag;
+        particle_1.dir[2] = cosz0/dir_mag;
+    }
 }
 
-fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f64, Eb: f64, Es: f64, n: f64) {
+fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f64, Eb: f64, Es: f64, n: f64, track_recoils: bool, write_files: bool, thickness: f64, depth: f64) {
     let mut particles: Vec<Particle> = vec![];
 
-    println!("Welcome to RustBCA!");
-    println!("N particles: {}", N);
+    //println!("Welcome to RustBCA!");
+    //println!("N particles: {}", N);
 
+    let dx: f64 = 2_f64*n.powf(-1_f64/3_f64)/SQRT2PI;
     let material = Material {
         n: n,
         m: Mb,
         Z: Zb,
         Eb: Eb,
         Es: Es,
-        surface_position: 0_f64,
-        energy_barrier: -2_f64*n.powf(-1_f64/3_f64)/SQRT2PI,
-        simulation_boundary: -4.*n.powf(-1_f64/3_f64)/SQRT2PI,
+        surface: polygon![
+            (x: 0.0, y: -thickness),
+            (x: depth, y: -thickness),
+            (x: depth, y: thickness),
+            (x: 0.0, y: thickness),
+        ],
+        energy_surface: polygon![
+            (x: 0.0 - dx, y: -thickness - dx),
+            (x: depth + dx, y: -thickness - dx),
+            (x: depth + dx, y: thickness + dx),
+            (x: 0.0 - dx, y: thickness + dx),
+        ],
+        simulation_surface: polygon![
+            (x: 0.0 - 2.*dx, y: -thickness - 2.*dx),
+            (x: depth + 2.*dx, y: -thickness - 2.*dx),
+            (x: depth + 2.*dx, y: thickness + 2.*dx),
+            (x: 0.0 - 2.*dx, y: thickness + 2.*dx),
+        ],
     };
 
-    let x0 = material.energy_barrier;
+    let x0 = -dx;
     let y0 = 0.;
     let z0 = 0.;
     let cosx = (theta*PI/180_f64).cos();
@@ -320,13 +422,14 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
     let mut particle_index: usize = 0;
     while particle_index < particles.len() {
-        if particle_index % 10000 == 0 {
-            println!("particle {} of {}", particle_index, particles.len());
+        if particle_index % 10 == 0 {
+            //println!("particle {} of {}", particle_index, particles.len());
         }
         while !particles[particle_index].stopped & !particles[particle_index].left {
 
-            if !material.inside_simulation_boundary(particles[particle_index].pos[0]) {
+            if !material.inside_simulation_boundary(particles[particle_index].pos[0], particles[particle_index].pos[1]) {
                 particles[particle_index].left = true;
+                //println!("Left! {} {} {}", particles[particle_index].pos[0]/ANGSTROM, particles[particle_index].pos[1]/ANGSTROM, particles[particle_index].pos[2]/ANGSTROM);
                 continue;
             }
 
@@ -356,20 +459,24 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
             let (theta, psi, T, t, x0) = binary_collision(&particles[particle_index], &particle_2, &material, impact_parameter, 0.00001, 100);
             update_coordinates(&mut particles[particle_index], &mut particle_2, &material, phi_azimuthal, theta, psi, T, t);
-            particles[particle_index].left = surface_boundary_condition(&mut particles[particle_index], &material);
+            surface_boundary_condition(&mut particles[particle_index], &material);
 
             if particles[particle_index].track_trajectories{
                 particles[particle_index].add_trajectory();
             }
 
-            if T > Ec {
+            if (T > Ec ) & track_recoils {
                 particles.push(particle_2);
             }
         }
         particle_index += 1
     }
 
-    let mut file = OpenOptions::new().write(true).create(true).open("output.dat").unwrap();
+    //Data output!
+    let mut reflected_file = OpenOptions::new().write(true).create(true).open("reflected.dat").unwrap();
+    let mut sputtered_file = OpenOptions::new().write(true).create(true).open("sputtered.dat").unwrap();
+    let mut deposited_file = OpenOptions::new().write(true).create(true).open("deposited.dat").unwrap();
+    let mut trajectory_file = OpenOptions::new().write(true).create(true).open("trajectories.dat").unwrap();
 
     let mut num_sputtered: usize = 0;
     let mut num_reflected: usize = 0;
@@ -386,24 +493,42 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
         if particle.incident & particle.left {
             num_reflected += 1;
             E_reflected += particle.E;
+            if write_files {
+                writeln!(reflected_file, "{}, {}, {}, {}, {}, {}, {}, {}", particle.Z, particle.pos[0], particle.pos[1], particle.pos[2], particle.dir[0], particle.dir[1], particle.dir[2], particle.E);
+            }
         }
 
         if particle.incident & particle.stopped {
             num_deposited += 1;
             range += particle.pos[0];
-            writeln!(file, "{}, {}, {}", particle.pos[0], particle.pos[1], particle.pos[2]);
+            if write_files {
+                writeln!(deposited_file, "{}, {}, {}, {}", particle.Z, particle.pos[0], particle.pos[1], particle.pos[2]);
+            }
         }
 
         if !particle.incident & particle.left {
             num_sputtered += 1;
             E_sputtered += particle.E;
+            if write_files {
+                writeln!(sputtered_file, "{}, {}, {}, {}, {}, {}, {}, {}", particle.Z, particle.pos[0], particle.pos[1], particle.pos[2], particle.dir[0], particle.dir[1], particle.dir[2], particle.E);
+            }
+        }
+
+        if particle.track_trajectories & write_files {
+            for pos in particle.trajectory {
+                writeln!(trajectory_file, "{}, {}, {}", pos[0], pos[1], pos[2]);
+            }
         }
     }
-    println!("Range: {} R: {} E_r: {} Y: {} E_s: {}", range/(num_deposited as f64)/ANGSTROM, (num_reflected as f64)/(N as f64), E_reflected/Q/(num_reflected as f64), (num_sputtered as f64)/(N as f64), E_sputtered/Q/(num_sputtered as f64));
+    println!("E: {} Range: {} R: {} E_r: {} Y: {} E_s: {}", E0/Q, range/(num_deposited as f64)/ANGSTROM, (num_reflected as f64)/(N as f64), E_reflected/Q/(num_reflected as f64), (num_sputtered as f64)/(N as f64), E_sputtered/Q/(num_sputtered as f64));
 }
 
 
 fn main() {
-    //fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f64, Eb: f64, Es: f64, n: f64) {
-    bca(100000, 1000.*Q, 0.0001, 3.*Q, 4.*AMU, 2., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28);
+    let num_energies = 10;
+    let thickness = 10000.;
+    let energies = Array::logspace(10., 1., 4., num_energies);
+    for index in 0..num_energies {
+        bca(100000, energies[index]*Q, 0.0001, 3.*Q, 1.*AMU, 1., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28, true, false, thickness, 10000.*ANGSTROM);
+    }
 }
