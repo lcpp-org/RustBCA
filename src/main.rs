@@ -17,12 +17,14 @@ const Q: f64 = 1.602E-19;
 const PI: f64 = 3.14159;
 const AMU: f64 = 1.66E-27;
 const ANGSTROM: f64 = 1E-10;
+const MICRON: f64 = 1E-6;
 const EPS0: f64 = 8.85E-12;
 const A0: f64 = 0.52918E-10;
 const K: f64 = 1.11265E-10;
 const ME: f64 = 9.11E-31;
 const SQRTPI: f64 = 1.77245385;
 const SQRT2PI: f64 = 2.506628274631;
+const C: f64 = 300000000.;
 
 pub struct Particle {
     m: f64,
@@ -66,7 +68,7 @@ impl Material {
     fn mfp(&self, x: f64) -> f64 {
         return self.n.powf(-1_f64/3_f64);
     }
-    fn number_density(&self, x: f64) -> f64 {
+    fn number_density(&self, x: f64, y: f64) -> f64 {
         return self.n;
     }
     fn inside_energy_barrier(&self, x: f64, y: f64) -> bool {
@@ -80,13 +82,13 @@ impl Material {
 }
 
 fn phi(xi: f64) -> f64 {
-    //Moliere potential
-    return 0.191*(-0.279*xi).exp() + 0.474*(-0.637*xi).exp() + 0.335*(-1.919*xi).exp();
+    //Kr-C potential
+    return 0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp();
 }
 
 fn dphi(xi: f64) -> f64 {
-    //First differential of Moliere potential
-    return -0.279*0.191*(-0.279*xi).exp() - 0.637*0.474*(-0.637*xi).exp() - 0.335*1.919*(-1.919*xi).exp();
+    //First differential of Kr-C potential
+    return -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp();
 }
 
 fn screening_length(Za: f64, Zb: f64) -> f64 {
@@ -237,12 +239,41 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
         let a = screening_length(Za, Zb);
 
         //Lindhard-Scharff electronic stopping
-        let mut stopping_factor = 0.;
+        let mut stopping_power = 0.;
+
         if material.inside(particle_1.pos[0], particle_1.pos[1]) {
-            let Sel = 1.212*(Za.powf(7./6.)*Zb)/((Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.))*(E/Ma*AMU/Q).sqrt();
-            stopping_factor = material.number_density(particle_1.pos[0])*Sel*ANGSTROM*ANGSTROM*Q;
+            let n = material.number_density(particle_1.pos[0], particle_1.pos[1]);
+            let v = (2.*E/Ma).sqrt();
+            let beta = v/C;
+
+            let mut I0;
+            if Zb < 13. {
+                I0 = 12. + 7./Zb;
+            } else {
+                I0 = 9.76 + 58.5*Zb.powf(-1.19);
+            }
+            let I = Zb*I0*Q;
+
+            let mut B;
+            if Zb < 3. {
+                B = 100.*Za/Zb;
+            } else {
+                B = 5.;
+            }
+
+            let prefactor = 8.0735880E-42*Zb*Za*Za/beta/beta;
+            let eb = 2.*ME*v*v/I;
+
+            let S_BB = prefactor*(eb + 1. + B/eb).ln()*n;
+            //println!("E: {}", E/1E6/Q);
+            //println!("S_BB: {}", S_BB*6.262E10/8.96);
+            let S_LS = 1.212*(Za.powf(7./6.)*Zb)/(Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.)*(E/Ma*AMU/Q).sqrt()*ANGSTROM*ANGSTROM*Q*n;
+            //println!("S_LS: {}", S_LS*6.262E10/8.96);
+            stopping_power = 1./(1./S_BB + 1./S_LS);
+            //println!("S   : {}", stopping_power*6.262E10/8.96);
+
         }
-        let Enl = ffp*stopping_factor;
+        let Enl = ffp*stopping_power;
 
         //Ensure that energies do not go negative
         particle_1.E = E - T - Enl;
@@ -298,7 +329,8 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) ->
 
             let magnitude = (dx*dx + dy*dy + dz*dz).sqrt();
 
-            leaving_energy = particle_1.E*(dx/magnitude*particle_1.dir[0] + dy/magnitude*particle_1.dir[1] + dz/magnitude*particle_1.dir[2]);
+            //Since direction check is already handled in this function, just take abs() here
+            leaving_energy = (particle_1.E*(dx/magnitude*particle_1.dir[0] + dy/magnitude*particle_1.dir[1] + dz/magnitude*particle_1.dir[2])).abs();
         } else {
             leaving_energy = particle_1.E;
         }
@@ -360,7 +392,7 @@ fn surface_refraction(particle_1: &mut Particle, material: &Material, sign: f64)
     }
 }
 
-fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f64, Eb: f64, Es: f64, n: f64, track_recoils: bool, write_files: bool, thickness: f64, depth: f64) {
+fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f64, Eb: f64, Es: f64, n: f64, track_recoils: bool, track_trajectories: bool, track_recoil_trajectories: bool, write_files: bool, thickness: f64, depth: f64, name: String) {
     let mut particles: Vec<Particle> = vec![];
 
     //println!("Welcome to RustBCA!");
@@ -374,22 +406,22 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
         Eb: Eb,
         Es: Es,
         surface: polygon![
-            (x: 0.0, y: -thickness),
-            (x: depth, y: -thickness),
-            (x: depth, y: thickness),
-            (x: 0.0, y: thickness),
+            (x: 0.0, y: -thickness/2.),
+            (x: depth, y: -thickness/2.),
+            (x: depth, y: thickness/2.),
+            (x: 0.0, y: thickness/2.),
         ],
         energy_surface: polygon![
-            (x: 0.0 - dx, y: -thickness - dx),
-            (x: depth + dx, y: -thickness - dx),
-            (x: depth + dx, y: thickness + dx),
-            (x: 0.0 - dx, y: thickness + dx),
+            (x: 0.0 - dx, y: -thickness/2. - dx),
+            (x: depth + dx, y: -thickness/2. - dx),
+            (x: depth + dx, y: thickness/2. + dx),
+            (x: 0.0 - dx, y: thickness/2. + dx),
         ],
         simulation_surface: polygon![
-            (x: 0.0 - 2.*dx, y: -thickness - 2.*dx),
-            (x: depth + 2.*dx, y: -thickness - 2.*dx),
-            (x: depth + 2.*dx, y: thickness + 2.*dx),
-            (x: 0.0 - 2.*dx, y: thickness + 2.*dx),
+            (x: 0.0 - 2.*dx, y: -thickness/2. - 2.*dx),
+            (x: depth + 2.*dx, y: -thickness/2. - 2.*dx),
+            (x: depth + 2.*dx, y: thickness/2. + 2.*dx),
+            (x: 0.0 - 2.*dx, y: thickness/2. + 2.*dx),
         ],
     };
 
@@ -400,21 +432,22 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
     let sinx = (theta*PI/180_f64).sin();
 
     for i in 0..N {
+        let dy = 0.;//(2.*rand::random::<f64>() - 1.)*thickness/2.;
         particles.push(
             Particle {
                 m: Ma,
                 Z: Za,
                 E: E0,
-                pos: array![x0, y0, z0],
+                pos: array![x0, y0 + dy , z0],
                 dir: array![cosx, sinx, 0_f64],
-                pos_old: array![x0, y0, z0],
-                pos_origin: array![x0, y0, z0],
+                pos_old: array![x0, y0 + dy, z0],
+                pos_origin: array![x0, y0 + dy, z0],
                 t: 0_f64,
                 left: false,
                 stopped: false,
                 incident: true,
                 first_step: true,
-                track_trajectories: true,
+                track_trajectories: track_trajectories,
                 trajectory: vec![],
             }
         )
@@ -422,9 +455,7 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
     let mut particle_index: usize = 0;
     while particle_index < particles.len() {
-        if particle_index % 10 == 0 {
-            //println!("particle {} of {}", particle_index, particles.len());
-        }
+        println!("particle {} of {}", particle_index, particles.len());
         while !particles[particle_index].stopped & !particles[particle_index].left {
 
             if !material.inside_simulation_boundary(particles[particle_index].pos[0], particles[particle_index].pos[1]) {
@@ -453,11 +484,11 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
                 stopped: false,
                 incident: false,
                 first_step: false,
-                track_trajectories: false,
+                track_trajectories: track_recoil_trajectories,
                 trajectory: vec![],
             };
 
-            let (theta, psi, T, t, x0) = binary_collision(&particles[particle_index], &particle_2, &material, impact_parameter, 0.00001, 100);
+            let (theta, psi, T, t, x0) = binary_collision(&particles[particle_index], &particle_2, &material, impact_parameter, 1E-3, 100);
             update_coordinates(&mut particles[particle_index], &mut particle_2, &material, phi_azimuthal, theta, psi, T, t);
             surface_boundary_condition(&mut particles[particle_index], &material);
 
@@ -473,62 +504,67 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
     }
 
     //Data output!
-    let mut reflected_file = OpenOptions::new().write(true).create(true).open("reflected.dat").unwrap();
-    let mut sputtered_file = OpenOptions::new().write(true).create(true).open("sputtered.dat").unwrap();
-    let mut deposited_file = OpenOptions::new().write(true).create(true).open("deposited.dat").unwrap();
-    let mut trajectory_file = OpenOptions::new().write(true).create(true).open("trajectories.dat").unwrap();
+    if write_files {
+        let mut reflected_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "reflected.dat")).unwrap();
+        let mut sputtered_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "sputtered.dat")).unwrap();
+        let mut deposited_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "deposited.dat")).unwrap();
+        let mut trajectory_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "trajectories.dat")).unwrap();
 
-    let mut num_sputtered: usize = 0;
-    let mut num_reflected: usize = 0;
-    let mut num_deposited: usize = 0;
+        let mut num_sputtered: usize = 0;
+        let mut num_reflected: usize = 0;
+        let mut num_deposited: usize = 0;
 
-    let mut E_sputtered: f64 = 0.;
-    let mut E_reflected: f64 = 0.;
-    let mut E_total: f64 = 0.;
+        let mut E_sputtered: f64 = 0.;
+        let mut E_reflected: f64 = 0.;
+        let mut E_total: f64 = 0.;
 
-    let mut range: f64 = 0.;
+        let mut range: f64 = 0.;
 
-    for particle in particles {
-        E_total += particle.E;
-        if particle.incident & particle.left {
-            num_reflected += 1;
-            E_reflected += particle.E;
-            if write_files {
-                writeln!(reflected_file, "{}, {}, {}, {}, {}, {}, {}, {}", particle.Z, particle.pos[0], particle.pos[1], particle.pos[2], particle.dir[0], particle.dir[1], particle.dir[2], particle.E);
+        for particle in particles {
+            E_total += particle.E;
+            if particle.incident & particle.left {
+                num_reflected += 1;
+                E_reflected += particle.E;
+                if write_files {
+                    writeln!(reflected_file, "{}, {}, {}, {}, {}, {}, {}, {}", particle.Z, particle.pos[0], particle.pos[1], particle.pos[2], particle.dir[0], particle.dir[1], particle.dir[2], particle.E);
+                }
+            }
+
+            if particle.incident & particle.stopped {
+                num_deposited += 1;
+                range += particle.pos[0];
+                if write_files {
+                    writeln!(deposited_file, "{}, {}, {}, {}", particle.Z, particle.pos[0], particle.pos[1], particle.pos[2]);
+                }
+            }
+
+            if !particle.incident & particle.left {
+                num_sputtered += 1;
+                E_sputtered += particle.E;
+                if write_files {
+                    writeln!(sputtered_file, "{}, {}, {}, {}, {}, {}, {}, {}", particle.Z, particle.pos[0], particle.pos[1], particle.pos[2], particle.dir[0], particle.dir[1], particle.dir[2], particle.E);
+                }
+            }
+
+            if particle.track_trajectories & write_files {
+                for pos in particle.trajectory {
+                    writeln!(trajectory_file, "{}, {}, {}, {}", particle.Z, pos[0], pos[1], pos[2]);
+                }
             }
         }
-
-        if particle.incident & particle.stopped {
-            num_deposited += 1;
-            range += particle.pos[0];
-            if write_files {
-                writeln!(deposited_file, "{}, {}, {}, {}", particle.Z, particle.pos[0], particle.pos[1], particle.pos[2]);
-            }
-        }
-
-        if !particle.incident & particle.left {
-            num_sputtered += 1;
-            E_sputtered += particle.E;
-            if write_files {
-                writeln!(sputtered_file, "{}, {}, {}, {}, {}, {}, {}, {}", particle.Z, particle.pos[0], particle.pos[1], particle.pos[2], particle.dir[0], particle.dir[1], particle.dir[2], particle.E);
-            }
-        }
-
-        if particle.track_trajectories & write_files {
-            for pos in particle.trajectory {
-                writeln!(trajectory_file, "{}, {}, {}", pos[0], pos[1], pos[2]);
-            }
-        }
+        println!("E: {} Range: {} R: {} E_r: {} Y: {} E_s: {}", E0/Q, range/(num_deposited as f64)/ANGSTROM, (num_reflected as f64)/(N as f64), E_reflected/Q/(num_reflected as f64), (num_sputtered as f64)/(N as f64), E_sputtered/Q/(num_sputtered as f64));
     }
-    println!("E: {} Range: {} R: {} E_r: {} Y: {} E_s: {}", E0/Q, range/(num_deposited as f64)/ANGSTROM, (num_reflected as f64)/(N as f64), E_reflected/Q/(num_reflected as f64), (num_sputtered as f64)/(N as f64), E_sputtered/Q/(num_sputtered as f64));
 }
 
 
 fn main() {
-    let num_energies = 10;
-    let thickness = 10000.;
-    let energies = Array::logspace(10., 1., 4., num_energies);
+    let num_energies = 1;
+    let thickness = 1000.*MICRON;
+    let depth = 2000.*MICRON;
+    let energies = Array::logspace(10., 6., 4., num_energies);
     for index in 0..num_energies {
-        bca(100000, energies[index]*Q, 0.0001, 3.*Q, 1.*AMU, 1., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28, true, false, thickness, 10000.*ANGSTROM);
+        let name: String = index.to_string();
+        //track_recoils: bool, track_trajectories: bool, track_recoil_trajectories: bool, write_files: bool,
+        bca(10, 1E6*Q, 0.0001, 3.*Q, 4.*AMU, 2., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28, false, true, false, true, thickness, depth, name);
     }
 }
