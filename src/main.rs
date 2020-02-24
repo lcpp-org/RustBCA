@@ -65,7 +65,7 @@ impl Material {
         let p = point!(x: x, y: y);
         return self.surface.contains(&p);
     }
-    fn mfp(&self, x: f64) -> f64 {
+    fn mfp(&self, x: f64, y: f64) -> f64 {
         return self.n.powf(-1_f64/3_f64);
     }
     fn number_density(&self, x: f64, y: f64) -> f64 {
@@ -176,7 +176,7 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
 }
 
 fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, material: &Material, phi_azimuthal: f64, theta: f64, psi: f64, T: f64, t: f64) {
-    let mut mfp = material.mfp(particle_1.pos[0]);
+    let mut mfp = material.mfp(particle_1.pos[0], particle_1.pos[1]);
 
     particle_1.pos_old.assign(&particle_1.pos); //Replace array with other array values
 
@@ -238,15 +238,17 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
         let E = particle_1.E;
         let a = screening_length(Za, Zb);
 
-        //Lindhard-Scharff electronic stopping
         let mut stopping_power = 0.;
 
+        //Electronic stopping only inside material
         if material.inside(particle_1.pos[0], particle_1.pos[1]) {
             let n = material.number_density(particle_1.pos[0], particle_1.pos[1]);
+
+            //Bethe-Bloch stopping, as modified by Biersack and Haggmark (1980)
             let v = (2.*E/Ma).sqrt();
             let beta = v/C;
 
-            let mut I0;
+            let mut I0; //Mean excitation potential
             if Zb < 13. {
                 I0 = 12. + 7./Zb;
             } else {
@@ -254,21 +256,21 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
             }
             let I = Zb*I0*Q;
 
-            let mut B;
+            let mut B;//Effective empirical shell correction
             if Zb < 3. {
                 B = 100.*Za/Zb;
             } else {
                 B = 5.;
             }
 
-            let prefactor = 8.0735880E-42*Zb*Za*Za/beta/beta;
+            let prefactor = 8.0735880E-42*Zb*Za*Za/beta/beta; //This is messy, but this prefactor is... not the easiest to compute
             let eb = 2.*ME*v*v/I;
-
             let S_BB = prefactor*(eb + 1. + B/eb).ln()*n;
-            //println!("E: {}", E/1E6/Q);
-            //println!("S_BB: {}", S_BB*6.262E10/8.96);
+
+            //Lindhard-Scharff stopping for low energies
             let S_LS = 1.212*(Za.powf(7./6.)*Zb)/(Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.)*(E/Ma*AMU/Q).sqrt()*ANGSTROM*ANGSTROM*Q*n;
-            //println!("S_LS: {}", S_LS*6.262E10/8.96);
+
+            //Biersack-Varelas stopping interpolation scheme
             stopping_power = 1./(1./S_BB + 1./S_LS);
             //println!("S   : {}", stopping_power*6.262E10/8.96);
 
@@ -291,7 +293,8 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
 
 fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f64, Array1<f64>, Array1<f64>) {
     //Liquid model of amorphous material - see Eckstein 1991
-    let mfp: f64 = material.mfp(particle_1.pos[0]);
+    let mfp: f64 = material.mfp(particle_1.pos[0], particle_1.pos[1]);
+
     let pmax : f64 = mfp/SQRTPI;
     let impact_parameter: f64 = pmax*(rand::random::<f64>()).sqrt();
     let phi_azimuthal: f64 = 2.*PI*rand::random::<f64>();
@@ -330,7 +333,9 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) ->
             let magnitude = (dx*dx + dy*dy + dz*dz).sqrt();
 
             //Since direction check is already handled in this function, just take abs() here
+            //println!("{}", particle_1.E/Q);
             leaving_energy = (particle_1.E*(dx/magnitude*particle_1.dir[0] + dy/magnitude*particle_1.dir[1] + dz/magnitude*particle_1.dir[2])).abs();
+            //println!("{}", leaving_energy/Q)
         } else {
             leaving_energy = particle_1.E;
         }
@@ -395,9 +400,7 @@ fn surface_refraction(particle_1: &mut Particle, material: &Material, sign: f64)
 fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f64, Eb: f64, Es: f64, n: f64, track_recoils: bool, track_trajectories: bool, track_recoil_trajectories: bool, write_files: bool, thickness: f64, depth: f64, name: String) {
     let mut particles: Vec<Particle> = vec![];
 
-    //println!("Welcome to RustBCA!");
-    //println!("N particles: {}", N);
-
+    //Currently, Material just stores the polygons, which are created on struct initialization
     let dx: f64 = 2_f64*n.powf(-1_f64/3_f64)/SQRT2PI;
     let material = Material {
         n: n,
@@ -432,7 +435,7 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
     let sinx = (theta*PI/180_f64).sin();
 
     for i in 0..N {
-        let dy = 0.;//(2.*rand::random::<f64>() - 1.)*thickness/2.;
+        let dy = (2.*rand::random::<f64>() - 1.)*thickness/2.;
         particles.push(
             Particle {
                 m: Ma,
@@ -455,7 +458,7 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
     let mut particle_index: usize = 0;
     while particle_index < particles.len() {
-        println!("particle {} of {}", particle_index, particles.len());
+        println!("particle {} of {}", particle_index+1, particles.len());
         while !particles[particle_index].stopped & !particles[particle_index].left {
 
             if !material.inside_simulation_boundary(particles[particle_index].pos[0], particles[particle_index].pos[1]) {
@@ -559,12 +562,12 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
 fn main() {
     let num_energies = 1;
-    let thickness = 1000.*MICRON;
-    let depth = 2000.*MICRON;
+    let thickness = 100.*MICRON;
+    let depth = 1000.*MICRON;
     let energies = Array::logspace(10., 6., 4., num_energies);
     for index in 0..num_energies {
         let name: String = index.to_string();
-        //track_recoils: bool, track_trajectories: bool, track_recoil_trajectories: bool, write_files: bool,
-        bca(10, 1E6*Q, 0.0001, 3.*Q, 4.*AMU, 2., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28, false, true, false, true, thickness, depth, name);
+        //track_recoils track_trajectories track_recoil_trajectories write_files
+        bca(100000, 1.176E6*Q, 0.0001, 1.*Q, 1.*AMU, 1., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28, false, false, false, true, thickness, depth, name);
     }
 }
