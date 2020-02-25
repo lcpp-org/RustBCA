@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 ndarray = "0.13.0"
 rand = "0.7"
+geo = "0.12.2"

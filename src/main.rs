@@ -34,12 +34,18 @@ impl Vector {
     fn magnitude(&self) -> f64 {
         return (self.x*self.x + self.y*self.y + self.z*self.z).sqrt();
     }
-
     fn assign(&mut self, other: &Vector) {
         self.x = other.x;
         self.y = other.y;
         self.z = other.z;
     }
+}
+
+pub struct Vector4 {
+    E: f64,
+    x: f64,
+    y: f64,
+    z: f64,
 }
 
 pub struct Particle {
@@ -55,13 +61,13 @@ pub struct Particle {
     left: bool,
     incident: bool,
     first_step: bool,
-    trajectory: Vec<Vector>,
+    trajectory: Vec<Vector4>,
     track_trajectories: bool,
 }
 
 impl Particle {
     fn add_trajectory(&mut self) {
-        self.trajectory.push(Vector {x: self.pos.x, y: self.pos.y, z: self.pos.z});
+        self.trajectory.push(Vector4 {E: self.E/Q, x: self.pos.x, y: self.pos.y, z: self.pos.z});
     }
 }
 
@@ -118,6 +124,7 @@ fn doca_function(x0: f64, beta: f64, reduced_energy: f64) -> f64 {
 }
 
 fn diff_doca_function(x0: f64, beta: f64, reduced_energy: f64) -> f64 {
+    //First differential of distance of closest approach function
     return beta*beta/x0/x0 - dphi(x0)/reduced_energy + 1.
 }
 
@@ -147,7 +154,7 @@ fn rotate_around_axis_by_pi(vector: &Vector, axis: &Vector) -> Vector {
 
 fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Material, impact_parameter: f64, tol: f64, max_iter: i32) -> (f64, f64, f64, f64, f64) {
     if !material.inside(particle_2.pos.x, particle_2.pos.y) {
-        //If the chosen collision partner is not within the target, skip collision
+        //If the chosen collision partner is not within the target, skip collision algorithm
         return (0., 0., 0., 0., 0.);
     } else {
         let Za: f64 = particle_1.Z;
@@ -162,6 +169,7 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
         let beta: f64 = impact_parameter/a;
 
         //Guess for large reduced energy from Mendenhall and Weller, 1991
+        //For small energies, use pure Newton-Raphson with arbitrary guess of 1
         let mut x0 = 1_f64;
         let mut xn: f64;
         if reduced_energy > 5_f64 {
@@ -222,6 +230,7 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
     let sa = (1_f64 - ca.powf(2_f64)).sqrt();
 
     //Update particle 1 direction
+    //Particle direction update from TRIDYN, see Moeller and Eckstein 1988
     {
         let cpsi: f64 = psi.cos();
         let spsi: f64 = psi.sin();
@@ -264,13 +273,12 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
 
         //Electronic stopping only inside material
         if material.inside(particle_1.pos.x, particle_1.pos.y) {
+            //Bethe-Bloch stopping, as modified by Biersack and Haggmark (1980) to fit experiment
             let n = material.number_density(particle_1.pos.x, particle_1.pos.y);
-
-            //Bethe-Bloch stopping, as modified by Biersack and Haggmark (1980)
             let v = (2.*E/Ma).sqrt();
             let beta = v/C;
 
-            let mut I0; //Mean excitation potential
+            let mut I0; //Mean excitation potential approximation form Biersack and Haggmark
             if Zb < 13. {
                 I0 = 12. + 7./Zb;
             } else {
@@ -278,7 +286,7 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
             }
             let I = Zb*I0*Q;
 
-            let mut B;//Effective empirical shell correction
+            let mut B;//Effective empirical shell correction from Biersack and Haggmark
             if Zb < 3. {
                 B = 100.*Za/Zb;
             } else {
@@ -287,7 +295,7 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
 
             let prefactor = 8.0735880E-42*Zb*Za*Za/beta/beta; //This is messy, but this prefactor is... not the easiest to compute
             let eb = 2.*ME*v*v/I;
-            let S_BB = prefactor*(eb + 1. + B/eb).ln()*n;
+            let S_BB = prefactor*(eb + 1. + B/eb).ln()*n; //Bethe-Bloch stopping, as modified by Biersack and Haggmark (1980) to fit experiment
 
             //Lindhard-Scharff stopping for low energies
             let S_LS = 1.212*(Za.powf(7./6.)*Zb)/(Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.)*(E/Ma*AMU/Q).sqrt()*ANGSTROM*ANGSTROM*Q*n;
@@ -330,6 +338,7 @@ fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f
 
     let dir: Vector = Vector {x: ca, y: cb, z: cg};
 
+    //Collision partner at locus of next collision, displaced by chosen impact parameter and rotated by phi azimuthal
     let x_recoil: f64 = particle_1.pos.x + mfp*ca - impact_parameter*cphi*sa;
     let y_recoil: f64 = particle_1.pos.y + mfp*cb - impact_parameter*(sphi*cg - cphi*cb*ca)/sa;
     let z_recoil: f64 = particle_1.pos.z + mfp*cg + impact_parameter*(sphi*cb - cphi*ca*cg)/sa;
@@ -355,9 +364,8 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) ->
             let magnitude = (dx*dx + dy*dy + dz*dz).sqrt();
 
             //Since direction check is already handled in this function, just take abs() here
-            //println!("{}", particle_1.E/Q);
             leaving_energy = particle_1.E*((dx/magnitude*particle_1.dir.x).abs() + (dy/magnitude*particle_1.dir.y).abs() + (dz/magnitude*particle_1.dir.z).abs());
-            //println!("{}", leaving_energy/Q)
+            //Project energy-scaled velocity vector along direction to nearest point of surface*--*-++++
         } else {
             leaving_energy = particle_1.E;
         }
@@ -531,6 +539,8 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
             if (T > Ec ) & track_recoils {
                 particles.push(particle_2);
+                let length = particles.len();
+                particles[length - 1].add_trajectory();
             }
         }
         particle_index += 1
@@ -542,6 +552,7 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
         let mut sputtered_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "sputtered.dat")).unwrap();
         let mut deposited_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "deposited.dat")).unwrap();
         let mut trajectory_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "trajectories.dat")).unwrap();
+        let mut trajectory_data = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "trajectory_data.dat")).unwrap();
 
         let mut num_sputtered: usize = 0;
         let mut num_reflected: usize = 0;
@@ -580,8 +591,9 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
             }
 
             if particle.track_trajectories & write_files {
+                writeln!(trajectory_data, "{}", particle.trajectory.len());
                 for pos in particle.trajectory {
-                    writeln!(trajectory_file, "{}, {}, {}, {}", particle.Z, pos.x, pos.y, pos.z);
+                    writeln!(trajectory_file, "{}, {}, {}, {}, {}", particle.Z, pos.E, pos.x, pos.y, pos.z);
                 }
             }
         }
@@ -591,12 +603,12 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
 fn main() {
     let num_energies = 1;
-    let thickness = 1.*MICRON;
+    let thickness = 0.5*MICRON;
     let depth = 10.*MICRON;
     let energies = Array::logspace(10., 6., 4., num_energies);
     for index in 0..num_energies {
         let name: String = index.to_string();
         //track_recoils track_trajectories track_recoil_trajectories write_files
-        bca(10, 1E6*Q, 0.0001, 1.*Q, 4.*AMU, 2., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28, true, true, true, true, thickness, depth, name);
+        bca(10000, 1E6*Q, 0.0001, 3.*Q, 4.*AMU, 2., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28, true, false, false, true, thickness, depth, name);
     }
 }
