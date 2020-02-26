@@ -51,12 +51,19 @@ def do_plots():
     fig2, axis2 = plt.subplots()
     n = 8.491E28
     dx =  2.*n**(-1./3.)/SQRT2PI/MICRON
-    thickness = 0.5
-    depth = 10
+    thickness = 1.
+    depth = 1.
 
     surface_x = [0.0, depth, depth, 0.0, 0.0]
     surface_y = [-thickness/2., -thickness/2, thickness/2, thickness/2, -thickness/2]
 
+    #radius = thickness/2.
+    #surface_x = [radius*np.cos(angle) + radius for angle in np.linspace(0., 2.*PI, 16)]
+    #surface_y = [radius*np.sin(angle) for angle in np.linspace(0., 2.*PI, 16)]
+
+    #radius = (thickness + dx)/2.
+    #energy_surface_x = [radius*np.cos(angle) + radius for angle in np.linspace(0., 2.*PI, 16)]
+    #energy_surface_y = [radius*np.sin(angle) for angle in np.linspace(0., 2.*PI, 16)]
     energy_surface_x = [-dx, depth + dx, depth + dx, -dx, -dx]
     energy_surface_y = [-thickness/2 - dx, -thickness/2 - dx, thickness/2 + dx, thickness/2 + dx, -thickness/2 - dx]
 
@@ -84,7 +91,7 @@ def do_plots():
             #lc = LineCollection(segments, linewidths = 1 + 2*E/E[0], color=colors[Z])
             #axis2.add_collection(lc)
             plt.plot(x, y, color = colors[Z], linewidth = linewidths[Z])
-            plt.axis('tight')
+            plt.axis('square')
 
     if np.size(sputtered) > 0: plt.scatter(sputtered[:,1]/MICRON, sputtered[:,2]/MICRON, s=50, color='blue', marker='*')
     plt.xlabel('x [um]')
@@ -98,20 +105,28 @@ def do_plots():
 
     if np.size(deposited) > 0:
         plt.figure(2)
-        bins = np.linspace(-thickness/2., thickness/2., 50)
+        num_bins = 50
+        bins = np.linspace(-thickness/2., thickness/2., num_bins)
         plt.hist(deposited[:,2]/MICRON, bins=bins)
         plt.title('Helium y-Deposition at 1 MeV on 1X10 um Target')
         plt.xlabel('y [um]')
         plt.ylabel('Hydrogen Deposition (A.U.)')
 
         plt.figure(3)
-        binx = np.linspace(0., depth, 120)
-        biny = np.linspace(-thickness/2., thickness/2., 120)
+        num_bins_x = 50
+        num_bins_y = 50
+        binx = np.linspace(0., depth, num_bins_x)
+        biny = np.linspace(-thickness/2., thickness/2., num_bins_y)
         plt.hist2d(deposited[:, 1]*1E6, deposited[:, 2]*1E6, bins=((binx, biny)))
-        plt.axis([0.0, 10.0, -0.5, 0.5])
+        plt.axis([0.0, depth, -thickness/2., thickness/2.])
         plt.title('Helium Deposition at 1 MeV on 1X10 um Target')
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
+        plt.plot(surface_x, surface_y, linewidth=2, color='dimgray')
+        plt.plot(energy_surface_x, energy_surface_y, '--', linewidth=1, color='dimgray')
+        plt.plot(simulation_boundary_x, simulation_boundary_y, '--', linewidth=1, color='dimgray')
+        plt.axis('square')
+
     plt.show()
 
 def SBB(E, Za, Zb, Ma, n):

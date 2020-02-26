@@ -5,14 +5,14 @@ pub use crate::geo::*;
 use ndarray::prelude::*;
 use geo::algorithm::contains::Contains;
 use geo::algorithm::closest_point::ClosestPoint;
-use rand::Rng;
-use std::error::Error;
-use std::fs::File;
+//use rand::Rng;
+//use std::error::Error;
+//use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
+use std::f64::consts::PI;
 
 const Q: f64 = 1.602E-19;
-const PI: f64 = 3.14159;
 const AMU: f64 = 1.66E-27;
 const ANGSTROM: f64 = 1E-10;
 const MICRON: f64 = 1E-6;
@@ -101,6 +101,10 @@ impl Material {
         let p = point!(x: x, y: y);
         return self.simulation_surface.contains(&p);
     }
+    fn closest_point(&self, x: f64, y: f64) -> Closest<f64> {
+        let p = point!(x: x, y: y);
+        return self.surface.closest_point(&p)
+    }
 }
 
 fn phi(xi: f64) -> f64 {
@@ -152,10 +156,10 @@ fn rotate_around_axis_by_pi(vector: &Vector, axis: &Vector) -> Vector {
     return Vector {x: temp_result[0], y: temp_result[1], z: temp_result[2]};
 }
 
-fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Material, impact_parameter: f64, tol: f64, max_iter: i32) -> (f64, f64, f64, f64, f64) {
+fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Material, impact_parameter: f64, tol: f64, max_iter: i32) -> (f64, f64, f64, f64) {
     if !material.inside(particle_2.pos.x, particle_2.pos.y) {
         //If the chosen collision partner is not within the target, skip collision algorithm
-        return (0., 0., 0., 0., 0.);
+        return (0., 0., 0., 0.);
     } else {
         let Za: f64 = particle_1.Z;
         let Zb: f64 = particle_2.Z;
@@ -179,7 +183,7 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
 
         //Newton-Raphson to determine distance of closest approach
         let mut err: f64;
-        for iter in 0..max_iter {
+        for _ in 0..max_iter {
             xn = x0 - doca_function(x0, beta, reduced_energy)/diff_doca_function(x0, beta, reduced_energy);
             err = (xn - x0).abs()/xn;
             x0 = xn;
@@ -198,7 +202,7 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
         let psi = (theta.sin()).atan2(Ma/Mb + theta.cos());
         let T = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*((theta/2.).sin()).powf(2.);
 
-        return (theta, psi, T, t, x0);
+        return (theta, psi, T, t);
     }
 }
 
@@ -264,10 +268,8 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
     {
         let Za = particle_1.Z;
         let Ma = particle_1.m;
-        let Mb = material.m;
         let Zb = material.Z;
         let E = particle_1.E;
-        let a = screening_length(Za, Zb);
 
         let mut stopping_power = 0.;
 
@@ -351,14 +353,14 @@ fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f
 fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) -> bool {
     //Planar energy barrier will refract particle and deflect it towards surface
     if !material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) & material.inside_energy_barrier(particle_1.pos_old.x, particle_1.pos_old.y) {
-        let p = point!(x: particle_1.pos.x, y: particle_1.pos.y);
+        //let p = point!(x: particle_1.pos.x, y: particle_1.pos.y);
 
         let mut leaving_energy;
 
         //Find closest point to surface, and use line from particle to point as normal to refract
-        if let Closest::SinglePoint(p2) = material.surface.closest_point(&p) {
-            let dx = p2.x() - p.x();
-            let dy = p2.y() - p.y();
+        if let Closest::SinglePoint(p2) = material.closest_point(particle_1.pos.x, particle_1.pos.y) {
+            let dx = p2.x() - particle_1.pos.x;
+            let dy = p2.y() - particle_1.pos.y;
             let dz: f64 = 0.;
 
             let magnitude = (dx*dx + dy*dy + dz*dz).sqrt();
@@ -371,14 +373,14 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) ->
         }
 
         if leaving_energy < material.Es {
-            let p = point!(x: particle_1.pos.x, y: particle_1.pos.y);
+            //let p = point!(x: particle_1.pos.x, y: particle_1.pos.y);
 
             //This syntax is a kind of enum matching - closest_point doesn't return the point,
             //Since there are multiple kinds of nearest-point solutions, so it returns an enum
             //That stores the point inside. This code extracts it
-            if let Closest::SinglePoint(p2) = material.surface.closest_point(&p) {
-                let dx = p2.x() - p.x();
-                let dy = p2.y() - p.y();
+            if let Closest::SinglePoint(p2) = material.closest_point(particle_1.pos.x, particle_1.pos.y) {
+                let dx = p2.x() - particle_1.pos.x;
+                let dy = p2.y() - particle_1.pos.y;
 
                 let axis = Vector {x: dx, y: dy, z: 0.};
 
@@ -408,11 +410,11 @@ fn surface_refraction(particle_1: &mut Particle, material: &Material) {
     let cosy0 = particle_1.dir.y;
     let cosz0 = particle_1.dir.z;
 
-    let p = point!(x: particle_1.pos.x, y: particle_1.pos.y);
+    //let p = point!(x: particle_1.pos.x, y: particle_1.pos.y);
 
-    if let Closest::SinglePoint(p2) = material.surface.closest_point(&p) {
-        let dx = p.x() - p2.x();
-        let dy = p.y() - p2.y();
+    if let Closest::SinglePoint(p2) = material.closest_point(particle_1.pos.x, particle_1.pos.y) {
+        let dx = particle_1.pos.x - p2.x();
+        let dy = particle_1.pos.x - p2.y();
         let dz: f64 = 0.;
 
         let dot_product = dx*cosx0 + dy*cosy0 + dz*cosz0;
@@ -424,8 +426,8 @@ fn surface_refraction(particle_1: &mut Particle, material: &Material) {
 
         let magnitude = (dx*dx + dy*dy + dz*dz).sqrt();
 
-        let new_cosx = sign_cosx*((cosx0*cosx0*E0 + sign*Es*dx*dx)/(E0 + sign*Es)).sqrt();
-        let new_cosy = sign_cosy*((cosy0*cosy0*E0 + sign*Es*dy*dy)/(E0 + sign*Es)).sqrt();
+        let new_cosx = sign_cosx*((cosx0*cosx0*E0 + sign*Es*dx*dx/magnitude/magnitude)/(E0 + sign*Es)).sqrt();
+        let new_cosy = sign_cosy*((cosy0*cosy0*E0 + sign*Es*dy*dy/magnitude/magnitude)/(E0 + sign*Es)).sqrt();
         let new_cosz = sign_cosz*(E0*cosz0*cosz0/(E0 + sign*Es)).sqrt();
 
         particle_1.dir.x = new_cosx;
@@ -439,6 +441,60 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
     //Currently, Material just stores the polygons, which are created on struct initialization
     let dx: f64 = 2_f64*n.powf(-1_f64/3_f64)/SQRT2PI;
+    let angles = Array::linspace(0., 2.*PI, 16);
+    let r = thickness/2.;
+    let re = (thickness + dx)/2.;
+
+    let circ_material = Material {
+        n: n,
+        m: Mb,
+        Z: Zb,
+        Eb: Eb,
+        Es: Es,
+        surface: polygon![
+            (x: r*angles[0].cos() + r, y: r*angles[0].sin()),
+            (x: r*angles[1].cos() + r, y: r*angles[1].sin()),
+            (x: r*angles[2].cos() + r, y: r*angles[2].sin()),
+            (x: r*angles[3].cos() + r, y: r*angles[3].sin()),
+            (x: r*angles[4].cos() + r, y: r*angles[4].sin()),
+            (x: r*angles[5].cos() + r, y: r*angles[5].sin()),
+            (x: r*angles[6].cos() + r, y: r*angles[6].sin()),
+            (x: r*angles[7].cos() + r, y: r*angles[7].sin()),
+            (x: r*angles[8].cos() + r, y: r*angles[8].sin()),
+            (x: r*angles[9].cos() + r, y: r*angles[9].sin()),
+            (x: r*angles[10].cos() + r, y: r*angles[10].sin()),
+            (x: r*angles[11].cos() + r, y: r*angles[11].sin()),
+            (x: r*angles[12].cos() + r, y: r*angles[12].sin()),
+            (x: r*angles[13].cos() + r, y: r*angles[13].sin()),
+            (x: r*angles[14].cos() + r, y: r*angles[14].sin()),
+            (x: r*angles[15].cos() + r, y: r*angles[15].sin()),
+        ],
+        energy_surface: polygon![
+            (x: re*angles[0].cos() + re, y: re*angles[0].sin()),
+            (x: re*angles[1].cos() + re, y: re*angles[1].sin()),
+            (x: re*angles[2].cos() + re, y: re*angles[2].sin()),
+            (x: re*angles[3].cos() + re, y: re*angles[3].sin()),
+            (x: re*angles[4].cos() + re, y: re*angles[4].sin()),
+            (x: re*angles[5].cos() + re, y: re*angles[5].sin()),
+            (x: re*angles[6].cos() + re, y: re*angles[6].sin()),
+            (x: re*angles[7].cos() + re, y: re*angles[7].sin()),
+            (x: re*angles[8].cos() + re, y: re*angles[8].sin()),
+            (x: re*angles[9].cos() + re, y: re*angles[9].sin()),
+            (x: re*angles[10].cos() + re, y: re*angles[10].sin()),
+            (x: re*angles[11].cos() + re, y: re*angles[11].sin()),
+            (x: re*angles[12].cos() + re, y: re*angles[12].sin()),
+            (x: re*angles[13].cos() + re, y: re*angles[13].sin()),
+            (x: re*angles[14].cos() + re, y: re*angles[14].sin()),
+            (x: re*angles[15].cos() + re, y: re*angles[15].sin()),
+        ],
+        simulation_surface: polygon![
+            (x: 0.0 - 2.*dx, y: -thickness/2. - 2.*dx),
+            (x: depth + 2.*dx, y: -thickness/2. - 2.*dx),
+            (x: depth + 2.*dx, y: thickness/2. + 2.*dx),
+            (x: 0.0 - 2.*dx, y: thickness/2. + 2.*dx),
+        ],
+    };
+
     let material = Material {
         n: n,
         m: Mb,
@@ -496,7 +552,9 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
     let mut particle_index: usize = 0;
     while particle_index < particles.len() {
-        println!("particle {} of {}", particle_index+1, particles.len());
+        if particle_index % 10 == 0 {
+            println!("particle {} of {}", particle_index+1, particles.len());
+        }
         while !particles[particle_index].stopped & !particles[particle_index].left {
 
             if !material.inside_simulation_boundary(particles[particle_index].pos.x, particles[particle_index].pos.y) {
@@ -513,8 +571,8 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
             let (impact_parameter, phi_azimuthal, dir, pos) = pick_collision_partner(&particles[particle_index], &material);
 
             let mut particle_2 = Particle {
-                m: Mb,
-                Z: Zb,
+                m: material.m,
+                Z: material.Z,
                 E: 0.,
                 pos: Vector {x: pos.x, y: pos.y, z: pos.z},
                 pos_old: Vector {x: pos.x, y: pos.y, z: pos.z},
@@ -529,7 +587,7 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
                 trajectory: vec![],
             };
 
-            let (theta, psi, T, t, x0) = binary_collision(&particles[particle_index], &particle_2, &material, impact_parameter, 1E-3, 100);
+            let (theta, psi, T, t) = binary_collision(&particles[particle_index], &particle_2, &material, impact_parameter, 1E-3, 100);
             update_coordinates(&mut particles[particle_index], &mut particle_2, &material, phi_azimuthal, theta, psi, T, t);
             surface_boundary_condition(&mut particles[particle_index], &material);
 
@@ -603,12 +661,12 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
 fn main() {
     let num_energies = 1;
-    let thickness = 0.5*MICRON;
-    let depth = 10.*MICRON;
+    let thickness = 1.*MICRON;
+    let depth = 1.*MICRON;
     let energies = Array::logspace(10., 6., 4., num_energies);
     for index in 0..num_energies {
         let name: String = index.to_string();
         //track_recoils track_trajectories track_recoil_trajectories write_files
-        bca(10000, 1E6*Q, 0.0001, 3.*Q, 4.*AMU, 2., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28, true, false, false, true, thickness, depth, name);
+        bca(10000, 1E5*Q, 0.0001, 3.*Q, 4.*AMU, 2., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28, true, false, false, true, thickness, depth, name);
     }
 }
