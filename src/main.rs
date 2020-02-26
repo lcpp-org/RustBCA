@@ -550,6 +550,14 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
         )
     }
 
+
+    let mut num_sputtered: usize = 0;
+    let mut num_deposited: usize = 0;
+    let mut num_reflected: usize = 0;
+    let mut energy_sputtered: f64 = 0.;
+    let mut energy_reflected: f64 = 0.;
+    let mut range: f64 = 0.;
+
     let mut particle_index: usize = 0;
     while particle_index < particles.len() {
         if particle_index % 10 == 0 {
@@ -559,12 +567,22 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
             if !material.inside_simulation_boundary(particles[particle_index].pos.x, particles[particle_index].pos.y) {
                 particles[particle_index].left = true;
-                //println!("Left! {} {} {}", particles[particle_index].pos.x/ANGSTROM, particles[particle_index].pos.y/ANGSTROM, particles[particle_index].pos.z/ANGSTROM);
+                if particles[particle_index].incident {
+                    num_reflected += 1;
+                    energy_reflected += particles[particle_index].E;
+                } else {
+                    num_sputtered += 1;
+                    energy_sputtered += particles[particle_index].E;
+                }
                 continue;
             }
 
             if particles[particle_index].E < Ec {
                 particles[particle_index].stopped = true;
+                if particles[particle_index].incident {
+                    num_deposited += 1;
+                    range += particles[particle_index].pos.x;
+                }
                 continue;
             }
 
@@ -604,45 +622,32 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
         particle_index += 1
     }
 
+
+    println!("E: {} Range: {} R: {} E_r: {} Y: {} E_s: {}", E0/Q, range/(num_deposited as f64)/ANGSTROM, (num_reflected as f64)/(N as f64), energy_reflected/Q/(num_reflected as f64), (num_sputtered as f64)/(N as f64), energy_sputtered/Q/(num_sputtered as f64));
+
     //Data output!
     if write_files {
+        println!("Writing output files...");
         let mut reflected_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "reflected.dat")).unwrap();
         let mut sputtered_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "sputtered.dat")).unwrap();
         let mut deposited_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "deposited.dat")).unwrap();
         let mut trajectory_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "trajectories.dat")).unwrap();
         let mut trajectory_data = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "trajectory_data.dat")).unwrap();
 
-        let mut num_sputtered: usize = 0;
-        let mut num_reflected: usize = 0;
-        let mut num_deposited: usize = 0;
-
-        let mut E_sputtered: f64 = 0.;
-        let mut E_reflected: f64 = 0.;
-        let mut E_total: f64 = 0.;
-
-        let mut range: f64 = 0.;
-
         for particle in particles {
-            E_total += particle.E;
             if particle.incident & particle.left {
-                num_reflected += 1;
-                E_reflected += particle.E;
                 if write_files {
                     writeln!(reflected_file, "{}, {}, {}, {}, {}, {}, {}, {}", particle.Z, particle.pos.x, particle.pos.y, particle.pos.z, particle.dir.x, particle.dir.y, particle.dir.z, particle.E);
                 }
             }
 
             if particle.incident & particle.stopped {
-                num_deposited += 1;
-                range += particle.pos.x;
                 if write_files {
                     writeln!(deposited_file, "{}, {}, {}, {}", particle.Z, particle.pos.x, particle.pos.y, particle.pos.z);
                 }
             }
 
             if !particle.incident & particle.left {
-                num_sputtered += 1;
-                E_sputtered += particle.E;
                 if write_files {
                     writeln!(sputtered_file, "{}, {}, {}, {}, {}, {}, {}, {}", particle.Z, particle.pos.x, particle.pos.y, particle.pos.z, particle.dir.x, particle.dir.y, particle.dir.z, particle.E);
                 }
@@ -655,18 +660,18 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
                 }
             }
         }
-        println!("E: {} Range: {} R: {} E_r: {} Y: {} E_s: {}", E0/Q, range/(num_deposited as f64)/ANGSTROM, (num_reflected as f64)/(N as f64), E_reflected/Q/(num_reflected as f64), (num_sputtered as f64)/(N as f64), E_sputtered/Q/(num_sputtered as f64));
     }
+    println!("Done.")
 }
 
 fn main() {
     let num_energies = 1;
     let thickness = 1.*MICRON;
-    let depth = 1.*MICRON;
+    let depth = 20.*MICRON;
     let energies = Array::logspace(10., 6., 4., num_energies);
     for index in 0..num_energies {
         let name: String = index.to_string();
         //track_recoils track_trajectories track_recoil_trajectories write_files
-        bca(10000, 1E5*Q, 0.0001, 3.*Q, 4.*AMU, 2., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28, true, false, false, true, thickness, depth, name);
+        bca(5, 4.669E6*Q, 0.0001, 3.*Q, 4.*AMU, 2., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28, true, true, true, true, thickness, depth, name);
     }
 }
