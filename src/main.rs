@@ -39,6 +39,17 @@ impl Vector {
         self.y = other.y;
         self.z = other.z;
     }
+
+    fn dot(&self, other: &Vector) -> f64 {
+        return self.x*other.x + self.y*other.y + self.z*other.z;
+    }
+
+    fn normalize(&mut self) {
+        let magnitude = self.magnitude();
+        self.x /= magnitude;
+        self.y /= magnitude;
+        self.z /= magnitude;
+    }
 }
 
 pub struct Vector4 {
@@ -242,10 +253,9 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
         let cb_new: f64 = cpsi*cb - spsi/sa*(cphi*ca*cb - sphi*cg);
         let cg_new: f64 = cpsi*cg - spsi/sa*(cphi*ca*cg + sphi*cb);
 
-        let dir_new_mag: f64 = (ca_new*ca_new + cb_new*cb_new + cg_new*cg_new).sqrt();
-        let dir_new = Vector {x: ca_new/dir_new_mag, y: cb_new/dir_new_mag, z: cg_new/dir_new_mag};
-
+        let dir_new = Vector {x: ca_new, y: cb_new, z: cg_new};
         particle_1.dir.assign(&dir_new);
+        particle_1.dir.normalize();
     }
 
     //Update particle 2 direction
@@ -258,10 +268,9 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
         let cb_new: f64 = cpsi_b*cb - spsi_b/sa*(cphi*ca*cb - sphi*cg);
         let cg_new: f64 = cpsi_b*cg - spsi_b/sa*(cphi*ca*cg + sphi*cb);
 
-        let dir_new_mag: f64 = (ca_new*ca_new + cb_new*cb_new + cg_new*cg_new).sqrt();
-        let dir_new = Vector {x: ca_new/dir_new_mag, y: cb_new/dir_new_mag, z: cg_new/dir_new_mag};
-
+        let dir_new = Vector {x: ca_new, y: cb_new, z: cg_new};
         particle_2.dir.assign(&dir_new);
+        particle_2.dir.normalize();
     }
 
     //Update particle energies
@@ -304,7 +313,6 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
 
             //Biersack-Varelas stopping interpolation scheme
             stopping_power = 1./(1./S_BB + 1./S_LS);
-            //println!("S   : {}", stopping_power*6.262E10/8.96);
 
         }
         let Enl = ffp*stopping_power;
@@ -353,10 +361,8 @@ fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f
 fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) -> bool {
     //Planar energy barrier will refract particle and deflect it towards surface
     if !material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) & material.inside_energy_barrier(particle_1.pos_old.x, particle_1.pos_old.y) {
-        //let p = point!(x: particle_1.pos.x, y: particle_1.pos.y);
 
         let mut leaving_energy;
-
         //Find closest point to surface, and use line from particle to point as normal to refract
         if let Closest::SinglePoint(p2) = material.closest_point(particle_1.pos.x, particle_1.pos.y) {
             let dx = p2.x() - particle_1.pos.x;
@@ -364,17 +370,13 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) ->
             let dz: f64 = 0.;
 
             let magnitude = (dx*dx + dy*dy + dz*dz).sqrt();
-
-            //Since direction check is already handled in this function, just take abs() here
-            leaving_energy = particle_1.E*((dx/magnitude*particle_1.dir.x).abs() + (dy/magnitude*particle_1.dir.y).abs() + (dz/magnitude*particle_1.dir.z).abs());
-            //Project energy-scaled velocity vector along direction to nearest point of surface*--*-++++
+            leaving_energy = particle_1.E*((dx/magnitude*particle_1.dir.x).powf(2.) + (dy/magnitude*particle_1.dir.y).powf(2.) + (dz/magnitude*particle_1.dir.z).powf(2.));
+            //Project energy-scaled velocity vector along direction to nearest point of surface
         } else {
             leaving_energy = particle_1.E;
         }
 
         if leaving_energy < material.Es {
-            //let p = point!(x: particle_1.pos.x, y: particle_1.pos.y);
-
             //This syntax is a kind of enum matching - closest_point doesn't return the point,
             //Since there are multiple kinds of nearest-point solutions, so it returns an enum
             //That stores the point inside. This code extracts it
@@ -384,6 +386,7 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) ->
 
                 let axis = Vector {x: dx, y: dy, z: 0.};
 
+                //Rotate particle direction onto itself, then 180 degrees around local normal
                 particle_1.dir.x *= -1.;
                 particle_1.dir.y *= -1.;
 
@@ -391,11 +394,15 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) ->
 
                 particle_1.dir.assign(&new_dir);
             }
+            //Particle does not have enough energy to leave
             return false;
+
         } else {
+            //Particle has enough energy to leave, must be refracted by surface potential
             surface_refraction(particle_1, &material);
             return true;
         }
+    //Particle isn't leaving
     } else {
         return false;
     }
@@ -441,7 +448,7 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
     //Currently, Material just stores the polygons, which are created on struct initialization
     let dx: f64 = 2_f64*n.powf(-1_f64/3_f64)/SQRT2PI;
-    let angles = Array::linspace(0., 2.*PI, 16);
+    let angles = Array::linspace(0., 2.*PI, 32);
     let r = thickness/2.;
     let re = (thickness + dx)/2.;
 
@@ -468,6 +475,22 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
             (x: r*angles[13].cos() + r, y: r*angles[13].sin()),
             (x: r*angles[14].cos() + r, y: r*angles[14].sin()),
             (x: r*angles[15].cos() + r, y: r*angles[15].sin()),
+            (x: r*angles[16].cos() + r, y: r*angles[16].sin()),
+            (x: r*angles[17].cos() + r, y: r*angles[17].sin()),
+            (x: r*angles[18].cos() + r, y: r*angles[18].sin()),
+            (x: r*angles[19].cos() + r, y: r*angles[19].sin()),
+            (x: r*angles[20].cos() + r, y: r*angles[20].sin()),
+            (x: r*angles[21].cos() + r, y: r*angles[21].sin()),
+            (x: r*angles[22].cos() + r, y: r*angles[22].sin()),
+            (x: r*angles[23].cos() + r, y: r*angles[23].sin()),
+            (x: r*angles[24].cos() + r, y: r*angles[24].sin()),
+            (x: r*angles[25].cos() + r, y: r*angles[25].sin()),
+            (x: r*angles[26].cos() + r, y: r*angles[26].sin()),
+            (x: r*angles[27].cos() + r, y: r*angles[27].sin()),
+            (x: r*angles[28].cos() + r, y: r*angles[28].sin()),
+            (x: r*angles[29].cos() + r, y: r*angles[29].sin()),
+            (x: r*angles[30].cos() + r, y: r*angles[30].sin()),
+            (x: r*angles[31].cos() + r, y: r*angles[31].sin()),
         ],
         energy_surface: polygon![
             (x: re*angles[0].cos() + re, y: re*angles[0].sin()),
@@ -486,6 +509,22 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
             (x: re*angles[13].cos() + re, y: re*angles[13].sin()),
             (x: re*angles[14].cos() + re, y: re*angles[14].sin()),
             (x: re*angles[15].cos() + re, y: re*angles[15].sin()),
+            (x: re*angles[16].cos() + re, y: re*angles[16].sin()),
+            (x: re*angles[17].cos() + re, y: re*angles[17].sin()),
+            (x: re*angles[18].cos() + re, y: re*angles[18].sin()),
+            (x: re*angles[19].cos() + re, y: re*angles[19].sin()),
+            (x: re*angles[20].cos() + re, y: re*angles[20].sin()),
+            (x: re*angles[21].cos() + re, y: re*angles[21].sin()),
+            (x: re*angles[22].cos() + re, y: re*angles[22].sin()),
+            (x: re*angles[23].cos() + re, y: re*angles[23].sin()),
+            (x: re*angles[24].cos() + re, y: re*angles[24].sin()),
+            (x: re*angles[25].cos() + re, y: re*angles[25].sin()),
+            (x: re*angles[26].cos() + re, y: re*angles[26].sin()),
+            (x: re*angles[27].cos() + re, y: re*angles[27].sin()),
+            (x: re*angles[28].cos() + re, y: re*angles[28].sin()),
+            (x: re*angles[29].cos() + re, y: re*angles[29].sin()),
+            (x: re*angles[30].cos() + re, y: re*angles[30].sin()),
+            (x: re*angles[31].cos() + re, y: re*angles[31].sin()),
         ],
         simulation_surface: polygon![
             (x: 0.0 - 2.*dx, y: -thickness/2. - 2.*dx),
@@ -561,7 +600,7 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
     let mut particle_index: usize = 0;
     while particle_index < particles.len() {
         if particle_index % 10 == 0 {
-            println!("particle {} of {}", particle_index+1, particles.len());
+            //println!("particle {} of {}", particle_index+1, particles.len());
         }
         while !particles[particle_index].stopped & !particles[particle_index].left {
 
@@ -623,7 +662,8 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
     }
 
 
-    println!("E: {} Range: {} R: {} E_r: {} Y: {} E_s: {}", E0/Q, range/(num_deposited as f64)/ANGSTROM, (num_reflected as f64)/(N as f64), energy_reflected/Q/(num_reflected as f64), (num_sputtered as f64)/(N as f64), energy_sputtered/Q/(num_sputtered as f64));
+    //println!("E: {} Range: {} R: {} E_r: {} Y: {} E_s: {}", E0/Q, range/(num_deposited as f64)/ANGSTROM, (num_reflected as f64)/(N as f64), energy_reflected/Q/(num_reflected as f64), (num_sputtered as f64)/(N as f64), energy_sputtered/Q/(num_sputtered as f64));
+    println!("{} {}", theta, (num_sputtered as f64)/(N as f64));
 
     //Data output!
     if write_files {
@@ -661,17 +701,22 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
             }
         }
     }
-    println!("Done.")
+    //println!("Done.")
 }
 
 fn main() {
-    let num_energies = 1;
-    let thickness = 1.*MICRON;
-    let depth = 20.*MICRON;
-    let energies = Array::logspace(10., 6., 4., num_energies);
-    for index in 0..num_energies {
+    let num_energies = 100;
+    let num_angles = 1;
+
+    let thickness = 1.0*MICRON;
+    let depth = 0.01*MICRON;
+
+    let energies = Array::logspace(10., 1., 5., num_energies);
+    let angles = Array::linspace(1.0, 89.0, num_angles);
+
+    for index in 0..num_angles {
         let name: String = index.to_string();
         //track_recoils track_trajectories track_recoil_trajectories write_files
-        bca(5, 4.669E6*Q, 0.0001, 3.*Q, 4.*AMU, 2., 63.54*AMU, 29., 0.0, 3.52*Q, 8.491E28, true, true, true, true, thickness, depth, name);
+        bca(10, 1E5*Q, angles[index], 3.5*Q, 64.*AMU, 29., 185.*AMU, 74., 3.0*Q, 11.8*Q, 6.4E28, true, true, true, true, thickness, depth, name);
     }
 }
