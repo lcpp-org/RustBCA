@@ -7,6 +7,7 @@ PI = 3.14159
 AMU = 1.66E-27
 ANGSTROM = 1E-10
 MICRON = 1E-6
+CM = 1E-2
 EPS0 = 8.85E-12
 A0 = 0.52918E-10
 K = 1.11265E-10
@@ -29,12 +30,14 @@ def do_plots():
         1: 'red',
         29: 'black',
         2: 'red',
+        74: 'blue',
     }
 
     linewidths = {
         1: 2,
         29: 1,
         2: 2,
+        74: 1,
     }
 
     species_names = {
@@ -49,23 +52,25 @@ def do_plots():
     #if np.size(sputtered) > 0: plt.scatter(sputtered[:,1]/ANGSTROM, sputtered[:,2]/ANGSTROM, s=10, color='blue', marker='x')
 
     fig2, axis2 = plt.subplots()
-    n = 8.491E28
+    #n = 8.491E28
+    n = 6.4E28
     dx =  2.*n**(-1./3.)/SQRT2PI/MICRON
-    thickness = 1.
-    depth = 1.
+    thickness = 100.
+    depth = 100.
 
-    surface_x = [0.0, depth, depth, 0.0, 0.0]
-    surface_y = [-thickness/2., -thickness/2, thickness/2, thickness/2, -thickness/2]
+    #surface_x = [0.0, depth, depth, 0.0, 0.0]
+    #surface_y = [-thickness/2., -thickness/2, thickness/2, thickness/2, -thickness/2]
 
-    #radius = thickness/2.
-    #surface_x = [radius*np.cos(angle) + radius for angle in np.linspace(0., 2.*PI, 16)]
-    #surface_y = [radius*np.sin(angle) for angle in np.linspace(0., 2.*PI, 16)]
+    radius = thickness/2.
+    num_angles = 128
+    surface_x = [radius*np.cos(angle) + radius for angle in np.linspace(0., 2.*PI, num_angles)]
+    surface_y = [radius*np.sin(angle) for angle in np.linspace(0., 2.*PI, num_angles)]
 
-    #radius = (thickness + dx)/2.
-    #energy_surface_x = [radius*np.cos(angle) + radius for angle in np.linspace(0., 2.*PI, 16)]
-    #energy_surface_y = [radius*np.sin(angle) for angle in np.linspace(0., 2.*PI, 16)]
-    energy_surface_x = [-dx, depth + dx, depth + dx, -dx, -dx]
-    energy_surface_y = [-thickness/2 - dx, -thickness/2 - dx, thickness/2 + dx, thickness/2 + dx, -thickness/2 - dx]
+    radius_e = thickness/2. + dx
+    energy_surface_x = [radius_e*np.cos(angle) + radius for angle in np.linspace(0., 2.*PI, num_angles)]
+    energy_surface_y = [radius_e*np.sin(angle) for angle in np.linspace(0., 2.*PI, num_angles)]
+    #energy_surface_x = [-dx, depth + dx, depth + dx, -dx, -dx]
+    #energy_surface_y = [-thickness/2 - dx, -thickness/2 - dx, thickness/2 + dx, thickness/2 + dx, -thickness/2 - dx]
 
     simulation_boundary_x = [-2.*dx, depth + 2.*dx, depth + 2.*dx, -2.*dx, -2.*dx]
     simulation_boundary_y = [-thickness/2 - 2.*dx, -thickness/2 - 2.*dx, thickness/2 + 2.*dx, thickness/2 + 2.*dx, -thickness/2 - 2.*dx]
@@ -96,30 +101,26 @@ def do_plots():
     if np.size(sputtered) > 0: plt.scatter(sputtered[:,1]/MICRON, sputtered[:,2]/MICRON, s=50, color='blue', marker='*')
     plt.xlabel('x [um]')
     plt.ylabel('y [um]')
-    plt.title('Hydrogen trajectories in copper')
-
-    if np.size(trajectories) > 1:
-        marker_color = [colors[Z] for Z in trajectories[:, 0]]
-        plt.scatter(trajectories[:, 1]*1E10, trajectories[:, 2]*1E10, s=1, color=marker_color)
-    plt.axis('square')
+    plt.title('Helium trajectories in copper')
 
     if np.size(deposited) > 0:
         plt.figure(2)
         num_bins = 50
         bins = np.linspace(-thickness/2., thickness/2., num_bins)
         plt.hist(deposited[:,2]/MICRON, bins=bins)
-        plt.title('Helium y-Deposition at 1 MeV on 1X10 um Target')
+        plt.title('Helium y-Deposition at 5 MeV on 10X10 um W Target')
         plt.xlabel('y [um]')
         plt.ylabel('Hydrogen Deposition (A.U.)')
 
         plt.figure(3)
-        num_bins_x = 50
-        num_bins_y = 50
+        bin_size = 10000*ANGSTROM
+        num_bins_x = int(thickness*MICRON/bin_size)
+        num_bins_y = int(thickness*MICRON/bin_size)
         binx = np.linspace(0., depth, num_bins_x)
         biny = np.linspace(-thickness/2., thickness/2., num_bins_y)
         plt.hist2d(deposited[:, 1]*1E6, deposited[:, 2]*1E6, bins=((binx, biny)))
         plt.axis([0.0, depth, -thickness/2., thickness/2.])
-        plt.title('Helium Deposition at 1 MeV on 1X10 um Target')
+        plt.title('Helium Deposition at 5 MeV on 10X10 um W Target')
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
         plt.plot(surface_x, surface_y, linewidth=2, color='dimgray')

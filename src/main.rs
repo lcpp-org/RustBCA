@@ -5,6 +5,7 @@ pub use crate::geo::*;
 use ndarray::prelude::*;
 use geo::algorithm::contains::Contains;
 use geo::algorithm::closest_point::ClosestPoint;
+use geo::algorithm::bounding_rect::BoundingRect;
 //use rand::Rng;
 //use std::error::Error;
 //use std::fs::File;
@@ -16,13 +17,14 @@ const Q: f64 = 1.602E-19;
 const AMU: f64 = 1.66E-27;
 const ANGSTROM: f64 = 1E-10;
 const MICRON: f64 = 1E-6;
+const CM: f64 = 1E-2;
 const EPS0: f64 = 8.85E-12;
 const A0: f64 = 0.52918E-10;
 const K: f64 = 1.11265E-10;
 const ME: f64 = 9.11E-31;
-const SQRTPI: f64 = 1.77245385;
+const SQRTPI: f64 = 1.772453850906;
 const SQRT2PI: f64 = 2.506628274631;
-const C: f64 = 300000000.;
+const C: f64 = 299792000.;
 
 pub struct Vector {
     x: f64,
@@ -448,93 +450,37 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 
     //Currently, Material just stores the polygons, which are created on struct initialization
     let dx: f64 = 2_f64*n.powf(-1_f64/3_f64)/SQRT2PI;
-    let angles = Array::linspace(0., 2.*PI, 32);
-    let r = thickness/2.;
-    let re = (thickness + dx)/2.;
+    let angles = Array::linspace(0., 2.*PI, 128);
 
-    let circ_material = Material {
+    let r = thickness/2.;
+    let re = thickness/2. + dx;
+
+    let x_circ: Vec<f64> = (&angles.mapv(f64::cos)*r + r).into_raw_vec();
+    let y_circ: Vec<f64> = (&angles.mapv(f64::sin)*r).into_raw_vec();
+    let coords: Vec<(f64, f64)> = x_circ.into_iter().zip(y_circ.into_iter()).collect();
+
+    let x_circ_e: Vec<f64> = (&angles.mapv(f64::cos)*re + r).into_raw_vec();
+    let y_circ_e: Vec<f64> = (&angles.mapv(f64::sin)*re).into_raw_vec();
+    let coords_e: Vec<(f64, f64)>  = x_circ_e.into_iter().zip(y_circ_e.into_iter()).collect();
+
+    let material = Material {
         n: n,
         m: Mb,
         Z: Zb,
         Eb: Eb,
         Es: Es,
-        surface: polygon![
-            (x: r*angles[0].cos() + r, y: r*angles[0].sin()),
-            (x: r*angles[1].cos() + r, y: r*angles[1].sin()),
-            (x: r*angles[2].cos() + r, y: r*angles[2].sin()),
-            (x: r*angles[3].cos() + r, y: r*angles[3].sin()),
-            (x: r*angles[4].cos() + r, y: r*angles[4].sin()),
-            (x: r*angles[5].cos() + r, y: r*angles[5].sin()),
-            (x: r*angles[6].cos() + r, y: r*angles[6].sin()),
-            (x: r*angles[7].cos() + r, y: r*angles[7].sin()),
-            (x: r*angles[8].cos() + r, y: r*angles[8].sin()),
-            (x: r*angles[9].cos() + r, y: r*angles[9].sin()),
-            (x: r*angles[10].cos() + r, y: r*angles[10].sin()),
-            (x: r*angles[11].cos() + r, y: r*angles[11].sin()),
-            (x: r*angles[12].cos() + r, y: r*angles[12].sin()),
-            (x: r*angles[13].cos() + r, y: r*angles[13].sin()),
-            (x: r*angles[14].cos() + r, y: r*angles[14].sin()),
-            (x: r*angles[15].cos() + r, y: r*angles[15].sin()),
-            (x: r*angles[16].cos() + r, y: r*angles[16].sin()),
-            (x: r*angles[17].cos() + r, y: r*angles[17].sin()),
-            (x: r*angles[18].cos() + r, y: r*angles[18].sin()),
-            (x: r*angles[19].cos() + r, y: r*angles[19].sin()),
-            (x: r*angles[20].cos() + r, y: r*angles[20].sin()),
-            (x: r*angles[21].cos() + r, y: r*angles[21].sin()),
-            (x: r*angles[22].cos() + r, y: r*angles[22].sin()),
-            (x: r*angles[23].cos() + r, y: r*angles[23].sin()),
-            (x: r*angles[24].cos() + r, y: r*angles[24].sin()),
-            (x: r*angles[25].cos() + r, y: r*angles[25].sin()),
-            (x: r*angles[26].cos() + r, y: r*angles[26].sin()),
-            (x: r*angles[27].cos() + r, y: r*angles[27].sin()),
-            (x: r*angles[28].cos() + r, y: r*angles[28].sin()),
-            (x: r*angles[29].cos() + r, y: r*angles[29].sin()),
-            (x: r*angles[30].cos() + r, y: r*angles[30].sin()),
-            (x: r*angles[31].cos() + r, y: r*angles[31].sin()),
-        ],
-        energy_surface: polygon![
-            (x: re*angles[0].cos() + re, y: re*angles[0].sin()),
-            (x: re*angles[1].cos() + re, y: re*angles[1].sin()),
-            (x: re*angles[2].cos() + re, y: re*angles[2].sin()),
-            (x: re*angles[3].cos() + re, y: re*angles[3].sin()),
-            (x: re*angles[4].cos() + re, y: re*angles[4].sin()),
-            (x: re*angles[5].cos() + re, y: re*angles[5].sin()),
-            (x: re*angles[6].cos() + re, y: re*angles[6].sin()),
-            (x: re*angles[7].cos() + re, y: re*angles[7].sin()),
-            (x: re*angles[8].cos() + re, y: re*angles[8].sin()),
-            (x: re*angles[9].cos() + re, y: re*angles[9].sin()),
-            (x: re*angles[10].cos() + re, y: re*angles[10].sin()),
-            (x: re*angles[11].cos() + re, y: re*angles[11].sin()),
-            (x: re*angles[12].cos() + re, y: re*angles[12].sin()),
-            (x: re*angles[13].cos() + re, y: re*angles[13].sin()),
-            (x: re*angles[14].cos() + re, y: re*angles[14].sin()),
-            (x: re*angles[15].cos() + re, y: re*angles[15].sin()),
-            (x: re*angles[16].cos() + re, y: re*angles[16].sin()),
-            (x: re*angles[17].cos() + re, y: re*angles[17].sin()),
-            (x: re*angles[18].cos() + re, y: re*angles[18].sin()),
-            (x: re*angles[19].cos() + re, y: re*angles[19].sin()),
-            (x: re*angles[20].cos() + re, y: re*angles[20].sin()),
-            (x: re*angles[21].cos() + re, y: re*angles[21].sin()),
-            (x: re*angles[22].cos() + re, y: re*angles[22].sin()),
-            (x: re*angles[23].cos() + re, y: re*angles[23].sin()),
-            (x: re*angles[24].cos() + re, y: re*angles[24].sin()),
-            (x: re*angles[25].cos() + re, y: re*angles[25].sin()),
-            (x: re*angles[26].cos() + re, y: re*angles[26].sin()),
-            (x: re*angles[27].cos() + re, y: re*angles[27].sin()),
-            (x: re*angles[28].cos() + re, y: re*angles[28].sin()),
-            (x: re*angles[29].cos() + re, y: re*angles[29].sin()),
-            (x: re*angles[30].cos() + re, y: re*angles[30].sin()),
-            (x: re*angles[31].cos() + re, y: re*angles[31].sin()),
-        ],
+        surface: Polygon::new(LineString::from(coords), vec![]),
+        energy_surface: Polygon::new(LineString::from(coords_e), vec![]),
         simulation_surface: polygon![
             (x: 0.0 - 2.*dx, y: -thickness/2. - 2.*dx),
             (x: depth + 2.*dx, y: -thickness/2. - 2.*dx),
             (x: depth + 2.*dx, y: thickness/2. + 2.*dx),
             (x: 0.0 - 2.*dx, y: thickness/2. + 2.*dx),
         ],
+        //simulation_surface: Polygon::new(LineString::from(coords_s), vec![]).bounding_rect().unwrap().into(),
     };
 
-    let material = Material {
+    let rect_material = Material {
         n: n,
         m: Mb,
         Z: Zb,
@@ -600,7 +546,7 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
     let mut particle_index: usize = 0;
     while particle_index < particles.len() {
         if particle_index % 10 == 0 {
-            //println!("particle {} of {}", particle_index+1, particles.len());
+            println!("particle {} of {}", particle_index+1, particles.len());
         }
         while !particles[particle_index].stopped & !particles[particle_index].left {
 
@@ -705,18 +651,18 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
 }
 
 fn main() {
-    let num_energies = 100;
+    let num_energies = 1;
     let num_angles = 1;
 
-    let thickness = 1.0*MICRON;
-    let depth = 0.01*MICRON;
+    let thickness = 100.*MICRON;
+    let depth = 100.*MICRON;
 
-    let energies = Array::logspace(10., 1., 5., num_energies);
+    let energies = Array::logspace(10., 3., 5., num_energies);
     let angles = Array::linspace(1.0, 89.0, num_angles);
 
     for index in 0..num_angles {
         let name: String = index.to_string();
         //track_recoils track_trajectories track_recoil_trajectories write_files
-        bca(10, 1E5*Q, angles[index], 3.5*Q, 64.*AMU, 29., 185.*AMU, 74., 3.0*Q, 11.8*Q, 6.4E28, true, true, true, true, thickness, depth, name);
+        bca(10000, 5E6*Q, angles[index], 10.*Q, 4.*AMU, 2., 185.*AMU, 74., 3.0*Q, 11.8*Q, 6.4E28, false, false, false, true, thickness, depth, name);
     }
 }
