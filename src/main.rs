@@ -1,22 +1,34 @@
 extern crate ndarray;
 extern crate geo;
+extern crate csv;
+extern crate serde;
+extern crate text_io;
+extern crate scan_fmt;
+extern crate toml;
 
 pub use crate::geo::*;
 use ndarray::prelude::*;
 use geo::algorithm::contains::Contains;
 use geo::algorithm::closest_point::ClosestPoint;
 use geo::algorithm::bounding_rect::BoundingRect;
+use geo::extremes::ExtremePoints;
 //use rand::Rng;
 //use std::error::Error;
 //use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
+use std::io::{Read, BufReader};
 use std::f64::consts::PI;
+use text_io::{read, scan};
+use toml::{Value};
+use serde::*;
 
 const Q: f64 = 1.602E-19;
+const EV: f64 = Q;
 const AMU: f64 = 1.66E-27;
 const ANGSTROM: f64 = 1E-10;
 const MICRON: f64 = 1E-6;
+const NM: f64 = 1E-9;
 const CM: f64 = 1E-2;
 const EPS0: f64 = 8.85E-12;
 const A0: f64 = 0.52918E-10;
@@ -25,6 +37,99 @@ const ME: f64 = 9.11E-31;
 const SQRTPI: f64 = 1.772453850906;
 const SQRT2PI: f64 = 2.506628274631;
 const C: f64 = 299792000.;
+const BETHE_BLOCH_PREFACTOR: f64 = 4.*PI*(Q*Q/(4.*PI*EPS0))*(Q*Q/(4.*PI*EPS0))/ME/C/C;
+const LINDHARD_SCHARFF_PREFACTOR: f64 = 1.212*ANGSTROM*ANGSTROM*Q;
+
+#[derive(Deserialize)]
+pub struct Input {
+    options: Options,
+    material_parameters: MaterialParameters,
+    geometry: Geometry,
+    particle_parameters: ParticleParameters
+}
+
+#[derive(Deserialize)]
+pub struct Options {
+    name: String,
+    track_trajectories: bool,
+    track_recoils: bool,
+    track_recoil_trajectories: bool,
+    write_files: bool
+}
+
+#[derive(Deserialize)]
+pub struct MaterialParameters {
+    energy_unit: String,
+    mass_unit: String,
+    Eb: f64,
+    Es: f64,
+    Ec: f64,
+    n: f64,
+    Z: f64,
+    m: f64
+}
+
+#[derive(Deserialize)]
+pub struct ParticleParameters {
+    length_unit: String,
+    energy_unit: String,
+    mass_unit: String,
+    m: Vec<f64>,
+    Z: Vec<f64>,
+    E: Vec<f64>,
+    pos: Vec<(f64, f64, f64)>,
+    dir: Vec<(f64, f64, f64)>,
+
+}
+
+#[derive(Deserialize)]
+pub struct Geometry {
+    length_unit: String,
+    surface: Vec<(f64, f64)>,
+    energy_surface: Vec<(f64, f64)>,
+    simulation_surface: Vec<(f64, f64)>
+}
+
+pub struct Particle {
+    m: f64,
+    Z: f64,
+    E: f64,
+    pos: Vector,
+    dir: Vector,
+    pos_old: Vector,
+    pos_origin: Vector,
+    t: f64,
+    stopped: bool,
+    left: bool,
+    incident: bool,
+    first_step: bool,
+    trajectory: Vec<Vector4>,
+    track_trajectories: bool,
+}
+
+impl Particle {
+    pub fn new(m: f64, Z: f64, E: f64, x: f64, y: f64, z: f64, dirx: f64, diry: f64, dirz: f64, incident: bool, track_trajectories: bool) -> Particle {
+        Particle {
+            m: m,
+            Z: Z,
+            E: E,
+            pos: Vector::new(x, y, z),
+            dir: Vector::new(dirx, diry, dirz),
+            pos_old: Vector::new(x, y, z),
+            pos_origin: Vector::new(x, y, z),
+            t: 0.,
+            stopped: false,
+            left: false,
+            incident: incident,
+            first_step: incident,
+            trajectory: vec![],
+            track_trajectories: track_trajectories
+        }
+    }
+    fn add_trajectory(&mut self) {
+        self.trajectory.push(Vector4 {E: self.E, x: self.pos.x, y: self.pos.y, z: self.pos.z});
+    }
+}
 
 pub struct Vector {
     x: f64,
@@ -33,6 +138,13 @@ pub struct Vector {
 }
 
 impl Vector {
+    pub fn new(x: f64, y: f64, z: f64) -> Vector {
+        Vector {
+            x: x,
+            y: y,
+            z: z
+        }
+    }
     fn magnitude(&self) -> f64 {
         return (self.x*self.x + self.y*self.y + self.z*self.z).sqrt();
     }
@@ -61,41 +173,71 @@ pub struct Vector4 {
     z: f64,
 }
 
-pub struct Particle {
-    m: f64,
-    Z: f64,
-    E: f64,
-    pos: Vector,
-    dir: Vector,
-    pos_old: Vector,
-    pos_origin: Vector,
-    t: f64,
-    stopped: bool,
-    left: bool,
-    incident: bool,
-    first_step: bool,
-    trajectory: Vec<Vector4>,
-    track_trajectories: bool,
-}
-
-impl Particle {
-    fn add_trajectory(&mut self) {
-        self.trajectory.push(Vector4 {E: self.E/Q, x: self.pos.x, y: self.pos.y, z: self.pos.z});
-    }
-}
-
 pub struct Material {
     n: f64,
     m: f64,
     Z: f64,
     Eb: f64,
     Es: f64,
+    Ec: f64,
     surface: Polygon<f64>,
     energy_surface: Polygon<f64>,
     simulation_surface: Polygon<f64>,
 }
 
 impl Material {
+    pub fn new(material_parameters: MaterialParameters, geometry: Geometry) -> Material {
+
+        //Multiply all coordinates by value of geometry unit.
+        let length_unit: f64 = match geometry.length_unit.as_str() {
+            "MICRON" => MICRON,
+            "CM" => CM,
+            "ANGSTROM" => ANGSTROM,
+            "NM" => NM,
+            _ => panic!("Incorrect unit {} in input file.", geometry.length_unit.as_str())
+        };
+        let energy_unit: f64 = match material_parameters.energy_unit.as_str() {
+            "EV" => EV,
+            "J"  => 1.,
+            "KEV" => EV*1E3,
+            "MEV" => EV*1E6,
+            _ => panic!("Incorrect unit {} in input file.", material_parameters.energy_unit.as_str())
+        };
+        let mass_unit: f64 = match material_parameters.mass_unit.as_str() {
+            "AMU" => AMU,
+            "KG" => 1.0,
+            _ => panic!("Incorrect unit {} in input file.", material_parameters.mass_unit.as_str())
+        };
+
+        let mut unit_coords = geometry.surface.clone();
+        for pair in &mut unit_coords {
+            pair.0 *= length_unit;
+            pair.1 *= length_unit;
+        }
+        let mut unit_e_coords = geometry.energy_surface.clone();
+        for pair in &mut unit_e_coords {
+            pair.0 *= length_unit;
+            pair.1 *= length_unit;
+        }
+        let mut unit_b_coords = geometry.simulation_surface.clone();
+        for pair in &mut unit_b_coords {
+            pair.0 *= length_unit;
+            pair.1 *= length_unit;
+        }
+
+        Material {
+            n: material_parameters.n,
+            m: material_parameters.m*mass_unit,
+            Z: material_parameters.Z,
+            Eb: material_parameters.Eb*energy_unit,
+            Es: material_parameters.Es*energy_unit,
+            Ec: material_parameters.Ec*energy_unit,
+            surface: Polygon::new(LineString::from(unit_coords), vec![]),
+            energy_surface: Polygon::new(LineString::from(unit_e_coords), vec![]),
+            simulation_surface: Polygon::new(LineString::from(unit_b_coords), vec![])
+        }
+    }
+
     fn inside(&self, x: f64, y: f64) -> bool {
         let p = point!(x: x, y: y);
         return self.surface.contains(&p);
@@ -117,6 +259,10 @@ impl Material {
     fn closest_point(&self, x: f64, y: f64) -> Closest<f64> {
         let p = point!(x: x, y: y);
         return self.surface.closest_point(&p)
+    }
+
+    fn Z_eff(&self, x: f64, y: f64) -> f64 {
+        return self.Z;
     }
 }
 
@@ -185,7 +331,7 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
         let reduced_energy: f64 = K*a*mu/(Za*Zb*Q*Q)*E0;
         let beta: f64 = impact_parameter/a;
 
-        //Guess for large reduced energy from Mendenhall and Weller, 1991
+        //Guess for large reduced energy from Mendenhall and Weller 1991
         //For small energies, use pure Newton-Raphson with arbitrary guess of 1
         let mut x0 = 1_f64;
         let mut xn: f64;
@@ -205,12 +351,12 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
             }
         }
 
-        //Scattering integral quadrature from Mendenhall and Weller, 2005
+        //Scattering integral quadrature from Mendenhall and Weller 2005
         let lambda_0 = (0.5 + beta*beta/x0/x0/2. - dphi(x0)/2_f64/reduced_energy).powf(-0.5);
         let alpha = 1_f64/12_f64*(1_f64 + lambda_0 + 5_f64*(0.4206_f64*f(x0/0.9072_f64, beta, reduced_energy) + 0.9072_f64*f(x0/0.4206, beta, reduced_energy)));
         let theta = PI*(1_f64 - beta*alpha/x0);
 
-        //See Eckstein 1991 for details on center of mass and lab frame angles
+        //See Eckstein 1991 for details on center of mass and lab frame angles here
         let t = x0*a*(theta/2.).sin();
         let psi = (theta.sin()).atan2(Ma/Mb + theta.cos());
         let T = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*((theta/2.).sin()).powf(2.);
@@ -222,9 +368,10 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
 fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, material: &Material, phi_azimuthal: f64, theta: f64, psi: f64, T: f64, t: f64) {
     let mut mfp = material.mfp(particle_1.pos.x, particle_1.pos.y);
 
+    //Store previous position - this is used for boundary checking
     particle_1.pos_old.assign(&particle_1.pos);
 
-    //TRIDYN-style atomically rough surface - scatters initial collisions by up to 1 mfp
+    //TRIDYN-style "atomically rough surface" - scatters initial collisions by up to 1 mfp
     if particle_1.first_step {
         mfp *= rand::random::<f64>();
         particle_1.first_step = false;
@@ -279,7 +426,7 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
     {
         let Za = particle_1.Z;
         let Ma = particle_1.m;
-        let Zb = material.Z;
+        let Zb = material.Z_eff(particle_1.pos.x, particle_1.pos.y);
         let E = particle_1.E;
 
         let mut stopping_power = 0.;
@@ -299,19 +446,20 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
             }
             let I = Zb*I0*Q;
 
-            let mut B;//Effective empirical shell correction from Biersack and Haggmark
+            let mut B; //Effective empirical shell correction from Biersack and Haggmark
             if Zb < 3. {
                 B = 100.*Za/Zb;
             } else {
                 B = 5.;
             }
 
-            let prefactor = 8.0735880E-42*Zb*Za*Za/beta/beta; //This is messy, but this prefactor is... not the easiest to compute
+            let prefactor = BETHE_BLOCH_PREFACTOR*Zb*Za*Za/beta/beta;
+            //let prefactor = 8.0735880E-42*Zb*Za*Za/beta/beta;
             let eb = 2.*ME*v*v/I;
             let S_BB = prefactor*(eb + 1. + B/eb).ln()*n; //Bethe-Bloch stopping, as modified by Biersack and Haggmark (1980) to fit experiment
 
             //Lindhard-Scharff stopping for low energies
-            let S_LS = 1.212*(Za.powf(7./6.)*Zb)/(Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.)*(E/Ma*AMU/Q).sqrt()*ANGSTROM*ANGSTROM*Q*n;
+            let S_LS = LINDHARD_SCHARFF_PREFACTOR*(Za.powf(7./6.)*Zb)/(Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.)*(E/Ma*AMU/Q).sqrt()*n;
 
             //Biersack-Varelas stopping interpolation scheme
             stopping_power = 1./(1./S_BB + 1./S_LS);
@@ -333,7 +481,7 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
     }
 }
 
-fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f64, Vector, Vector) {
+fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f64, f64, f64, f64, f64, f64, f64) {
     //Liquid model of amorphous material - see Eckstein 1991
     let mfp: f64 = material.mfp(particle_1.pos.x, particle_1.pos.y);
 
@@ -348,20 +496,17 @@ fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f
     let sa: f64 = (1_f64 - ca*ca).sqrt();
     let cphi: f64 = phi_azimuthal.cos();
 
-    let dir: Vector = Vector {x: ca, y: cb, z: cg};
-
     //Collision partner at locus of next collision, displaced by chosen impact parameter and rotated by phi azimuthal
     let x_recoil: f64 = particle_1.pos.x + mfp*ca - impact_parameter*cphi*sa;
     let y_recoil: f64 = particle_1.pos.y + mfp*cb - impact_parameter*(sphi*cg - cphi*cb*ca)/sa;
     let z_recoil: f64 = particle_1.pos.z + mfp*cg + impact_parameter*(sphi*cb - cphi*ca*cg)/sa;
 
-    let pos = Vector {x: x_recoil, y: y_recoil, z: z_recoil};
-
-    return (impact_parameter, phi_azimuthal, dir, pos);
+    return (impact_parameter, phi_azimuthal, x_recoil, y_recoil, z_recoil, ca, cb, cg);
 }
 
 fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) -> bool {
     //Planar energy barrier will refract particle and deflect it towards surface
+
     if !material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) & material.inside_energy_barrier(particle_1.pos_old.x, particle_1.pos_old.y) {
 
         let mut leaving_energy;
@@ -379,9 +524,6 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) ->
         }
 
         if leaving_energy < material.Es {
-            //This syntax is a kind of enum matching - closest_point doesn't return the point,
-            //Since there are multiple kinds of nearest-point solutions, so it returns an enum
-            //That stores the point inside. This code extracts it
             if let Closest::SinglePoint(p2) = material.closest_point(particle_1.pos.x, particle_1.pos.y) {
                 let dx = p2.x() - particle_1.pos.x;
                 let dy = p2.y() - particle_1.pos.y;
@@ -401,10 +543,14 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) ->
 
         } else {
             //Particle has enough energy to leave, must be refracted by surface potential
-            surface_refraction(particle_1, &material);
+            //surface_refraction(particle_1, &material);
             return true;
         }
     //Particle isn't leaving
+    } else if !material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) & material.inside_energy_barrier(particle_1.pos_old.x, particle_1.pos_old.y) {
+        //Particle is entering the surface
+        //surface_refraction(particle_1, &material);
+        return false;
     } else {
         return false;
     }
@@ -418,8 +564,6 @@ fn surface_refraction(particle_1: &mut Particle, material: &Material) {
     let cosx0 = particle_1.dir.x;
     let cosy0 = particle_1.dir.y;
     let cosz0 = particle_1.dir.z;
-
-    //let p = point!(x: particle_1.pos.x, y: particle_1.pos.y);
 
     if let Closest::SinglePoint(p2) = material.closest_point(particle_1.pos.x, particle_1.pos.y) {
         let dx = particle_1.pos.x - p2.x();
@@ -445,96 +589,61 @@ fn surface_refraction(particle_1: &mut Particle, material: &Material) {
     }
 }
 
-fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f64, Eb: f64, Es: f64, n: f64, track_recoils: bool, track_trajectories: bool, track_recoil_trajectories: bool, write_files: bool, thickness: f64, depth: f64, name: String) {
-    let mut particles: Vec<Particle> = vec![];
+fn bca_input() {
 
-    //Currently, Material just stores the polygons, which are created on struct initialization
-    let dx: f64 = 2_f64*n.powf(-1_f64/3_f64)/SQRT2PI;
-    let angles = Array::linspace(0., 2.*PI, 128);
+    //Read input file, convert to string, and open with toml
+    let mut input_toml = String::new();
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(false)
+        .create(false)
+        .open("input.toml")
+        .expect("Could not open input file.");
+    file.read_to_string(&mut input_toml).unwrap();
+    let input: Input = toml::from_str(&input_toml).unwrap();
 
-    let r = thickness/2.;
-    let re = thickness/2. + dx;
+    //Unpack toml information into structs
+    let material = Material::new(input.material_parameters, input.geometry);
+    let options = input.options;
+    let particle_parameters = input.particle_parameters;
 
-    let x_circ: Vec<f64> = (&angles.mapv(f64::cos)*r + r).into_raw_vec();
-    let y_circ: Vec<f64> = (&angles.mapv(f64::sin)*r).into_raw_vec();
-    let coords: Vec<(f64, f64)> = x_circ.into_iter().zip(y_circ.into_iter()).collect();
+    //Check that particle arrays are equal length
+    assert_eq!(particle_parameters.Z.len(), particle_parameters.m.len());
+    assert_eq!(particle_parameters.Z.len(), particle_parameters.E.len());
+    assert_eq!(particle_parameters.Z.len(), particle_parameters.pos.len());
+    assert_eq!(particle_parameters.Z.len(), particle_parameters.dir.len());
+    let N = particle_parameters.Z.len();
 
-    let x_circ_e: Vec<f64> = (&angles.mapv(f64::cos)*re + r).into_raw_vec();
-    let y_circ_e: Vec<f64> = (&angles.mapv(f64::sin)*re).into_raw_vec();
-    let coords_e: Vec<(f64, f64)>  = x_circ_e.into_iter().zip(y_circ_e.into_iter()).collect();
-
-    let material = Material {
-        n: n,
-        m: Mb,
-        Z: Zb,
-        Eb: Eb,
-        Es: Es,
-        surface: Polygon::new(LineString::from(coords), vec![]),
-        energy_surface: Polygon::new(LineString::from(coords_e), vec![]),
-        simulation_surface: polygon![
-            (x: 0.0 - 2.*dx, y: -thickness/2. - 2.*dx),
-            (x: depth + 2.*dx, y: -thickness/2. - 2.*dx),
-            (x: depth + 2.*dx, y: thickness/2. + 2.*dx),
-            (x: 0.0 - 2.*dx, y: thickness/2. + 2.*dx),
-        ],
-        //simulation_surface: Polygon::new(LineString::from(coords_s), vec![]).bounding_rect().unwrap().into(),
+    let length_unit: f64 = match particle_parameters.length_unit.as_str() {
+        "MICRON" => MICRON,
+        "CM" => CM,
+        "ANGSTROM" => ANGSTROM,
+        "NM" => NM,
+        _ => panic!("Incorrect unit {} in input file.", particle_parameters.length_unit.as_str())
+    };
+    let energy_unit: f64 = match particle_parameters.energy_unit.as_str() {
+        "EV" => EV,
+        "J"  => 1.,
+        "KEV" => EV*1E3,
+        "MEV" => EV*1E6,
+        _ => panic!("Incorrect unit {} in input file.", particle_parameters.energy_unit.as_str())
+    };
+    let mass_unit: f64 = match particle_parameters.mass_unit.as_str() {
+        "AMU" => AMU,
+        "KG" => 1.0,
+        _ => panic!("Incorrect unit {} in input file.", particle_parameters.mass_unit.as_str())
     };
 
-    let rect_material = Material {
-        n: n,
-        m: Mb,
-        Z: Zb,
-        Eb: Eb,
-        Es: Es,
-        surface: polygon![
-            (x: 0.0, y: -thickness/2.),
-            (x: depth, y: -thickness/2.),
-            (x: depth, y: thickness/2.),
-            (x: 0.0, y: thickness/2.),
-        ],
-        energy_surface: polygon![
-            (x: 0.0 - dx, y: -thickness/2. - dx),
-            (x: depth + dx, y: -thickness/2. - dx),
-            (x: depth + dx, y: thickness/2. + dx),
-            (x: 0.0 - dx, y: thickness/2. + dx),
-        ],
-        simulation_surface: polygon![
-            (x: 0.0 - 2.*dx, y: -thickness/2. - 2.*dx),
-            (x: depth + 2.*dx, y: -thickness/2. - 2.*dx),
-            (x: depth + 2.*dx, y: thickness/2. + 2.*dx),
-            (x: 0.0 - 2.*dx, y: thickness/2. + 2.*dx),
-        ],
-    };
-
-    let x0 = -dx;
-    let y0 = 0.;
-    let z0 = 0.;
-    let cosx = (theta*PI/180_f64).cos();
-    let sinx = (theta*PI/180_f64).sin();
-
-    //Create N particles, randomly scattered along y
-    for i in 0..N {
-        let dy = (2.*rand::random::<f64>() - 1.)*thickness/2.;
-        particles.push(
-            Particle {
-                m: Ma,
-                Z: Za,
-                E: E0,
-                pos: Vector {x: x0, y: y0 + dy, z: z0},
-                dir: Vector {x: cosx, y: sinx, z: 0.},
-                pos_old: Vector  {x: x0, y: y0 + dy, z: z0},
-                pos_origin: Vector {x: x0, y: y0 + dy, z: z0},
-                t: 0_f64,
-                left: false,
-                stopped: false,
-                incident: true,
-                first_step: true,
-                track_trajectories: track_trajectories,
-                trajectory: vec![],
-            }
-        )
+    //Create particle array
+    let mut particles: Vec<Particle> = Vec::new();
+    for particle_index in 0..N {
+        let m = particle_parameters.m[particle_index];
+        let Z = particle_parameters.Z[particle_index];
+        let E = particle_parameters.E[particle_index];
+        let (x, y, z) = particle_parameters.pos[particle_index];
+        let (dirx, diry, dirz) = particle_parameters.dir[particle_index];
+        particles.push(Particle::new(m*mass_unit, Z, E*energy_unit, x*length_unit, y*length_unit, z*length_unit, dirx, diry, dirz, true, options.track_trajectories));
     }
-
 
     let mut num_sputtered: usize = 0;
     let mut num_deposited: usize = 0;
@@ -543,13 +652,14 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
     let mut energy_reflected: f64 = 0.;
     let mut range: f64 = 0.;
 
+    //Main BCA loop
     let mut particle_index: usize = 0;
     while particle_index < particles.len() {
-        if particle_index % 10 == 0 {
-            println!("particle {} of {}", particle_index+1, particles.len());
-        }
+        println!("particle {} of {}", particle_index, particles.len());
+
         while !particles[particle_index].stopped & !particles[particle_index].left {
 
+            //Check simulation boundary conditions, add to energy fluxes out
             if !material.inside_simulation_boundary(particles[particle_index].pos.x, particles[particle_index].pos.y) {
                 particles[particle_index].left = true;
                 if particles[particle_index].incident {
@@ -559,46 +669,40 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
                     num_sputtered += 1;
                     energy_sputtered += particles[particle_index].E;
                 }
+                //Skip BCA loop
                 continue;
             }
 
-            if particles[particle_index].E < Ec {
+            //Check stopping condition, if incident, contribute to average range
+            if particles[particle_index].E < material.Ec {
                 particles[particle_index].stopped = true;
                 if particles[particle_index].incident {
                     num_deposited += 1;
                     range += particles[particle_index].pos.x;
                 }
+                //Skip BCA loop
                 continue;
             }
 
-            let (impact_parameter, phi_azimuthal, dir, pos) = pick_collision_partner(&particles[particle_index], &material);
+            //BCA loop
 
-            let mut particle_2 = Particle {
-                m: material.m,
-                Z: material.Z,
-                E: 0.,
-                pos: Vector {x: pos.x, y: pos.y, z: pos.z},
-                pos_old: Vector {x: pos.x, y: pos.y, z: pos.z},
-                pos_origin: Vector {x: pos.x, y: pos.y, z: pos.z},
-                dir: Vector {x: dir.x, y: dir.y, z: dir.z},
-                t: 0.,
-                left: false,
-                stopped: false,
-                incident: false,
-                first_step: false,
-                track_trajectories: track_recoil_trajectories,
-                trajectory: vec![],
-            };
+            //Choose collision partner
+            let (impact_parameter, phi_azimuthal, xr, yr, zr, dirx, diry, dirz) = pick_collision_partner(&particles[particle_index], &material);
+            let mut particle_2 = Particle::new(material.m, material.Z, 0., xr, yr, zr, dirx, diry, dirz, false, options.track_recoil_trajectories);
 
+            //Calculate scattering and update coordinates
             let (theta, psi, T, t) = binary_collision(&particles[particle_index], &particle_2, &material, impact_parameter, 1E-3, 100);
             update_coordinates(&mut particles[particle_index], &mut particle_2, &material, phi_azimuthal, theta, psi, T, t);
+
+            //Reflection and refraction from surface energy barrier
             surface_boundary_condition(&mut particles[particle_index], &material);
 
             if particles[particle_index].track_trajectories{
                 particles[particle_index].add_trajectory();
             }
 
-            if (T > Ec ) & track_recoils {
+            //Generate recoils if transferred kinetic energy larger than cutoff energy
+            if (T > material.Ec ) & options.track_recoils {
                 particles.push(particle_2);
                 let length = particles.len();
                 particles[length - 1].add_trajectory();
@@ -607,62 +711,43 @@ fn bca(N: usize, E0: f64, theta: f64, Ec: f64, Ma: f64, Za: f64, Mb: f64, Zb: f6
         particle_index += 1
     }
 
-
-    //println!("E: {} Range: {} R: {} E_r: {} Y: {} E_s: {}", E0/Q, range/(num_deposited as f64)/ANGSTROM, (num_reflected as f64)/(N as f64), energy_reflected/Q/(num_reflected as f64), (num_sputtered as f64)/(N as f64), energy_sputtered/Q/(num_sputtered as f64));
-    println!("{} {}", theta, (num_sputtered as f64)/(N as f64));
-
-    //Data output!
-    if write_files {
-        println!("Writing output files...");
-        let mut reflected_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "reflected.dat")).unwrap();
-        let mut sputtered_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "sputtered.dat")).unwrap();
-        let mut deposited_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "deposited.dat")).unwrap();
-        let mut trajectory_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "trajectories.dat")).unwrap();
-        let mut trajectory_data = OpenOptions::new().write(true).create(true).open(format!("{}{}", name, "trajectory_data.dat")).unwrap();
+    //Write output files
+    if options.write_files {
+        //println!("Writing output files...");
+        let mut reflected_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", options.name, "reflected.output")).unwrap();
+        let mut sputtered_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", options.name, "sputtered.output")).unwrap();
+        let mut deposited_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", options.name, "deposited.output")).unwrap();
+        let mut trajectory_file = OpenOptions::new().write(true).create(true).open(format!("{}{}", options.name, "trajectories.output")).unwrap();
+        let mut trajectory_data = OpenOptions::new().write(true).create(true).open(format!("{}{}", options.name, "trajectory_data.output")).unwrap();
 
         for particle in particles {
             if particle.incident & particle.left {
-                if write_files {
-                    writeln!(reflected_file, "{}, {}, {}, {}, {}, {}, {}, {}", particle.Z, particle.pos.x, particle.pos.y, particle.pos.z, particle.dir.x, particle.dir.y, particle.dir.z, particle.E);
-                }
+                writeln!(reflected_file, "{},{},{},{},{},{},{},{},{}", particle.m/mass_unit, particle.Z, particle.E/energy_unit, particle.pos.x/length_unit, particle.pos.y/length_unit, particle.pos.z/length_unit, particle.dir.x, particle.dir.y, particle.dir.z)
+                    .expect("Could not write to reflected.output.");
             }
 
             if particle.incident & particle.stopped {
-                if write_files {
-                    writeln!(deposited_file, "{}, {}, {}, {}", particle.Z, particle.pos.x, particle.pos.y, particle.pos.z);
-                }
+                writeln!(deposited_file, "{},{},{},{},{}", particle.m/mass_unit, particle.Z, particle.pos.x, particle.pos.y, particle.pos.z)
+                    .expect("Could not write to deposited.output.");
             }
 
             if !particle.incident & particle.left {
-                if write_files {
-                    writeln!(sputtered_file, "{}, {}, {}, {}, {}, {}, {}, {}", particle.Z, particle.pos.x, particle.pos.y, particle.pos.z, particle.dir.x, particle.dir.y, particle.dir.z, particle.E);
-                }
+                writeln!(sputtered_file, "{},{},{},{},{},{},{},{},{}", particle.m/mass_unit, particle.Z, particle.E/energy_unit, particle.pos.x/length_unit, particle.pos.y/length_unit, particle.pos.z/length_unit, particle.dir.x, particle.dir.y, particle.dir.z)
+                    .expect("Could not write to sputtered.output.");
             }
 
-            if particle.track_trajectories & write_files {
-                writeln!(trajectory_data, "{}", particle.trajectory.len());
+            if particle.track_trajectories {
+                writeln!(trajectory_data, "{}", particle.trajectory.len())
+                    .expect("Could not write trajectory length data.");
                 for pos in particle.trajectory {
-                    writeln!(trajectory_file, "{}, {}, {}, {}, {}", particle.Z, pos.E, pos.x, pos.y, pos.z);
+                    writeln!(trajectory_file, "{},{},{},{},{},{}", particle.m/mass_unit, particle.Z, pos.E/energy_unit, pos.x/length_unit, pos.y/length_unit, pos.z/length_unit)
+                        .expect("Could not write to trajectories.output.");
                 }
             }
         }
     }
-    //println!("Done.")
 }
 
 fn main() {
-    let num_energies = 1;
-    let num_angles = 1;
-
-    let thickness = 100.*MICRON;
-    let depth = 100.*MICRON;
-
-    let energies = Array::logspace(10., 3., 5., num_energies);
-    let angles = Array::linspace(1.0, 89.0, num_angles);
-
-    for index in 0..num_angles {
-        let name: String = index.to_string();
-        //track_recoils track_trajectories track_recoil_trajectories write_files
-        bca(10000, 5E6*Q, angles[index], 10.*Q, 4.*AMU, 2., 185.*AMU, 74., 3.0*Q, 11.8*Q, 6.4E28, false, false, false, true, thickness, depth, name);
-    }
+    bca_input();
 }
