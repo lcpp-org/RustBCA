@@ -1,6 +1,6 @@
 # rustBCA
 
-A TRIDYN-like Binary Collision Approximation (BCA) code for ion-solid interactions, written in Rust!
+A Binary Collision Approximation (BCA) code for ion-solid interactions, written in Rust!
 
 # Installation
 
