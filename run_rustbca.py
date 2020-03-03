@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from shapely.geometry import Point, Polygon, box
 from itertools import chain
 import os
-import plot
 import toml
 
 Q = 1.602E-19
@@ -66,7 +65,7 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, theta, thickness, depth, name='test_
         'm': [Ma for _ in range(N)],
         'Z': [Za for _ in range(N)],
         'E': [E0 for _ in range(N)],
-        'pos': [(-dx, 0., 0.) for _ in range(N)],
+        'pos': [(-1.5*dx, 0., 0.) for _ in range(N)],
         'dir': [(cosx, sinx, 0.) for _ in range(N)]
     }
 
