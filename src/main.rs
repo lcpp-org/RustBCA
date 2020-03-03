@@ -105,6 +105,7 @@ pub struct Particle {
     first_step: bool,
     trajectory: Vec<Vector4>,
     track_trajectories: bool,
+    backreflected: bool
 }
 
 impl Particle {
@@ -123,7 +124,8 @@ impl Particle {
             incident: incident,
             first_step: incident,
             trajectory: vec![Vector4::new(E, x, y, z)],
-            track_trajectories: track_trajectories
+            track_trajectories: track_trajectories,
+            backreflected: false
         }
     }
     fn add_trajectory(&mut self) {
@@ -277,6 +279,11 @@ impl Material {
         return self.energy_surface.closest_point(&p)
     }
 
+    fn closest_point_on_simulation_surface(&self, x: f64, y: f64) -> Closest<f64> {
+        let p = point!(x: x, y: y);
+        return self.simulation_surface.closest_point(&p)
+    }
+
     fn Z_eff(&self, x: f64, y: f64) -> f64 {
         return self.Z;
     }
@@ -387,7 +394,7 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
     //Store previous position - this is used for boundary checking
     particle_1.pos_old.assign(&particle_1.pos);
 
-    //TRIDYN-style "atomically rough surface" - scatters initial collisions by up to 1 mfp
+    // "atomically rough surface" - see Moeller and Eckstein 1988
     //if particle_1.first_step {
     //    mfp *= rand::random::<f64>();
     //    particle_1.first_step = false;
@@ -520,95 +527,61 @@ fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f
     return (impact_parameter, phi_azimuthal, x_recoil, y_recoil, z_recoil, ca, cb, cg);
 }
 
-fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) -> bool {
-    //Planar energy barrier will refract particle and deflect it towards surface
+fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) {
+    let leaving: bool = !material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) & material.inside_energy_barrier(particle_1.pos_old.x, particle_1.pos_old.y);
+    let entering: bool = material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) & !material.inside_energy_barrier(particle_1.pos_old.x, particle_1.pos_old.y);
 
-    if !material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) & material.inside_energy_barrier(particle_1.pos_old.x, particle_1.pos_old.y) {
+    if leaving | entering {
+        let cosx = particle_1.dir.x;
+        let cosy = particle_1.dir.y;
+        let cosz = particle_1.dir.z;
 
-        let mut leaving_energy;
-        //Find closest point to surface, and use line from particle to point as normal to refract
         if let Closest::SinglePoint(p2) = material.closest_point(particle_1.pos.x, particle_1.pos.y) {
-            let dx = p2.x() - particle_1.pos.x;
-            let dy = p2.y() - particle_1.pos.y;
-            let dz: f64 = 0.;
+            let dx = particle_1.pos.x - p2.x();
+            let dy = particle_1.pos.y - p2.y();
+            let mag = (dx*dx + dy*dy).sqrt();
 
-            let magnitude = (dx*dx + dy*dy + dz*dz).sqrt();
-            leaving_energy = particle_1.E*((dx/magnitude*particle_1.dir.x).powf(2.) + (dy/magnitude*particle_1.dir.y).powf(2.) + (dz/magnitude*particle_1.dir.z).powf(2.));
-            //Project energy-scaled velocity vector along direction to nearest point of surface
-        } else {
-            leaving_energy = particle_1.E;
-        }
+            let E = particle_1.E;
+            let M = particle_1.m;
+            let Es = material.Es;
 
-        if leaving_energy < material.Es {
-            if let Closest::SinglePoint(p2) = material.closest_point(particle_1.pos.x, particle_1.pos.y) {
-                let dx = p2.x() - particle_1.pos.x;
-                let dy = p2.y() - particle_1.pos.y;
+            let costheta = dx*cosx/mag + dy*cosy/mag;
 
-                let axis = Vector {x: dx, y: dy, z: 0.};
+            //println!("dx: {} dy: {} costheta: {}", dx, dy, costheta);
 
-                //Rotate particle direction onto itself, then 180 degrees around local normal
-                particle_1.dir.x *= -1.;
-                particle_1.dir.y *= -1.;
+            if leaving & (E*costheta*costheta < Es) {
+                //reflect back onto surface
+                println!("backreflected");
+                let dot_product = dx*cosx/mag + dy*cosy/mag;
+                particle_1.dir.x = -2.*dot_product*dx/mag + cosx;
+                particle_1.dir.y = -2.*dot_product*dy/mag + cosy;
+                particle_1.backreflected = true;
 
-                let new_dir: Vector = rotate_around_axis_by_pi(&particle_1.dir, &axis);
-                if let Closest::SinglePoint(p2) = material.closest_point_on_energy_barrier(particle_1.pos.x, particle_1.pos.y) {
-                    particle_1.pos.x = p2.x();
-                    particle_1.pos.y = p2.y();
-                }
-                particle_1.dir.assign(&new_dir);
+            } else if !particle_1.backreflected {
+                //Refract through surface
+                //println!("{} {} {} {} {}", particle_1.E/Q, particle_1.dir.x, particle_1.dir.y, particle_1.dir.z, particle_1.dir.magnitude());
+                let v = (2.*E/M).sqrt();
+                let delta_v = costheta.signum()*(2./M).sqrt()*((E + costheta.signum()*Es).sqrt() - E.sqrt());
+
+                let vx = v*cosx;
+                let vy = v*cosy;
+                let vz = v*cosz;
+
+                let vx_new = (vx*vx + ((dx*cosx).signum()*2.*v*delta_v + delta_v*delta_v)*dx*dx/mag/mag).sqrt();
+                let vy_new = (vy*vy + ((dy*cosy).signum()*2.*v*delta_v + delta_v*delta_v)*dy*dy/mag/mag).sqrt();
+                let vz_new = vz;
+                let v_new = (vx_new*vx_new + vy_new*vy_new + vz_new*vz_new).sqrt();
+
+                particle_1.dir.x = vx_new/v_new;
+                particle_1.dir.y = vy_new/v_new;
+                particle_1.dir.z = vz_new/v_new;
+                particle_1.E = v_new*v_new/2.*M;
+                //println!("{} {} {} {} {}", particle_1.E/Q, particle_1.dir.x, particle_1.dir.y, particle_1.dir.z, particle_1.dir.magnitude());
+            } else {
+                //println!("backreflection flag reset");
+                particle_1.backreflected = false;
             }
-            //Particle does not have enough energy to leave
-            return false;
-
-        } else {
-            //Particle has enough energy to leave, must be refracted by surface potential
-            surface_refraction(particle_1, &material);
-            return true;
         }
-    //Particle isn't leaving
-    } else if material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) & !material.inside_energy_barrier(particle_1.pos_old.x, particle_1.pos_old.y) {
-        //Particle is entering the surface
-        println!("{}", particle_1.E/Q);
-        surface_refraction(particle_1, &material);
-        println!("{}", particle_1.E/Q);
-        return false;
-    } else {
-        return false;
-    }
-}
-
-fn surface_refraction(particle_1: &mut Particle, material: &Material) {
-    //Deflection code for planar surface refraction
-    let Es = material.Es;
-    let E0 = particle_1.E;
-    let M = particle_1.m;
-
-    let cosx = particle_1.dir.x;
-    let cosy = particle_1.dir.y;
-    let cosz = particle_1.dir.z;
-
-    if let Closest::SinglePoint(p2) = material.closest_point_on_energy_barrier(particle_1.pos.x, particle_1.pos.y) {
-        let delta_x = particle_1.pos.x - particle_1.pos_old.x;
-        let delta_y = particle_1.pos.y - particle_1.pos_old.y;
-        let delta_z = particle_1.pos.z - particle_1.pos_old.z;
-
-        let dx = p2.x() - particle_1.pos.x;
-        let dy = p2.y() - particle_1.pos.y;
-        let dz: f64 = 0.;
-        let magnitude = (dx*dx + dy*dy + dz*dz).sqrt();
-
-        let vx = (2.*E0/M).sqrt()*cosx + dx*(2.*Es/M).sqrt()/magnitude;
-        let vy = (2.*E0/M).sqrt()*cosy + dy*(2.*Es/M).sqrt()/magnitude;
-        let vz = (2.*E0/M).sqrt()*cosz;
-
-        let dot_product = (delta_x*cosx + delta_y*cosy + delta_z*cosz);
-
-        let v = (vx*vx + vy*vy + vz*vz).sqrt();
-
-        particle_1.dir.x = vx/v;
-        particle_1.dir.y = vy/v;
-        particle_1.dir.z = vz/v;
-        particle_1.E += dot_product.signum()*Es;
     }
 }
 
@@ -682,7 +655,7 @@ fn bca_input() {
         println!("particle {} of {}", particle_index, particles.len());
 
         while !particles[particle_index].stopped & !particles[particle_index].left {
-
+            //println!("{} {} {} {}", particles[particle_index].E, particles[particle_index].pos.x, particles[particle_index].pos.y, particles[particle_index].dir.x);
             //Check simulation boundary conditions, add to energy fluxes out
             if !material.inside_simulation_boundary(particles[particle_index].pos.x, particles[particle_index].pos.y) {
                 particles[particle_index].left = true;
@@ -709,10 +682,6 @@ fn bca_input() {
             }
 
             //BCA loop
-
-            //Reflection and refraction from surface energy barrier
-            surface_boundary_condition(&mut particles[particle_index], &material);
-
             //Choose collision partner
             let (impact_parameter, phi_azimuthal, xr, yr, zr, dirx, diry, dirz) = pick_collision_partner(&particles[particle_index], &material);
             let mut particle_2 = Particle::new(material.m, material.Z, 0., xr, yr, zr, dirx, diry, dirz, false, options.track_recoil_trajectories);
@@ -721,14 +690,15 @@ fn bca_input() {
             let (theta, psi, T, t) = binary_collision(&particles[particle_index], &particle_2, &material, impact_parameter, 1E-3, 100);
             update_coordinates(&mut particles[particle_index], &mut particle_2, &material, phi_azimuthal, theta, psi, T, t);
 
-
+            //Reflection and refraction from surface energy barrier
+            surface_boundary_condition(&mut particles[particle_index], &material);
 
             if particles[particle_index].track_trajectories{
                 particles[particle_index].add_trajectory();
             }
 
             //Generate recoils if transferred kinetic energy larger than cutoff energy
-            if (T > material.Ec ) & options.track_recoils {
+            if (T > material.Ec) & options.track_recoils {
                 particles.push(particle_2);
             }
         }
@@ -771,7 +741,7 @@ fn bca_input() {
             }
 
             if particle.incident & particle.stopped {
-                writeln!(deposited_file, "{},{},{},{},{}", particle.m/mass_unit, particle.Z, particle.pos.x, particle.pos.y, particle.pos.z)
+                writeln!(deposited_file, "{},{},{},{},{}", particle.m/mass_unit, particle.Z, particle.pos.x/length_unit, particle.pos.y/length_unit, particle.pos.z/length_unit)
                     .expect("Could not write to deposited.output.");
             }
 
