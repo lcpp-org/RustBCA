@@ -74,6 +74,7 @@ pub struct ParticleParameters {
     length_unit: String,
     energy_unit: String,
     mass_unit: String,
+    N: Vec<usize>,
     m: Vec<f64>,
     Z: Vec<f64>,
     E: Vec<f64>,
@@ -107,7 +108,6 @@ pub struct Particle {
     track_trajectories: bool,
     backreflected: bool
 }
-
 impl Particle {
     pub fn new(m: f64, Z: f64, E: f64, x: f64, y: f64, z: f64, dirx: f64, diry: f64, dirz: f64, incident: bool, track_trajectories: bool) -> Particle {
         Particle {
@@ -138,7 +138,6 @@ pub struct Vector {
     y: f64,
     z: f64,
 }
-
 impl Vector {
     pub fn new(x: f64, y: f64, z: f64) -> Vector {
         Vector {
@@ -174,7 +173,6 @@ pub struct Vector4 {
     y: f64,
     z: f64,
 }
-
 impl Vector4 {
     fn new(E: f64, x: f64, y: f64, z: f64) -> Vector4 {
         Vector4 {
@@ -197,7 +195,6 @@ pub struct Material {
     energy_surface: Polygon<f64>,
     simulation_surface: Polygon<f64>,
 }
-
 impl Material {
     pub fn new(material_parameters: MaterialParameters, geometry: Geometry) -> Material {
 
@@ -552,9 +549,11 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) {
             if leaving & (E*costheta*costheta < Es) {
                 //reflect back onto surface
                 println!("backreflected");
-                let dot_product = dx*cosx/mag + dy*cosy/mag;
+
+                let dot_product = dx/mag*cosx + dy/mag*cosy;
                 particle_1.dir.x = -2.*dot_product*dx/mag + cosx;
                 particle_1.dir.y = -2.*dot_product*dy/mag + cosy;
+
                 particle_1.backreflected = true;
 
             } else if !particle_1.backreflected {
@@ -567,8 +566,8 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) {
                 let vy = v*cosy;
                 let vz = v*cosz;
 
-                let vx_new = (vx*vx + ((dx*cosx).signum()*2.*v*delta_v + delta_v*delta_v)*dx*dx/mag/mag).sqrt();
-                let vy_new = (vy*vy + ((dy*cosy).signum()*2.*v*delta_v + delta_v*delta_v)*dy*dy/mag/mag).sqrt();
+                let vx_new = (cosx).signum()*(vx*vx + ((dx*cosx).signum()*2.*v*delta_v + delta_v*delta_v)*dx*dx/mag/mag).sqrt();
+                let vy_new = (cosy).signum()*(vy*vy + ((dy*cosy).signum()*2.*v*delta_v + delta_v*delta_v)*dy*dy/mag/mag).sqrt();
                 let vz_new = vz;
                 let v_new = (vx_new*vx_new + vy_new*vy_new + vz_new*vz_new).sqrt();
 
@@ -634,12 +633,15 @@ fn bca_input() {
     //Create particle array
     let mut particles: Vec<Particle> = Vec::new();
     for particle_index in 0..N {
+        let N_ = particle_parameters.N[particle_index];
         let m = particle_parameters.m[particle_index];
         let Z = particle_parameters.Z[particle_index];
         let E = particle_parameters.E[particle_index];
         let (x, y, z) = particle_parameters.pos[particle_index];
         let (dirx, diry, dirz) = particle_parameters.dir[particle_index];
-        particles.push(Particle::new(m*mass_unit, Z, E*energy_unit, x*length_unit, y*length_unit, z*length_unit, dirx, diry, dirz, true, options.track_trajectories));
+        for sub_particle_index in 0..N_ {
+            particles.push(Particle::new(m*mass_unit, Z, E*energy_unit, x*length_unit, y*length_unit, z*length_unit, dirx, diry, dirz, true, options.track_trajectories));
+        }
     }
 
     let mut num_sputtered: usize = 0;
