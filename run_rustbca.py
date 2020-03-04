@@ -19,14 +19,18 @@ SQRTPI = 1.77245385
 SQRT2PI = 2.506628274631
 C = 300000000.
 
-def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, theta, thickness, depth, name='test_'):
+def refraction(E, cosx, cosy, cosz, Es, dx, dy):
+    costheta = (cosx*dx + cosy*dy)
+    return costheta
+
+def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='test_'):
 
     options = {
         'name': name,
-        'track_trajectories': True,
-        'track_recoils': True,
-        'track_recoil_trajectories': True,
-        'write_files': True
+        'track_trajectories': track_trajectories,
+        'track_recoils': track_recoils,
+        'track_recoil_trajectories': track_recoil_trajectories,
+        'write_files': write_files
     }
 
     material_parameters = {
@@ -53,8 +57,6 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, theta, thickness, depth, name='test_
         'simulation_surface': list(simulation_surface.exterior.coords),
     }
 
-    N = 50
-    theta = 0.001
     cosx = np.cos(theta*180./np.pi)
     sinx = np.sin(theta*180./np.pi)
 
@@ -62,10 +64,11 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, theta, thickness, depth, name='test_
         'length_unit': 'MICRON',
         'energy_unit': 'EV',
         'mass_unit': 'AMU',
+        'N': [N_ for _ in range(N)],
         'm': [Ma for _ in range(N)],
         'Z': [Za for _ in range(N)],
         'E': [E0 for _ in range(N)],
-        'pos': [(-1.5*dx, 0., 0.) for _ in range(N)],
+        'pos': [(-1.1*dx, np.random.uniform(miny, maxy), 0.) for _ in range(N)],
         'dir': [(cosx, sinx, 0.) for _ in range(N)]
     }
 
@@ -79,8 +82,8 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, theta, thickness, depth, name='test_
     with open('input.toml', 'w') as file:
         toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
 
-    os.system('rm *.output')
-    os.system('cargo run --release')
+    #os.system('rm *.output')
+    #os.system('cargo run --release')
 
     do_plots(surface, energy_surface, simulation_surface, name)
 
@@ -132,32 +135,41 @@ def do_plots(surface, energy_surface, simulation_surface, name):
             index += trajectory_length
 
             plt.plot(x, y, color = colors[Z], linewidth = linewidths[Z])
+            plt.scatter(x[0], y[0], color = colors[Z], s=10, marker='.')
 
     if np.size(sputtered) > 0:
         plt.scatter(sputtered[:,3], sputtered[:,4], s=50, color='blue', marker='*')
     plt.xlabel('x [um]')
     plt.ylabel('y [um]')
-    plt.title('Helium trajectories in tungsten')
+    plt.title('5 MeV Helium Deposition on Copper')
 
     if np.size(deposited) > 0:
         plt.figure(2)
-        num_bins = 50
-        bins = np.linspace(miny, maxy, num_bins)
-        plt.hist(deposited[:,3], bins=bins)
-        plt.title('Helium y-Deposition')
+        num_bins = 200
+        bins = np.linspace(minx, maxx, num_bins)
+        plt.hist(deposited[:, 2], bins=bins)
+        plt.title('5 MeV Helium x-Deposition on Copper')
         plt.xlabel('y [um]')
         plt.ylabel('Helium Deposition (A.U.)')
 
         plt.figure(3)
-        num_bins_x = 100
-        num_bins_y = 100
+        num_bins = 200
+        bins = np.linspace(miny, maxy, num_bins)
+        plt.hist(deposited[:, 3], bins=bins)
+        plt.title('5 MeV Helium y-Deposition on Copper')
+        plt.xlabel('y [um]')
+        plt.ylabel('Helium Deposition (A.U.)')
+
+        plt.figure(4)
+        num_bins_x = 200
+        num_bins_y = 200
         binx = np.linspace(minx, maxx, num_bins_x)
         biny = np.linspace(miny, maxy, num_bins_y)
-        plt.hist2d(deposited[:, 3], deposited[:, 4], bins=(binx, biny))
+        plt.hist2d(deposited[:, 2], deposited[:, 3], bins=(binx, biny))
         plt.plot(*surface.exterior.xy, color='dimgray')
         plt.plot(*energy_surface.exterior.xy, '--', color='dimgray')
         plt.plot(*simulation_surface.exterior.xy, '--', color='dimgray')
-        plt.title('Helium Deposition')
+        plt.title('5 MeV Helium Deposition on Copper')
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
         #plt.axis('square')
@@ -168,13 +180,15 @@ if __name__ == '__main__':
     Zb = 29
     Mb = 63.54
     n = 8.4E28
-    Ec = 3.0
+    Ec = 3.52
     Es = 3.52
     Eb = 1.0
     Ma = 4
     Za = 2
-    E0 = 10000
-    theta = 0.001
-    thickness = 0.01
-    depth = 0.01
-    main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, theta, thickness, depth)
+    E0 = 5E6
+    N = 100000
+    N_ = 1
+    theta = 0.00001
+    thickness = 1
+    depth = 20
+    main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True)

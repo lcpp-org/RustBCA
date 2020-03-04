@@ -13,3 +13,8 @@ serde = { version = "1", features = ["derive"] }
 text_io = "0.1.8"
 scan_fmt = "0.2.5"
 toml = "0.5"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+target-cpu = "native"
