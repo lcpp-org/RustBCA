@@ -654,8 +654,9 @@ fn bca_input() {
     //Main BCA loop
     let mut particle_index: usize = 0;
     while particle_index < particles.len() {
-        println!("particle {} of {}", particle_index, particles.len());
-
+        if particle_index % 100 == 0 {
+            println!("particle {} of {}", particle_index, particles.len());
+        }
         while !particles[particle_index].stopped & !particles[particle_index].left {
             //println!("{} {} {} {}", particles[particle_index].E, particles[particle_index].pos.x, particles[particle_index].pos.y, particles[particle_index].dir.x);
             //Check simulation boundary conditions, add to energy fluxes out
