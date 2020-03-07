@@ -10,17 +10,10 @@ pub use crate::geo::*;
 use ndarray::prelude::*;
 use geo::algorithm::contains::Contains;
 use geo::algorithm::closest_point::ClosestPoint;
-use geo::algorithm::bounding_rect::BoundingRect;
-use geo::extremes::ExtremePoints;
-//use rand::Rng;
-//use std::error::Error;
-//use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
-use std::io::{Read, BufReader};
+use std::io::Read;
 use std::f64::consts::PI;
-use text_io::{read, scan};
-use toml::{Value};
 use serde::*;
 
 const Q: f64 = 1.602E-19;
@@ -123,7 +116,7 @@ impl Particle {
             left: false,
             incident: incident,
             first_step: incident,
-            trajectory: vec![Vector4::new(E, x, y, z)],
+            trajectory: vec![],
             track_trajectories: track_trajectories,
             backreflected: false
         }
@@ -248,6 +241,15 @@ impl Material {
         }
     }
 
+    fn Es(&self, Z: f64) -> f64 {
+        if Z == self.Z {
+            return self.Es;
+        }
+        else {
+            return 0.;
+        }
+    }
+
     fn inside(&self, x: f64, y: f64) -> bool {
         let p = point!(x: x, y: y);
         return self.surface.contains(&p);
@@ -316,25 +318,6 @@ fn f(x: f64, beta: f64, reduced_energy: f64) -> f64 {
     return (1_f64 - phi(x)/x/reduced_energy - beta*beta/x/x).powf(-0.5);
 }
 
-fn rotate_around_axis_by_pi(vector: &Vector, axis: &Vector) -> Vector {
-    //Rotate a vector around an axis by pi (180 degrees) - used for reflection at surface
-    let axis_mag = axis.magnitude();
-    let ux = axis.x/axis_mag;
-    let uy = axis.y/axis_mag;
-    let uz = axis.z/axis_mag;
-
-    let ndarray_vector = array![vector.x, vector.y, vector.z];
-
-    let R = array![
-        [2.*ux*ux - 1., 2.*ux*uy, 2.*ux*uz],
-        [2.*uy*ux, 2.*uy*uy - 1., 2.*uy*uz],
-        [2.*uz*ux, 2.*uz*uy, 2.*uz*uz - 1.]
-    ];
-
-    let temp_result =  R.dot(&ndarray_vector);
-    return Vector {x: temp_result[0], y: temp_result[1], z: temp_result[2]};
-}
-
 fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Material, impact_parameter: f64, tol: f64, max_iter: i32) -> (f64, f64, f64, f64) {
     if !material.inside(particle_2.pos.x, particle_2.pos.y) {
         //If the chosen collision partner is not within the target, skip collision algorithm
@@ -391,11 +374,6 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
     //Store previous position - this is used for boundary checking
     particle_1.pos_old.assign(&particle_1.pos);
 
-    // "atomically rough surface" - see Moeller and Eckstein 1988
-    //if particle_1.first_step {
-    //    mfp *= rand::random::<f64>();
-    //    particle_1.first_step = false;
-    //}
 
     //path length - must subtract next asymptotic deflection and add previous to obtain correct trajectory
     let ffp: f64 = mfp - t + particle_1.t;
@@ -429,7 +407,7 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
 
     //Update particle 2 direction
     {
-        let psi_b: f64 = (-(theta.sin())).atan2(1. - theta.cos());
+        let psi_b: f64 = (-theta.sin()).atan2(1. - theta.cos());
         //println!("{}", psi_b);
         let cpsi_b: f64 = psi_b.cos();
         let spsi_b: f64 = psi_b.sin();
@@ -441,6 +419,26 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
         particle_2.dir.assign(&dir_new);
         particle_2.dir.normalize();
     }
+
+    //Momentum test
+    //let test_E = particle_1.E - T;
+    //let v0 = (2.*particle_1.E/particle_1.m).sqrt();
+    //let v1 = (2.*test_E/particle_1.m).sqrt();
+    //let v2 = (2.*T/particle_2.m).sqrt();
+
+    //let px0 = particle_1.m*v0*ca;
+    //let px1 = particle_1.m*v1*particle_1.dir.x;
+    //let px2 = particle_2.m*v2*particle_2.dir.x;
+
+    //let py0 = particle_1.m*v0*cb;
+    //let py1 = particle_1.m*v1*particle_1.dir.y;
+    //let py2 = particle_2.m*v2*particle_2.dir.y;
+
+    //let pz0 = particle_1.m*v0*cg;
+    //let pz1 = particle_1.m*v1*particle_1.dir.z;
+    //let pz2 = particle_2.m*v2*particle_2.dir.z;
+
+    //println!("x: {} {} y: {} {} z: {} {}", px0, px1 + px2, py0, py1 + py2, pz0, pz1 + pz2);
 
     //Update particle energies
     {
@@ -510,7 +508,7 @@ fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f
     let phi_azimuthal: f64 = 2.*PI*rand::random::<f64>();
 
     let sphi: f64 = phi_azimuthal.sin();
-    let ca: f64 = particle_1.dir.x;
+    let ca: f64 = particle_1.dir.x;https://www.wolframalpha.com/input/?i=sqrt%281+-+x%29+sqrt%281+%2B+x%29&assumption=%22ClashPrefs%22+-%3E+%7B%22Math%22%7D
     let cb: f64 = particle_1.dir.y;
     let cg: f64 = particle_1.dir.z;
     let sa: f64 = (1_f64 - ca*ca).sqrt();
@@ -540,42 +538,34 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) {
 
             let E = particle_1.E;
             let M = particle_1.m;
-            let Es = material.Es;
+            let Es = material.Es(particle_1.Z);
 
             let costheta = dx*cosx/mag + dy*cosy/mag;
 
-            //println!("dx: {} dy: {} costheta: {}", dx, dy, costheta);
-
             if leaving & (E*costheta*costheta < Es) {
                 //reflect back onto surface
-                println!("backreflected");
-
-                let dot_product = dx/mag*cosx + dy/mag*cosy;
-                particle_1.dir.x = -2.*dot_product*dx/mag + cosx;
-                particle_1.dir.y = -2.*dot_product*dy/mag + cosy;
+                //println!("backreflected");
+                particle_1.dir.x = -2.*costheta*dx/mag + cosx;
+                particle_1.dir.y = -2.*costheta*dy/mag + cosy;
 
                 particle_1.backreflected = true;
 
             } else if !particle_1.backreflected {
-                //Refract through surface
-                //println!("{} {} {} {} {}", particle_1.E/Q, particle_1.dir.x, particle_1.dir.y, particle_1.dir.z, particle_1.dir.magnitude());
-                let v = (2.*E/M).sqrt();
-                let delta_v = costheta.signum()*(2./M).sqrt()*((E + costheta.signum()*Es).sqrt() - E.sqrt());
 
-                let vx = v*cosx;
-                let vy = v*cosy;
-                let vz = v*cosz;
+                let sx = (cosx*dx).signum();
+                let sy = (cosy*dy).signum();
+                let sign = costheta.signum();
+                let sign_x = (E*cosx - Es*dx/mag).signum();
+                let sign_y = (E*cosy - Es*dy/mag).signum();
+                let sign_z = (cosz).signum();
 
-                let vx_new = (cosx).signum()*(vx*vx + ((dx*cosx).signum()*2.*v*delta_v + delta_v*delta_v)*dx*dx/mag/mag).sqrt();
-                let vy_new = (cosy).signum()*(vy*vy + ((dy*cosy).signum()*2.*v*delta_v + delta_v*delta_v)*dy*dy/mag/mag).sqrt();
-                let vz_new = vz;
-                let v_new = (vx_new*vx_new + vy_new*vy_new + vz_new*vz_new).sqrt();
+                particle_1.dir.x = sign_x*((E*cosx*cosx + Es*dx*dx/mag/mag)/(E + sign*Es)).sqrt();
+                particle_1.dir.y = sign_y*((E*cosy*cosy + Es*dy*dy/mag/mag)/(E + sign*Es)).sqrt();
+                particle_1.dir.z = sign_z*(E*cosz*cosz/(E + sign*Es)).sqrt();
+                particle_1.E = E + sign*Es;
 
-                particle_1.dir.x = vx_new/v_new;
-                particle_1.dir.y = vy_new/v_new;
-                particle_1.dir.z = vz_new/v_new;
-                particle_1.E = v_new*v_new/2.*M;
-                //println!("{} {} {} {} {}", particle_1.E/Q, particle_1.dir.x, particle_1.dir.y, particle_1.dir.z, particle_1.dir.magnitude());
+                particle_1.dir.normalize();
+
             } else {
                 //println!("backreflection flag reset");
                 particle_1.backreflected = false;
@@ -630,8 +620,15 @@ fn bca_input() {
         _ => panic!("Incorrect unit {} in input file.", particle_parameters.mass_unit.as_str())
     };
 
+    let mut total_energy: f64 = 0.
+    for particle_index in 0..N {
+        let E = particle_parameters.E[particle_index];
+        total_energy += E;
+    }
+    let estimated_num_particles: usize = (total_energy / material.Ec).ceil() as usize;
+
     //Create particle array
-    let mut particles: Vec<Particle> = Vec::new();
+    let mut particles: Vec<Particle> = Vec::with_capacity(estimated_num_particles);
     for particle_index in 0..N {
         let N_ = particle_parameters.N[particle_index];
         let m = particle_parameters.m[particle_index];
@@ -640,7 +637,11 @@ fn bca_input() {
         let (x, y, z) = particle_parameters.pos[particle_index];
         let (dirx, diry, dirz) = particle_parameters.dir[particle_index];
         for sub_particle_index in 0..N_ {
-            particles.push(Particle::new(m*mass_unit, Z, E*energy_unit, x*length_unit, y*length_unit, z*length_unit, dirx, diry, dirz, true, options.track_trajectories));
+            particles.push(Particle::new(
+                m*mass_unit, Z, E*energy_unit,
+                x*length_unit, y*length_unit, z*length_unit,
+                dirx, diry, dirz, true, options.track_trajectories
+            ));
         }
     }
 
@@ -653,12 +654,16 @@ fn bca_input() {
 
     //Main BCA loop
     let mut particle_index: usize = 0;
-    while particle_index < particles.len() {
-        if particle_index % 100 == 0 {
+    'particle_loop: while particle_index < particles.len() {
+        if particle_index % 1000 == 0 {
             println!("particle {} of {}", particle_index, particles.len());
         }
-        while !particles[particle_index].stopped & !particles[particle_index].left {
-            //println!("{} {} {} {}", particles[particle_index].E, particles[particle_index].pos.x, particles[particle_index].pos.y, particles[particle_index].dir.x);
+        'trajectory_loop: while !particles[particle_index].stopped & !particles[particle_index].left {
+
+            if particles[particle_index].track_trajectories {
+                particles[particle_index].add_trajectory();
+            }
+
             //Check simulation boundary conditions, add to energy fluxes out
             if !material.inside_simulation_boundary(particles[particle_index].pos.x, particles[particle_index].pos.y) {
                 particles[particle_index].left = true;
@@ -670,7 +675,7 @@ fn bca_input() {
                     energy_sputtered += particles[particle_index].E;
                 }
                 //Skip BCA loop
-                continue;
+                break 'trajectory_loop;
             }
 
             //Check stopping condition, if incident, contribute to average range
@@ -681,27 +686,29 @@ fn bca_input() {
                     range += particles[particle_index].pos.x;
                 }
                 //Skip BCA loop
-                continue;
+                break 'trajectory_loop;
             }
 
             //BCA loop
             //Choose collision partner
             let (impact_parameter, phi_azimuthal, xr, yr, zr, dirx, diry, dirz) = pick_collision_partner(&particles[particle_index], &material);
-            let mut particle_2 = Particle::new(material.m, material.Z, 0., xr, yr, zr, dirx, diry, dirz, false, options.track_recoil_trajectories);
+            let mut particle_2 = Particle::new(
+                material.m, material.Z, 0.,
+                xr, yr, zr,
+                dirx, diry, dirz,
+                false, options.track_recoil_trajectories
+            );
 
             //Calculate scattering and update coordinates
-            let (theta, psi, T, t) = binary_collision(&particles[particle_index], &particle_2, &material, impact_parameter, 1E-3, 100);
+            let (theta, psi, T, t) = binary_collision(&particles[particle_index], &particle_2, &material, impact_parameter, 1E-6, 100);
             update_coordinates(&mut particles[particle_index], &mut particle_2, &material, phi_azimuthal, theta, psi, T, t);
 
             //Reflection and refraction from surface energy barrier
             surface_boundary_condition(&mut particles[particle_index], &material);
 
-            if particles[particle_index].track_trajectories{
-                particles[particle_index].add_trajectory();
-            }
-
             //Generate recoils if transferred kinetic energy larger than cutoff energy
             if (T > material.Ec) & options.track_recoils {
+                particle_2.add_trajectory();
                 particles.push(particle_2);
             }
         }
@@ -756,6 +763,7 @@ fn bca_input() {
             if particle.track_trajectories {
                 writeln!(trajectory_data, "{}", particle.trajectory.len())
                     .expect("Could not write trajectory length data.");
+
                 for pos in particle.trajectory {
                     writeln!(trajectory_file, "{},{},{},{},{},{}", particle.m/mass_unit, particle.Z, pos.E/energy_unit, pos.x/length_unit, pos.y/length_unit, pos.z/length_unit)
                         .expect("Could not write to trajectories.output.");

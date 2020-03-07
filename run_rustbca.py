@@ -4,6 +4,7 @@ from shapely.geometry import Point, Polygon, box
 from itertools import chain
 import os
 import toml
+import generate_ftridyn_input as g
 
 Q = 1.602E-19
 PI = 3.14159
@@ -18,10 +19,6 @@ ME = 9.11E-31
 SQRTPI = 1.77245385
 SQRT2PI = 2.506628274631
 C = 300000000.
-
-def refraction(E, cosx, cosy, cosz, Es, dx, dy):
-    costheta = (cosx*dx + cosy*dy)
-    return costheta
 
 def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='test_'):
 
@@ -68,7 +65,7 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, trac
         'm': [Ma for _ in range(N)],
         'Z': [Za for _ in range(N)],
         'E': [E0 for _ in range(N)],
-        'pos': [(-1.1*dx, 0., 0.) for _ in range(N)],
+        'pos': [(-n**(-1./3.)/MICRON, 0., 0.) for _ in range(N)],
         'dir': [(cosx, sinx, 0.) for _ in range(N)]
     }
 
@@ -83,101 +80,14 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, trac
         toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
 
     os.system('rm *.output')
-    os.system('rustBCA.exe')
+    os.system('./rustBCA')
 
-    Y, R, ion_range = do_plots(surface, energy_surface, simulation_surface, name)
-    return Y, R, ion_range
-
-
-def do_plots(surface, energy_surface, simulation_surface, name):
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
     deposited = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
     trajectories = np.atleast_2d(np.genfromtxt(name+'trajectories.output', delimiter=','))
     trajectory_data = np.genfromtxt(name+'trajectory_data.output', delimiter=',').transpose().astype(int)
 
-    if False:
-
-        colors = {
-            1: 'red',
-            29: 'black',
-            2: 'red',
-            74: 'blue',
-        }
-
-        linewidths = {
-            1: 1,
-            29: 1,
-            2: 1,
-            74: 1,
-        }
-
-        species_names = {
-            1: 'Hydrogen',
-            2: 'Helium'
-        }
-
-        minx, miny, maxx, maxy = simulation_surface.bounds
-
-        fig1, axis1 = plt.subplots()
-        plt.plot(*surface.exterior.xy, color='dimgray')
-        plt.plot(*energy_surface.exterior.xy, '--', color='dimgray')
-        plt.plot(*simulation_surface.exterior.xy, '--', color='dimgray')
-
-        index = 0
-        if np.size(trajectories) > 0:
-            for trajectory_length in trajectory_data:
-
-                M = trajectories[index, 0]
-                Z = trajectories[index, 1]
-                E = trajectories[index:(trajectory_length + index), 2]
-                x = trajectories[index:(trajectory_length + index), 3]
-                y = trajectories[index:(trajectory_length + index), 4]
-                z = trajectories[index:(trajectory_length + index), 5]
-
-                index += trajectory_length
-
-                plt.plot(x, y, color = colors[Z], linewidth = linewidths[Z])
-                plt.scatter(x[0], y[0], color = colors[Z], s=10, marker='.')
-
-        if np.size(sputtered) > 0:
-            plt.scatter(sputtered[:,3], sputtered[:,4], s=50, color='blue', marker='*')
-        plt.xlabel('x [um]')
-        plt.ylabel('y [um]')
-        plt.title('5 MeV Helium Deposition on Copper')
-
-        if np.size(deposited) > 0:
-            plt.figure(2)
-            num_bins = 200
-            bins = np.linspace(minx, maxx, num_bins)
-            plt.hist(deposited[:, 2], bins=bins)
-            plt.title('5 MeV Helium x-Deposition on Copper')
-            plt.xlabel('y [um]')
-            plt.ylabel('Helium Deposition (A.U.)')
-
-            plt.figure(3)
-            num_bins = 200
-            bins = np.linspace(miny, maxy, num_bins)
-            plt.hist(deposited[:, 3], bins=bins)
-            plt.title('5 MeV Helium y-Deposition on Copper')
-            plt.xlabel('y [um]')
-            plt.ylabel('Helium Deposition (A.U.)')
-
-            plt.figure(4)
-            num_bins_x = 200
-            num_bins_y = 200
-            binx = np.linspace(minx, maxx, num_bins_x)
-            biny = np.linspace(miny, maxy, num_bins_y)
-            plt.hist2d(deposited[:, 2], deposited[:, 3], bins=(binx, biny))
-            plt.plot(*surface.exterior.xy, color='dimgray')
-            plt.plot(*energy_surface.exterior.xy, '--', color='dimgray')
-            plt.plot(*simulation_surface.exterior.xy, '--', color='dimgray')
-            plt.title('5 MeV Helium Deposition on Copper')
-            plt.xlabel('x [um]')
-            plt.ylabel('y [um]')
-            #plt.axis('square')
-
-    #plt.show()
     if np.size(sputtered) > 0:
         Y = len(sputtered[:,0])/N/N_
     else:
@@ -194,6 +104,121 @@ def do_plots(surface, energy_surface, simulation_surface, name):
         ion_range = 0
 
     return Y, R, ion_range
+
+def yamamura(ion, target, energy_eV):
+    z1 = ion['Z']
+    z2 = target['Z']
+    m1 = ion['m']
+    m2 = target['m']
+    Us = target['Es']
+    Q = target['Q']
+
+    reduced_mass_2 = m2/(m1 + m2)
+    reduced_mass_1 = m1/(m1 + m2)
+    #Lindhard's reduced energy
+    reduced_energy = 0.03255/(z1*z2*(z1**(2./3.) + z2**(2./3.))**(1./2.))*reduced_mass_2*energy_eV
+    #Yamamura empirical constants
+    K = 8.478*z1*z2/(z1**(2./3.) + z2**(2./3.))**(1./2.)*reduced_mass_1
+    a_star = 0.08 + 0.164*(m2/m1)**0.4 + 0.0145*(m2/m1)**1.29
+    #Sputtering threshold energy
+    Eth = (1.9 + 3.8*(m1/m2) + 0.134*(m2/m1)**1.24)*Us
+    #Lindhard-Scharff-Schiott nuclear cross section
+    sn = 3.441*np.sqrt(reduced_energy)*np.log(reduced_energy + 2.718)/(1. + 6.355*np.sqrt(reduced_energy) + reduced_energy*(-1.708 + 6.882*np.sqrt(reduced_energy)))
+    #Lindhard-Scharff electronic cross section
+    k = 0.079*(m1 + m2)**(3./2.)/(m1**(3./2.)*m2**(1./2.))*z1**(2./3.)*z2**(1./2.)/(z1**(2./3.) + z2**(2./3.))**(3./4.)
+    se = k*np.sqrt(reduced_energy)
+
+    return 0.42*a_star*Q*K*sn/Us/(1. + 0.35*Us*se)*(1. - np.sqrt(Eth/energy_eV))**2.8
+
+def do_plots(name):
+    reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
+    sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
+    deposited = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
+    trajectories = np.atleast_2d(np.genfromtxt(name+'trajectories.output', delimiter=','))
+    trajectory_data = np.genfromtxt(name+'trajectory_data.output', delimiter=',').transpose().astype(int)
+
+    colors = {
+        1: 'red',
+        29: 'black',
+        2: 'red',
+        74: 'blue',
+        4: 'black',
+        5: 'blue',
+        18: 'red'
+    }
+
+    linewidths = {
+        1: 1,
+        29: 1,
+        2: 1,
+        74: 1,
+    }
+
+    #minx, miny, maxx, maxy = simulation_surface.bounds
+    minx = np.min(trajectories[:, 3])
+    maxx = np.max(trajectories[:, 3])
+    miny = np.min(trajectories[:, 4])
+    maxy = np.min(trajectories[:, 4])
+
+    fig1, axis1 = plt.subplots()
+    #plt.plot(*surface.exterior.xy, color='dimgray')
+    #plt.plot(*energy_surface.exterior.xy, '--', color='dimgray')
+    #plt.plot(*simulation_surface.exterior.xy, '--', color='dimgray')
+
+    index = 0
+    if np.size(trajectories) > 0:
+        for trajectory_length in trajectory_data:
+
+            M = trajectories[index, 0]
+            Z = trajectories[index, 1]
+            E = trajectories[index:(trajectory_length + index), 2]
+            x = trajectories[index:(trajectory_length + index), 3]
+            y = trajectories[index:(trajectory_length + index), 4]
+            z = trajectories[index:(trajectory_length + index), 5]
+
+            #plt.scatter(x[0], y[0], color = colors[Z], marker='o', s=10)
+            plt.plot(x, y, color = colors[Z], linewidth = 1)
+
+            index += trajectory_length
+
+    if np.size(sputtered) > 0:
+        plt.scatter(sputtered[:,3], sputtered[:,4], s=50, color='blue', marker='*')
+        plt.xlabel('x [um]')
+        plt.ylabel('y [um]')
+        plt.title('5 MeV Helium Deposition on Copper')
+
+    if np.size(deposited) > 0:
+        plt.figure(2)
+        num_bins = 200
+        bins = np.linspace(minx, maxx, num_bins)
+        plt.hist(deposited[:, 2], bins=bins)
+        plt.title('5 MeV Helium x-Deposition on Copper')
+        plt.xlabel('y [um]')
+        plt.ylabel('Helium Deposition (A.U.)')
+
+    plt.figure(3)
+    num_bins = 200
+    bins = np.linspace(miny, maxy, num_bins)
+    plt.hist(deposited[:, 3], bins=bins)
+    plt.title('5 MeV Helium y-Deposition on Copper')
+    plt.xlabel('y [um]')
+    plt.ylabel('Helium Deposition (A.U.)')
+
+    plt.figure(4)
+    num_bins_x = 200
+    num_bins_y = 200
+    binx = np.linspace(minx, maxx, num_bins_x)
+    biny = np.linspace(miny, maxy, num_bins_y)
+    plt.hist2d(deposited[:, 2], deposited[:, 3], bins=(binx, biny))
+    #plt.plot(*surface.exterior.xy, color='dimgray')
+    #plt.plot(*energy_surface.exterior.xy, '--', color='dimgray')
+    #plt.plot(*simulation_surface.exterior.xy, '--', color='dimgray')
+    plt.title('5 MeV Helium Deposition on Copper')
+    plt.xlabel('x [um]')
+    plt.ylabel('y [um]')
+    #plt.axis('square')
+
+    plt.show()
 
 if __name__ == '__main__':
     hydrogen = {
@@ -216,8 +241,9 @@ if __name__ == '__main__':
         'm': 9.012182,
         'n': 1.235E29,
         'Es': 3.31,
-        'Eb': 3.,
-        'Ec': 3.,
+        'Eb': 0.,
+        'Ec': 3.0,
+        'Q': 2.17,
     }
 
     boron = {
@@ -227,8 +253,9 @@ if __name__ == '__main__':
         'm': 10.811,
         'n': 1.37E29,
         'Es': 5.76,
-        'Eb': 3.,
-        'Ec': 3.,
+        'Eb': 0.,
+        'Ec': 5.,
+        'Q': 4.6,
     }
 
     neon = {
@@ -245,8 +272,9 @@ if __name__ == '__main__':
         'm': 28.08553,
         'n': 4.996E28,
         'Es': 4.72,
-        'Eb': 2.,
-        'Ec': 2.,
+        'Eb': 0.,
+        'Ec': 4.,
+        'Q': 0.78,
     }
 
     argon = {
@@ -263,8 +291,9 @@ if __name__ == '__main__':
         'm': 63.546,
         'n': 8.491E28,
         'Es': 3.52,
-        'Eb': 3.,
+        'Eb': 0.,
         'Ec': 3.,
+        'Q': 1.30,
     }
 
     tungsten = {
@@ -274,31 +303,40 @@ if __name__ == '__main__':
         'm': 183.84,
         'n': 6.306E28,
         'Es': 11.75,
-        'Eb': 3.,
-        'Ec': 3.,
+        'Eb': 0.,
+        'Ec': 11.,
     }
 
-    beam_species = [hydrogen, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
-    target_species = [beryllium, boron, silicon, copper, tungsten]
+    beam_species = [helium, hydrogen]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
+    target_species = [beryllium, boron, silicon, copper]
+
 
     N = 1
-    N_ = 10000
+    N_ = 1000
     theta = 0.00001
     thickness = 1000
     depth = 1000
-    energies = np.round(np.logspace(1, 4, 20))
+    energies = np.round(np.logspace(1, 6, 10))
+
+    os.system('rm rustBCA')
+    os.system('cargo build --release')
+    os.system('mv target/release/rustBCA .')
 
     name = []
-
-
     for beam in beam_species:
         Za = beam['Z']
         Ma = beam['m']
         for target in target_species:
-            name.append(beam['symbol']+' on '+target['symbol']+' Y')
-            name.append(beam['symbol']+' on '+target['symbol']+' R')
+            name.append(beam['symbol']+' on '+target['symbol']+' Y RustBCA')
+            name.append(beam['symbol']+' on '+target['symbol']+' R RustBCA')
+            name.append(beam['symbol']+' on '+target['symbol']+' Y F-TRIDYN')
+            name.append(beam['symbol']+' on '+target['symbol']+' R F-TRIDYN')
+            name.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura')
             Y = []
             R = []
+            FY = []
+            FR = []
+            YY = []
             ion_range = []
             Zb = target['Z']
             Ec = target['Ec']
@@ -311,9 +349,24 @@ if __name__ == '__main__':
                 Y.append(Y_)
                 R.append(R_)
                 ion_range.append(ion_range_)
+                ftridyn_name = beam['symbol'].ljust(2, '_') + target['symbol'].ljust(2, '_')
+                interface = g.tridyn_interface(beam['symbol'], target['symbol'])
+                FY_, FR_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
+                FY.append(FY_/np.max([100, N_]))
+                FR.append(FR_/np.max([100, N_]))
+                YY_ = yamamura(beam, target, energy)
+                YY.append(YY_)
+                #do_plots(str(energy)+beam['symbol']+'_'+target['symbol'])
+                #breakpoint()
+
             plt.figure(1)
-            handle = plt.loglog(energies, Y)
+            handle = plt.loglog(energies, Y, '*')
             plt.loglog(energies, R, ':', color=handle[0].get_color())
+
+            plt.loglog(energies, FR, '.', color=handle[0].get_color())
+            plt.loglog(energies, FY, 'o', color=handle[0].get_color())
+            plt.loglog(energies, YY, '-', color=handle[0].get_color())
+
             plt.figure(2)
             plt.loglog(energies, ion_range, color=handle[0].get_color())
 
