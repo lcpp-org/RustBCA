@@ -29,7 +29,7 @@ Steps to install:
 
 # Example input file: input.toml
 
-[options]
+'[options]
 name = "test_" #Name of output file
 track_trajectories = false #Track incident ion trajectories (memory intensive)
 track_recoils = false #Track recoils
@@ -58,7 +58,7 @@ m = [ 4,]
 Z = [ 2,]
 E = [ 5000000.0,] #Energy in energy_units
 pos = [ [ -0.00020040396875754278, -0.27233199674655106, 0.0,],] #Initial position
-dir = [ [ 0.999999835859687, 0.0005729577637823323, 0.0,],] #Initial direction unit vector
+dir = [ [ 0.999999835859687, 0.0005729577637823323, 0.0,],] #Initial direction unit vector'
  
 # Usage
 
