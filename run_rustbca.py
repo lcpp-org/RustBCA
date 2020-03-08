@@ -5,6 +5,7 @@ from itertools import chain
 import os
 import toml
 import generate_ftridyn_input as g
+import time
 
 Q = 1.602E-19
 PI = 3.14159
@@ -27,7 +28,8 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, trac
         'track_trajectories': track_trajectories,
         'track_recoils': track_recoils,
         'track_recoil_trajectories': track_recoil_trajectories,
-        'write_files': write_files
+        'write_files': write_files,
+        'stream_size': 32000
     }
 
     material_parameters = {
@@ -311,11 +313,11 @@ if __name__ == '__main__':
     target_species = [beryllium, boron]#, boron, silicon, copper]
 
     N = 1
-    N_ = 100000
+    N_ = 10000
     theta = 0.00001
     thickness = 1000
     depth = 1000
-    energies = np.round(np.logspace(1, 3, 10))
+    energies = np.round(np.logspace(1, 3, 5))
 
     os.system('rm rustBCA')
     os.system('cargo build --release')
@@ -323,6 +325,8 @@ if __name__ == '__main__':
 
     name_1 = []
     name_2 = []
+    rustbca_time = 0.
+    ftridyn_time = 0.
     for beam in beam_species:
         Za = beam['Z']
         Ma = beam['m']
@@ -350,14 +354,20 @@ if __name__ == '__main__':
             n = target['n']
             for energy in energies:
 
+                start = time.time()
                 rustbca_yield_, rustbca_reflection_, rustbca_range_ = main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=True, track_recoil_trajectories=False, write_files=True, name=str(energy)+beam['symbol']+'_'+target['symbol'])
+                stop = time.time()
+                rustbca_time += stop - start
                 rustbca_yield.append(rustbca_yield_)
                 rustbca_reflection.append(rustbca_reflection_)
                 rustbca_range.append(rustbca_range_)
 
                 ftridyn_name = beam['symbol'].ljust(2, '_') + target['symbol'].ljust(2, '_')
                 interface = g.tridyn_interface(beam['symbol'], target['symbol'])
+                start = time.time()
                 ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
+                stop = time.time()
+                ftridyn_time += stop - start
                 ftridyn_yield.append(ftridyn_yield_/np.max([100, N_]))
                 ftridyn_reflection.append(ftridyn_reflection_/np.max([100, N_]))
                 ftridyn_range.append(ftridyn_range_)
@@ -379,6 +389,7 @@ if __name__ == '__main__':
             plt.loglog(energies, rustbca_range, color=handle[0].get_color())
             plt.loglog(energies, np.array(ftridyn_range)/MICRON, '--', color=handle[0].get_color())
 
+
     plt.figure(1)
     plt.legend(name_1)
     plt.axis([0, np.max(energies), 1./N_, 10.])
@@ -390,5 +401,7 @@ if __name__ == '__main__':
     plt.xlabel('E [eV]')
     plt.ylabel('Range [um]')
 
-    plt.show()
+    print(f'time rustBCA: {rustbca_time} time F-TRIDYN: {ftridyn_time}')
+
+    #plt.show()
     breakpoint()
