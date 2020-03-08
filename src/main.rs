@@ -716,11 +716,13 @@ fn bca_input() {
     let mut particle_index: usize = particles.len();
 
     'particle_loop: while particle_index > 0 {
-        if particle_index % 1000 == 0{
-            //println!("particle {} of {}", particle_index, particles.len());
-        }
+
 
         let mut particle_1 = particles.pop().unwrap();
+
+        if particle_1.incident & ((total_particles - particle_index) % (total_particles / 10) == 0){
+            println!("Particle {}", total_particles - particle_index);
+        }
 
         'trajectory_loop: while !particle_1.stopped & !particle_1.left {
 

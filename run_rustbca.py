@@ -183,7 +183,7 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, trac
         toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
 
     os.system('rm *.output')
-    os.system('rustBCA.exe')
+    os.system('./rustBCA')
 
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
@@ -290,44 +290,49 @@ def do_plots(name):
         plt.scatter(sputtered[:,3], sputtered[:,4], s=50, color='blue', marker='*')
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
-        plt.title('5 MeV Helium Deposition on Copper')
+        plt.title(name+' Trajectories')
+        plt.savefig(name+'trajectories.png')
+        plt.close()
 
     if np.size(deposited) > 0:
         plt.figure(2)
-        num_bins = 200
+        num_bins = 100
         bins = np.linspace(minx, maxx, num_bins)
         plt.hist(deposited[:, 2], bins=bins)
-        plt.title('5 MeV Helium x-Deposition on Copper')
+        plt.title(name+' Y Deposition')
         plt.xlabel('y [um]')
         plt.ylabel('Helium Deposition (A.U.)')
+        plt.savefig(name+'.png')
+        plt.close()
 
     plt.figure(3)
-    num_bins = 200
+    num_bins = 100
     bins = np.linspace(miny, maxy, num_bins)
     plt.hist(deposited[:, 3], bins=bins)
-    plt.title('5 MeV Helium y-Deposition on Copper')
+    plt.title(name+' Y Deposition')
     plt.xlabel('y [um]')
     plt.ylabel('Helium Deposition (A.U.)')
+    plt.savefig(name+'Y.png')
+    plt.close()
 
     plt.figure(4)
-    num_bins_x = 200
-    num_bins_y = 200
+    num_bins_x = 100
+    num_bins_y = 100
     binx = np.linspace(minx, maxx, num_bins_x)
     biny = np.linspace(miny, maxy, num_bins_y)
     plt.hist2d(deposited[:, 2], deposited[:, 3], bins=(binx, biny))
     #plt.plot(*surface.exterior.xy, color='dimgray')
     #plt.plot(*energy_surface.exterior.xy, '--', color='dimgray')
     #plt.plot(*simulation_surface.exterior.xy, '--', color='dimgray')
-    plt.title('5 MeV Helium Deposition on Copper')
+    plt.title(name+' 2D Deposition')
     plt.xlabel('x [um]')
     plt.ylabel('y [um]')
     #plt.axis('square')
-
-    plt.show()
+    plt.savefig(name+'2D.png')
+    plt.close()
 
 def cross_validation():
-
-        beam_species = [argon]#, hydrogen]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
+        beam_species = [argon]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
         target_species = [copper]#, copper]#, copper]#, boron, silicon, copper]
 
         N = 1
@@ -337,9 +342,9 @@ def cross_validation():
         depth = 1000
         energies = np.round(np.logspace(2, 3, 25))
 
-        os.system('rm rustBCA.exe')
+        os.system('rm ./rustBCA')
         os.system('cargo build --release')
-        os.system('mv target/release/rustBCA.exe .')
+        os.system('mv target/release/rustBCA .')
 
         name_1 = []
         name_2 = []
@@ -487,7 +492,7 @@ def starshot_rustbca(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness,
         toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
 
     os.system('rm *.output')
-    os.system('rustBCA.exe')
+    os.system('./rustBCA')
 
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
@@ -513,12 +518,17 @@ def starshot_rustbca(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness,
     return Y, R, ion_range
 
 if __name__ == '__main__':
+
+    os.system('rm rustBCA')
+    os.system('cargo build --release')
+    os.system('mv target/release/rustBCA .')
+
     velocities = np.linspace(0.05, 0.2, 5)*C
 
-    N = 10000
+    N = 1000
     N_ = 1
     theta = 0.0001
-    thickness = 50
+    thickness = 25
     depth = 1000
 
     #H
@@ -539,4 +549,4 @@ if __name__ == '__main__':
         for energy in energies:
             Y, R, ion_range = starshot_rustbca(Zb, Mb, n, Ec, Es, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name=str(energy)+beam['symbol']+'_'+target['symbol'])
             do_plots(str(energy)+beam['symbol']+'_'+target['symbol'])
-            breakpoint()
+            #breakpoint()
