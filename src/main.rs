@@ -1,13 +1,8 @@
-extern crate ndarray;
 extern crate geo;
-extern crate csv;
 extern crate serde;
-extern crate text_io;
-extern crate scan_fmt;
 extern crate toml;
 
 pub use crate::geo::*;
-use ndarray::prelude::*;
 use geo::algorithm::contains::Contains;
 use geo::algorithm::closest_point::ClosestPoint;
 use std::fs::OpenOptions;
@@ -116,7 +111,7 @@ impl Particle {
             left: false,
             incident: incident,
             first_step: incident,
-            trajectory: vec![],
+            trajectory: Vec::new(),
             track_trajectories: track_trajectories,
             backreflected: false
         }
@@ -254,6 +249,21 @@ impl Material {
         let p = point!(x: x, y: y);
         return self.surface.contains(&p);
     }
+
+    fn inside_1D(&self, x: f64) -> bool {
+        return x > 0.;
+    }
+
+    fn inside_energy_barrier_1D(&self, x: f64) -> bool {
+        let dx = -2.*self.n.powf(-1./3.)/SQRT2PI;
+        return x > dx;
+    }
+
+    fn inside_simulation_boundary_1D(&self, x: f64) -> bool {
+        let dx = -2.*self.n.powf(-1./3.)/SQRT2PI;
+        return x > 2.*dx;
+    }
+
     fn mfp(&self, x: f64, y: f64) -> f64 {
         return self.n.powf(-1_f64/3_f64);
     }
@@ -508,7 +518,7 @@ fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f
     let phi_azimuthal: f64 = 2.*PI*rand::random::<f64>();
 
     let sphi: f64 = phi_azimuthal.sin();
-    let ca: f64 = particle_1.dir.x;https://www.wolframalpha.com/input/?i=sqrt%281+-+x%29+sqrt%281+%2B+x%29&assumption=%22ClashPrefs%22+-%3E+%7B%22Math%22%7D
+    let ca: f64 = particle_1.dir.x;
     let cb: f64 = particle_1.dir.y;
     let cg: f64 = particle_1.dir.z;
     let sa: f64 = (1_f64 - ca*ca).sqrt();
@@ -620,12 +630,12 @@ fn bca_input() {
         _ => panic!("Incorrect unit {} in input file.", particle_parameters.mass_unit.as_str())
     };
 
-    let mut total_energy: f64 = 0.
+    let mut total_energy: f64 = 0.;
     for particle_index in 0..N {
         let E = particle_parameters.E[particle_index];
         total_energy += E;
     }
-    let estimated_num_particles: usize = (total_energy / material.Ec).ceil() as usize;
+    let estimated_num_particles: usize = (10. * total_energy / material.Ec).ceil() as usize;
 
     //Create particle array
     let mut particles: Vec<Particle> = Vec::with_capacity(estimated_num_particles);

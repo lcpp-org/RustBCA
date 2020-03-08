@@ -116,7 +116,7 @@ class tridyn_interface:
                         CSBE=0, ANGMN=0, ANGMX=90, TT=depth, TTDYN=1.2*depth,
                         NQX=250, DSF=100.0, IQXN=0, IQXX=250, IMCP=0,
                         surf_name=self.surface_name, species_list=self.species_list,
-                        output_pka=0, output_ska=0, output_prj=0, output_splst=1,
+                        output_pka=0, output_ska=0, output_prj=1, output_splst=1,
                         output_rflst=1, output_prof=0, output_simple=1)
 
                     #Print simulation input file
@@ -135,6 +135,7 @@ class tridyn_interface:
                     #Read sputtered and reflected particle lists and force 2D
                     sputtered_list = np.atleast_2d(np.genfromtxt(str(self.name)+'SPLST.DAT'))
                     reflected_list = np.atleast_2d(np.genfromtxt(str(self.name)+'RFLST.DAT'))
+                    deposited_list = np.atleast_2d(np.genfromtxt(str(self.name)+'DUMPPRJ.DAT'))
 
                     #Energy angle coordinates for new list are:
                     #Energy: 2, cos(alpha), cos(beta), cos(gamma): 6:8, mass
@@ -159,6 +160,13 @@ class tridyn_interface:
                         #end for
                     #end if
 
+                    total_range = 0.
+                    if np.size(deposited_list) > 0:
+                        for row in deposited_list:
+                            range = row[2];
+                            total_range += range
+
+
                     #TODO implement implanted/deposited projectile list
                     sim_number += 1
                     num_deposited += num_dep
@@ -167,7 +175,8 @@ class tridyn_interface:
                 #end if
             #end for
         #end for
-        return num_spt, num_bks
+        total_range /= num_dep
+        return num_spt, num_bks, total_range*1E-10
     #end def run_tridyn_simulations_from_iead
 #end class tridyn_interface
 

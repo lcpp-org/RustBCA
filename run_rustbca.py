@@ -65,7 +65,7 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, trac
         'm': [Ma for _ in range(N)],
         'Z': [Za for _ in range(N)],
         'E': [E0 for _ in range(N)],
-        'pos': [(-n**(-1./3.)/MICRON, 0., 0.) for _ in range(N)],
+        'pos': [(-dx, 0., 0.) for _ in range(N)],
         'dir': [(cosx, sinx, 0.) for _ in range(N)]
     }
 
@@ -307,37 +307,41 @@ if __name__ == '__main__':
         'Ec': 11.,
     }
 
-    beam_species = [helium, hydrogen]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
-    target_species = [beryllium, boron, silicon, copper]
-
+    beam_species = [helium, hydrogen, argon]#, hydrogen]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
+    target_species = [beryllium, boron]#, boron, silicon, copper]
 
     N = 1
-    N_ = 1000
+    N_ = 100000
     theta = 0.00001
     thickness = 1000
     depth = 1000
-    energies = np.round(np.logspace(1, 6, 10))
+    energies = np.round(np.logspace(1, 3, 10))
 
     os.system('rm rustBCA')
     os.system('cargo build --release')
     os.system('mv target/release/rustBCA .')
 
-    name = []
+    name_1 = []
+    name_2 = []
     for beam in beam_species:
         Za = beam['Z']
         Ma = beam['m']
         for target in target_species:
-            name.append(beam['symbol']+' on '+target['symbol']+' Y RustBCA')
-            name.append(beam['symbol']+' on '+target['symbol']+' R RustBCA')
-            name.append(beam['symbol']+' on '+target['symbol']+' Y F-TRIDYN')
-            name.append(beam['symbol']+' on '+target['symbol']+' R F-TRIDYN')
-            name.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura')
-            Y = []
-            R = []
-            FY = []
-            FR = []
-            YY = []
-            ion_range = []
+            name_1.append(beam['symbol']+' on '+target['symbol']+' Y RustBCA')
+            name_1.append(beam['symbol']+' on '+target['symbol']+' R RustBCA')
+            name_1.append(beam['symbol']+' on '+target['symbol']+' Y F-TRIDYN')
+            name_1.append(beam['symbol']+' on '+target['symbol']+' R F-TRIDYN')
+            name_1.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura')
+
+            name_2.append(beam['symbol']+' on '+target['symbol']+' Range RustBCA')
+            name_2.append(beam['symbol']+' on '+target['symbol']+' Range F-TRIDYN')
+            rustbca_yield = []
+            rustbca_reflection = []
+            ftridyn_yield = []
+            ftridyn_reflection = []
+            yamamura_yield = []
+            rustbca_range = []
+            ftridyn_range = []
             Zb = target['Z']
             Ec = target['Ec']
             Es = target['Es']
@@ -345,33 +349,46 @@ if __name__ == '__main__':
             Mb = target['m']
             n = target['n']
             for energy in energies:
-                Y_, R_, ion_range_ = main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=True, track_recoil_trajectories=False, write_files=True, name=str(energy)+beam['symbol']+'_'+target['symbol'])
-                Y.append(Y_)
-                R.append(R_)
-                ion_range.append(ion_range_)
+
+                rustbca_yield_, rustbca_reflection_, rustbca_range_ = main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=True, track_recoil_trajectories=False, write_files=True, name=str(energy)+beam['symbol']+'_'+target['symbol'])
+                rustbca_yield.append(rustbca_yield_)
+                rustbca_reflection.append(rustbca_reflection_)
+                rustbca_range.append(rustbca_range_)
+
                 ftridyn_name = beam['symbol'].ljust(2, '_') + target['symbol'].ljust(2, '_')
                 interface = g.tridyn_interface(beam['symbol'], target['symbol'])
-                FY_, FR_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
-                FY.append(FY_/np.max([100, N_]))
-                FR.append(FR_/np.max([100, N_]))
-                YY_ = yamamura(beam, target, energy)
-                YY.append(YY_)
+                ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
+                ftridyn_yield.append(ftridyn_yield_/np.max([100, N_]))
+                ftridyn_reflection.append(ftridyn_reflection_/np.max([100, N_]))
+                ftridyn_range.append(ftridyn_range_)
+
+                yamamura_yield_ = yamamura(beam, target, energy)
+                yamamura_yield.append(yamamura_yield_)
                 #do_plots(str(energy)+beam['symbol']+'_'+target['symbol'])
                 #breakpoint()
 
             plt.figure(1)
-            handle = plt.loglog(energies, Y, '*')
-            plt.loglog(energies, R, ':', color=handle[0].get_color())
+            handle = plt.loglog(energies, rustbca_yield, '*')
+            plt.loglog(energies, rustbca_reflection, ':', color=handle[0].get_color())
 
-            plt.loglog(energies, FR, '.', color=handle[0].get_color())
-            plt.loglog(energies, FY, 'o', color=handle[0].get_color())
-            plt.loglog(energies, YY, '-', color=handle[0].get_color())
+            plt.loglog(energies, ftridyn_reflection, '.', color=handle[0].get_color())
+            plt.loglog(energies, ftridyn_yield, 'o', color=handle[0].get_color())
+            plt.loglog(energies, yamamura_yield, '-', color=handle[0].get_color())
 
             plt.figure(2)
-            plt.loglog(energies, ion_range, color=handle[0].get_color())
+            plt.loglog(energies, rustbca_range, color=handle[0].get_color())
+            plt.loglog(energies, np.array(ftridyn_range)/MICRON, '--', color=handle[0].get_color())
 
     plt.figure(1)
-    plt.legend(name)
-    plt.axis([0, 1E5, 0, 3])
+    plt.legend(name_1)
+    plt.axis([0, np.max(energies), 1./N_, 10.])
+    plt.ylabel('Y/R [at/ion]/[ion/ion]')
+    plt.xlabel('E [eV]')
+
+    plt.figure(2)
+    plt.legend(name_2)
+    plt.xlabel('E [eV]')
+    plt.ylabel('Range [um]')
+
     plt.show()
     breakpoint()

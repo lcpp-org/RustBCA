@@ -5,13 +5,9 @@ authors = ["Jon Drobny <drobny2@illinois.edu>"]
 edition = "2018"
 
 [dependencies]
-ndarray = "0.13.0"
 rand = "0.7"
 geo = "0.12.2"
-csv = "1"
 serde = { version = "1", features = ["derive"] }
-text_io = "0.1.8"
-scan_fmt = "0.2.5"
 toml = "0.5"
 
 [profile.release]
