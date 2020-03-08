@@ -3,6 +3,7 @@ extern crate serde;
 extern crate toml;
 
 pub use crate::geo::*;
+//use geo::prelude::*;
 use geo::algorithm::contains::Contains;
 use geo::algorithm::closest_point::ClosestPoint;
 use std::fs::OpenOptions;
@@ -89,7 +90,7 @@ pub struct Particle {
     dir: Vector,
     pos_old: Vector,
     pos_origin: Vector,
-    t: f64,
+    asympototic_deflection: f64,
     stopped: bool,
     left: bool,
     incident: bool,
@@ -108,7 +109,7 @@ impl Particle {
             dir: Vector::new(dirx, diry, dirz),
             pos_old: Vector::new(x, y, z),
             pos_origin: Vector::new(x, y, z),
-            t: 0.,
+            asympototic_deflection: 0.,
             stopped: false,
             left: false,
             incident: incident,
@@ -342,6 +343,7 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
         let E0: f64 = particle_1.E;
         let mu: f64 = Mb/(Ma + Mb);
 
+        //Lindhard screening length and reduced energy
         let a: f64 = screening_length(Za, Zb);
         let reduced_energy: f64 = K*a*mu/(Za*Zb*Q*Q)*E0;
         let beta: f64 = impact_parameter/a;
@@ -371,30 +373,29 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
         let alpha = 1./12.*(1. + lambda_0 + 5.*(0.4206*f(x0/0.9072, beta, reduced_energy) + 0.9072*f(x0/0.4206, beta, reduced_energy)));
         let theta = PI*(1. - beta*alpha/x0);
 
-        //See Eckstein 1991 for details on center of mass and lab frame angles here
-        let t = x0*a*(theta/2.).sin();
+        //See Eckstein 1991 for details on center of mass and lab frame angles
+        let asympototic_deflection = x0*a*(theta/2.).sin();
         let psi = (theta.sin()).atan2(Ma/Mb + theta.cos());
-        let T = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*((theta/2.).sin()).powf(2.);
+        let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*((theta/2.).sin()).powf(2.);
 
-        return (theta, psi, T, t);
+        return (theta, psi, recoil_energy, asympototic_deflection);
     }
 }
 
-fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, material: &Material, phi_azimuthal: f64, theta: f64, psi: f64, T: f64, t: f64) {
+fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, material: &Material, phi_azimuthal: f64, theta: f64, psi: f64, recoil_energy: f64, asympototic_deflection: f64) {
     let mut mfp = material.mfp(particle_1.pos.x, particle_1.pos.y);
 
     //Store previous position - this is used for boundary checking
     particle_1.pos_old.assign(&particle_1.pos);
 
-
     //path length - must subtract next asymptotic deflection and add previous to obtain correct trajectory
-    let ffp: f64 = mfp - t + particle_1.t;
+    let path_length: f64 = mfp - asympototic_deflection + particle_1.asympototic_deflection;
 
-    particle_1.pos.x += ffp*particle_1.dir.x;
-    particle_1.pos.y += ffp*particle_1.dir.y;
-    particle_1.pos.z += ffp*particle_1.dir.z;
+    particle_1.pos.x += path_length*particle_1.dir.x;
+    particle_1.pos.y += path_length*particle_1.dir.y;
+    particle_1.pos.z += path_length*particle_1.dir.z;
 
-    particle_1.t = t;
+    particle_1.asympototic_deflection = asympototic_deflection;
 
     let ca: f64 = particle_1.dir.x;
     let cb: f64 = particle_1.dir.y;
@@ -433,10 +434,10 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
     }
 
     //Momentum test
-    //let test_E = particle_1.E - T;
+    //let test_E = particle_1.E - recoil_energy;
     //let v0 = (2.*particle_1.E/particle_1.m).sqrt();
     //let v1 = (2.*test_E/particle_1.m).sqrt();
-    //let v2 = (2.*T/particle_2.m).sqrt();
+    //let v2 = (2.*recoil_energy/particle_2.m).sqrt();
 
     //let px0 = particle_1.m*v0*ca;
     //let px1 = particle_1.m*v1*particle_1.dir.x;
@@ -495,16 +496,16 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
             stopping_power = 1./(1./S_BB + 1./S_LS);
 
         }
-        let Enl = ffp*stopping_power;
+        let Enl = path_length*stopping_power;
 
         //Ensure that energies do not go negative
-        particle_1.E = E - T - Enl;
+        particle_1.E = E - recoil_energy - Enl;
         if particle_1.E < 0. {
             particle_1.E = 0.;
         }
 
         //Ensure that energies do not go negative
-        particle_2.E = T - material.Eb;
+        particle_2.E = recoil_energy - material.Eb;
         if particle_2.E < 0. {
             particle_2.E = 0.;
         }
@@ -535,8 +536,12 @@ fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f
 }
 
 fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) {
-    let leaving: bool = !material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) & material.inside_energy_barrier(particle_1.pos_old.x, particle_1.pos_old.y);
-    let entering: bool = material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) & !material.inside_energy_barrier(particle_1.pos_old.x, particle_1.pos_old.y);
+    
+    let within_now: bool = material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y);
+    let within_then: bool = material.inside_energy_barrier(particle_1.pos_old.x, particle_1.pos_old.y);
+    
+    let leaving: bool = !within_now & within_then;
+    let entering: bool = within_now & !within_then;
 
     if leaving | entering {
         let cosx = particle_1.dir.x;
@@ -632,15 +637,19 @@ fn bca_input() {
     };
 
     //Estimate maximum number of recoils produced
-    let mut total_energy: f64 = 0.;
+    let mut max_energy: f64 = 0.;
     let mut total_particles: usize = 0;
     for particle_index in 0..N {
         let E = particle_parameters.E[particle_index];
         let N_ = particle_parameters.N[particle_index];
-        total_energy += E*(N_ as f64)*energy_unit;
+        if E > max_energy {
+            max_energy = E*energy_unit;
+        }
+        total_particles += N_;
     }
-    let estimated_num_particles: usize = total_particles + ((total_energy/material.Ec).ceil() as usize);
 
+    let estimated_num_particles: usize = total_particles + ((max_energy/material.Ec).ceil() as usize);
+    //println!("{} {} {}", max_energy, material.Ec,estimated_num_particles);
     //Create particle array
     let mut particles: Vec<Particle> = Vec::with_capacity(estimated_num_particles);
     for particle_index in 0..N {
@@ -672,37 +681,37 @@ fn bca_input() {
         create(true).
         open(format!("{}{}", options.name, "reflected.output")).
         unwrap();
-    let mut reflected_file_stream = BufWriter::with_capacity(16000, reflected_file);
+    let mut reflected_file_stream = BufWriter::with_capacity(options.stream_size, reflected_file);
 
     let mut sputtered_file = OpenOptions::new()
         .write(true)
         .create(true)
         .open(format!("{}{}", options.name, "sputtered.output"))
         .unwrap();
-    let mut sputtered_file_stream = BufWriter::with_capacity(16000, sputtered_file);
+    let mut sputtered_file_stream = BufWriter::with_capacity(options.stream_size, sputtered_file);
 
     let mut deposited_file = OpenOptions::new()
         .write(true)
         .create(true)
         .open(format!("{}{}", options.name, "deposited.output"))
         .unwrap();
-    let mut deposited_file_stream = BufWriter::with_capacity(16000, deposited_file);
+    let mut deposited_file_stream = BufWriter::with_capacity(options.stream_size, deposited_file);
 
     let mut trajectory_file = OpenOptions::new()
         .write(true)
         .create(true)
         .open(format!("{}{}", options.name, "trajectories.output"))
         .unwrap();
-    let mut trajectory_file_stream = BufWriter::with_capacity(16000, trajectory_file);
+    let mut trajectory_file_stream = BufWriter::with_capacity(options.stream_size, trajectory_file);
 
     let mut trajectory_data = OpenOptions::new()
         .write(true)
         .create(true)
         .open(format!("{}{}", options.name, "trajectory_data.output"))
         .unwrap();
-    let mut trajectory_data_stream = BufWriter::with_capacity(16000, trajectory_data);
+    let mut trajectory_data_stream = BufWriter::with_capacity(options.stream_size, trajectory_data);
 
-    //Main BCA loop
+    //Main s loop
     let mut particle_index: usize = particles.len();
 
     'particle_loop: while particle_index > 0 {
@@ -754,14 +763,14 @@ fn bca_input() {
             );
 
             //Calculate scattering and update coordinates
-            let (theta, psi, T, t) = binary_collision(&particle_1, &particle_2, &material, impact_parameter, 1E-6, 100);
-            update_coordinates(&mut particle_1, &mut particle_2, &material, phi_azimuthal, theta, psi, T, t);
+            let (theta, psi, recoil_energy, asympototic_deflection) = binary_collision(&particle_1, &particle_2, &material, impact_parameter, 1E-6, 100);
+            update_coordinates(&mut particle_1, &mut particle_2, &material, phi_azimuthal, theta, psi, recoil_energy, asympototic_deflection);
 
             //Reflection and refraction from surface energy barrier
             surface_boundary_condition(&mut particle_1, &material);
 
             //Generate recoils if transferred kinetic energy larger than cutoff energy
-            if (T > material.Ec) & options.track_recoils {
+            if (recoil_energy > material.Ec) & options.track_recoils {
                 particle_2.add_trajectory();
                 particles.push(particle_2);
             }

@@ -67,7 +67,7 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, trac
         'm': [Ma for _ in range(N)],
         'Z': [Za for _ in range(N)],
         'E': [E0 for _ in range(N)],
-        'pos': [(-dx, 0., 0.) for _ in range(N)],
+        'pos': [(-n**(-1./3.), 0., 0.) for _ in range(N)],
         'dir': [(cosx, sinx, 0.) for _ in range(N)]
     }
 
@@ -310,14 +310,14 @@ if __name__ == '__main__':
     }
 
     beam_species = [helium, hydrogen, argon]#, hydrogen]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
-    target_species = [beryllium, boron]#, boron, silicon, copper]
+    target_species = [beryllium, boron]#, copper]#, boron, silicon, copper]
 
     N = 1
     N_ = 10000
     theta = 0.00001
     thickness = 1000
     depth = 1000
-    energies = np.round(np.logspace(1, 3, 5))
+    energies = np.round(np.logspace(1, 3, 20))
 
     os.system('rm rustBCA')
     os.system('cargo build --release')
