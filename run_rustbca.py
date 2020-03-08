@@ -21,6 +21,107 @@ SQRTPI = 1.77245385
 SQRT2PI = 2.506628274631
 C = 300000000.
 
+hydrogen = {
+    'symbol': 'H',
+    'name': 'hydrogen',
+    'Z': 1,
+    'm': 1.008,
+}
+helium = {
+    'symbol': 'He',
+    'name': 'helium',
+    'Z': 2,
+    'm': 4.002602
+}
+
+beryllium = {
+    'symbol': 'Be',
+    'name': 'beryllium',
+    'Z': 4,
+    'm': 9.012182,
+    'n': 1.235E29,
+    'Es': 3.31,
+    'Eb': 0.,
+    'Ec': 3.0,
+    'Q': 2.17,
+}
+
+boron = {
+    'symbol': 'B',
+    'name': 'boron',
+    'Z': 5,
+    'm': 10.811,
+    'n': 1.37E29,
+    'Es': 5.76,
+    'Eb': 0.,
+    'Ec': 5.,
+    'Q': 4.6,
+}
+
+neon = {
+    'symbol': 'Ne',
+    'name': 'neon',
+    'Z': 10,
+    'm': 20.1797,
+}
+
+silicon = {
+    'symbol': 'Si',
+    'name': 'silicon',
+    'Z': 14,
+    'm': 28.08553,
+    'n': 4.996E28,
+    'Es': 4.72,
+    'Eb': 0.,
+    'Ec': 4.,
+    'Q': 0.78,
+}
+
+argon = {
+    'symbol': 'Ar',
+    'name': 'argon',
+    'Z': 18,
+    'm': 39.948,
+}
+
+copper = {
+    'symbol': 'Cu',
+    'name': 'copper',
+    'Z': 29,
+    'm': 63.546,
+    'n': 8.491E28,
+    'Es': 3.52,
+    'Eb': 0.,
+    'Ec': 3.,
+    'Q': 1.30,
+}
+
+tungsten = {
+    'symbol': 'W',
+    'name': 'tungsten',
+    'Z': 74,
+    'm': 183.84,
+    'n': 6.306E28,
+    'Es': 11.75,
+    'Eb': 0.,
+    'Ec': 11.,
+}
+
+yamamura_tables = {
+    'Ar': {
+        'Cu': np.genfromtxt('ArCu.dat', delimiter=','),
+        'Si': np.genfromtxt('ArSi.dat', delimiter=','),
+        'Be': np.genfromtxt('ArBe.dat', delimiter=','),
+        'B': np.genfromtxt('ArB_.dat', delimiter=','),
+        'W': np.genfromtxt('ArW_.dat', delimiter=','),
+    },
+    'He': {
+        'Cu': np.genfromtxt('HeCu.dat', delimiter=','),
+        'Si': np.genfromtxt('HeSi.dat', delimiter=','),
+    }
+}
+
+
 def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='test_'):
 
     options = {
@@ -29,7 +130,7 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, trac
         'track_recoils': track_recoils,
         'track_recoil_trajectories': track_recoil_trajectories,
         'write_files': write_files,
-        'stream_size': 32000
+        'stream_size': 64000
     }
 
     material_parameters = {
@@ -82,7 +183,7 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, trac
         toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
 
     os.system('rm *.output')
-    os.system('./rustBCA')
+    os.system('rustBCA.exe')
 
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
@@ -146,7 +247,8 @@ def do_plots(name):
         74: 'blue',
         4: 'black',
         5: 'blue',
-        18: 'red'
+        18: 'red',
+        14: 'blue',
     }
 
     linewidths = {
@@ -154,13 +256,14 @@ def do_plots(name):
         29: 1,
         2: 1,
         74: 1,
+        14: 1
     }
 
     #minx, miny, maxx, maxy = simulation_surface.bounds
-    minx = np.min(trajectories[:, 3])
-    maxx = np.max(trajectories[:, 3])
-    miny = np.min(trajectories[:, 4])
-    maxy = np.min(trajectories[:, 4])
+    minx = np.min(deposited[:, 2])
+    maxx = np.max(deposited[:, 2])
+    miny = np.min(deposited[:, 3])
+    maxy = np.max(deposited[:, 3])
 
     fig1, axis1 = plt.subplots()
     #plt.plot(*surface.exterior.xy, color='dimgray')
@@ -222,186 +325,218 @@ def do_plots(name):
 
     plt.show()
 
+def cross_validation():
+
+        beam_species = [argon]#, hydrogen]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
+        target_species = [copper]#, copper]#, copper]#, boron, silicon, copper]
+
+        N = 1
+        N_ = 10000
+        theta = 0.00001
+        thickness = 1000
+        depth = 1000
+        energies = np.round(np.logspace(2, 3, 25))
+
+        os.system('rm rustBCA.exe')
+        os.system('cargo build --release')
+        os.system('mv target/release/rustBCA.exe .')
+
+        name_1 = []
+        name_2 = []
+        rustbca_time = 0.
+        ftridyn_time = 0.
+        for beam in beam_species:
+            Za = beam['Z']
+            Ma = beam['m']
+            for target in target_species:
+                name_1.append(beam['symbol']+' on '+target['symbol']+' Y RustBCA')
+                name_1.append(beam['symbol']+' on '+target['symbol']+' R RustBCA')
+                name_1.append(beam['symbol']+' on '+target['symbol']+' Y F-TRIDYN')
+                name_1.append(beam['symbol']+' on '+target['symbol']+' R F-TRIDYN')
+                name_1.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura')
+                name_1.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura Wien')
+
+                name_2.append(beam['symbol']+' on '+target['symbol']+' Range RustBCA')
+                name_2.append(beam['symbol']+' on '+target['symbol']+' Range F-TRIDYN')
+                rustbca_yield = []
+                rustbca_reflection = []
+                ftridyn_yield = []
+                ftridyn_reflection = []
+                yamamura_yield = []
+                rustbca_range = []
+                ftridyn_range = []
+                Zb = target['Z']
+                Ec = target['Ec']
+                Es = target['Es']
+                Eb = target['Eb']
+                Mb = target['m']
+                n = target['n']
+                for energy in energies:
+
+                    start = time.time()
+                    rustbca_yield_, rustbca_reflection_, rustbca_range_ = main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=True, track_recoils=True, track_recoil_trajectories=True, write_files=True, name=str(energy)+beam['symbol']+'_'+target['symbol'])
+                    stop = time.time()
+                    rustbca_time += stop - start
+                    rustbca_yield.append(rustbca_yield_)
+                    rustbca_reflection.append(rustbca_reflection_)
+                    rustbca_range.append(rustbca_range_)
+
+                    ftridyn_name = beam['symbol'].ljust(2, '_') + target['symbol'].ljust(2, '_')
+                    interface = g.tridyn_interface(beam['symbol'], target['symbol'])
+                    start = time.time()
+                    ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
+                    stop = time.time()
+                    ftridyn_time += stop - start
+                    ftridyn_yield.append(ftridyn_yield_/np.max([100, N_]))
+                    ftridyn_reflection.append(ftridyn_reflection_/np.max([100, N_]))
+                    ftridyn_range.append(ftridyn_range_)
+
+                    yamamura_yield_ = yamamura(beam, target, energy)
+                    yamamura_yield.append(yamamura_yield_)
+                    #do_plots(str(energy)+beam['symbol']+'_'+target['symbol'])
+                    #breakpoint()
+
+                plt.figure(1)
+                handle = plt.loglog(energies, rustbca_yield, '*')
+                plt.loglog(energies, rustbca_reflection, ':', color=handle[0].get_color())
+
+                plt.loglog(energies, ftridyn_reflection, '.', color=handle[0].get_color())
+                plt.loglog(energies, ftridyn_yield, 'o', color=handle[0].get_color())
+                plt.loglog(energies, yamamura_yield, '-', color=handle[0].get_color())
+                yamamura_table = yamamura_tables[beam['symbol']][target['symbol']]
+                plt.loglog(yamamura_table[:,0], yamamura_table[:,1], '-', color=handle[0].get_color())
+
+                plt.figure(2)
+                plt.loglog(energies, rustbca_range, color=handle[0].get_color())
+                plt.loglog(energies, np.array(ftridyn_range)/MICRON, '--', color=handle[0].get_color())
+
+
+        plt.figure(1)
+        plt.legend(name_1)
+        plt.axis([0, np.max(energies), 1./N_, 10.])
+        plt.ylabel('Y/R [at/ion]/[ion/ion]')
+        plt.xlabel('E [eV]')
+
+        plt.figure(2)
+        plt.legend(name_2)
+        plt.xlabel('E [eV]')
+        plt.ylabel('Range [um]')
+
+        print(f'time rustBCA: {rustbca_time} time F-TRIDYN: {ftridyn_time}')
+
+        #plt.show()
+        breakpoint()
+
+def starshot_rustbca(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='starshot_'):
+    options = {
+        'name': name,
+        'track_trajectories': track_trajectories,
+        'track_recoils': track_recoils,
+        'track_recoil_trajectories': track_recoil_trajectories,
+        'write_files': write_files,
+        'stream_size': 64000
+    }
+
+    material_parameters = {
+        'energy_unit': 'EV',
+        'mass_unit': 'AMU',
+        'Eb': Eb,
+        'Es': Es,
+        'Ec': Ec,
+        'n': n,
+        'Z': Zb,
+        'm': Mb
+    }
+    dx = 2.*n**(-1./3.)/np.sqrt(2.*np.pi)/MICRON
+
+    minx, miny, maxx, maxy = 0.0, -thickness/2., depth, thickness/2.
+    surface = box(minx, miny, maxx, maxy)
+    energy_surface = surface.buffer(dx, cap_style=2, join_style=2)
+    simulation_surface = surface.buffer(2.*dx, cap_style=2, join_style=2)
+
+    geometry = {
+        'length_unit': 'MICRON',
+        'surface': list(surface.exterior.coords),
+        'energy_surface': list(energy_surface.exterior.coords),
+        'simulation_surface': list(simulation_surface.exterior.coords),
+    }
+
+    cosx = np.cos(theta*180./np.pi)
+    sinx = np.sin(theta*180./np.pi)
+
+    particle_parameters = {
+        'length_unit': 'MICRON',
+        'energy_unit': 'EV',
+        'mass_unit': 'AMU',
+        'N': [N_ for _ in range(N)],
+        'm': [Ma for _ in range(N)],
+        'Z': [Za for _ in range(N)],
+        'E': [E0 for _ in range(N)],
+        'pos': [(-n**(-1./3.), thickness*np.random.uniform(-1., 1.)/2., 0.) for _ in range(N)],
+        'dir': [(cosx, sinx, 0.) for _ in range(N)]
+    }
+
+    input_file = {
+        'options': options,
+        'material_parameters': material_parameters,
+        'geometry': geometry,
+        'particle_parameters': particle_parameters
+    }
+
+    with open('input.toml', 'w') as file:
+        toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
+
+    os.system('rm *.output')
+    os.system('rustBCA.exe')
+
+    reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
+    sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
+    deposited = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
+    trajectories = np.atleast_2d(np.genfromtxt(name+'trajectories.output', delimiter=','))
+    trajectory_data = np.genfromtxt(name+'trajectory_data.output', delimiter=',').transpose().astype(int)
+
+    if np.size(sputtered) > 0:
+        Y = len(sputtered[:,0])/N/N_
+    else:
+        Y = 0
+
+    if np.size(reflected) > 0:
+        R = len(reflected[:,0])/N/N_
+    else:
+        R = 0
+
+    if np.size(deposited) > 0:
+        ion_range = np.mean(deposited[:, 2])
+    else:
+        ion_range = 0
+
+    return Y, R, ion_range
+
 if __name__ == '__main__':
-    hydrogen = {
-        'symbol': 'H',
-        'name': 'hydrogen',
-        'Z': 1,
-        'm': 1.008,
-    }
-    helium = {
-        'symbol': 'He',
-        'name': 'helium',
-        'Z': 2,
-        'm': 4.002602
-    }
+    velocities = np.linspace(0.05, 0.2, 5)*C
 
-    beryllium = {
-        'symbol': 'Be',
-        'name': 'beryllium',
-        'Z': 4,
-        'm': 9.012182,
-        'n': 1.235E29,
-        'Es': 3.31,
-        'Eb': 0.,
-        'Ec': 3.0,
-        'Q': 2.17,
-    }
-
-    boron = {
-        'symbol': 'B',
-        'name': 'boron',
-        'Z': 5,
-        'm': 10.811,
-        'n': 1.37E29,
-        'Es': 5.76,
-        'Eb': 0.,
-        'Ec': 5.,
-        'Q': 4.6,
-    }
-
-    neon = {
-        'symbol': 'Ne',
-        'name': 'neon',
-        'Z': 10,
-        'm': 20.1797,
-    }
-
-    silicon = {
-        'symbol': 'Si',
-        'name': 'silicon',
-        'Z': 14,
-        'm': 28.08553,
-        'n': 4.996E28,
-        'Es': 4.72,
-        'Eb': 0.,
-        'Ec': 4.,
-        'Q': 0.78,
-    }
-
-    argon = {
-        'symbol': 'Ar',
-        'name': 'argon',
-        'Z': 18,
-        'm': 39.948,
-    }
-
-    copper = {
-        'symbol': 'Cu',
-        'name': 'copper',
-        'Z': 29,
-        'm': 63.546,
-        'n': 8.491E28,
-        'Es': 3.52,
-        'Eb': 0.,
-        'Ec': 3.,
-        'Q': 1.30,
-    }
-
-    tungsten = {
-        'symbol': 'W',
-        'name': 'tungsten',
-        'Z': 74,
-        'm': 183.84,
-        'n': 6.306E28,
-        'Es': 11.75,
-        'Eb': 0.,
-        'Ec': 11.,
-    }
-
-    beam_species = [helium, hydrogen, argon]#, hydrogen]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
-    target_species = [beryllium, boron]#, copper]#, boron, silicon, copper]
-
-    N = 1
-    N_ = 10000
-    theta = 0.00001
-    thickness = 1000
+    N = 10000
+    N_ = 1
+    theta = 0.0001
+    thickness = 50
     depth = 1000
-    energies = np.round(np.logspace(1, 3, 20))
 
-    os.system('rm rustBCA')
-    os.system('cargo build --release')
-    os.system('mv target/release/rustBCA .')
+    #H
+    beam = hydrogen
+    targets = [copper, tungsten, beryllium]
+    energies = np.round(0.5*velocities**2*beam['m']*AMU/Q)
+    Za = beam['Z']
+    Ma = beam['m']
 
-    name_1 = []
-    name_2 = []
-    rustbca_time = 0.
-    ftridyn_time = 0.
-    for beam in beam_species:
-        Za = beam['Z']
-        Ma = beam['m']
-        for target in target_species:
-            name_1.append(beam['symbol']+' on '+target['symbol']+' Y RustBCA')
-            name_1.append(beam['symbol']+' on '+target['symbol']+' R RustBCA')
-            name_1.append(beam['symbol']+' on '+target['symbol']+' Y F-TRIDYN')
-            name_1.append(beam['symbol']+' on '+target['symbol']+' R F-TRIDYN')
-            name_1.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura')
+    for target in targets:
+        Zb = target['Z']
+        Mb = target['m']
+        n = target['n']
+        Es = target['Es']
+        Ec = target['Ec']
+        Eb = target['Eb']
 
-            name_2.append(beam['symbol']+' on '+target['symbol']+' Range RustBCA')
-            name_2.append(beam['symbol']+' on '+target['symbol']+' Range F-TRIDYN')
-            rustbca_yield = []
-            rustbca_reflection = []
-            ftridyn_yield = []
-            ftridyn_reflection = []
-            yamamura_yield = []
-            rustbca_range = []
-            ftridyn_range = []
-            Zb = target['Z']
-            Ec = target['Ec']
-            Es = target['Es']
-            Eb = target['Eb']
-            Mb = target['m']
-            n = target['n']
-            for energy in energies:
-
-                start = time.time()
-                rustbca_yield_, rustbca_reflection_, rustbca_range_ = main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=True, track_recoil_trajectories=False, write_files=True, name=str(energy)+beam['symbol']+'_'+target['symbol'])
-                stop = time.time()
-                rustbca_time += stop - start
-                rustbca_yield.append(rustbca_yield_)
-                rustbca_reflection.append(rustbca_reflection_)
-                rustbca_range.append(rustbca_range_)
-
-                ftridyn_name = beam['symbol'].ljust(2, '_') + target['symbol'].ljust(2, '_')
-                interface = g.tridyn_interface(beam['symbol'], target['symbol'])
-                start = time.time()
-                ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
-                stop = time.time()
-                ftridyn_time += stop - start
-                ftridyn_yield.append(ftridyn_yield_/np.max([100, N_]))
-                ftridyn_reflection.append(ftridyn_reflection_/np.max([100, N_]))
-                ftridyn_range.append(ftridyn_range_)
-
-                yamamura_yield_ = yamamura(beam, target, energy)
-                yamamura_yield.append(yamamura_yield_)
-                #do_plots(str(energy)+beam['symbol']+'_'+target['symbol'])
-                #breakpoint()
-
-            plt.figure(1)
-            handle = plt.loglog(energies, rustbca_yield, '*')
-            plt.loglog(energies, rustbca_reflection, ':', color=handle[0].get_color())
-
-            plt.loglog(energies, ftridyn_reflection, '.', color=handle[0].get_color())
-            plt.loglog(energies, ftridyn_yield, 'o', color=handle[0].get_color())
-            plt.loglog(energies, yamamura_yield, '-', color=handle[0].get_color())
-
-            plt.figure(2)
-            plt.loglog(energies, rustbca_range, color=handle[0].get_color())
-            plt.loglog(energies, np.array(ftridyn_range)/MICRON, '--', color=handle[0].get_color())
-
-
-    plt.figure(1)
-    plt.legend(name_1)
-    plt.axis([0, np.max(energies), 1./N_, 10.])
-    plt.ylabel('Y/R [at/ion]/[ion/ion]')
-    plt.xlabel('E [eV]')
-
-    plt.figure(2)
-    plt.legend(name_2)
-    plt.xlabel('E [eV]')
-    plt.ylabel('Range [um]')
-
-    print(f'time rustBCA: {rustbca_time} time F-TRIDYN: {ftridyn_time}')
-
-    #plt.show()
-    breakpoint()
+        for energy in energies:
+            Y, R, ion_range = starshot_rustbca(Zb, Mb, n, Ec, Es, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name=str(energy)+beam['symbol']+'_'+target['symbol'])
+            do_plots(str(energy)+beam['symbol']+'_'+target['symbol'])
+            breakpoint()

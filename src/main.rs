@@ -369,7 +369,7 @@ fn binary_collision(particle_1: &Particle, particle_2: &Particle,  material: &Ma
         }
 
         //Scattering integral quadrature from Mendenhall and Weller 2005
-        let lambda_0 = (0.5 + beta*beta/x0/x0/2. - dphi(x0)/2./reduced_energy).powf(-0.5);
+        let lambda_0 = (0.5 + beta*beta/x0/x0/2. - dphi(x0)/2./reduced_energy).powf(-1./2.);
         let alpha = 1./12.*(1. + lambda_0 + 5.*(0.4206*f(x0/0.9072, beta, reduced_energy) + 0.9072*f(x0/0.4206, beta, reduced_energy)));
         let theta = PI*(1. - beta*alpha/x0);
 
@@ -463,7 +463,7 @@ fn update_coordinates(particle_1: &mut Particle, particle_2: &mut Particle, mate
         let mut stopping_power = 0.;
 
         //Electronic stopping only inside material
-        if material.inside(particle_1.pos_old.x, particle_1.pos_old.y) {
+        if material.inside(particle_1.pos.x, particle_1.pos.y) {
             //Bethe-Bloch stopping, as modified by Biersack and Haggmark (1980) to fit experiment
             let n = material.number_density(particle_1.pos.x, particle_1.pos.y);
             let v = (2.*E/Ma).sqrt();
@@ -516,7 +516,8 @@ fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f
     //Liquid model of amorphous material - see Eckstein 1991
     let mfp: f64 = material.mfp(particle_1.pos.x, particle_1.pos.y);
 
-    let pmax : f64 = mfp/SQRTPI;
+    //let pmax : f64 = mfp/SQRTPI;//Cylindrical
+    let pmax: f64 = 0.6204*mfp;//Spherical
     let impact_parameter: f64 = pmax*(rand::random::<f64>()).sqrt();
     let phi_azimuthal: f64 = 2.*PI*rand::random::<f64>();
 
@@ -536,10 +537,10 @@ fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f
 }
 
 fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) {
-    
+
     let within_now: bool = material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y);
     let within_then: bool = material.inside_energy_barrier(particle_1.pos_old.x, particle_1.pos_old.y);
-    
+
     let leaving: bool = !within_now & within_then;
     let entering: bool = within_now & !within_then;
 
