@@ -516,8 +516,8 @@ fn pick_collision_partner(particle_1: &Particle, material: &Material) -> (f64, f
     //Liquid model of amorphous material - see Eckstein 1991
     let mfp: f64 = material.mfp(particle_1.pos.x, particle_1.pos.y);
 
-    //let pmax : f64 = mfp/SQRTPI;//Cylindrical
-    let pmax: f64 = 0.6204*mfp;//Spherical
+    let pmax : f64 = mfp/SQRTPI;//Cylindrical
+    //let pmax: f64 = 0.6204*mfp;//Spherical
     let impact_parameter: f64 = pmax*(rand::random::<f64>()).sqrt();
     let phi_azimuthal: f64 = 2.*PI*rand::random::<f64>();
 
@@ -561,8 +561,6 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) {
             let costheta = dx*cosx/mag + dy*cosy/mag;
 
             if leaving & (E*costheta*costheta < Es) {
-                //reflect back onto surface
-                //println!("backreflected");
                 particle_1.dir.x = -2.*costheta*dx/mag + cosx;
                 particle_1.dir.y = -2.*costheta*dy/mag + cosy;
 
@@ -580,9 +578,15 @@ fn surface_boundary_condition(particle_1: &mut Particle, material: &Material) {
                 particle_1.dir.x = sign_x*((E*cosx*cosx + Es*dx*dx/mag/mag)/(E + sign*Es)).sqrt();
                 particle_1.dir.y = sign_y*((E*cosy*cosy + Es*dy*dy/mag/mag)/(E + sign*Es)).sqrt();
                 particle_1.dir.z = sign_z*(E*cosz*cosz/(E + sign*Es)).sqrt();
-                particle_1.E = E + sign*Es;
+                //particle_1.E = E + sign*Es;
 
-                particle_1.dir.normalize();
+                if entering {
+                    particle_1.E += Es;
+                }
+                if leaving {
+                    particle_1.E += -Es;
+                    particle_1.left;
+                }
 
             } else {
                 //println!("backreflection flag reset");
@@ -661,11 +665,13 @@ fn bca_input() {
         let (x, y, z) = particle_parameters.pos[particle_index];
         let (dirx, diry, dirz) = particle_parameters.dir[particle_index];
         for sub_particle_index in 0..N_ {
+
             particles.push(Particle::new(
                 m*mass_unit, Z, E*energy_unit,
                 x*length_unit, y*length_unit, z*length_unit,
                 dirx, diry, dirz, true, options.track_trajectories
             ));
+            //println!("{} {} {}", particles[particles.len() - 1].E, particles[particles.len() - 1].m, particles[particles.len() - 1].dir.x);
         }
     }
 

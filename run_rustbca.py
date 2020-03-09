@@ -168,7 +168,7 @@ def main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, trac
         'm': [Ma for _ in range(N)],
         'Z': [Za for _ in range(N)],
         'E': [E0 for _ in range(N)],
-        'pos': [(-n**(-1./3.), 0., 0.) for _ in range(N)],
+        'pos': [(-dx, 0., 0.) for _ in range(N)],
         'dir': [(cosx, sinx, 0.) for _ in range(N)]
     }
 
@@ -318,7 +318,7 @@ def do_plots(name):
     plt.figure(4)
     num_bins_x = 100
     num_bins_y = 100
-    binx = np.linspace(minx, maxx, num_bins_x)
+    binx = np.linspace(0.0, maxx, num_bins_x)
     biny = np.linspace(miny, maxy, num_bins_y)
     plt.hist2d(deposited[:, 2], deposited[:, 3], bins=(binx, biny))
     #plt.plot(*surface.exterior.xy, color='dimgray')
@@ -332,15 +332,16 @@ def do_plots(name):
     plt.close()
 
 def cross_validation():
-        beam_species = [argon]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
-        target_species = [copper]#, copper]#, copper]#, boron, silicon, copper]
+        beam_species = [hydrogen]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
+        target_species = [boron]#, copper]#, copper]#, boron, silicon, copper]
 
         N = 1
-        N_ = 10000
+        N_ = 100000
         theta = 0.00001
         thickness = 1000
         depth = 1000
         energies = np.round(np.logspace(2, 3, 25))
+        energies = [1000.0]
 
         os.system('rm ./rustBCA')
         os.system('cargo build --release')
@@ -359,7 +360,7 @@ def cross_validation():
                 name_1.append(beam['symbol']+' on '+target['symbol']+' Y F-TRIDYN')
                 name_1.append(beam['symbol']+' on '+target['symbol']+' R F-TRIDYN')
                 name_1.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura')
-                name_1.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura Wien')
+                #name_1.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura Wien')
 
                 name_2.append(beam['symbol']+' on '+target['symbol']+' Range RustBCA')
                 name_2.append(beam['symbol']+' on '+target['symbol']+' Range F-TRIDYN')
@@ -379,7 +380,7 @@ def cross_validation():
                 for energy in energies:
 
                     start = time.time()
-                    rustbca_yield_, rustbca_reflection_, rustbca_range_ = main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=True, track_recoils=True, track_recoil_trajectories=True, write_files=True, name=str(energy)+beam['symbol']+'_'+target['symbol'])
+                    rustbca_yield_, rustbca_reflection_, rustbca_range_ = main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=True, track_recoil_trajectories=False, write_files=True, name=str(energy)+beam['symbol']+'_'+target['symbol'])
                     stop = time.time()
                     rustbca_time += stop - start
                     rustbca_yield.append(rustbca_yield_)
@@ -408,8 +409,8 @@ def cross_validation():
                 plt.loglog(energies, ftridyn_reflection, '.', color=handle[0].get_color())
                 plt.loglog(energies, ftridyn_yield, 'o', color=handle[0].get_color())
                 plt.loglog(energies, yamamura_yield, '-', color=handle[0].get_color())
-                yamamura_table = yamamura_tables[beam['symbol']][target['symbol']]
-                plt.loglog(yamamura_table[:,0], yamamura_table[:,1], '-', color=handle[0].get_color())
+                #yamamura_table = yamamura_tables[beam['symbol']][target['symbol']]
+                #plt.loglog(yamamura_table[:,0], yamamura_table[:,1], '-', color=handle[0].get_color())
 
                 plt.figure(2)
                 plt.loglog(energies, rustbca_range, color=handle[0].get_color())
@@ -429,8 +430,8 @@ def cross_validation():
 
         print(f'time rustBCA: {rustbca_time} time F-TRIDYN: {ftridyn_time}')
 
-        #plt.show()
-        breakpoint()
+        plt.show()
+        #breakpoint()
 
 def starshot_rustbca(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='starshot_'):
     options = {
@@ -519,16 +520,19 @@ def starshot_rustbca(Zb, Mb, n, Ec, Es, Eb, Ma, Za, E0, N, N_, theta, thickness,
 
 if __name__ == '__main__':
 
+    cross_validation()
+    exit()
+
     os.system('rm rustBCA')
     os.system('cargo build --release')
     os.system('mv target/release/rustBCA .')
 
-    velocities = np.linspace(0.05, 0.2, 5)*C
+    velocities = np.linspace(0.01, 0.05, 5)*C
 
-    N = 1000
+    N = 100000
     N_ = 1
     theta = 0.0001
-    thickness = 25
+    thickness = 10
     depth = 1000
 
     #H
@@ -545,7 +549,6 @@ if __name__ == '__main__':
         Es = target['Es']
         Ec = target['Ec']
         Eb = target['Eb']
-
         for energy in energies:
             Y, R, ion_range = starshot_rustbca(Zb, Mb, n, Ec, Es, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name=str(energy)+beam['symbol']+'_'+target['symbol'])
             do_plots(str(energy)+beam['symbol']+'_'+target['symbol'])
