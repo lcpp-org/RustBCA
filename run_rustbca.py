@@ -233,7 +233,7 @@ def yamamura(ion, target, energy_eV):
 
     return 0.42*a_star*Q*K*sn/Us/(1. + 0.35*Us*se)*(1. - np.sqrt(Eth/energy_eV))**2.8
 
-def do_plots(name):
+def do_plots(name, file_num=''):
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
     deposited = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
@@ -285,13 +285,12 @@ def do_plots(name):
             plt.plot(x, y, color = colors[Z], linewidth = 1)
 
             index += trajectory_length
-
-    if np.size(sputtered) > 0:
-        plt.scatter(sputtered[:,3], sputtered[:,4], s=50, color='blue', marker='*')
+        if np.size(sputtered) > 0:
+            plt.scatter(sputtered[:,3], sputtered[:,4], s=50, color='blue', marker='*')
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
         plt.title(name+' Trajectories')
-        plt.savefig(name+'trajectories.png')
+        plt.savefig(name+'trajectories_'+file_num+'.png')
         plt.close()
 
     if np.size(deposited) > 0:
@@ -299,37 +298,37 @@ def do_plots(name):
         num_bins = 100
         bins = np.linspace(minx, maxx, num_bins)
         plt.hist(deposited[:, 2], bins=bins)
+        plt.title(name+' X Deposition')
+        plt.xlabel('x [um]')
+        plt.ylabel('Helium Deposition (A.U.)')
+        plt.savefig(name+'x'+file_num+'.png')
+        plt.close()
+
+        plt.figure(3)
+        num_bins = 100
+        bins = np.linspace(miny, maxy, num_bins)
+        plt.hist(deposited[:, 3], bins=bins)
         plt.title(name+' Y Deposition')
         plt.xlabel('y [um]')
         plt.ylabel('Helium Deposition (A.U.)')
-        plt.savefig(name+'.png')
+        plt.savefig(name+'y'+file_num+'.png')
         plt.close()
 
-    plt.figure(3)
-    num_bins = 100
-    bins = np.linspace(miny, maxy, num_bins)
-    plt.hist(deposited[:, 3], bins=bins)
-    plt.title(name+' Y Deposition')
-    plt.xlabel('y [um]')
-    plt.ylabel('Helium Deposition (A.U.)')
-    plt.savefig(name+'Y.png')
-    plt.close()
-
-    plt.figure(4)
-    num_bins_x = 100
-    num_bins_y = 100
-    binx = np.linspace(0.0, maxx, num_bins_x)
-    biny = np.linspace(miny, maxy, num_bins_y)
-    plt.hist2d(deposited[:, 2], deposited[:, 3], bins=(binx, biny))
-    #plt.plot(*surface.exterior.xy, color='dimgray')
-    #plt.plot(*energy_surface.exterior.xy, '--', color='dimgray')
-    #plt.plot(*simulation_surface.exterior.xy, '--', color='dimgray')
-    plt.title(name+' 2D Deposition')
-    plt.xlabel('x [um]')
-    plt.ylabel('y [um]')
-    #plt.axis('square')
-    plt.savefig(name+'2D.png')
-    plt.close()
+        plt.figure(4)
+        num_bins_x = 100
+        num_bins_y = 100
+        binx = np.linspace(0.0, maxx, num_bins_x)
+        biny = np.linspace(miny, maxy, num_bins_y)
+        plt.hist2d(deposited[:, 2], deposited[:, 3], bins=(binx, biny))
+        #plt.plot(*surface.exterior.xy, color='dimgray')
+        #plt.plot(*energy_surface.exterior.xy, '--', color='dimgray')
+        #plt.plot(*simulation_surface.exterior.xy, '--', color='dimgray')
+        plt.title(name+' 2D Deposition')
+        plt.xlabel('x [um]')
+        plt.ylabel('y [um]')
+        #plt.axis('square')
+        plt.savefig(name+'2D'+file_num+'.png')
+        plt.close()
 
 def cross_validation():
         beam_species = [hydrogen]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
@@ -340,8 +339,12 @@ def cross_validation():
         theta = 0.00001
         thickness = 1000
         depth = 1000
-        energies = np.round(np.logspace(2, 3, 25))
-        energies = [1000.0]
+        energies = np.round(np.logspace(1, 3, 20))
+        #energies = [1000.0]
+        tr = True
+        trt = False
+        tt = False
+        #energies = [100.0]
 
         os.system('rm ./rustBCA')
         os.system('cargo build --release')
@@ -380,7 +383,7 @@ def cross_validation():
                 for energy in energies:
 
                     start = time.time()
-                    rustbca_yield_, rustbca_reflection_, rustbca_range_ = main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=True, track_recoil_trajectories=False, write_files=True, name=str(energy)+beam['symbol']+'_'+target['symbol'])
+                    rustbca_yield_, rustbca_reflection_, rustbca_range_ = main(Zb, Mb, n, Ec, Es, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=tt, track_recoils=tr, track_recoil_trajectories=trt, write_files=True, name=str(energy)+beam['symbol']+'_'+target['symbol'])
                     stop = time.time()
                     rustbca_time += stop - start
                     rustbca_yield.append(rustbca_yield_)
@@ -399,7 +402,7 @@ def cross_validation():
 
                     yamamura_yield_ = yamamura(beam, target, energy)
                     yamamura_yield.append(yamamura_yield_)
-                    #do_plots(str(energy)+beam['symbol']+'_'+target['symbol'])
+                    do_plots(str(energy)+beam['symbol']+'_'+target['symbol'], file_num=str(1))
                     #breakpoint()
 
                 plt.figure(1)
