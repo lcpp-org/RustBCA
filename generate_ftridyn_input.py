@@ -113,7 +113,7 @@ class tridyn_interface:
                         IFOUT=count*number_histories//20, NH=count*number_histories,
                         IDOUT=count*number_histories//5, IQOUT=int(count)*number_histories//5,
                         NCP=self.number_species, IDREL=0, IQ0=0, IRC0=0, IRAND=np.random.randint(1, 12855897),
-                        JSP1=0, JSP2=1, JFRP=1, JNRM=1, FLC=1e-16, INEL=1, IWC=3, IDIFF=1,
+                        JSP1=0, JSP2=1, JFRP=1, JNRM=1, FLC=1e-16, INEL=1, IWC=1, IDIFF=1,
                         CSBE=0, ANGMN=0, ANGMX=90, TT=depth, TTDYN=1.2*depth,
                         NQX=250, DSF=100.0, IQXN=0, IQXX=250, IMCP=0,
                         surf_name=self.surface_name, species_list=self.species_list,
@@ -124,7 +124,7 @@ class tridyn_interface:
                     simulation_parameters.print_input_file()
 
                     #Run F-TRIDYN using just-created input file
-                    os.system('./FTridyn_Clean <'+str(self.name)+str(sim_number).zfill(4)+'.IN')
+                    os.system('./FTridyn <'+str(self.name)+str(sim_number).zfill(4)+'.IN')
                     print('simulation number: '+str(sim_number)+' / '+str(total_sim_number))
                     simple_output = np.genfromtxt(str(self.name)+str(sim_number).zfill(4)+'.OUT',
                         skip_footer = 2, usecols = (2))
@@ -240,7 +240,7 @@ class tridyn_lookup:
 
                 simulation_parameters.print_input_file()
 
-                os.system('./FTridyn_Clean <'+str(name)+str(sim_number).zfill(4)+'.IN')
+                os.system('./FTridyn <'+str(name)+str(sim_number).zfill(4)+'.IN')
                 simple_output = np.genfromtxt(str(name)+str(sim_number).zfill(4)+'.OUT',
                     skip_footer = 2, usecols = (2))
                 num_prj = simple_output[0]
@@ -1480,7 +1480,7 @@ def boron_carbon():
             print(f'beam: {beam_species} {simulation_index}')
             os.system('rm *.DAT')
             preferential_sputtering_boron_carbon(boron_conc, carbon_conc, beam_species=beam_species, number_histories=number_histories, sim_number=simulation_index)
-            os.system(f'./FTridyn_Clean < CONC{str(simulation_index).zfill(4)}.IN')
+            os.system(f'./FTridyn < CONC{str(simulation_index).zfill(4)}.IN')
 
             sputtered_list = np.atleast_2d(np.genfromtxt('CONCSPLST.DAT'))
 
@@ -1564,7 +1564,7 @@ def boron_carbon_tungsten_aps():
 
                     input_file = sim_params.name+str(sim_params.sim_num).zfill(4)+'.IN'
 
-                    os.system(f'./FTridyn_Clean < {input_file} > /dev/null 2>&1')
+                    os.system(f'./FTridyn < {input_file} > /dev/null 2>&1')
 
                     sputtered = np.genfromtxt(sim_params.name+'SPLST.DAT')
                     reflected = np.genfromtxt(sim_params.name+'RFLST.DAT')
