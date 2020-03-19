@@ -14,8 +14,6 @@ use serde::*;
 use std::io::BufWriter;
 use std::process;
 
-use rand::SeedableRng;
-
 const Q: f64 = 1.602E-19;
 const EV: f64 = Q;
 const AMU: f64 = 1.66E-27;
@@ -509,30 +507,37 @@ fn rotate_particle(particle_1: &mut Particle, psi: f64, phi: f64) {
 }
 
 fn update_particle_energy(particle_1: &mut Particle, material: &Material, path_length: f64, recoil_energy: f64) {
+
+    //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
     particle_1.E = particle_1.E - recoil_energy;
     if particle_1.E < 0. {
         particle_1.E = 0.;
     }
+
     if material.inside_energy_barrier_1D(particle_1.pos.x) {
         let electronic_stopping_power = material.electronic_stopping_power(particle_1);
         particle_1.E += -electronic_stopping_power*path_length;
     }
+
+    //Make sure particle energy doesn't become negative
     if particle_1.E < 0. {
         particle_1.E = 0.;
     }
 }
 
 fn particle_advance(particle_1: &mut Particle, mfp: f64, asympototic_deflection: f64) -> f64 {
+
+    //Update previous position
     particle_1.pos_old.x = particle_1.pos.x;
     particle_1.pos_old.y = particle_1.pos.y;
     particle_1.pos_old.z = particle_1.pos.z;
 
+    //In order to keep average denisty constant, must add back previous asymptotic deflection
     let path_length = mfp + particle_1.asympototic_deflection - asympototic_deflection;
 
     particle_1.pos.x += particle_1.dir.x*path_length;
     particle_1.pos.y += particle_1.dir.y*path_length;
     particle_1.pos.z += particle_1.dir.z*path_length;
-
     particle_1.asympototic_deflection = asympototic_deflection;
 
     return path_length;
@@ -560,12 +565,14 @@ fn boundary_condition_2D_planar(particle_1: &mut Particle, material: &Material) 
 
             if (costheta < 0.) {
                 if leaving_energy < Es {
+                    //Specular reflection at local surface normal
                     particle_1.backreflected = true;
                     particle_1.dir.x = -2.*(costheta)*dx/mag + cosx;
                     particle_1.dir.y = -2.*(costheta)*dy/mag + cosy;
                     particle_1.add_trajectory();
 
                 } else {
+                    //Surface refraction not handled yet.
                     particle_1.left = true;
                     particle_1.E += -Es;
                     particle_1.add_trajectory();
@@ -585,7 +592,7 @@ fn boundary_condition_2D_planar(particle_1: &mut Particle, material: &Material) 
     }
 }
 
-fn boundary_condition(particle_1: &mut Particle, material: &Material) {
+fn boundary_condition_1D_planar(particle_1: &mut Particle, material: &Material) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let cosx = particle_1.dir.x;
