@@ -113,7 +113,7 @@ class tridyn_interface:
                         IFOUT=count*number_histories//20, NH=count*number_histories,
                         IDOUT=count*number_histories//5, IQOUT=int(count)*number_histories//5,
                         NCP=self.number_species, IDREL=0, IQ0=0, IRC0=0, IRAND=np.random.randint(1, 12855897),
-                        JSP1=0, JSP2=1, JFRP=1, JNRM=1, FLC=1e-16, INEL=1, IWC=1, IDIFF=1,
+                        JSP1=0, JSP2=1, JFRP=1, JNRM=1, FLC=1e-16, INEL=1, IWC=0, IDIFF=1,
                         CSBE=0, ANGMN=0, ANGMX=90, TT=depth, TTDYN=1.2*depth,
                         NQX=250, DSF=100.0, IQXN=0, IQXX=250, IMCP=0,
                         surf_name=self.surface_name, species_list=self.species_list,

@@ -6,6 +6,7 @@ import os
 import toml
 import generate_ftridyn_input as g
 import time
+from scipy.stats import gaussian_kde
 
 Q = 1.602E-19
 PI = 3.14159
@@ -29,8 +30,10 @@ titanium = {
     'Es': 4.84,
     'Ec': 3.5,
     'Eb': 0.,
-    'Q': 1.5,
-    'n': 5.67e28
+    'Q': 0.54,
+    'n': 5.67e28,
+    'W': 2.57,
+    's': 2.5
 }
 
 hydrogen = {
@@ -59,7 +62,9 @@ beryllium = {
     'Es': 3.31,
     'Eb': 0.,
     'Ec': 3.,
-    'Q': 2.17,
+    'Q': 1.66,
+    'W': 2.32,
+    's': 2.5
 }
 
 boron = {
@@ -70,8 +75,10 @@ boron = {
     'n': 1.37E29,
     'Es': 5.76,
     'Eb': 0.,
-    'Ec': 3.,
-    'Q': 4.6,
+    'Ec': 5.,
+    'Q': 2.62,
+    'W': 4.39,
+    's': 2.5
 }
 
 neon = {
@@ -92,7 +99,9 @@ silicon = {
     'Es': 4.72,
     'Eb': 0.,
     'Ec': 1.5,
-    'Q': 0.78,
+    'Q': 0.66,
+    'W': 2.32,
+    's': 2.5
 }
 
 argon = {
@@ -104,6 +113,17 @@ argon = {
     'Es': 0.
 }
 
+aluminum = {
+    'symbol': 'Al',
+    'name': 'aluminum',
+    'Z': 13,
+    'm': 26.98,
+    'n': 6.026E28,
+    'Es': 3.39,
+    'Ec': 3.,
+    'Eb': 3.,
+}
+
 copper = {
     'symbol': 'Cu',
     'name': 'copper',
@@ -113,7 +133,9 @@ copper = {
     'Es': 3.52,
     'Eb': 0.,
     'Ec': 3.0,
-    'Q': 1.30,
+    'Q': 1.0,
+    'W': 2.14,
+    's': 2.5
 }
 
 tungsten = {
@@ -124,8 +146,10 @@ tungsten = {
     'n': 6.306E28,
     'Es': 11.75,
     'Eb': 0.,
-    'Ec': 3.,
-    'Q': 1.5
+    'Ec': 5.,
+    'Q': 0.72,
+    'W': 2.14,
+    's': 2.8
 }
 
 cesium = {
@@ -146,7 +170,7 @@ xenon = {
     'Es': 0.
 }
 
-def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='test_'):
+def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='test_', random=False):
 
     options = {
         'name': name,
@@ -156,7 +180,9 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
         'write_files': write_files,
         'stream_size': 256000,
         'print': True,
-        'print_num': 10
+        'print_num': 1,
+        'weak_collision_order': 0,
+        'suppress_deep_recoils': False
     }
 
     material_parameters = {
@@ -186,6 +212,11 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
     cosx = np.cos(theta*np.pi/180.)
     sinx = np.sin(theta*np.pi/180.)
 
+    if random:
+        positions = [(-dx, np.random.uniform(-thickness/2., thickness/2.), 0.) for _ in range(N)]
+    else:
+        positions = [(-dx, 0., 0.) for _ in range(N)]
+
     particle_parameters = {
         'length_unit': 'MICRON',
         'energy_unit': 'EV',
@@ -196,7 +227,7 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
         'E': [E0 for _ in range(N)],
         'Ec': [Eca for _ in range(N)],
         'Es': [Esa for _ in range(N)],
-        'pos': [(-dx, 0., 0.) for _ in range(N)],
+        'pos': positions,
         'dir': [(cosx, sinx, 0.) for _ in range(N)]
     }
 
@@ -216,7 +247,7 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
     deposited = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
     trajectories = np.atleast_2d(np.genfromtxt(name+'trajectories.output', delimiter=','))
-    trajectory_data = np.genfromtxt(name+'trajectory_data.output', delimiter=',').transpose().astype(int)
+    trajectory_data = np.atleast_1d(np.genfromtxt(name+'trajectory_data.output', delimiter=',').transpose().astype(int))
 
     if np.size(sputtered) > 0:
         Y = len(sputtered[:,0])/N/N_
@@ -277,11 +308,14 @@ def yamamura(ion, target, energy_eV):
     m2 = target['m']
     Us = target['Es']
     Q = target['Q']
+    W = target['W']
+    s = target['s']
 
     reduced_mass_2 = m2/(m1 + m2)
     reduced_mass_1 = m1/(m1 + m2)
     #Lindhard's reduced energy
     reduced_energy = 0.03255/(z1*z2*(z1**(2./3.) + z2**(2./3.))**(1./2.))*reduced_mass_2*energy_eV
+
     #Yamamura empirical constants
     K = 8.478*z1*z2/(z1**(2./3.) + z2**(2./3.))**(1./2.)*reduced_mass_1
     a_star = 0.08 + 0.164*(m2/m1)**0.4 + 0.0145*(m2/m1)**1.29
@@ -295,12 +329,18 @@ def yamamura(ion, target, energy_eV):
 
     return 0.42*a_star*Q*K*sn/Us/(1. + 0.35*Us*se)*(1. - np.sqrt(Eth/energy_eV))**2.8
 
-def do_plots(name, file_num=''):
+def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
     deposited = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
     trajectories = np.atleast_2d(np.genfromtxt(name+'trajectories.output', delimiter=','))
-    trajectory_data = np.genfromtxt(name+'trajectory_data.output', delimiter=',').transpose().astype(int)
+    trajectory_data = np.atleast_1d(np.genfromtxt(name+'trajectory_data.output', delimiter=',').transpose().astype(int))
+
+    if symmetric:
+        if np.size(reflected)>0: reflected[:, 4] = abs(reflected[:, 4])
+        if np.size(sputtered)>0: sputtered[:, 4] = abs(sputtered[:, 4])
+        if np.size(deposited)>0: deposited[:, 3] = abs(deposited[:, 3])
+        if np.size(trajectories)>0: trajectories[:, 4] = abs(trajectories[:, 4])
 
     colors = {
         1: 'red',
@@ -345,16 +385,32 @@ def do_plots(name, file_num=''):
             y = trajectories[index:(trajectory_length + index), 4]
             z = trajectories[index:(trajectory_length + index), 5]
 
-            plt.scatter(x, y, color = colors[Z], marker='o', s=5)
+            plt.scatter(x[0], y[0], color = colors[Z], marker='o', s=5)
             plt.plot(x, y, color = colors[Z], linewidth = 1)
 
             index += trajectory_length
         if np.size(sputtered) > 0:
-            plt.scatter(sputtered[:,3], sputtered[:,4], s=50, color='blue', marker='*')
+            sputtered_colors = [colors[Z] for Z in sputtered[:,1]]
+            plt.scatter(sputtered[:,3], sputtered[:,4], s=50, color=sputtered_colors, marker='*')
+
+        if np.size(reflected) > 0:
+            reflected_colors = [colors[Z] for Z in reflected[:,1]]
+            plt.scatter(reflected[:,3], reflected[:,4], s=50, color=reflected_colors, marker='x')
+
+        if np.size(deposited) > 0:
+            deposited_colors = [colors[Z] for Z in deposited[:,1]]
+            plt.scatter(deposited[:,2], deposited[:,3], s=50, color=deposited_colors, marker='^')
+
+        if thickness and depth:
+            x_box = [0., 0., depth, depth, 0.]
+            y_box = [-thickness/2., thickness/2., thickness/2., -thickness/2., -thickness/2.]
+            plt.plot(x_box, y_box, color='dimgray', linewidth=3)
+
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
         plt.title(name+' Trajectories')
         plt.savefig(name+'trajectories_'+file_num+'.png')
+        breakpoint()
         plt.close()
 
     if np.size(deposited) > 0:
@@ -540,22 +596,76 @@ def plot_distributions(name, ftridyn_name, file_num=1):
     plt.savefig(name+'ref_ang.png')
     plt.close()
 
+def starshot():
+    beam_species = [helium]
+    target_species = [copper]
+    thickness = 100
+    depth = 100000
+    N = 100000
+    N_ = 1
+    theta = 0.0001
+    velocities = np.array([0.001, 0.01, 0.05, 0.1])
+
+    os.system('rm ./rustBCA')
+    os.system('cargo build --release')
+    os.system('mv target/release/rustBCA .')
+
+    os.system('rm *.output')
+    #os.system('rm *.png')
+
+    run_sim = True
+
+    for beam in beam_species:
+        Za = beam['Z']
+        Ma = beam['m']
+        Eca = beam['Ec']
+        Esa = beam['Es']
+
+        for target in target_species:
+            Zb = target['Z']
+            Ecb = target['Ec']
+            Esb = target['Es']
+            Eb = target['Eb']
+            Mb = target['m']
+            n = target['n']
+
+            for velocity in velocities:
+                energy = Ma*AMU*C**2.*(1./np.sqrt(1. - velocity**2) - 1.)/Q
+                print(energy)
+
+                name = str(velocity)+'_'+str(beam['symbol'])+'_'+str(target['symbol'])
+
+                if run_sim:
+                    rustbca_yield_, rustbca_reflection_, rustbca_range_  = main(
+                        Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy,
+                        N, N_, theta, thickness, depth,
+                        track_trajectories=False, track_recoils=True,
+                        track_recoil_trajectories=False, write_files=True,
+                        name=name)
+
+                    print(f'{beam["symbol"]} {target["symbol"]} velocity: {velocity} Y: {rustbca_yield_} R: {rustbca_reflection_} depth: {rustbca_range_}')
+
+                do_plots(name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
+                #breakpoint()
+
 def benchmark():
-        beam_species = [neon]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
-        target_species = [titanium]#, copper]#, copper]#, boron, silicon, copper]
+        beam_species = [argon]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
+        target_species = [boron]#, copper]#, copper]#, boron, silicon, copper]
 
         N = 1
-        N_ = 1000000
-        theta = 30.
-        thickness = 1000
-        depth = 1000
-        energies = np.round(np.logspace(1, 2, 20))
-        energies = [38.]
+        N_ = 1
+        theta = 0.0001
+        thickness = 0.05
+        depth = 0.05
+        energies = np.logspace(4, 5, 10)
+        #energies = [200.]
+        #energies = [38.]
         #energies = [15.]
         #energies = [1000.]
+        #energies = [100.]
         tr = True
-        trt = False
-        tt = False
+        trt = True
+        tt = True
 
         os.system('rm *.png')
         os.system('rm *.output')
@@ -564,8 +674,8 @@ def benchmark():
         os.system('cargo build --release')
         os.system('mv target/release/rustBCA .')
 
-        fig1, ax1 = plt.subplots(1, 1, num='yields', figsize=(16,12))
-        fig2, ax2 = plt.subplots(1, 1, num='ranges', figsize=(16,12))
+        fig1, ax1 = plt.subplots(1, 1, num='yields', figsize=(16, 14))
+        fig2, ax2 = plt.subplots(1, 1, num='ranges', figsize=(16, 14))
 
         name_1 = []
         name_2 = []
@@ -629,14 +739,16 @@ def benchmark():
                     reflection_coefficient_ = wierzbicki_biersack(beam, target, energy)
                     reflection_coefficient.append(reflection_coefficient_)
 
-                    do_plots(rustbca_name, file_num=str(1))
+                    do_plots(rustbca_name, file_num=str(1), thickness=thickness, depth=depth)
+                    #breakpoint()
                     plot_distributions(rustbca_name, ftridyn_name, file_num=1)
+                    os.system('rm *.output')
 
-                handle = ax1.loglog(energies, rustbca_yield, '*')
+                handle = ax1.loglog(energies, rustbca_yield, '-*')
                 ax1.loglog(energies, rustbca_reflection, ':', color=handle[0].get_color())
 
                 ax1.loglog(energies, ftridyn_reflection, '.', color=handle[0].get_color())
-                ax1.loglog(energies, ftridyn_yield, 'o', color=handle[0].get_color())
+                ax1.loglog(energies, ftridyn_yield, '-o', color=handle[0].get_color())
                 ax1.loglog(energies, yamamura_yield, '-', color=handle[0].get_color())
                 ax1.loglog(energies, reflection_coefficient, '-.', color=handle[0].get_color())
                 #yamamura_table = yamamura_tables[beam['symbol']][target['symbol']]
@@ -644,20 +756,22 @@ def benchmark():
                 ax2.loglog(energies, rustbca_range, color=handle[0].get_color())
                 ax2.loglog(energies, np.array(ftridyn_range)/MICRON, '--', color=handle[0].get_color())
 
-        ax1.legend(name_1, fontsize='small', loc='best')
-        ax1.axis([0.5*np.min(energies), 2.0*np.max(energies), 1./N_, 10.])
+        ax1.legend(name_1, fontsize='small', loc='best', bbox_to_anchor=(0.85, 1.0))
+        ax1.axis([0.1*np.min(energies), 10.0*np.max(energies), 1./N_, 10.])
         ax1.set_ylabel('Y/R [at/ion]/[ion/ion]')
         ax1.set_xlabel('E [eV]')
         fig1.savefig(rustbca_name+'yields.png')
 
-        ax2.legend(name_2, fontsize='small', loc='best')
+        ax2.legend(name_2, fontsize='small', loc='best', bbox_to_anchor=(1.0, 0.5))
         ax2.set_xlabel('E [eV]')
         ax2.set_ylabel('Range [um]')
-        ax2.axis([0.5*np.min(energies), 2*np.max(energies), 0.5*np.min(rustbca_range), 2*np.max(rustbca_range)])
+        ax2.axis([0.5*np.min(energies), 10.*np.max(energies), 0.1*np.min(rustbca_range), 10.*np.max(rustbca_range)])
         fig2.savefig(rustbca_name+'ranges.png')
 
         print(f'time rustBCA: {rustbca_time} time F-TRIDYN: {ftridyn_time}')
 
-if __name__ == '__main__':
+def plots_for_prelim():
+    pass
 
+if __name__ == '__main__':
     benchmark()

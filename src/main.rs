@@ -12,6 +12,7 @@ use std::io::Read;
 use std::f64::consts::PI;
 use serde::*;
 use std::io::BufWriter;
+use std::process;
 
 use rand::SeedableRng;
 
@@ -50,6 +51,8 @@ pub struct Options {
     stream_size: usize,
     print: bool,
     print_num: usize,
+    weak_collision_order: usize,
+    suppress_deep_recoils: bool
 }
 
 #[derive(Deserialize)]
@@ -318,34 +321,36 @@ impl Material {
         let Za = particle_1.Z;
         let Zb = self.Z_eff(particle_1.pos.x, particle_1.pos.y);
 
-        let beta = (1. - (1. + E/Ma/C/C).powf(-2.)).sqrt();
-        //let v = beta/C;
+        let beta = (1. - (1. + E/Ma/C.powf(2.)).powf(-2.)).sqrt();
+        let v = beta*C;
 
-        let mut I0; //Mean excitation potential approximation form Biersack and Haggmark
+        //See Biersack and Haggmark - empirical relation for mean ionization potential
+        let mut I0 = 0.;
         if Zb < 13. {
-            I0 = 12. + 7./Zb;
+            I0 = 12. + 7./Zb
         } else {
             I0 = 9.76 + 58.5*Zb.powf(-1.19);
         }
         let I = Zb*I0*Q;
 
-        let mut B; //Effective empirical shell correction from Biersack and Haggmark
+        //See Biersack and Haggmark - this looks like an empirical shell correction
+        let mut B = 0.;
         if Zb < 3. {
             B = 100.*Za/Zb;
         } else {
             B = 5.;
         }
 
+    //Bethe stopping modified by Biersack and Varelas
         let prefactor = BETHE_BLOCH_PREFACTOR*Zb*Za*Za/beta/beta;
-        //let prefactor = 8.0735880E-42*Zb*Za*Za/beta/beta;
-        let eb = 2.*ME*beta*beta/C/C/I;
-        let S_BB = prefactor*(eb + 1. + B/eb).ln()*n; //Bethe-Bloch stopping, as modified by Biersack and Haggmark (1980) to fit experiment
+        let eb = 2.*ME*v*v/I;
+        let S_high = prefactor*(eb + 1. + B/eb).ln()*n;
 
-        //Lindhard-Scharff stopping for low energies
-        let S_LS = LINDHARD_SCHARFF_PREFACTOR*(Za.powf(7./6.)*Zb)/(Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.)*(E/Ma*AMU/Q).sqrt()*n;
+        //Lindhard-Scharff electronic stopping
+        let S_low = LINDHARD_SCHARFF_PREFACTOR*(Za.powf(7./6.)*Zb)/(Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.)*(E/Q/Ma*AMU).sqrt()*n;
 
-        //Biersack-Varelas stopping interpolation scheme
-        let stopping_power = 1./(1./S_BB + 1./S_LS);
+        //Biersack-Varelas Interpolation
+        let stopping_power = 1./(1./S_high + 1./S_low);
 
         return stopping_power;
     }
@@ -381,24 +386,41 @@ fn f(x: f64, beta: f64, reduced_energy: f64) -> f64 {
     return (1. - phi(x)/x/reduced_energy - beta*beta/x/x).powf(-0.5);
 }
 
-fn choose_collision_partner(particle_1: &mut Particle, material: &Material) -> (f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
+fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Material, collision_order: usize) -> (Vec<f64>, Vec<f64>, f64) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;
 
-    //Determine mfp
     let mut mfp = material.mfp(x, y);
-    let pmax : f64 = mfp/SQRTPI;//Cylindrical
+    let pmax: f64 = mfp/SQRTPI;
 
-    //Determine phi and impact parameter
-    let mut impact_parameter: f64 = pmax*(rand::random::<f64>()).sqrt();
-    let mut phi_azimuthal: f64 = 2.*PI*rand::random::<f64>();
-
-    //Atomically rough surface
+    //Atomically rough surface - scatter initial collisions
     if particle_1.first_step {
-        mfp = 2.*material.n.powf(-1./3.)/SQRT2PI + mfp*rand::random::<f64>();
+        mfp *= rand::random::<f64>();
         particle_1.first_step = false;
     }
+
+    //azimuthal angle randomly selected (0..2pi)
+    let mut phis_azimuthal = Vec::with_capacity(collision_order + 1);
+    for k in 0..collision_order + 1 {
+        phis_azimuthal.push(2.*PI*rand::random::<f64>());
+    }
+
+    //For each successive collision, impact paramter selected as pmax*sqrt(k + r)
+    let mut impact_parameters = Vec::with_capacity(collision_order + 1);
+    for k in 0..collision_order + 1 {
+        let random_number = rand::random::<f64>();
+
+        impact_parameters.push(pmax*(k as f64 + random_number).sqrt());
+    }
+
+    return (phis_azimuthal, impact_parameters, mfp);
+}
+
+fn choose_collision_partner(particle_1: &Particle, material: &Material, phi_azimuthal: f64, impact_parameter: f64, mfp: f64) -> (f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
+    let x = particle_1.pos.x;
+    let y = particle_1.pos.y;
+    let z = particle_1.pos.z;
 
     //Determine cosines and sines
     let sphi: f64 = phi_azimuthal.sin();
@@ -416,7 +438,7 @@ fn choose_collision_partner(particle_1: &mut Particle, material: &Material) -> (
     //Choose recoil Z, M
     let (Z_recoil, M_recoil, Ec_recoil, Es_recoil) = material.choose(x, y);
 
-    return (mfp, impact_parameter, phi_azimuthal, Z_recoil, M_recoil, Ec_recoil, Es_recoil, x_recoil, y_recoil, z_recoil, ca, cb, cg);
+    return (Z_recoil, M_recoil, Ec_recoil, Es_recoil, x_recoil, y_recoil, z_recoil, ca, cb, cg);
 }
 
 fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impact_parameter: f64, max_iter: usize, tol: f64) -> (f64, f64, f64, f64, f64) {
@@ -452,44 +474,15 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
         }
     }
 
-
-    //MAGIC algorithm
-    let C_ = vec![ 1.0144, 0.235800, 0.126, 63950.0, 83550.0 ];
-    let c = vec![ 0.190945, 0.473674, 0.335381, 0.0 ];
-    let d = vec![ -0.278544, -0.637174, -1.919249, 0.0 ];
-    let a_ = 0.8853*A0/((Za).sqrt() + (Zb).sqrt()).powf(2./3.);
-    let V0 = Za*Zb*Q*Q/4.0/PI/EPS0/a_;
-    let V00 = V0*a_;
-    let E_c = E0*Mb/(Ma + Mb);
-    let E_r = E0/V0;
-    let b = impact_parameter/a_;
-    let SQE = E_r.sqrt();
-    let R = a_*x0;
-    let sum = c[0]*(d[0]*x0).exp() + c[1]*(d[1]*x0).exp() + c[2]*(d[2]*x0).exp();
-    let V = V00/R*sum;
-    let sum = d[0]*c[0]*(d[0]*x0).exp() + d[1]*c[1]*(d[1]*x0).exp() + d[2]*c[2]*(d[2]*x0).exp();
-    let dV = -V/R + V0/R*sum;
-    let rho   = -2.0*(E_c - V)/dV;
-    //let D = 2.0*(1.0+C_[0]/SQE)*E_r* pow(b,((C_[1]+SQE)/(C_[2]+SQE)));
-    let D = 2.0*(1.0+C_[0]/SQE)*E_r*b.powf((C_[1]+SQE)/(C_[2]+SQE));
-    let G = (C_[4]+E_r)/(C_[3]+E_r)*((1.0+D*D).sqrt()-D);
-    let delta =  D*G/(1.0+G)*(x0-b);
-    let ctheta2 = (b + rho/a_ + delta)/(x0 + rho/a_);
-    let theta = 2. * ( (b + rho/a_ + delta)/(x0 + rho/a_) ).acos(); // add a 1e-3 exception?
-
-
     //Scattering integral quadrature from Mendenhall and Weller 2005
     let lambda_0 = (0.5 + beta*beta/x0/x0/2. - dphi(x0)/2./reduced_energy).powf(-1./2.);
     let alpha = 1./12.*(1. + lambda_0 + 5.*(0.4206*f(x0/0.9072, beta, reduced_energy) + 0.9072*f(x0/0.4206, beta, reduced_energy)));
-    let theta_ = PI*(1. - beta*alpha/x0);
-    //println!("theta M-W: {}", theta_mw);
-    //println!("theta MAGIC: {}", theta);
-    //println!("{} {}", theta, theta_mw);
+    let theta = PI*(1. - beta*alpha/x0);
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
     let asympototic_deflection = x0*a*(theta/2.).sin();
-    let psi = theta.sin().atan2(Ma/Mb + theta.cos());
-    let psi_recoil = theta.sin().atan2(1. - theta.cos());
+    let psi = (theta.sin().atan2(Ma/Mb + theta.cos())).abs();
+    let psi_recoil = (theta.sin().atan2(1. - theta.cos())).abs();
     let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*(theta/2.).sin().powf(2.);
 
     return (theta, psi, psi_recoil, recoil_energy, asympototic_deflection);
@@ -517,9 +510,15 @@ fn rotate_particle(particle_1: &mut Particle, psi: f64, phi: f64) {
 
 fn update_particle_energy(particle_1: &mut Particle, material: &Material, path_length: f64, recoil_energy: f64) {
     particle_1.E = particle_1.E - recoil_energy;
-    if material.inside_1D(particle_1.pos.x) {
+    if particle_1.E < 0. {
+        particle_1.E = 0.;
+    }
+    if material.inside_energy_barrier_1D(particle_1.pos.x) {
         let electronic_stopping_power = material.electronic_stopping_power(particle_1);
         particle_1.E += -electronic_stopping_power*path_length;
+    }
+    if particle_1.E < 0. {
+        particle_1.E = 0.;
     }
 }
 
@@ -539,11 +538,56 @@ fn particle_advance(particle_1: &mut Particle, mfp: f64, asympototic_deflection:
     return path_length;
 }
 
+fn boundary_condition_2D_planar(particle_1: &mut Particle, material: &Material) {
+    let x = particle_1.pos.x;
+    let y = particle_1.pos.y;
+    let cosx = particle_1.dir.x;
+    let cosy = particle_1.dir.y;
+    let cosz = particle_1.dir.z;
+    let E = particle_1.E;
+    let Ec = particle_1.Ec;
+
+    if !material.inside_energy_barrier(x, y) {
+        let Es = particle_1.Es;
+
+        if let Closest::SinglePoint(p2) = material.closest_point(x, y) {
+            let dx = p2.x() - x;
+            let dy = p2.y() - y;
+            let mag = (dx*dx + dy*dy).sqrt();
+
+            let costheta = dx*cosx/mag + dy*cosy/mag;
+            let leaving_energy = costheta*costheta*E;
+
+            if (costheta < 0.) {
+                if leaving_energy < Es {
+                    particle_1.backreflected = true;
+                    particle_1.dir.x = -2.*(costheta)*dx/mag + cosx;
+                    particle_1.dir.y = -2.*(costheta)*dy/mag + cosy;
+                    particle_1.add_trajectory();
+
+                } else {
+                    particle_1.left = true;
+                    particle_1.E += -Es;
+                    particle_1.add_trajectory();
+                }
+            }
+        }
+    }
+
+    if !material.inside_simulation_boundary(x, y) {
+        particle_1.left = true;
+        particle_1.add_trajectory();
+    }
+
+    if (E < Ec) & !particle_1.left {
+        particle_1.stopped = true;
+        particle_1.add_trajectory();
+    }
+}
+
 fn boundary_condition(particle_1: &mut Particle, material: &Material) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
-    let x0 = particle_1.pos_old.x;
-    let y0 = particle_1.pos_old.y;
     let cosx = particle_1.dir.x;
     let cosy = particle_1.dir.y;
     let cosz = particle_1.dir.z;
@@ -566,6 +610,7 @@ fn boundary_condition(particle_1: &mut Particle, material: &Material) {
             particle_1.dir.y *= sinx_new/sinx;
             particle_1.dir.z *= sinx_new/sinx;
             particle_1.dir.normalize();
+            particle_1.add_trajectory();
 
         } else {
             particle_1.backreflected = true;
@@ -575,10 +620,11 @@ fn boundary_condition(particle_1: &mut Particle, material: &Material) {
 
     if (E < Ec) & !particle_1.left {
         particle_1.stopped = true;
+        particle_1.add_trajectory();
     }
 }
 
-fn bca_file_input() {
+fn bca_from_file() {
     //Read input file, convert to string, and open with toml
     let mut input_toml = String::new();
     let mut file = OpenOptions::new()
@@ -716,66 +762,102 @@ fn bca_file_input() {
     let mut particle_index: usize = particles.len();
 
     'particle_loop: while particle_index > 0 {
+        //Remove particle from top of vector
         let mut particle_1 = particles.pop().unwrap();
 
+        //Print to stdout
         if options.print & particle_1.incident & (particle_index % (total_particles / options.print_num) == 0){
             println!("Particle {}", particle_index);
         }
 
         'trajectory_loop: while !particle_1.stopped & !particle_1.left {
 
+            //BCA loop
+            //Choose recoil partner location and species
+            let (phis_azimuthal, impact_parameters, mfp) = determine_mfp_phi_impact_parameter(&mut particle_1, &material, options.weak_collision_order);
+            particle_1.backreflected = false;
+
+            let mut total_deflection_angle = 0.;
+            let mut total_energy_loss = 0.;
+            let mut total_asymptotic_deflection = 0.;
+
             if particle_1.track_trajectories {
                 particle_1.add_trajectory();
             }
 
-            //BCA loop
-            //Choose recoil partner location and species
-            let (mfp, impact_parameter, phi_azimuthal, Z_recoil, M_recoil, Ec_recoil, Es_recoil, xr, yr, zr, cxr, cyr, czr) = choose_collision_partner(&mut particle_1, &material);
+            'collision_loop: for k in 0..options.weak_collision_order + 1 {
 
-            //If recoil location is inside, proceed with binary collision loop
-            if material.inside_1D(xr) {
+                let (Z_recoil, M_recoil, Ec_recoil, Es_recoil, xr, yr, zr, cxr, cyr, czr) = choose_collision_partner(&mut particle_1, &material, phis_azimuthal[k], impact_parameters[k], mfp);
+                //If recoil location is inside, proceed with binary collision loop
+                if material.inside_1D(xr) {
 
-                particle_1.backreflected = false;
+                    particle_1.backreflected = false;
 
-                let mut particle_2 = Particle::new(
-                    M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil,
-                    xr, yr, zr,
-                    cxr, cyr, czr,
-                    false, options.track_recoil_trajectories
-                );
+                    let mut particle_2 = Particle::new(
+                        M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil,
+                        xr, yr, zr,
+                        cxr, cyr, czr,
+                        false, options.track_recoil_trajectories
+                    );
 
-                //Determine scattering angle from binary collision
-                let (theta, psi, psi_recoil, recoil_energy, asympototic_deflection) = calculate_binary_collision(&particle_1, &particle_2, impact_parameter, 100, 1E-6);
-                //Energy transfer to recoil
-                particle_2.E = recoil_energy - material.Eb;
+                    //Determine scattering angle from binary collision
+                    let (theta, psi, psi_recoil, recoil_energy, asymptotic_deflection) = calculate_binary_collision(&particle_1, &particle_2, impact_parameters[k], 100, 1E-3);
 
-                //Rotate particle 1 by lab frame scattering angle
-                rotate_particle(&mut particle_1, psi, phi_azimuthal);
-                //Rotate particle 2 by lab frame scattering angle
-                rotate_particle(&mut particle_2, psi_recoil, PI - phi_azimuthal);
+                    //Energy transfer to recoil
+                    particle_2.E = recoil_energy - material.Eb;
 
-                //If transferred energy > cutoff energy, add recoil to particle vector
-                if (recoil_energy > material.Ec) & options.track_recoils {
-                    particle_2.add_trajectory();
-                    particles.push(particle_2);
+                    //Accumulate deflections for primary particle
+                    total_energy_loss += recoil_energy;
+                    total_deflection_angle += psi;
+                    total_asymptotic_deflection += asymptotic_deflection;
+
+                    //Rotate particle 1, 2 by lab frame scattering angles
+                    rotate_particle(&mut particle_1, psi, phis_azimuthal[k]);
+                    rotate_particle(&mut particle_2, -psi_recoil, phis_azimuthal[k]);
+
+                    //See Eckstein 1991 7.5.3 for recoil suppression function
+                    if options.track_recoils & options.suppress_deep_recoils {
+                        let E = particle_1.E;
+                        let Za = particle_1.Z;
+                        let Zb = particle_2.Z;
+
+                        let Ma = particle_1.m;
+                        let Mb = particle_2.m;
+
+                        let n = material.number_density(xr, yr);
+                        let a: f64 = screening_length(Za, Zb);
+                        let reduced_energy: f64 = 4.*PI*EPS0*a*Mb*E/(Ma + Mb)/Za/Zb/Q/Q;
+                        let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powf(3.)/n/a/a;
+
+                        if let Closest::SinglePoint(p2) = material.closest_point(xr, yr) {
+                            let dx = p2.x() - xr;
+                            let dy = p2.y() - yr;
+                            let distance_to_surface = (dx*dx + dy*dy).sqrt();
+
+                            //println!("Estimated Range: {} Distance to surface: {}", estimated_range_of_recoils*1E10, distance_to_surface*1E10);
+
+                            if (distance_to_surface < estimated_range_of_recoils) & (recoil_energy > particle_2.Ec) {
+                                particle_2.add_trajectory();
+                                particles.push(particle_2);
+                            }
+                        }
+                    } else if (recoil_energy > particle_2.Ec) & options.track_recoils {
+                        //If transferred energy > cutoff energy, add recoil to particle vector
+                        particle_2.add_trajectory();
+                        particles.push(particle_2);
+                    }
                 }
-
-                //Push particle, find actual path length from mfp and asymptotic deflection
-                let path_length = particle_advance(&mut particle_1, mfp, asympototic_deflection);
-
-                //Update moving particle energy
-                update_particle_energy(&mut particle_1, &material, path_length, recoil_energy);
-
-            } else {
-                //Push particle, find actual path length from mfp and asymptotic deflection
-                let path_length = particle_advance(&mut particle_1, mfp, 0.);
-
-                //Update moving particle energy
-                update_particle_energy(&mut particle_1, &material, mfp, 0.);
             }
+
+            //Determine path length
+            let path_length = particle_advance(&mut particle_1, mfp, total_asymptotic_deflection);
+
+            //Subtract total energy from all weak collisions
+            update_particle_energy(&mut particle_1, &material, path_length, total_energy_loss);
+
             //Check boundary conditions on leaving and stopping
-            boundary_condition(&mut particle_1, &material);
-        }
+            boundary_condition_2D_planar(&mut particle_1, &material);
+            }
 
         //Once particle finishes, begin data output
         //Stream current particle output to files
@@ -784,7 +866,7 @@ fn bca_file_input() {
                 .expect("Could not write to reflected.output.");
 
         }
-        if particle_1.incident & particle_1.stopped {
+        if particle_1.incident & particle_1.stopped & (particle_1.pos.x > 0.) {
             writeln!(deposited_file_stream, "{},{},{},{},{}", particle_1.m/mass_unit, particle_1.Z, particle_1.pos.x/length_unit, particle_1.pos.y/length_unit, particle_1.pos.z/length_unit)
                 .expect("Could not write to deposited.output.");
         }
@@ -814,5 +896,5 @@ fn bca_file_input() {
 
 
 fn main() {
-    bca_file_input();
+    bca_from_file();
 }
