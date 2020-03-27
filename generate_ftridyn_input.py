@@ -124,7 +124,7 @@ class tridyn_interface:
                     simulation_parameters.print_input_file()
 
                     #Run F-TRIDYN using just-created input file
-                    os.system('./FTridyn <'+str(self.name)+str(sim_number).zfill(4)+'.IN')
+                    os.system('FTridyn.exe <'+str(self.name)+str(sim_number).zfill(4)+'.IN')
                     print('simulation number: '+str(sim_number)+' / '+str(total_sim_number))
                     simple_output = np.genfromtxt(str(self.name)+str(sim_number).zfill(4)+'.OUT',
                         skip_footer = 2, usecols = (2))

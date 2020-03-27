@@ -13,23 +13,25 @@ use std::f64::consts::PI;
 use serde::*;
 use std::io::BufWriter;
 use std::process;
+use std::thread;
 
-const Q: f64 = 1.602E-19;
+const Q: f64 = 1.60217646E-19;
 const EV: f64 = Q;
-const AMU: f64 = 1.66E-27;
+const AMU: f64 = 1.660539E-27;
 const ANGSTROM: f64 = 1E-10;
 const MICRON: f64 = 1E-6;
 const NM: f64 = 1E-9;
 const CM: f64 = 1E-2;
-const EPS0: f64 = 8.85E-12;
-const A0: f64 = 0.52918E-10;
-const K: f64 = 1.11265E-10;
-const ME: f64 = 9.11E-31;
+const EPS0: f64 = 8.85418781E-12;
+const A0: f64 = 5.29177211E-11;
+//const K: f64 = 1.11265E-10;
+const ME: f64 =  9.109383632E-31;
 const SQRTPI: f64 = 1.772453850906;
 const SQRT2PI: f64 = 2.506628274631;
 const C: f64 = 299792000.;
 const BETHE_BLOCH_PREFACTOR: f64 = 4.*PI*(Q*Q/(4.*PI*EPS0))*(Q*Q/(4.*PI*EPS0))/ME/C/C;
 const LINDHARD_SCHARFF_PREFACTOR: f64 = 1.212*ANGSTROM*ANGSTROM*Q;
+const LINDHARD_REDUCED_ENERGY_PREFACTOR: f64 = 4.*PI*EPS0/Q/Q;
 
 #[derive(Deserialize)]
 pub struct Input {
@@ -50,7 +52,8 @@ pub struct Options {
     print: bool,
     print_num: usize,
     weak_collision_order: usize,
-    suppress_deep_recoils: bool
+    suppress_deep_recoils: bool,
+    high_energy_free_flight_paths: bool,
 }
 
 #[derive(Deserialize)]
@@ -274,17 +277,21 @@ impl Material {
     fn mfp(&self, x: f64, y: f64) -> f64 {
         return self.n.powf(-1./3.);
     }
+
     fn number_density(&self, x: f64, y: f64) -> f64 {
         return self.n;
     }
+
     fn inside_energy_barrier(&self, x: f64, y: f64) -> bool {
         let p = point!(x: x, y: y);
         return self.energy_surface.contains(&p);
     }
+
     fn inside_simulation_boundary(&self, x:f64, y: f64) -> bool {
         let p = point!(x: x, y: y);
         return self.simulation_surface.contains(&p);
     }
+
     fn closest_point(&self, x: f64, y: f64) -> Closest<f64> {
         let p = point!(x: x, y: y);
         return self.surface.closest_point(&p)
@@ -302,6 +309,10 @@ impl Material {
 
     fn Z_eff(&self, x: f64, y: f64) -> f64 {
         return self.Z;
+    }
+
+    fn m_eff(&self, x: f64, y: f64) -> f64 {
+        return self.m;
     }
 
     fn Eb(&self, x: f64, y: f64) -> f64 {
@@ -384,19 +395,12 @@ fn f(x: f64, beta: f64, reduced_energy: f64) -> f64 {
     return (1. - phi(x)/x/reduced_energy - beta*beta/x/x).powf(-0.5);
 }
 
-fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Material, collision_order: usize) -> (Vec<f64>, Vec<f64>, f64) {
+fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Material, collision_order: usize, high_energy_free_flight_paths: bool) -> (Vec<f64>, Vec<f64>, f64) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;
 
     let mut mfp = material.mfp(x, y);
-    let pmax: f64 = mfp/SQRTPI;
-
-    //Atomically rough surface - scatter initial collisions
-    if particle_1.first_step {
-        mfp *= rand::random::<f64>();
-        particle_1.first_step = false;
-    }
 
     //azimuthal angle randomly selected (0..2pi)
     let mut phis_azimuthal = Vec::with_capacity(collision_order + 1);
@@ -404,15 +408,72 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
         phis_azimuthal.push(2.*PI*rand::random::<f64>());
     }
 
-    //For each successive collision, impact paramter selected as pmax*sqrt(k + r)
-    let mut impact_parameters = Vec::with_capacity(collision_order + 1);
-    for k in 0..collision_order + 1 {
-        let random_number = rand::random::<f64>();
+    if high_energy_free_flight_paths {
 
-        impact_parameters.push(pmax*(k as f64 + random_number).sqrt());
+        let Ma: f64 = particle_1.m;
+        let Mb: f64  = material.m_eff(x, y);
+        let Za: f64  = particle_1.Z;
+        let Zb: f64  = material.Z_eff(x, y);
+        let n: f64  = material.number_density(x, y);
+        let E: f64  = particle_1.E;
+        let Ec: f64 = particle_1.Ec;
+        let a: f64 = screening_length(Za, Zb);
+        let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
+        let E_min = Ec*(Ma + Mb).powf(2.)/4./Ma/Mb;
+        let reduced_energy_min: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E_min;
+        let ep = (reduced_energy*reduced_energy_min).sqrt();
+        let mut pmax = a/(ep + ep.sqrt() + 0.125*ep.powf(0.1));
+        let mut ffp = 1./(n*pmax*pmax*PI);
+        let se = material.electronic_stopping_power(particle_1);
+
+        //If losing too much energy, scale free-flight-path down
+        if ffp*se > 0.05*E {
+            ffp = 0.05*E/se;
+            pmax = (1./(n*PI*ffp)).sqrt()
+        }
+
+        //If free-flight-path less than the interatomic spacing, revert to solid model
+        if ffp < mfp {
+
+            ffp = mfp;
+            pmax = mfp/2.;
+            let mut impact_parameter = Vec::with_capacity(1);
+            let random_number = rand::random::<f64>();
+            let p = pmax*random_number.sqrt();
+            impact_parameter.push(p);
+
+            return (phis_azimuthal, impact_parameter, ffp);
+
+        } else {
+
+            let mut impact_parameter = Vec::with_capacity(1);
+            let random_number = rand::random::<f64>();
+            let p = pmax*(-random_number.ln()).sqrt();
+            impact_parameter.push(p);
+
+            return (phis_azimuthal, impact_parameter, ffp);
+        }
+
+    } else {
+
+        //If not using free flight paths, use weak collision model
+        let pmax = mfp/2.;
+        let mut impact_parameters = Vec::with_capacity(collision_order + 1);
+        for k in 0..(collision_order + 1) {
+            let random_number = rand::random::<f64>();
+            let p = pmax*(random_number + k as f64).sqrt();
+            impact_parameters.push(p)
+        }
+
+        //Atomically rough surface - scatter initial collisions
+        if particle_1.first_step {
+            mfp *= rand::random::<f64>();
+            particle_1.first_step = false;
+        }
+
+        return (phis_azimuthal, impact_parameters, mfp);
     }
 
-    return (phis_azimuthal, impact_parameters, mfp);
 }
 
 fn choose_collision_partner(particle_1: &Particle, material: &Material, phi_azimuthal: f64, impact_parameter: f64, mfp: f64) -> (f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
@@ -449,7 +510,8 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
 
     //Lindhard screening length and reduced energy
     let a: f64 = screening_length(Za, Zb);
-    let reduced_energy: f64 = 4.*PI*EPS0*a*Mb*E0/(Ma + Mb)/Za/Zb/Q/Q;
+    //let reduced_energy: f64 = 4.*PI*EPS0*a*Mb*E0/(Ma + Mb)/Za/Zb/Q/Q;
+    let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
     let beta: f64 = impact_parameter/a;
 
     //Guess for large reduced energy from Mendenhall and Weller 1991
@@ -458,14 +520,14 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
     let mut xn: f64;
     if reduced_energy > 5. {
         let inv_er_2 = 0.5/reduced_energy;
-        x0 = inv_er_2 + (inv_er_2.powf(2.) + beta.powf(2.)).sqrt();
+        x0 = inv_er_2 + (inv_er_2*inv_er_2 + beta*beta).sqrt();
     }
 
     //Newton-Raphson to determine distance of closest approach
     let mut err: f64;
     for _ in 0..max_iter {
         xn = x0 - doca_function(x0, beta, reduced_energy)/diff_doca_function(x0, beta, reduced_energy);
-        err = (xn - x0).abs()/xn;
+        err = (xn - x0).powf(2.);
         x0 = xn;
         if err < tol {
             break;
@@ -492,7 +554,7 @@ fn rotate_particle(particle_1: &mut Particle, psi: f64, phi: f64) {
     let cg: f64 = particle_1.dir.z;
     let cphi: f64 = phi.cos();
     let sphi: f64 = phi.sin();
-    let sa = (1. - ca.powf(2.)).sqrt();
+    let sa = (1. - ca*ca).sqrt();
 
     //Particle direction update from TRIDYN, see Moeller and Eckstein 1988
     let cpsi: f64 = psi.cos();
@@ -514,7 +576,7 @@ fn update_particle_energy(particle_1: &mut Particle, material: &Material, path_l
         particle_1.E = 0.;
     }
 
-    if material.inside_energy_barrier_1D(particle_1.pos.x) {
+    if material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) {
         let electronic_stopping_power = material.electronic_stopping_power(particle_1);
         particle_1.E += -electronic_stopping_power*path_length;
     }
@@ -604,7 +666,7 @@ fn boundary_condition_1D_planar(particle_1: &mut Particle, material: &Material) 
     let Ec = particle_1.Ec;
 
     if (x < xc) & (cosx < 0.) {
-        let leaving_energy = E*cosx.powf(2.);
+        let leaving_energy = E*cosx*cosx;
 
         if leaving_energy > Es {
             particle_1.left = true;
@@ -765,9 +827,10 @@ fn bca_from_file() {
         .unwrap();
     let mut trajectory_data_stream = BufWriter::with_capacity(options.stream_size, trajectory_data);
 
-    //Main loop
+
     let mut particle_index: usize = particles.len();
 
+    //Main loop
     'particle_loop: while particle_index > 0 {
         //Remove particle from top of vector
         let mut particle_1 = particles.pop().unwrap();
@@ -781,10 +844,10 @@ fn bca_from_file() {
 
             //BCA loop
             //Choose recoil partner location and species
-            let (phis_azimuthal, impact_parameters, mfp) = determine_mfp_phi_impact_parameter(&mut particle_1, &material, options.weak_collision_order);
+            let (phis_azimuthal, impact_parameters, mfp) = determine_mfp_phi_impact_parameter(&mut particle_1, &material, options.weak_collision_order, options.high_energy_free_flight_paths);
             particle_1.backreflected = false;
 
-            let mut total_deflection_angle = 0.;
+            //let mut total_deflection_angle = 0.;
             let mut total_energy_loss = 0.;
             let mut total_asymptotic_deflection = 0.;
 
@@ -796,7 +859,7 @@ fn bca_from_file() {
 
                 let (Z_recoil, M_recoil, Ec_recoil, Es_recoil, xr, yr, zr, cxr, cyr, czr) = choose_collision_partner(&mut particle_1, &material, phis_azimuthal[k], impact_parameters[k], mfp);
                 //If recoil location is inside, proceed with binary collision loop
-                if material.inside_1D(xr) {
+                if material.inside(xr, yr) {
 
                     particle_1.backreflected = false;
 
@@ -808,20 +871,22 @@ fn bca_from_file() {
                     );
 
                     //Determine scattering angle from binary collision
-                    let (theta, psi, psi_recoil, recoil_energy, asymptotic_deflection) = calculate_binary_collision(&particle_1, &particle_2, impact_parameters[k], 100, 1E-3);
+                    let (theta, psi, psi_recoil, recoil_energy, asymptotic_deflection) = calculate_binary_collision(&particle_1, &particle_2, impact_parameters[k], 100, 1E-6);
 
                     //Energy transfer to recoil
                     particle_2.E = recoil_energy - material.Eb;
 
                     //Accumulate deflections for primary particle
                     total_energy_loss += recoil_energy;
-                    total_deflection_angle += psi;
+
+                    //total_deflection_angle += psi;
                     total_asymptotic_deflection += asymptotic_deflection;
 
                     //Rotate particle 1, 2 by lab frame scattering angles
                     rotate_particle(&mut particle_1, psi, phis_azimuthal[k]);
                     rotate_particle(&mut particle_2, -psi_recoil, phis_azimuthal[k]);
 
+                    //Deep recoil suppression
                     //See Eckstein 1991 7.5.3 for recoil suppression function
                     if options.track_recoils & options.suppress_deep_recoils {
                         let E = particle_1.E;
@@ -833,7 +898,8 @@ fn bca_from_file() {
 
                         let n = material.number_density(xr, yr);
                         let a: f64 = screening_length(Za, Zb);
-                        let reduced_energy: f64 = 4.*PI*EPS0*a*Mb*E/(Ma + Mb)/Za/Zb/Q/Q;
+                        //let reduced_energy: f64 = 4.*PI*EPS0*a*Mb*E/(Ma + Mb)/Za/Zb/Q/Q;
+                        let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
                         let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powf(3.)/n/a/a;
 
                         if let Closest::SinglePoint(p2) = material.closest_point(xr, yr) {
@@ -848,7 +914,7 @@ fn bca_from_file() {
                                 particles.push(particle_2);
                             }
                         }
-                    } else if (recoil_energy > particle_2.Ec) & options.track_recoils {
+                    } else if options.track_recoils & (recoil_energy > particle_2.Ec) {
                         //If transferred energy > cutoff energy, add recoil to particle vector
                         particle_2.add_trajectory();
                         particles.push(particle_2);

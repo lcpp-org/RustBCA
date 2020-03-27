@@ -170,7 +170,7 @@ xenon = {
     'Es': 0.
 }
 
-def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='test_', random=False):
+def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='test_', random=False, free_flight_path=False):
 
     options = {
         'name': name,
@@ -180,9 +180,10 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
         'write_files': write_files,
         'stream_size': 256000,
         'print': True,
-        'print_num': 1,
+        'print_num': np.min((100, int(N_*N))),
         'weak_collision_order': 0,
-        'suppress_deep_recoils': False
+        'suppress_deep_recoils': False,
+        'high_energy_free_flight_paths': free_flight_path,
     }
 
     material_parameters = {
@@ -241,7 +242,7 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
     with open('input.toml', 'w') as file:
         toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
 
-    os.system('./rustBCA')
+    os.system('rustBCA.exe')
 
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
@@ -409,8 +410,10 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
         plt.title(name+' Trajectories')
+
+        plt.axis('square')
+        plt.axis([0., 1.1*depth, -1.1*thickness, 1.1*thickness])
         plt.savefig(name+'trajectories_'+file_num+'.png')
-        breakpoint()
         plt.close()
 
     if np.size(deposited) > 0:
@@ -435,11 +438,11 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
         plt.close()
 
         plt.figure(4)
-        num_bins_x = 100
-        num_bins_y = 100
-        #binx = np.linspace(0.0, maxx, num_bins_x)
-        #biny = np.linspace(miny, maxy, num_bins_y)
-        plt.hist2d(deposited[:, 2], deposited[:, 3], bins=(num_bins_x, num_bins_y))
+        num_bins_x = 500
+        num_bins_y = 500
+        binx = np.linspace(0.0, 1.1*np.max(deposited[:, 2]), num_bins_x)
+        biny = np.linspace(-1.1*thickness/2., 1.1*thickness/2., num_bins_y)
+        plt.hist2d(deposited[:, 2], deposited[:, 3], bins=(binx, biny))
         #plt.plot(*surface.exterior.xy, color='dimgray')
         #plt.plot(*energy_surface.exterior.xy, '--', color='dimgray')
         #plt.plot(*simulation_surface.exterior.xy, '--', color='dimgray')
@@ -597,24 +600,33 @@ def plot_distributions(name, ftridyn_name, file_num=1):
     plt.close()
 
 def starshot():
-    beam_species = [helium]
-    target_species = [copper]
+    beam_species = [helium, hydrogen]
+    target_species = [beryllium, tungsten, copper]
     thickness = 100
-    depth = 100000
+    depth = 10000
     N = 100000
     N_ = 1
     theta = 0.0001
-    velocities = np.array([0.001, 0.01, 0.05, 0.1])
+    #velocities =
+    velocities = np.round(np.linspace(0.01, 0.2, 50), 3)
 
-    os.system('rm ./rustBCA')
+    os.system('rm rustBCA.exe')
     os.system('cargo build --release')
-    os.system('mv target/release/rustBCA .')
+    os.system('mv target/release/rustBCA.exe .')
 
     os.system('rm *.output')
     #os.system('rm *.png')
 
     run_sim = True
+    track_recoils = True
+    track_trajectories = False
+    track_recoil_trajectories = False
+    ffp = True
 
+    plt.figure('reflection')
+    plt.figure('sputtering')
+
+    rustbca_reflection_names = []
     for beam in beam_species:
         Za = beam['Z']
         Ma = beam['m']
@@ -629,6 +641,9 @@ def starshot():
             Mb = target['m']
             n = target['n']
 
+            rustbca_reflection = []
+            rustbca_yield = []
+
             for velocity in velocities:
                 energy = Ma*AMU*C**2.*(1./np.sqrt(1. - velocity**2) - 1.)/Q
                 print(energy)
@@ -639,21 +654,44 @@ def starshot():
                     rustbca_yield_, rustbca_reflection_, rustbca_range_  = main(
                         Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy,
                         N, N_, theta, thickness, depth,
-                        track_trajectories=False, track_recoils=True,
-                        track_recoil_trajectories=False, write_files=True,
-                        name=name)
+                        track_trajectories=track_trajectories, track_recoils=track_recoils,
+                        track_recoil_trajectories=track_recoil_trajectories, write_files=True,
+                        name=name, random=True, free_flight_path=ffp)
+
+                    rustbca_reflection.append(rustbca_reflection_)
+                    rustbca_yield.append(rustbca_yield_)
 
                     print(f'{beam["symbol"]} {target["symbol"]} velocity: {velocity} Y: {rustbca_yield_} R: {rustbca_reflection_} depth: {rustbca_range_}')
 
                 do_plots(name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
-                #breakpoint()
+
+            rustbca_reflection_names.append(beam['symbol']+' on '+target['symbol'])
+
+            plt.figure('reflection')
+            plt.plot(velocities, rustbca_reflection)
+            plt.figure('sputtering')
+            plt.plot(velocities, rustbca_yield)
+
+    plt.figure('reflection')
+    plt.legend(rustbca_reflection_names)
+    plt.title('Reflection Coefficients from 100cmX10um Target')
+    plt.xlabel('v/c')
+    plt.ylabel('R')
+
+    plt.figure('sputtering')
+    plt.legend(rustbca_reflection_names)
+    plt.title('Sputtering Yields from 1cmX10um Target')
+    plt.xlabel('v/c')
+    plt.ylabel('Y [at/ion]')
+
+    plt.show()
 
 def benchmark():
         beam_species = [argon]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
         target_species = [boron]#, copper]#, copper]#, boron, silicon, copper]
 
         N = 1
-        N_ = 1
+        N_ = 100000
         theta = 0.0001
         thickness = 0.05
         depth = 0.05
@@ -664,15 +702,15 @@ def benchmark():
         #energies = [1000.]
         #energies = [100.]
         tr = True
-        trt = True
-        tt = True
+        trt = False
+        tt = False
 
-        os.system('rm *.png')
+        #os.system('rm *.png')
         os.system('rm *.output')
 
-        os.system('rm ./rustBCA')
+        os.system('rm rustBCA.exe')
         os.system('cargo build --release')
-        os.system('mv target/release/rustBCA .')
+        os.system('mv target/release/rustBCA.exe .')
 
         fig1, ax1 = plt.subplots(1, 1, num='yields', figsize=(16, 14))
         fig2, ax2 = plt.subplots(1, 1, num='ranges', figsize=(16, 14))
@@ -714,7 +752,7 @@ def benchmark():
 
                     rustbca_name = str(energy)+'eV_'+str(theta)+'deg_'+beam['symbol']+'_'+target['symbol']
                     start = time.time()
-                    rustbca_yield_, rustbca_reflection_, rustbca_range_ = main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=tt, track_recoils=tr, track_recoil_trajectories=trt, write_files=True, name=rustbca_name)
+                    rustbca_yield_, rustbca_reflection_, rustbca_range_ = main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=tt, track_recoils=tr, track_recoil_trajectories=trt, write_files=True, name=rustbca_name, random=False)
                     stop = time.time()
                     rustbca_time += stop - start
                     rustbca_yield.append(rustbca_yield_)
@@ -723,8 +761,8 @@ def benchmark():
 
                     ftridyn_name = beam['symbol'].ljust(2, '_') + target['symbol'].ljust(2, '_')
                     interface = g.tridyn_interface(beam['symbol'], target['symbol'])
-                    os.system('rm *.DAT')
-                    os.system('rm *.OUT')
+                    #os.system('rm *.DAT')
+                    #os.system('rm *.OUT')
                     start = time.time()
                     ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
                     stop = time.time()
@@ -742,7 +780,7 @@ def benchmark():
                     do_plots(rustbca_name, file_num=str(1), thickness=thickness, depth=depth)
                     #breakpoint()
                     plot_distributions(rustbca_name, ftridyn_name, file_num=1)
-                    os.system('rm *.output')
+                    #os.system('rm *.output')
 
                 handle = ax1.loglog(energies, rustbca_yield, '-*')
                 ax1.loglog(energies, rustbca_reflection, ':', color=handle[0].get_color())
@@ -774,4 +812,4 @@ def plots_for_prelim():
     pass
 
 if __name__ == '__main__':
-    benchmark()
+    starshot()
