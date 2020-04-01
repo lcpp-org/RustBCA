@@ -211,19 +211,20 @@ impl Material {
             "CM" => CM,
             "ANGSTROM" => ANGSTROM,
             "NM" => NM,
-            _ => panic!("Incorrect unit {} in input file.", geometry.length_unit.as_str())
+            "M" => 1.,
+            _ => panic!("Incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M", geometry.length_unit.as_str())
         };
         let energy_unit: f64 = match material_parameters.energy_unit.as_str() {
             "EV" => EV,
             "J"  => 1.,
             "KEV" => EV*1E3,
             "MEV" => EV*1E6,
-            _ => panic!("Incorrect unit {} in input file.", material_parameters.energy_unit.as_str())
+            _ => panic!("Incorrect unit {} in input file. Choose one of: EV, J, KEV, MEV", material_parameters.energy_unit.as_str())
         };
         let mass_unit: f64 = match material_parameters.mass_unit.as_str() {
             "AMU" => AMU,
             "KG" => 1.,
-            _ => panic!("Incorrect unit {} in input file.", material_parameters.mass_unit.as_str())
+            _ => panic!("Incorrect unit {} in input file. Choose one of: AMU, KG", material_parameters.mass_unit.as_str())
         };
 
         let mut unit_coords = geometry.surface.clone();
@@ -367,12 +368,21 @@ impl Material {
 
 fn phi(xi: f64) -> f64 {
     //Kr-C potential
-    return 0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp();
+    //return 0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp();
+    //Moliere potential
+    //return 0.35*(-0.3*xi).exp() + 0.55*(-1.2*xi).exp() + 0.10*(-6.0*xi).exp();
+    //ZBL
+    return 0.02817*(-0.20162*xi).exp() + 0.28022*(-0.40290*xi).exp() + 0.50986*(-0.94229*xi).exp() + 0.18175*(-3.1998*xi).exp();
 }
 
 fn dphi(xi: f64) -> f64 {
     //First differential of Kr-C potential
-    return -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp();
+    //return -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp();
+    //Moliere potential
+    //return -0.35*0.3*(-0.3*xi).exp() + -0.55*1.2*(-1.2*xi).exp() + -0.10*6.0*(-6.0*xi).exp();
+    //return -0.20162*0.02817*(-0.20162*xi).exp() -0.40290*0.28022*(-0.40290*xi).exp() -0.94229*0.50986*(-0.94229*xi).exp() -3.1998*0.18175*(-3.1998*xi).exp();
+    //ZBL
+    return -0.20162*0.02817*(-0.20162*xi).exp() + -0.40290*0.28022*(-0.40290*xi).exp() + -0.94229*0.50986*(-0.94229*xi).exp() + -3.1998*0.18175*(-3.1998*xi).exp();
 }
 
 fn screening_length(Za: f64, Zb: f64) -> f64 {
@@ -404,6 +414,8 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
 
     //azimuthal angle randomly selected (0..2pi)
     let mut phis_azimuthal = Vec::with_capacity(collision_order + 1);
+
+    //Each weak collision gets its own aziumuthal angle in annuli around collision point
     for k in 0..collision_order + 1 {
         phis_azimuthal.push(2.*PI*rand::random::<f64>());
     }
@@ -419,37 +431,58 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
         let Ec: f64 = particle_1.Ec;
         let a: f64 = screening_length(Za, Zb);
         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
+        //Minimum energy transfer for scattering event set to cutoff energy
         let E_min = Ec*(Ma + Mb).powf(2.)/4./Ma/Mb;
         let reduced_energy_min: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E_min;
+        //Free flight path formulation here described in SRIM textbook chapter 7, and Eckstein 1991 7.5.2
         let ep = (reduced_energy*reduced_energy_min).sqrt();
         let mut pmax = a/(ep + ep.sqrt() + 0.125*ep.powf(0.1));
         let mut ffp = 1./(n*pmax*pmax*PI);
         let se = material.electronic_stopping_power(particle_1);
 
         //If losing too much energy, scale free-flight-path down
+        //5 percent limit set in original TRIM paper, Biersack and Haggmark 1980
         if ffp*se > 0.05*E {
             ffp = 0.05*E/se;
             pmax = (1./(n*PI*ffp)).sqrt()
         }
 
         //If free-flight-path less than the interatomic spacing, revert to solid model
+        //Mentioned in Eckstein 1991, Ziegler, Biersack, and Ziegler 2008 (SRIM textbook 7-8)
         if ffp < mfp {
 
             ffp = mfp;
-            pmax = mfp/2.;
+            //Cylindrical geometry
+            pmax = mfp/SQRTPI;
             let mut impact_parameter = Vec::with_capacity(1);
             let random_number = rand::random::<f64>();
             let p = pmax*random_number.sqrt();
             impact_parameter.push(p);
 
+            //Atomically rough surface - scatter initial collisions using mfp near interface
+            if particle_1.first_step {
+                ffp = mfp*rand::random::<f64>();
+                particle_1.first_step = false;
+            }
+
             return (phis_azimuthal, impact_parameter, ffp);
 
         } else {
 
+            //Impact parameter chosen as sqrt(-ln(R))*pmax, as in Biersack and Haggmark 1980,
+            //And Mendenhall Weller 2005
+            //And SRIM textbook chapter 7
+            //And Eckstein 1991
             let mut impact_parameter = Vec::with_capacity(1);
             let random_number = rand::random::<f64>();
             let p = pmax*(-random_number.ln()).sqrt();
             impact_parameter.push(p);
+
+            //Atomically rough surface - scatter initial collisions using mfp near interface
+            if particle_1.first_step {
+                ffp = mfp*rand::random::<f64>();
+                particle_1.first_step = false;
+            }
 
             return (phis_azimuthal, impact_parameter, ffp);
         }
@@ -457,7 +490,8 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
     } else {
 
         //If not using free flight paths, use weak collision model
-        let pmax = mfp/2.;
+        let pmax = mfp/SQRTPI;
+        //Cylindrical geometry
         let mut impact_parameters = Vec::with_capacity(collision_order + 1);
         for k in 0..(collision_order + 1) {
             let random_number = rand::random::<f64>();
@@ -581,7 +615,7 @@ fn update_particle_energy(particle_1: &mut Particle, material: &Material, path_l
         particle_1.E += -electronic_stopping_power*path_length;
     }
 
-    //Make sure particle energy doesn't become negative
+    //Make sure particle energy doesn't become negative again
     if particle_1.E < 0. {
         particle_1.E = 0.;
     }
@@ -723,22 +757,23 @@ fn bca_from_file() {
         "CM" => CM,
         "ANGSTROM" => ANGSTROM,
         "NM" => NM,
-        _ => panic!("Incorrect unit {} in input file.", particle_parameters.length_unit.as_str())
+        "M" => 1.,
+        _ => panic!("Incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M", particle_parameters.length_unit.as_str())
     };
     let energy_unit: f64 = match particle_parameters.energy_unit.as_str() {
         "EV" => EV,
         "J"  => 1.,
         "KEV" => EV*1E3,
         "MEV" => EV*1E6,
-        _ => panic!("Incorrect unit {} in input file.", particle_parameters.energy_unit.as_str())
+        _ => panic!("Incorrect unit {} in input file. Choose one of: EV, J, KEV, MEV", particle_parameters.energy_unit.as_str())
     };
     let mass_unit: f64 = match particle_parameters.mass_unit.as_str() {
         "AMU" => AMU,
         "KG" => 1.0,
-        _ => panic!("Incorrect unit {} in input file.", particle_parameters.mass_unit.as_str())
+        _ => panic!("Incorrect unit {} in input file. Choose one of: AMU, KG", particle_parameters.mass_unit.as_str())
     };
 
-    //Estimate maximum number of recoils produced
+    //Estimate maximum number of recoils produced per ion
     let mut max_energy: f64 = 0.;
     let mut total_particles: usize = 0;
     for particle_index in 0..N {
@@ -751,7 +786,7 @@ fn bca_from_file() {
         total_particles += N_;
     }
 
-    //Create particle array
+    //Create particle array from input file
     let estimated_num_particles: usize = total_particles + ((max_energy/material.Ec).ceil() as usize);
     let mut particles: Vec<Particle> = Vec::with_capacity(estimated_num_particles);
     for particle_index in 0..N {
@@ -922,7 +957,7 @@ fn bca_from_file() {
                 }
             }
 
-            //Determine path length
+            //Determine path length and advance particle in space
             let path_length = particle_advance(&mut particle_1, mfp, total_asymptotic_deflection);
 
             //Subtract total energy from all weak collisions
@@ -930,7 +965,7 @@ fn bca_from_file() {
 
             //Check boundary conditions on leaving and stopping
             boundary_condition_2D_planar(&mut particle_1, &material);
-            }
+        }
 
         //Once particle finishes, begin data output
         //Stream current particle output to files

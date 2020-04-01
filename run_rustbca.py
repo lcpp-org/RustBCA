@@ -81,6 +81,20 @@ boron = {
     's': 2.5
 }
 
+arsenic = {
+    'symbol': 'As',
+    'name': 'arsenic',
+    'Z': 33,
+    'm': 74.921595,
+    'n': 4.603E28,
+    'Es': 3.12,
+    'Eb': 0.,
+    'Ec': 1.,
+    'Q': None,
+    'W': None,
+    's': None
+}
+
 neon = {
     'symbol': 'Ne',
     'name': 'neon',
@@ -262,10 +276,12 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
 
     if np.size(deposited) > 0:
         ion_range = np.mean(deposited[:, 2])
+        ion_straggle = np.std(deposited[:,2])
     else:
         ion_range = 0
+        ion_straggle = 0
 
-    return Y, R, ion_range
+    return Y, R, ion_range, ion_straggle
 
 def wierzbicki_biersack(ion, target, energy_eV):
     #Wierzbicki and Biersack (1994)
@@ -421,6 +437,7 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
         num_bins = 100
         #bins = np.linspace(minx, maxx, num_bins)
         plt.hist(deposited[:, 2], bins=num_bins)
+        plt.yscale('log')
         plt.title(name+' X Deposition')
         plt.xlabel('x [um]')
         plt.ylabel('Helium Deposition (A.U.)')
@@ -431,6 +448,7 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
         num_bins = 100
         #bins = np.linspace(miny, maxy, num_bins)
         plt.hist(deposited[:, 3], bins=num_bins)
+        plt.yscale('log')
         plt.title(name+' Y Deposition')
         plt.xlabel('y [um]')
         plt.ylabel('Helium Deposition (A.U.)')
@@ -440,12 +458,17 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
         plt.figure(4)
         num_bins_x = 500
         num_bins_y = 500
-        binx = np.linspace(0.0, 1.1*np.max(deposited[:, 2]), num_bins_x)
+        #binx = np.linspace(0.0, 1.1*np.max(deposited[:, 2]), num_bins_x)
+        binx = np.linspace(-0.1*depth, 1.1*depth, num_bins_x)
         biny = np.linspace(-1.1*thickness/2., 1.1*thickness/2., num_bins_y)
         plt.hist2d(deposited[:, 2], deposited[:, 3], bins=(binx, biny))
         #plt.plot(*surface.exterior.xy, color='dimgray')
         #plt.plot(*energy_surface.exterior.xy, '--', color='dimgray')
         #plt.plot(*simulation_surface.exterior.xy, '--', color='dimgray')
+        if thickness and depth:
+            x_box = [0., 0., depth, depth, 0.]
+            y_box = [-thickness/2., thickness/2., thickness/2., -thickness/2., -thickness/2.]
+            plt.plot(x_box, y_box, color='dimgray', linewidth=3)
         plt.title(name+' 2D Deposition')
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
@@ -601,14 +624,14 @@ def plot_distributions(name, ftridyn_name, file_num=1):
 
 def starshot():
     beam_species = [helium, hydrogen]
-    target_species = [beryllium, tungsten, copper]
-    thickness = 100
+    target_species = [beryllium, copper, aluminum, tungsten]
+    thickness = 50
     depth = 10000
     N = 100000
     N_ = 1
     theta = 0.0001
     #velocities =
-    velocities = np.round(np.linspace(0.01, 0.2, 50), 3)
+    velocities = np.round(np.linspace(0.01, 0.5, 20), 3)
 
     os.system('rm rustBCA.exe')
     os.system('cargo build --release')
@@ -646,12 +669,12 @@ def starshot():
 
             for velocity in velocities:
                 energy = Ma*AMU*C**2.*(1./np.sqrt(1. - velocity**2) - 1.)/Q
-                print(energy)
+                print(f'E: {energy}')
 
                 name = str(velocity)+'_'+str(beam['symbol'])+'_'+str(target['symbol'])
 
                 if run_sim:
-                    rustbca_yield_, rustbca_reflection_, rustbca_range_  = main(
+                    rustbca_yield_, rustbca_reflection_, rustbca_range_, rustbca_straggle_  = main(
                         Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy,
                         N, N_, theta, thickness, depth,
                         track_trajectories=track_trajectories, track_recoils=track_recoils,
@@ -663,7 +686,7 @@ def starshot():
 
                     print(f'{beam["symbol"]} {target["symbol"]} velocity: {velocity} Y: {rustbca_yield_} R: {rustbca_reflection_} depth: {rustbca_range_}')
 
-                do_plots(name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
+                #do_plots(name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
 
             rustbca_reflection_names.append(beam['symbol']+' on '+target['symbol'])
 
@@ -684,6 +707,61 @@ def starshot():
     plt.xlabel('v/c')
     plt.ylabel('Y [at/ion]')
 
+    plt.show()
+
+def benchmark_srim():
+    beam = helium
+    target = aluminum
+
+    energies = np.logspace(1, 4, 20)*1000.
+    energies = [10E6]
+    theta = 0.0001
+    N = 1
+    N_ = 10000
+    depth = 200
+    thickness = 200
+
+    Za = beam['Z']
+    Ma = beam['m']
+    Eca = beam['Ec']
+    Esa = beam['Es']
+    Zb = target['Z']
+    Ecb = target['Ec']
+    Esb = target['Es']
+    Eb = target['Eb']
+    Mb = target['m']
+    n = target['n']
+
+    track_recoils = False
+    track_trajectories = False
+    track_recoil_trajectories = False
+    ffp = True
+
+    os.system('rm *.output')
+    os.system('rm rustBCA.exe')
+    os.system('cargo build --release')
+    os.system('mv target/release/rustBCA.exe .')
+
+    ranges = []
+    straggles = []
+    for index, energy in enumerate(energies):
+        name = beam['symbol']+'_'+target['symbol']+str(index)+'_'
+        rustbca_yield_, rustbca_reflection_, rustbca_range_, rustbca_straggle_  = main(
+            Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy,
+            N, N_, theta, thickness, depth,
+            track_trajectories=track_trajectories, track_recoils=track_recoils,
+            track_recoil_trajectories=track_recoil_trajectories, write_files=True,
+            name=name, random=False, free_flight_path=ffp)
+        do_plots(name, thickness=thickness, depth=depth)
+        ranges.append(rustbca_range_)
+        straggles.append(rustbca_straggle_)
+        breakpoint()
+
+    ranges = np.array(ranges)
+    plt.loglog(energies, ranges)
+    plt.loglog(energies, straggles)
+    geant4 = np.genfromtxt('geant4_as_si.dat')
+    plt.loglog(geant4[:,0], geant4[:,1]*1e-3, '.')
     plt.show()
 
 def benchmark():
@@ -777,7 +855,7 @@ def benchmark():
                     reflection_coefficient_ = wierzbicki_biersack(beam, target, energy)
                     reflection_coefficient.append(reflection_coefficient_)
 
-                    do_plots(rustbca_name, file_num=str(1), thickness=thickness, depth=depth)
+
                     #breakpoint()
                     plot_distributions(rustbca_name, ftridyn_name, file_num=1)
                     #os.system('rm *.output')
