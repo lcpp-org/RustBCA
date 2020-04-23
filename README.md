@@ -13,14 +13,14 @@ Dependences:
 
 Steps to install:
 1. Install Python 3.6+.
-2. Install rustup, the Rust toolchain (includes rustc, the compiler, and cargo, the package manager)
+2. Install rustup, the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/
 3. Run python3.# -m pip install numpy matplotlib shapely
 4. Install toml from source:
   * git clone https://github.com/uiri/toml.git
   * cd toml
   * python3.# setup.py install
 5. Build RustBCA
-  * git clone https://github.com/drobnyjt/rustBCA
+  * git clone https://github.com/lcpp-org/rustBCA
   * cd rustBCA
   * cargo build --release
  6. input.toml is the input file -- example included below
