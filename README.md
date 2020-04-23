@@ -79,3 +79,5 @@ dir = [ [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,],] #Initial velocity u
 # Usage
 
 Modify input.toml as wanted; run ./rustBCA with input.toml in the same directory as rustBCA
+
+Recommended usage: use run_rustbca.py to generate input files programmatically
