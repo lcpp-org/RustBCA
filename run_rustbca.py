@@ -290,7 +290,7 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
     return Y, R, ion_range, ion_straggle
 
 def wierzbicki_biersack(ion, target, energy_eV):
-    #Wierzbicki and Biersack (1994)
+    #Wierzbicki and Biersack empirical reflection coefficient (1994)
     Z1 = ion['Z']
     Z2 = target['Z']
     M1 = ion['m']
@@ -325,6 +325,7 @@ def wierzbicki_biersack(ion, target, energy_eV):
     return RN_mu*RN_e
 
 def yamamura(ion, target, energy_eV):
+    #Yamamura sputtering yield implementation
     z1 = ion['Z']
     z2 = target['Z']
     m1 = ion['m']
@@ -336,6 +337,7 @@ def yamamura(ion, target, energy_eV):
 
     reduced_mass_2 = m2/(m1 + m2)
     reduced_mass_1 = m1/(m1 + m2)
+
     #Lindhard's reduced energy
     reduced_energy = 0.03255/(z1*z2*(z1**(2./3.) + z2**(2./3.))**(1./2.))*reduced_mass_2*energy_eV
 
@@ -782,6 +784,106 @@ def benchmark_srim():
     plt.loglog(geant4[:,0], geant4[:,1]*1e-3, '.')
     plt.show()
 
+def test_rustbca():
+    beam_species = [hydrogen, helium]
+    target_species = [beryllium, tungsten]
+
+    N = 1 #Number of unique ion kinds
+    N_ = 100000 #Number of ions
+    theta = 0.0001 #Incident angle w.r.t. surface normal
+    thickness = 100 #micron
+    depth = 100 #micron
+    energies = np.logspace(1, 4, 10)
+    tr = True
+    trt = False
+    tt = False
+    ffp = True
+    esmode = HIGH_ENERGY
+
+    #os.system('rm *.png')
+    os.system('rm *.output')
+    os.system('rm rustBCA.exe')
+    os.system('cargo build --release')
+    os.system('mv target/release/rustBCA.exe .')
+
+    fig1, ax1 = plt.subplots(1, 1, num='yields', figsize=(16, 14))
+    fig2, ax2 = plt.subplots(1, 1, num='ranges', figsize=(16, 14))
+
+    name_1 = []
+    name_2 = []
+    rustbca_time = 0.
+    ftridyn_time = 0.
+    for beam in beam_species:
+        Za = beam['Z']
+        Ma = beam['m']
+        Eca = beam['Ec']
+        Esa = beam['Es']
+        for target in target_species:
+
+            #Append names to namelists for legend
+            name_1.append(beam['symbol']+' on '+target['symbol']+' Y RustBCA')
+            name_1.append(beam['symbol']+' on '+target['symbol']+' R RustBCA')
+            name_1.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura')
+            name_1.append(beam['symbol']+' on '+target['symbol']+' R Wierzbicki-Biersack')
+            name_2.append(beam['symbol']+' on '+target['symbol']+' Range RustBCA')
+
+            #Generate empty arrays for each ion-target combo
+            rustbca_yield = []
+            rustbca_reflection = []
+            yamamura_yield = []
+            rustbca_range = []
+            reflection_coefficient = []
+
+            Zb = target['Z']
+            Ecb = target['Ec']
+            Esb = target['Es']
+            Eb = target['Eb']
+            Mb = target['m']
+            n = target['n']
+
+            for energy in energies:
+                rustbca_name = str(energy)+'eV_'+str(theta)+'deg_'+beam['symbol']+'_'+target['symbol']
+
+                start = time.time()
+                rustbca_yield_, rustbca_reflection_, rustbca_range_, rustbca_straggle_ = main(Zb,
+                    Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_,
+                    theta, thickness, depth, track_trajectories=tt,
+                    track_recoils=tr, track_recoil_trajectories=trt,
+                    write_files=True, name=rustbca_name, random=False,
+                    free_flight_path=ffp, electronic_stopping_mode=esmode)
+                stop = time.time()
+                rustbca_time += stop - start
+
+                rustbca_yield.append(rustbca_yield_)
+                rustbca_reflection.append(rustbca_reflection_)
+                rustbca_range.append(rustbca_range_)
+
+                yamamura_yield_ = yamamura(beam, target, energy)
+                yamamura_yield.append(yamamura_yield_)
+
+                reflection_coefficient_ = wierzbicki_biersack(beam, target, energy)
+                reflection_coefficient.append(reflection_coefficient_)
+
+            handle = ax1.loglog(energies, rustbca_yield, '-*')
+            ax1.loglog(energies, rustbca_reflection, ':', color=handle[0].get_color())
+            ax1.loglog(energies, yamamura_yield, '-', color=handle[0].get_color())
+            ax1.loglog(energies, reflection_coefficient, '-.', color=handle[0].get_color())
+            ax2.loglog(energies, rustbca_range, color=handle[0].get_color())
+
+    ax1.legend(name_1, fontsize='small', loc='best', bbox_to_anchor=(0.85, 1.0))
+    ax1.axis([0.1*np.min(energies), 10.0*np.max(energies), 1./N_, 10.])
+    ax1.set_ylabel('Y/R [at/ion]/[ion/ion]')
+    ax1.set_xlabel('E [eV]')
+    fig1.savefig(rustbca_name+'yields.png')
+
+    ax2.legend(name_2, fontsize='small', loc='best', bbox_to_anchor=(1.0, 0.5))
+    ax2.set_xlabel('E [eV]')
+    ax2.set_ylabel('Range [um]')
+    ax2.axis([0.5*np.min(energies), 10.*np.max(energies), 0.1*np.min(rustbca_range), 10.*np.max(rustbca_range)])
+    fig2.savefig(rustbca_name+'ranges.png')
+
+    plt.show()
+
 def benchmark():
         beam_species = [helium]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
         target_species = [copper]#, copper]#, copper]#, boron, silicon, copper]
@@ -911,8 +1013,5 @@ def benchmark():
 
         print(f'time rustBCA: {rustbca_time} time F-TRIDYN: {ftridyn_time}')
 
-def plots_for_prelim():
-    pass
-
 if __name__ == '__main__':
-    benchmark()
+    test_rustbca()
