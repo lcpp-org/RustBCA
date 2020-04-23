@@ -704,10 +704,10 @@ fn boundary_condition_2D_planar(particle_1: &mut Particle, material: &Material) 
                     //let cosy_new = ((E*cosy*cosy + signy*Es*dy*dy)/(E + signy*dy*dy*Es)).sqrt();
                     let cosz_new = 1. - cosx_new*cosx_new + cosy_new*cosy_new;
 
-                    particle_1.dir.x = cosx_new;
-                    particle_1.dir.y = cosy_new;
-                    particle_1.dir.z = cosz_new;
-                    particle_1.dir.normalize();
+                    //particle_1.dir.x = cosx_new;
+                    //particle_1.dir.y = cosy_new;
+                    //particle_1.dir.z = cosz_new;
+                    //particle_1.dir.normalize();
 
                 }
             }
