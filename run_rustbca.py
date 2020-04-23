@@ -20,7 +20,12 @@ K = 1.11265E-10
 ME = 9.11E-31
 SQRTPI = 1.77245385
 SQRT2PI = 2.506628274631
-C = 300000000.
+C = 299792000.
+
+HIGH_ENERGY = 0
+LOW_ENERGY_NONLOCAL = 1
+LOW_ENERGY_LOCAL= 2
+LOW_ENERGY_EQUIPARTITION = 3
 
 titanium = {
     'symbol': 'Ti',
@@ -184,7 +189,7 @@ xenon = {
     'Es': 0.
 }
 
-def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='test_', random=False, free_flight_path=False):
+def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='test_', random=False, free_flight_path=False, electronic_stopping_mode=HIGH_ENERGY):
 
     options = {
         'name': name,
@@ -198,6 +203,7 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
         'weak_collision_order': 0,
         'suppress_deep_recoils': False,
         'high_energy_free_flight_paths': free_flight_path,
+        'electronic_stopping_mode': electronic_stopping_mode,
     }
 
     material_parameters = {
@@ -392,6 +398,7 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
     #plt.plot(*simulation_surface.exterior.xy, '--', color='dimgray')
 
     index = 0
+    x_max = 0
     if np.size(trajectories) > 0:
         for trajectory_length in trajectory_data:
 
@@ -402,10 +409,14 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
             y = trajectories[index:(trajectory_length + index), 4]
             z = trajectories[index:(trajectory_length + index), 5]
 
+            if np.max(x) > x_max:
+                x_max = np.max(x)
+
             plt.scatter(x[0], y[0], color = colors[Z], marker='o', s=5)
             plt.plot(x, y, color = colors[Z], linewidth = 1)
 
             index += trajectory_length
+
         if np.size(sputtered) > 0:
             sputtered_colors = [colors[Z] for Z in sputtered[:,1]]
             plt.scatter(sputtered[:,3], sputtered[:,4], s=50, color=sputtered_colors, marker='*')
@@ -428,7 +439,8 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
         plt.title(name+' Trajectories')
 
         plt.axis('square')
-        plt.axis([0., 1.1*depth, -1.1*thickness, 1.1*thickness])
+        plt.axis([0., 1.1*x_max, -1.1*thickness, 1.1*thickness])
+        breakpoint()
         plt.savefig(name+'trajectories_'+file_num+'.png')
         plt.close()
 
@@ -623,28 +635,33 @@ def plot_distributions(name, ftridyn_name, file_num=1):
     plt.close()
 
 def starshot():
-    beam_species = [helium, hydrogen]
-    target_species = [beryllium, copper, aluminum, tungsten]
-    thickness = 50
-    depth = 10000
-    N = 100000
+    beam_species = [helium]
+    beam_linestyles = {
+        'He': '--',
+        'H': '-',
+    }
+    target_species = [beryllium]
+    thickness = 100
+    depth = 100000
+    N = 1000
     N_ = 1
     theta = 0.0001
     #velocities =
-    velocities = np.round(np.linspace(0.01, 0.5, 20), 3)
+    velocities = np.arange(0.025, 0.51, 0.01)
+    #velocities = [0.05]
 
     os.system('rm rustBCA.exe')
     os.system('cargo build --release')
     os.system('mv target/release/rustBCA.exe .')
 
     os.system('rm *.output')
-    #os.system('rm *.png')
 
     run_sim = True
     track_recoils = True
     track_trajectories = False
     track_recoil_trajectories = False
     ffp = True
+    esmode = HIGH_ENERGY
 
     plt.figure('reflection')
     plt.figure('sputtering')
@@ -679,19 +696,20 @@ def starshot():
                         N, N_, theta, thickness, depth,
                         track_trajectories=track_trajectories, track_recoils=track_recoils,
                         track_recoil_trajectories=track_recoil_trajectories, write_files=True,
-                        name=name, random=True, free_flight_path=ffp)
+                        name=name, random=True, free_flight_path=ffp, electronic_stopping_mode=esmode)
 
                     rustbca_reflection.append(rustbca_reflection_)
                     rustbca_yield.append(rustbca_yield_)
 
                     print(f'{beam["symbol"]} {target["symbol"]} velocity: {velocity} Y: {rustbca_yield_} R: {rustbca_reflection_} depth: {rustbca_range_}')
 
-                #do_plots(name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
+                    #do_plots(name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
+                    #breakpoint()
 
             rustbca_reflection_names.append(beam['symbol']+' on '+target['symbol'])
 
             plt.figure('reflection')
-            plt.plot(velocities, rustbca_reflection)
+            plt.plot(velocities, rustbca_reflection, beam_linestyles[beam['symbol']])
             plt.figure('sputtering')
             plt.plot(velocities, rustbca_yield)
 
@@ -765,15 +783,15 @@ def benchmark_srim():
     plt.show()
 
 def benchmark():
-        beam_species = [argon]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
-        target_species = [boron]#, copper]#, copper]#, boron, silicon, copper]
+        beam_species = [helium]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
+        target_species = [copper]#, copper]#, copper]#, boron, silicon, copper]
 
         N = 1
-        N_ = 100000
+        N_ = 10000
         theta = 0.0001
-        thickness = 0.05
-        depth = 0.05
-        energies = np.logspace(4, 5, 10)
+        thickness = 1
+        depth = 1
+        energies = np.logspace(1, 3, 10)
         #energies = [200.]
         #energies = [38.]
         #energies = [15.]
@@ -782,6 +800,8 @@ def benchmark():
         tr = True
         trt = False
         tt = False
+        ffp = False
+        esmode = LOW_ENERGY_EQUIPARTITION
 
         #os.system('rm *.png')
         os.system('rm *.output')
@@ -830,7 +850,12 @@ def benchmark():
 
                     rustbca_name = str(energy)+'eV_'+str(theta)+'deg_'+beam['symbol']+'_'+target['symbol']
                     start = time.time()
-                    rustbca_yield_, rustbca_reflection_, rustbca_range_ = main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_, theta, thickness, depth, track_trajectories=tt, track_recoils=tr, track_recoil_trajectories=trt, write_files=True, name=rustbca_name, random=False)
+                    rustbca_yield_, rustbca_reflection_, rustbca_range_, rustbca_straggle_ = main(Zb,
+                        Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_,
+                        theta, thickness, depth, track_trajectories=tt,
+                        track_recoils=tr, track_recoil_trajectories=trt,
+                        write_files=True, name=rustbca_name, random=False,
+                        free_flight_path=ffp, electronic_stopping_mode=esmode)
                     stop = time.time()
                     rustbca_time += stop - start
                     rustbca_yield.append(rustbca_yield_)
@@ -890,4 +915,4 @@ def plots_for_prelim():
     pass
 
 if __name__ == '__main__':
-    starshot()
+    benchmark()

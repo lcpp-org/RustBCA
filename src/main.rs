@@ -33,6 +33,11 @@ const BETHE_BLOCH_PREFACTOR: f64 = 4.*PI*(Q*Q/(4.*PI*EPS0))*(Q*Q/(4.*PI*EPS0))/M
 const LINDHARD_SCHARFF_PREFACTOR: f64 = 1.212*ANGSTROM*ANGSTROM*Q;
 const LINDHARD_REDUCED_ENERGY_PREFACTOR: f64 = 4.*PI*EPS0/Q/Q;
 
+const HIGH_ENERGY: i32 = 0;
+const LOW_ENERGY_NONLOCAL: i32 = 1;
+const LOW_ENERGY_LOCAL: i32 = 2;
+const LOW_ENEGY_EQUIPARTITION: i32 = 3;
+
 #[derive(Deserialize)]
 pub struct Input {
     options: Options,
@@ -54,6 +59,7 @@ pub struct Options {
     weak_collision_order: usize,
     suppress_deep_recoils: bool,
     high_energy_free_flight_paths: bool,
+    electronic_stopping_mode: i32,
 }
 
 #[derive(Deserialize)]
@@ -324,7 +330,8 @@ impl Material {
         return (self.Z, self.m, self.Ec, self.Es);
     }
 
-    fn electronic_stopping_power(&self, particle_1: &Particle) -> f64 {
+    fn electronic_stopping_power(&self, particle_1: &Particle, xi: f64, electronic_stopping_mode: i32) -> f64 {
+
         let n = self.number_density(particle_1.pos.x, particle_1.pos.y);
         let E = particle_1.E;
         let Ma = particle_1.m;
@@ -359,8 +366,23 @@ impl Material {
         //Lindhard-Scharff electronic stopping
         let S_low = LINDHARD_SCHARFF_PREFACTOR*(Za.powf(7./6.)*Zb)/(Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.)*(E/Q/Ma*AMU).sqrt()*n;
 
-        //Biersack-Varelas Interpolation
-        let stopping_power = 1./(1./S_high + 1./S_low);
+        //Oen-Robinson local electronic stopping power
+        let a = screening_length(Za, Zb);
+        //d1 is the first interior constant of the screening function
+        let d1 = 0.3; //Moliere
+        let S_local = d1*d1/2./PI*S_low*(-d1*xi).exp();
+        //println!("S_local: {}, S_low: {}, xi: {}", S_local/Q, S_low/Q, xi*a/ANGSTROM);
+
+        let stopping_power = match electronic_stopping_mode {
+            //Biersack-Varelas Interpolation
+            HIGH_ENERGY => 1./(1./S_high + 1./S_low),
+            //Oen-Robinson
+            LOW_ENERGY_LOCAL => S_local,
+            //Lindhard-Scharff
+            LOW_ENERGY_NONLOCAL => S_low,
+            //Lindhard-Scharff and Oen-Robinson, using Lindhard Equipartition
+            LOW_ENERGY_EQUIPARTITION => 0.5*S_local + 0.5*S_low,
+        };
 
         return stopping_power;
     }
@@ -370,19 +392,19 @@ fn phi(xi: f64) -> f64 {
     //Kr-C potential
     //return 0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp();
     //Moliere potential
-    //return 0.35*(-0.3*xi).exp() + 0.55*(-1.2*xi).exp() + 0.10*(-6.0*xi).exp();
+    return 0.35*(-0.3*xi).exp() + 0.55*(-1.2*xi).exp() + 0.10*(-6.0*xi).exp();
     //ZBL
-    return 0.02817*(-0.20162*xi).exp() + 0.28022*(-0.40290*xi).exp() + 0.50986*(-0.94229*xi).exp() + 0.18175*(-3.1998*xi).exp();
+    //return 0.02817*(-0.20162*xi).exp() + 0.28022*(-0.40290*xi).exp() + 0.50986*(-0.94229*xi).exp() + 0.18175*(-3.1998*xi).exp();
 }
 
 fn dphi(xi: f64) -> f64 {
     //First differential of Kr-C potential
     //return -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp();
     //Moliere potential
-    //return -0.35*0.3*(-0.3*xi).exp() + -0.55*1.2*(-1.2*xi).exp() + -0.10*6.0*(-6.0*xi).exp();
+    return -0.35*0.3*(-0.3*xi).exp() + -0.55*1.2*(-1.2*xi).exp() + -0.10*6.0*(-6.0*xi).exp();
     //return -0.20162*0.02817*(-0.20162*xi).exp() -0.40290*0.28022*(-0.40290*xi).exp() -0.94229*0.50986*(-0.94229*xi).exp() -3.1998*0.18175*(-3.1998*xi).exp();
     //ZBL
-    return -0.20162*0.02817*(-0.20162*xi).exp() + -0.40290*0.28022*(-0.40290*xi).exp() + -0.94229*0.50986*(-0.94229*xi).exp() + -3.1998*0.18175*(-3.1998*xi).exp();
+    //return -0.20162*0.02817*(-0.20162*xi).exp() + -0.40290*0.28022*(-0.40290*xi).exp() + -0.94229*0.50986*(-0.94229*xi).exp() + -3.1998*0.18175*(-3.1998*xi).exp();
 }
 
 fn screening_length(Za: f64, Zb: f64) -> f64 {
@@ -431,14 +453,16 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
         let Ec: f64 = particle_1.Ec;
         let a: f64 = screening_length(Za, Zb);
         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
+
         //Minimum energy transfer for scattering event set to cutoff energy
         let E_min = Ec*(Ma + Mb).powf(2.)/4./Ma/Mb;
         let reduced_energy_min: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E_min;
+
         //Free flight path formulation here described in SRIM textbook chapter 7, and Eckstein 1991 7.5.2
         let ep = (reduced_energy*reduced_energy_min).sqrt();
         let mut pmax = a/(ep + ep.sqrt() + 0.125*ep.powf(0.1));
         let mut ffp = 1./(n*pmax*pmax*PI);
-        let se = material.electronic_stopping_power(particle_1);
+        let se = material.electronic_stopping_power(particle_1, 0., HIGH_ENERGY);
 
         //If losing too much energy, scale free-flight-path down
         //5 percent limit set in original TRIM paper, Biersack and Haggmark 1980
@@ -534,7 +558,7 @@ fn choose_collision_partner(particle_1: &Particle, material: &Material, phi_azim
     return (Z_recoil, M_recoil, Ec_recoil, Es_recoil, x_recoil, y_recoil, z_recoil, ca, cb, cg);
 }
 
-fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impact_parameter: f64, max_iter: usize, tol: f64) -> (f64, f64, f64, f64, f64) {
+fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impact_parameter: f64, max_iter: usize, tol: f64) -> (f64, f64, f64, f64, f64, f64) {
     let Za: f64 = particle_1.Z;
     let Zb: f64 = particle_2.Z;
     let Ma: f64 = particle_1.m;
@@ -579,7 +603,7 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
     let psi_recoil = (theta.sin().atan2(1. - theta.cos())).abs();
     let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*(theta/2.).sin().powf(2.);
 
-    return (theta, psi, psi_recoil, recoil_energy, asympototic_deflection);
+    return (theta, psi, psi_recoil, recoil_energy, asympototic_deflection, x0);
 }
 
 fn rotate_particle(particle_1: &mut Particle, psi: f64, phi: f64) {
@@ -602,7 +626,7 @@ fn rotate_particle(particle_1: &mut Particle, psi: f64, phi: f64) {
     particle_1.dir.normalize();
 }
 
-fn update_particle_energy(particle_1: &mut Particle, material: &Material, path_length: f64, recoil_energy: f64) {
+fn update_particle_energy(particle_1: &mut Particle, material: &Material, path_length: f64, recoil_energy: f64, xi: f64, electronic_stopping_mode: i32) {
 
     //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
     particle_1.E = particle_1.E - recoil_energy;
@@ -611,7 +635,7 @@ fn update_particle_energy(particle_1: &mut Particle, material: &Material, path_l
     }
 
     if material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) {
-        let electronic_stopping_power = material.electronic_stopping_power(particle_1);
+        let electronic_stopping_power = material.electronic_stopping_power(particle_1, xi, electronic_stopping_mode);
         particle_1.E += -electronic_stopping_power*path_length;
     }
 
@@ -672,6 +696,19 @@ fn boundary_condition_2D_planar(particle_1: &mut Particle, material: &Material) 
                     particle_1.left = true;
                     particle_1.E += -Es;
                     particle_1.add_trajectory();
+                    let thetaprime = PI - ((PI - costheta.acos()).sin()*(E/(E - Es)).sqrt()).asin();
+                    //println!("thetaprime: {}, theta: {}", thetaprime, costheta.acos());
+                    let cosx_new = thetaprime.cos()*dx/mag - thetaprime.sin()*dy/mag;
+                    let cosy_new = thetaprime.sin()*dx/mag + thetaprime.cos()*dy/mag;
+                    //let cosx_new = ((E*cosx*cosx + signx*Es*dx*dx)/(E + signx*dx*dx*Es)).sqrt();
+                    //let cosy_new = ((E*cosy*cosy + signy*Es*dy*dy)/(E + signy*dy*dy*Es)).sqrt();
+                    let cosz_new = 1. - cosx_new*cosx_new + cosy_new*cosy_new;
+
+                    particle_1.dir.x = cosx_new;
+                    particle_1.dir.y = cosy_new;
+                    particle_1.dir.z = cosz_new;
+                    particle_1.dir.normalize();
+
                 }
             }
         }
@@ -744,11 +781,19 @@ fn bca_from_file() {
     let options = input.options;
     let particle_parameters = input.particle_parameters;
 
+    //Check that incompatible energy options are not on together
+    assert!(options.high_energy_free_flight_paths == (options.electronic_stopping_mode == HIGH_ENERGY),
+        "High energy free flight paths used with low energy stoppping power.");
+
     //Check that particle arrays are equal length
-    assert_eq!(particle_parameters.Z.len(), particle_parameters.m.len());
-    assert_eq!(particle_parameters.Z.len(), particle_parameters.E.len());
-    assert_eq!(particle_parameters.Z.len(), particle_parameters.pos.len());
-    assert_eq!(particle_parameters.Z.len(), particle_parameters.dir.len());
+    assert_eq!(particle_parameters.Z.len(), particle_parameters.m.len(),
+        "Particle input arrays of unequal length.");
+    assert_eq!(particle_parameters.Z.len(), particle_parameters.E.len(),
+        "Particle input arrays of unequal length.");
+    assert_eq!(particle_parameters.Z.len(), particle_parameters.pos.len(),
+        "Particle input arrays of unequal length.");
+    assert_eq!(particle_parameters.Z.len(), particle_parameters.dir.len(),
+        "Particle input arrays of unequal length.");
     let N = particle_parameters.Z.len();
 
     //Determine the length, energy, and mass units for particle input
@@ -758,7 +803,8 @@ fn bca_from_file() {
         "ANGSTROM" => ANGSTROM,
         "NM" => NM,
         "M" => 1.,
-        _ => panic!("Incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M", particle_parameters.length_unit.as_str())
+        _ => panic!("Incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
+            particle_parameters.length_unit.as_str())
     };
     let energy_unit: f64 = match particle_parameters.energy_unit.as_str() {
         "EV" => EV,
@@ -778,7 +824,6 @@ fn bca_from_file() {
     let mut total_particles: usize = 0;
     for particle_index in 0..N {
         let E = particle_parameters.E[particle_index];
-        let Ec = particle_parameters.Ec[particle_index];
         let N_ = particle_parameters.N[particle_index];
         if E > max_energy {
             max_energy = E*energy_unit;
@@ -787,7 +832,11 @@ fn bca_from_file() {
     }
 
     //Create particle array from input file
-    let estimated_num_particles: usize = total_particles + ((max_energy/material.Ec).ceil() as usize);
+    let estimated_num_particles: usize = match options.track_recoils {
+        true => total_particles + 1,// + ((max_energy/material.Ec).ceil() as usize),
+        false => total_particles,
+    };
+
     let mut particles: Vec<Particle> = Vec::with_capacity(estimated_num_particles);
     for particle_index in 0..N {
 
@@ -885,6 +934,7 @@ fn bca_from_file() {
             //let mut total_deflection_angle = 0.;
             let mut total_energy_loss = 0.;
             let mut total_asymptotic_deflection = 0.;
+            let mut distance_of_closest_approach = 0.;
 
             if particle_1.track_trajectories {
                 particle_1.add_trajectory();
@@ -906,7 +956,8 @@ fn bca_from_file() {
                     );
 
                     //Determine scattering angle from binary collision
-                    let (theta, psi, psi_recoil, recoil_energy, asymptotic_deflection) = calculate_binary_collision(&particle_1, &particle_2, impact_parameters[k], 100, 1E-6);
+                    let (theta, psi, psi_recoil, recoil_energy, asymptotic_deflection, xi) = calculate_binary_collision(&particle_1, &particle_2, impact_parameters[k], 100, 1E-6);
+                    distance_of_closest_approach = xi;
 
                     //Energy transfer to recoil
                     particle_2.E = recoil_energy - material.Eb;
@@ -961,10 +1012,13 @@ fn bca_from_file() {
             let path_length = particle_advance(&mut particle_1, mfp, total_asymptotic_deflection);
 
             //Subtract total energy from all weak collisions
-            update_particle_energy(&mut particle_1, &material, path_length, total_energy_loss);
+            update_particle_energy(&mut particle_1, &material, path_length, total_energy_loss, distance_of_closest_approach, options.electronic_stopping_mode);
 
             //Check boundary conditions on leaving and stopping
             boundary_condition_2D_planar(&mut particle_1, &material);
+
+            //Set particle index to topmost particle
+            particle_index = particles.len();
         }
 
         //Once particle finishes, begin data output
@@ -992,7 +1046,7 @@ fn bca_from_file() {
             }
         }
         //Set particle index to topmost particle
-        particle_index = particles.len();
+        //particle_index = particles.len();
     }
     //Flush all file streams before dropping streams to ensure all data is written
     reflected_file_stream.flush().unwrap();
