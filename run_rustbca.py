@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 from shapely.geometry import Point, Polygon, box
 from itertools import chain
 import os
@@ -7,6 +8,10 @@ import toml
 import generate_ftridyn_input as g
 import time
 from scipy.stats import gaussian_kde
+from scipy.interpolate import interp1d
+from scipy.ndimage import zoom, gaussian_filter
+from matplotlib import rcParams
+rcParams.update({'figure.autolayout': True})
 
 Q = 1.602E-19
 PI = 3.14159
@@ -49,6 +54,16 @@ hydrogen = {
     'Ec': 0.95,
     'Es': 1.5,
 }
+
+deuterium = {
+    'symbol': 'D',
+    'name': 'deuterium',
+    'Z': 1,
+    'm': 2,
+    'Ec': 0.95,
+    'Es': 1.5,
+}
+
 helium = {
     'symbol': 'He',
     'name': 'helium',
@@ -77,7 +92,7 @@ boron = {
     'name': 'boron',
     'Z': 5,
     'm': 10.811,
-    'n': 1.37E29,
+    'n': 1.309E29,
     'Es': 5.76,
     'Eb': 0.,
     'Ec': 5.,
@@ -164,11 +179,37 @@ tungsten = {
     'm': 183.84,
     'n': 6.306E28,
     'Es': 11.75,
-    'Eb': 0.,
+    'Eb': 3.,
     'Ec': 5.,
     'Q': 0.72,
     'W': 2.14,
     's': 2.8
+}
+
+gold = {
+    'symbol': 'Au',
+    'name': 'gold',
+    'Z': 79,
+    'm': 196.97,
+    'n': 5.901E28,
+    'Es': 3.79,
+    'Eb': 0.,
+    'Ec': 3.,
+    'Q': 1.0,
+    'W': 0.,
+    's': 0.,
+}
+
+nickel = {
+    'symbol': 'Ni',
+    'name': 'nickel',
+    'Z': 28,
+    'm': 58.69,
+    'n': 9.14E28,
+    'Es': 4.44,
+    'Eb': 0.,
+    'Ec': 3.,
+    'Q': 1.0,
 }
 
 cesium = {
@@ -189,7 +230,7 @@ xenon = {
     'Es': 0.
 }
 
-def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='test_', random=False, free_flight_path=False, electronic_stopping_mode=HIGH_ENERGY):
+def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='test_', random=False, free_flight_path=False, electronic_stopping_mode=LOW_ENERGY_NONLOCAL, weak_collision_order=3):
 
     options = {
         'name': name,
@@ -197,10 +238,10 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
         'track_recoils': track_recoils,
         'track_recoil_trajectories': track_recoil_trajectories,
         'write_files': write_files,
-        'stream_size': 256000,
+        'stream_size': 8000,
         'print': True,
         'print_num': np.min((100, int(N_*N))),
-        'weak_collision_order': 0,
+        'weak_collision_order': weak_collision_order,
         'suppress_deep_recoils': False,
         'high_energy_free_flight_paths': free_flight_path,
         'electronic_stopping_mode': electronic_stopping_mode,
@@ -217,9 +258,13 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
         'm': Mb
     }
 
-    dx = 2.*n**(-1./3.)/np.sqrt(2.*np.pi)/MICRON
+    #dx = 2.*n**(-1./3.)/np.sqrt(2.*np.pi)/MICRON
+    #dx = n**(-1./3.)*np.cos(theta)/MICRON
+    dx = n**(-1./3.)*3.
+
     minx, miny, maxx, maxy = 0.0, -thickness/2., depth, thickness/2.
     surface = box(minx, miny, maxx, maxy)
+
     energy_surface = surface.buffer(dx, cap_style=2, join_style=2)
     simulation_surface = surface.buffer(2.*dx, cap_style=2, join_style=2)
 
@@ -281,13 +326,46 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
         R = 0
 
     if np.size(deposited) > 0:
-        ion_range = np.mean(deposited[:, 2])
-        ion_straggle = np.std(deposited[:,2])
+        deposited_below_surface = deposited[:, 2] > 0.
+        ion_range = np.mean(deposited[deposited_below_surface, 2])
+        ion_straggle = np.std(deposited[deposited_below_surface,2])
     else:
         ion_range = 0
         ion_straggle = 0
 
     return Y, R, ion_range, ion_straggle
+
+def thomas_reflection(ion, target, energy_eV):
+    #Thomas et al. empirical reflection coefficient (1991)
+    Z1 = ion['Z']
+    Z2 = target['Z']
+    M1 = ion['m']
+    M2 = target['m']
+    energy_keV = energy_eV/1E3
+
+    #Thomas-Fermi reduced energy
+    reduced_energy = 32.55*energy_keV*M2/((M1 + M2)*Z1*Z2*(Z1**0.23 + Z2**0.23))
+    mu = M2/M1
+    if mu < 1:
+        print('Warning: Thomas et al. reflection coefficient not defined for M2/M1 < 1.')
+        return None
+
+    mu_ranges = [1, 3, 6, 7, 12, 15, 20]
+    A1 = [0.02129, 0.3680, 0.5173, 0.5173, 0.6192, 0.6192, 0.8250]
+    A2 = [16.39, 2.985, 2.549, 2.549, 20.01, 20.01, 21.41]
+    A3 = [26.39, 7.122, 5.325, 5.325, 8.922, 8.922, 8.606]
+    A4 = [0.9131, 0.5802, 0.5719, 0.5719, 0.6669, 0.6669, 0.6425]
+    A5 = [6.249, 4.211, 1.094, 1.094, 1.864, 1.864, 1.907]
+    A6 = [2.550, 1.597, 1.933, 1.933, 1.899, 1.899, 1.927]
+
+    a1 = interp1d(mu_ranges, A1, bounds_error = False, fill_value=(A1[0], A1[-1]))
+    a2 = interp1d(mu_ranges, A2, bounds_error = False, fill_value=(A2[0], A2[-1]))
+    a3 = interp1d(mu_ranges, A3, bounds_error = False, fill_value=(A3[0], A3[-1]))
+    a4 = interp1d(mu_ranges, A4, bounds_error = False, fill_value=(A4[0], A4[-1]))
+    a5 = interp1d(mu_ranges, A5, bounds_error = False, fill_value=(A5[0], A5[-1]))
+    a6 = interp1d(mu_ranges, A6, bounds_error = False, fill_value=(A6[0], A6[-1]))
+
+    return a1(mu)*np.log(a2(mu)*reduced_energy + 2.718)/(1. + a3(mu)*reduced_energy**a4(mu) + a5(mu)*reduced_energy**a6(mu))
 
 def wierzbicki_biersack(ion, target, energy_eV):
     #Wierzbicki and Biersack empirical reflection coefficient (1994)
@@ -297,7 +375,7 @@ def wierzbicki_biersack(ion, target, energy_eV):
     M2 = target['m']
     energy_keV = energy_eV/1E3
 
-    #I've never seen this form of the reduced energy before
+    #I've never seen this form of the reduced energy before - it's Thomas-Fermi
     reduced_energy = 32.55*energy_keV*M2/((M1 + M2)*Z1*Z2*(Z1**0.23 + Z2**0.23))
     mu = M2/M1
 
@@ -332,8 +410,8 @@ def yamamura(ion, target, energy_eV):
     m2 = target['m']
     Us = target['Es']
     Q = target['Q']
-    W = target['W']
-    s = target['s']
+    #W = target['W']
+    #s = target['s']
 
     reduced_mass_2 = m2/(m1 + m2)
     reduced_mass_1 = m1/(m1 + m2)
@@ -401,6 +479,9 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
 
     index = 0
     x_max = 0
+
+    first_atom = []
+
     if np.size(trajectories) > 0:
         for trajectory_length in trajectory_data:
 
@@ -417,6 +498,9 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
             plt.scatter(x[0], y[0], color = colors[Z], marker='o', s=5)
             plt.plot(x, y, color = colors[Z], linewidth = 1)
 
+            if Z > 10:
+                first_atom.append(x[0])
+
             index += trajectory_length
 
         if np.size(sputtered) > 0:
@@ -431,17 +515,16 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
             deposited_colors = [colors[Z] for Z in deposited[:,1]]
             plt.scatter(deposited[:,2], deposited[:,3], s=50, color=deposited_colors, marker='^')
 
-        if thickness and depth:
-            x_box = [0., 0., depth, depth, 0.]
-            y_box = [-thickness/2., thickness/2., thickness/2., -thickness/2., -thickness/2.]
-            plt.plot(x_box, y_box, color='dimgray', linewidth=3)
+        #if thickness and depth:
+        #    x_box = [0., 0., depth, depth, 0.]
+        #    y_box = [-thickness/2., thickness/2., thickness/2., -thickness/2., -thickness/2.]
+        #    plt.plot(x_box, y_box, color='dimgray', linewidth=3)
 
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
         plt.title(name+' Trajectories')
-
         plt.axis('square')
-        plt.axis([0., 1.1*x_max, -1.1*thickness, 1.1*thickness])
+        #plt.axis([0., 1.1*x_max, -1.1*thickness/2., 1.1*thickness/2.])
         breakpoint()
         plt.savefig(name+'trajectories_'+file_num+'.png')
         plt.close()
@@ -490,149 +573,433 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
         plt.savefig(name+'2D'+file_num+'.png')
         plt.close()
 
-def plot_distributions(name, ftridyn_name, file_num=1):
+def plot_distributions(name, ftridyn_name, beam, target, file_num=1, max_collision_contours=4,
+smooth_contours=False, collision_contour_significance_threshold=0.1, slice_angle=45,
+incident_energy=1., incident_angle=0.):
+
     file_num = str(file_num)
-    num_bins = 200
+    num_bins = 120
 
     r = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     s = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
+    d = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
 
     rf = np.atleast_2d(np.genfromtxt(ftridyn_name+'RFLST.DAT'))
     sf = np.atleast_2d(np.genfromtxt(ftridyn_name+'SPLST.DAT'))
+    df = np.atleast_2d(np.genfromtxt(ftridyn_name+'DUMPPRJ.DAT'))
 
+    if np.size(r) > 0 and np.size(rf) > 0:
+        ux = r[:,6]
+        uy = r[:,7]
+        uz = r[:,8]
+        theta = -np.arctan2(ux, np.sqrt(uy**2 + uz**2))*180./np.pi
+        number_collision_events = r[:, -1]
+
+        fig = plt.figure(num='polar_scatter')
+        ax = fig.add_subplot(111, projection='polar')
+        normalized_energies_rust = r[:,2]/incident_energy
+        normalized_energies_ftridyn = rf[:,2]/incident_energy
+
+        c1 = ax.scatter(np.arccos(rf[:,7]), normalized_energies_ftridyn, s=1, color='red')
+        c2 = ax.scatter(np.arccos(r[:,7]), normalized_energies_rust, s=1, c=number_collision_events)
+
+        #Ar on Si 50 eV 80 deg
+        if beam['symbol'] == 'Ar' and target['symbol'] == 'Si' and incident_energy==80. and incident_angle==80.:
+            data_md = np.genfromtxt('ar_si_50ev_80deg.csv', delimiter=',')
+            normalized_energies_md = data_md[:, 0]
+            angles_md = np.pi/2. -  data_md[:,1]*np.pi/180.
+            c3 = ax.scatter(angles_md, normalized_energies_md, s=1, color='blue')
+
+        plt.legend(['ftridyn', 'rustbca', 'MD*'], loc='upper left')
+        ax.set_thetamax(180.)
+        ax.set_thetamin(0.)
+        ax.set_xlabel('E/E0')
+        ax.set_yticks([0., 0.5, 1.])
+        ax.set_xticks([0., np.pi/6., 2*np.pi/6., 3*np.pi/6., 4*np.pi/6., 5*np.pi/6., np.pi])
+        ax.set_xticklabels(['0', '30', '60', '90', '', '', ''])
+        plt.title(f'{beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.savefig(name+'polar_scatter.png')
+        plt.close()
+
+        plt.figure(num='slice')
+        mask = (theta > slice_angle - 5) & (theta < slice_angle + 5)
+        plt.hist(r[mask, 2], bins=num_bins, histtype='step', color='black', linestyle='--')
+        plt.yscale('log')
+        plt.title(f'Refl. Energies at theta={slice_angle} {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.xlabel('E [eV]')
+        plt.ylabel(f'f(E, a={slice_angle})')
+
+        plt.figure(num='rustbca_r2d')
+        bin_energy = np.linspace(0., 1.2*np.max(r[:, 2]), num_bins)
+        bin_angle = np.linspace(0., 90., num_bins)
+
+        bins = (bin_energy, bin_angle)
+        heights, xedges, yedges, image = plt.hist2d(r[:, 2], theta, bins=bins)
+
+        n_max = min(int(np.max(number_collision_events)), max_collision_contours)
+        cmap = matplotlib.cm.get_cmap('Oranges')
+        colors = [cmap(1. - n/n_max) for n in range(1, n_max + 1)]
+
+        for k in range(1, n_max + 1):
+            if k < n_max:
+                mask = number_collision_events == k
+            else:
+                mask = number_collision_events > k
+
+            heights, xedges, yedges = np.histogram2d(r[mask, 2], theta[mask], density=True, bins=bins)
+            x_centers = (xedges[1:] + xedges[:-1])/2.
+            y_centers = (yedges[1:] + yedges[:-1])/2.
+            if smooth_contours:
+                heights = zoom(heights, 0.5)
+                x_centers = x_centers[::2]
+                y_centers = y_centers[::2]
+            plt.contour(x_centers, y_centers, heights.transpose(), levels=np.linspace(collision_contour_significance_threshold, 1., 1), colors=[colors[k - 1]], linewidths=1, linestyles='--', alpha=0.75)
+
+        plt.xlabel('E [eV]')
+        plt.ylabel('Angle [deg]')
+        plt.title(f'Refl. EAD rustbca {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.savefig(name+'rustbca_r_ead.png')
+        plt.close()
+
+        plt.figure(num='ftridyn_r2d')
+        ux = rf[:,6]
+        uy = rf[:,7]
+        uz = rf[:,8]
+        theta = np.arctan2(ux, np.sqrt(uy**2 + uz**2))*180./np.pi
+
+        plt.figure(num='slice')
+        mask = (theta > slice_angle - 5) & (theta < slice_angle + 5)
+        plt.hist(rf[mask, 2], bins=num_bins, histtype='step', color='black')
+        plt.yscale('log')
+        plt.savefig(name+'slice.png')
+        plt.legend(['rustbca', 'F-TRIDYN'])
+        plt.close()
+
+        plt.hist2d(rf[:, 2], theta, bins=bins)
+        plt.xlabel('E [eV]')
+        plt.ylabel('Angle [deg]')
+        plt.title(f'Refl. EAD F-TRIDYN {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.savefig(name+'ftridyn_r_ead.png')
+        plt.close()
+
+    if np.size(s) > 0 and np.size(sf) > 0:
+        plt.figure(num='rustbca_s2d')
+
+        bin_angle = np.linspace(-90., 90., num_bins//2)
+        bin_energy = np.linspace(0., 1.2*np.max(s[:, 2]), num_bins//2)
+        bins = (bin_energy, bin_angle)
+        ux = s[:,6]
+        uy = s[:,7]
+        uz = s[:,8]
+        #theta = -np.arctan2(ux, np.sqrt(uy**2 + uz**2))
+        theta = np.arccos(s[:,7]) - np.pi/2.
+
+        if abs(incident_angle) < 1:
+            garrison = np.zeros((num_bins//2, num_bins//2))
+            for i, energy in enumerate(bin_energy):
+                for j, angle in enumerate(bin_angle*np.pi/180.):
+                    garrison[j, i] = energy*np.cos(angle)/(energy + target['Es'])**4*(energy*np.cos(angle)**2 + target['Es'])
+
+            plt.pcolormesh(bin_energy, bin_angle, garrison)
+            plt.xlabel('E [eV]')
+            plt.ylabel('angle [deg]')
+            plt.title(f'Sputtered EAD B. Garrison (1989) {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+            plt.savefig(name+'garrison_s_ead.png')
+            plt.close()
+
+        plt.hist2d(s[:, 2], theta*180./np.pi, bins=bins)
+        if abs(incident_angle) < 1: plt.contour(bin_energy, bin_angle, garrison, levels = 5, cmap = matplotlib.cm.get_cmap('Oranges'), alpha=0.5)
+        plt.xlabel('E [eV]')
+        plt.ylabel('angle [deg]')
+        plt.title(f'Sputtered EAD rustbca {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.savefig(name+'rustbca_s_ead.png')
+        plt.close()
+
+        plt.figure(num='ftridyn_s2d')
+        ux = sf[:,6]
+        uy = sf[:,7]
+        uz = sf[:,8]
+        #theta = np.arctan2(ux, np.sqrt(uy**2 + uz**2))
+        theta = np.arccos(sf[:,7]) - np.pi/2.
+        plt.hist2d(sf[:, 2], theta*180./np.pi, bins=bins)
+        if abs(incident_angle) < 1: plt.contour(bin_energy, bin_angle, garrison, levels = 5, cmap = matplotlib.cm.get_cmap('Oranges'), alpha=0.5)
+        plt.xlabel('E [eV]')
+        plt.ylabel('angle [deg]')
+        plt.title(f'Sputtered EAD F-TRIDYN {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.savefig(name+'ftridyn_s_ead.png')
+        plt.close()
+
+    #Deposited ion depth distributions
+    plt.figure(num='d')
+    plots = []
+    labels = []
+
+    if np.size(d) > 0:
+        _, _, rust = plt.hist(d[d[:,2]>0., 2], linestyle='--', histtype='step',  bins=num_bins, density=True, color='black')
+        plots.append(rust[0])
+        labels.append('rustbca')
+
+    if np.size(df) > 0:
+        _, _, ftridyn = plt.hist(df[df[:,2]>0.,2]*1E-10*1E6, histtype='step', bins=num_bins, density=True, color='black')
+        plots.append(ftridyn[0])
+        labels.append('F-TRIDYN')
+
+    if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='best')
+    plt.title(f'Depth Distributions {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+    plt.xlabel('x [um]')
+    plt.ylabel('f(x)')
+    plt.savefig(name+'dep.png')
+    plt.close()
+
+    #Reflected ion energy distributions
     plt.figure(num='re')
     plots = []
     labels = []
     #bins = np.linspace(0.0, 1000.0, num_bins)
     if np.size(r) > 0:
-        _, _, rust = plt.hist(r[:,2], histtype='step',  bins=num_bins, density=True)
+        heights, bins, rust = plt.hist(r[:, 2]/incident_energy, linestyle='--', histtype='step',  bins=num_bins, density=True, color='black')
         plots.append(rust[0])
-        labels.append('rust')
-    if np.size(rf) > 0:
-        _, _, ftridyn = plt.hist(rf[:,2], histtype='step', bins=num_bins, density=True)
-        plots.append(ftridyn[0])
-        labels.append('ftridyn')
-    if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='best')
-    plt.title(name+' Reflected Energy Distributions', fontsize='small')
-    plt.xlabel('E [eV]')
-    plt.savefig(name+'ref_e.png')
-    plt.close()
+        labels.append('rustbca')
 
+        if beam['symbol'] == 'He':
+            if target['symbol'] == 'W':
+
+                #Comparison to MD
+                #https://doi.org/10.1016/j.jnucmat.2014.01.021
+
+                if abs(incident_angle) < 1 and incident_energy == 80.:
+                #normal incidence 80 ev
+                    bin_width = 10/incident_energy #eV
+                    x_exp = np.array([5.007064, 15.28719, 25.256065, 35.234875, 45.21699, 55.209045, 64.9064, 75.03532])
+                    y_exp = np.array([4.2616224, 0.8636774, 1.2412268, 3.4068558, 6.168511, 10.718246, 22.023607, 51.209103])
+                    md = plt.scatter(x_exp/incident_energy, y_exp/np.sum(y_exp)/bin_width)
+                    plots.append(md)
+                    labels.append('MD*')
+
+                if incident_angle == 60. and incident_energy == 80.:
+                #60 degrees 80 ev
+                    bin_width = 10/incident_energy #eV
+                    x_exp = np.array([4.7257385,14.852321,35.105484,45.232067,55.35865,65.14768,74.93671])
+                    y_exp = np.array([1.3513514,0.6756757,1.0135136,2.0270271,4.0540543,7.4324327,85.47298])
+                    md = plt.scatter(x_exp/incident_energy, y_exp/np.sum(y_exp)/bin_width)
+                    plots.append(md)
+                    labels.append('MD*')
+
+                if abs(incident_angle) < 1 and incident_energy == 20.:
+                #normal incidence 20 eV
+                    bin_width = 2/incident_energy #eV
+                    x_exp = np.array([0.18390535,2.2103872,4.2315845,6.2556005,8.278207,10.3015175,12.232877,14.260767,16.323889,18.284842]) + 1
+                    y_exp = np.array([-0.0017548478,2.2690182,1.1046767,1.7723962,1.5240853,1.7337896,1.9443713,5.131175,31.218742,50.665966])
+                    md = plt.scatter(x_exp/incident_energy, y_exp/np.sum(y_exp)/bin_width)
+                    plots.append(md)
+                    labels.append('MD*')
+
+                    #bin_width = 2/incident_energy
+                    #x_exp = np.array([0.5105128,2.4229195,4.3773375,6.2898645,8.203715,10.16993,12.077281,14.065224])
+                    #y_exp = np.array([0.02095386,0.028854888,0.019866126,0.031986613,0.09052116,0.49503943,0.32572317,0.002372699])
+                    #md_2 = plt.scatter(x_exp/incident_energy + bin_width/2., y_exp/np.sum(y_exp)/bin_width)
+                    #plots.append(md_2)
+                    #labels.append('MD+')
+
+            if target['symbol'] == 'Ni':
+            #Further comparison to MD
+            #V Rosato, G Maino and A Ventura (1989)
+
+            #He on Ni
+            #0.1 eV
+            #NORMALIZED ENERGIES
+                if incident_energy == 0.1 and abs(incident_angle) < 1:
+                    x_exp = np.array([0.847, 0.890, 0.953])
+                    bin_width = 0.05
+                    y_exp = np.array([11.39, 62.28, 25.74])
+                    md = plt.scatter(x_exp + bin_width/2., y_exp/np.sum(y_exp)/bin_width)
+                    plots.append(md)
+                    labels.append('MD*')
+
+                #1.0 eV
+                if incident_energy == 1.0 and abs(incident_angle) < 1:
+                    x_exp = np.array([0.44827586,0.50344825,0.6034483,0.6586207,0.7,0.7586207,0.80344826,0.8586207,0.9137931,0.962069,1.0034482,1.0655172])
+                    bin_width = 0.05
+                    y_exp = np.array([4.930362,3.091922,5.9331474,6.935933,9.94429,9.025069,17.799442,18.802229,12.785516,4.0947075,1.2534819,4.0947075])
+                    md = plt.scatter(x_exp + bin_width/2., y_exp/np.sum(y_exp)/bin_width)
+                    plots.append(md)
+                    labels.append('MD*')
+
+                #10.0 eV
+                if incident_energy == 10. and abs(incident_angle) < 1:
+                    x_exp = np.array([0.10666667,0.16333333,0.20333333,0.26333332,0.31,0.35,0.40333334,0.45,0.50333333,0.55,0.6,0.6,0.6533333,0.6933333,0.75333333,0.8066667,0.85333335,0.9])
+                    bin_width = 0.05
+                    y_exp = np.array([2.20339,5.338983,6.5254235,5.5084743,2.118644,2.118644,3.4745762,6.5254235,2.118644,2.118644,2.118644,7.7118645,5.338983,10.084745,11.101695,21.271187,2.118644,1.101695])
+                    md = plt.scatter(x_exp + bin_width/2., y_exp/np.sum(y_exp)/bin_width)
+                    plots.append(md)
+                    labels.append('MD*')
+
+                #50.0 eV
+                if incident_energy == 50. and abs(incident_angle) < 1:
+                    x_exp = np.array([0.006821852,0.056072842,0.10084647,0.10599209,0.15076572,0.20248929,0.25374505,0.29785043,0.34646657,0.40079635,0.44556996,0.4948878,0.54858273,0.6010414,0.64644986,0.6989085,0.74338144,0.7926324,0.848566,0.89848524,0.95221364])
+                    bin_width = 0.05
+                    y_exp = np.array([2.308403,2.3176434,2.3260438,0.075602725,0.084003024,6.8479266,0.10332372,2.3630052,4.5109625,2.4948897,2.5032902,2.2874024,2.4100468,6.6975613,4.5672445,8.854759,24.960659,24.969898,2.4663289,0.22428808,0.23436844])
+                    md = plt.scatter(x_exp + bin_width/2., y_exp/np.sum(y_exp)/bin_width)
+                    plots.append(md)
+                    labels.append('MD*')
+
+    if np.size(rf) > 0:
+        _, _, ftridyn = plt.hist(rf[:,2]/incident_energy, histtype='step', bins=num_bins, density=True, color='black')
+        plots.append(ftridyn[0])
+        labels.append('F-TRIDYN')
+
+    if np.size(rf) > 0 or np.size(r) > 0:
+        if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='upper left')
+        plt.title(f'Refl. Energies {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.xlabel('E/E0')
+        plt.ylabel('f(E)')
+        plt.gca().set_xlim(0., 1.)
+        plt.savefig(name+'ref_e.png')
+        plt.close()
+
+    #Sputtered atom energy distributions
     plt.figure(num='se')
     plots = []
     labels = []
     #bins=np.linspace(0.0, 100.0, num_bins)
     if np.size(s) > 0:
-        _, _, rust = plt.hist(s[:,2], histtype='step', bins=num_bins, density=True)
+        _, _, rust = plt.hist(s[:,2], histtype='step', linestyle='--', bins=num_bins, density=True, color='black')
         plots.append(rust[0])
-        labels.append('rust')
-    if np.size(sf) > 0:
-        _, _, ftridyn = plt.hist(sf[:,2], histtype='step', bins=num_bins, density=True)
-        plots.append(ftridyn[0])
-        labels.append('ftridyn')
-    if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='best')
-    plt.title(name+' Sputtered Energy Distributions', fontsize='small')
-    plt.xlabel('E [eV]')
-    plt.savefig(name+'spt_e.png')
-    plt.close()
+        labels.append('rustbca')
 
+    if np.size(sf) > 0:
+        _, _, ftridyn = plt.hist(sf[:,2], histtype='step', bins=num_bins, density=True, color='black')
+        plots.append(ftridyn[0])
+        labels.append('F-TRIDYN')
+
+    if np.size(s) > 0 and np.size(sf) > 0:
+        energies = np.linspace(0., np.max(s[:,2]), num_bins)
+        de = energies[1] - energies[0]
+        thompson = energies/(energies + target['Es'])**(3)
+        thompson /= (np.sum(thompson)*de)
+        thompson = plt.plot(energies, thompson, linestyle='-.')
+        plots.append(thompson[0])
+        labels.append('Thompson (n=2)')
+
+        if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='best')
+        plt.title(f'Sputtered Energies {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.xlabel('E [eV]')
+        plt.ylabel('f(E)')
+        plt.savefig(name+'spt_e.png')
+        plt.close()
+
+    #Sputtered atom angular distributions
     plt.figure(num='sa')
     plots = []
     labels = []
     ax = None
     bins = np.linspace(0, np.pi, num_bins)
-    #if np.size(s) > 0:
+
+    if np.size(s) > 0 and np.size(sf) > 0:
         #hist, bins = np.histogram(np.arccos(-s[:,6]), bins=bins, density=True)
-        #rust1 = plt.polar(bins[:-1], hist/np.max(hist))
+        #rust1 = plt.plot(bins[:-1], hist/np.max(hist), linestyle='--')
         #plots.append(rust1[0])
         #labels.append('rustbca cosx')
-    #if np.size(sf) > 0:
+
         #hist, bins = np.histogram(np.arccos(sf[:,6]), bins=bins, density=True)
-        #ftridyn1 = plt.polar(bins[:-1], hist/np.max(hist))
+        #ftridyn1 = plt.plot(bins[:-1], hist/np.max(hist), color=rust1[0].get_color())
         #plots.append(ftridyn1[0])
         #labels.append('ftridyn cosx')
-    if np.size(s) > 0:
+
         hist, bins = np.histogram(np.arccos(s[:,7]), bins=bins, density=True)
-        rust2 = plt.polar(bins[:-1], hist/np.max(hist))
+        rust2 = plt.polar(bins[:-1], hist/np.max(hist), linestyle='--')
         plots.append(rust2[0])
         labels.append('rustbca cosy')
         ax = plt.gca()
-    if np.size(sf) > 0:
+
         hist, bins = np.histogram(np.arccos(sf[:,7]), bins=bins, density=True)
-        ftridyn2 = plt.polar(bins[:-1], hist/np.max(hist))
+        ftridyn2 = plt.polar(bins[:-1], hist/np.max(hist), color=rust2[0].get_color())
         plots.append(ftridyn2[0])
         labels.append('ftridyn cosy')
         ax = plt.gca()
-    if np.size(s) > 0:
+
         hist, bins = np.histogram(np.arccos(s[:,8]), bins=bins, density=True)
-        rust3 = plt.polar(bins[:-1], hist/np.max(hist))
+        rust3 = plt.polar(bins[:-1], hist/np.max(hist), linestyle='--')
         plots.append(rust3[0])
         labels.append('rustbca cosz')
         ax = plt.gca()
-    if np.size(sf) > 0:
+
         hist, bins = np.histogram(np.arccos(sf[:,8]), bins=bins, density=True)
-        ftridyn3 = plt.polar(bins[:-1], hist/np.max(hist))
+        ftridyn3 = plt.polar(bins[:-1], hist/np.max(hist), color=rust3[0].get_color())
         plots.append(ftridyn3[0])
         labels.append('ftridyn cosz')
         ax = plt.gca()
+
     if len(plots) > 0: plt.legend(plots, labels, fontsize='small', bbox_to_anchor=(0.0, 1.05), fancybox=True, shadow=True, loc='upper center')
-    plt.title(name+' Sputtered Angular Distributions', fontsize='small')
     if ax:
         ax.set_thetamin(0.)
         ax.set_thetamax(180.)
         ax.set_yticks([0., 0.5, 1.])
         ax.set_xticks([0., np.pi/6., 2*np.pi/6., 3*np.pi/6., 4*np.pi/6., 5*np.pi/6., np.pi])
         ax.set_xticklabels(['0', '30', '60', '90', '', '', ''])
+    plt.title(f'Sputtered Angles {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
     plt.savefig(name+'spt_ang.png')
     plt.close()
 
+    #Reflected atom angular distributions
     plt.figure(num='ra')
     plots = []
     labels = []
     ax = None
     bins = np.linspace(0, np.pi, num_bins)
-    #if np.size(s) > 0:
-        #hist, bins = np.histogram(np.arccos(-r[:,6]), bins=bins, density=True)
-        #rust1 = plt.polar(bins[:-1], hist/np.max(hist))
-        #plots.append(rust1[0])
-        #labels.append('rustbca cosx')
-    #if np.size(sf) > 0:
-        #hist, bins = np.histogram(np.arccos(rf[:,6]), bins=bins, density=True)
-        #ftridyn1 = plt.polar(bins[:-1], hist/np.max(hist))
-        #plots.append(ftridyn1[0])
-        #labels.append('ftridyn cosx')
-    if np.size(r) > 0:
+
+    if np.size(r) > 0 and np.size(rf) > 0:
+        hist, bins = np.histogram(np.arccos(-r[:,6]), bins=bins, density=True)
+        rust1 = plt.polar(bins[:-1], hist/np.max(hist), linestyle='--')
+        plots.append(rust1[0])
+        labels.append('rustbca cosx')
+
+        #80 eV normal incidence He on W
+        if beam['symbol'] == 'He' and target['symbol'] == 'W' and incident_energy == 80. and abs(incident_angle) < 1:
+            x_exp = np.array([1.3445379,11.092437,20.840336,30.92437,41.008404,51.092438,60.840336,70.92437]) + 5
+            y_exp = np.array([6.835206,14.419476,18.63296,19.662922,17.602997,17.041199,5.243446,0.37453184])
+            y_exp/=np.max(y_exp)
+            exp1 = plt.polar(x_exp/180.*np.pi, y_exp, linestyle=':', color=rust1[0].get_color())
+            plots.append(exp1[0])
+            labels.append('MD')
+
+        hist, bins = np.histogram(np.arccos(rf[:,6]), bins=bins, density=True,)
+        ftridyn1 = plt.polar(bins[:-1], hist/np.max(hist), color=rust1[0].get_color())
+        plots.append(ftridyn1[0])
+        labels.append('ftridyn cosx')
+
         hist, bins = np.histogram(np.arccos(r[:,7]), bins=bins, density=True)
-        rust2 = plt.polar(bins[:-1], hist/np.max(hist))
+        rust2 = plt.polar(bins[:-1], hist/np.max(hist), linestyle='--')
         plots.append(rust2[0])
         labels.append('rustbca cosy')
         ax = plt.gca()
-    if np.size(rf) > 0:
+
         hist, bins = np.histogram(np.arccos(rf[:,7]), bins=bins, density=True)
-        ftridyn2 = plt.polar(bins[:-1], hist/np.max(hist))
+        ftridyn2 = plt.polar(bins[:-1], hist/np.max(hist), color=rust2[0].get_color())
         plots.append(ftridyn2[0])
         labels.append('ftridyn cosy')
         ax = plt.gca()
-    if np.size(r) > 0:
+
         hist, bins = np.histogram(np.arccos(r[:,8]), bins=bins, density=True)
-        rust3 = plt.polar(bins[:-1], hist/np.max(hist))
+        rust3 = plt.polar(bins[:-1], hist/np.max(hist), linestyle='--')
         plots.append(rust3[0])
         labels.append('rustbca cosz')
         ax = plt.gca()
-    if np.size(rf) > 0:
+
         hist, bins = np.histogram(np.arccos(rf[:,8]), bins=bins, density=True)
-        ftridyn3 = plt.polar(bins[:-1], hist/np.max(hist))
+        ftridyn3 = plt.polar(bins[:-1], hist/np.max(hist), color=rust3[0].get_color())
         plots.append(ftridyn3[0])
         labels.append('ftridyn cosz')
         ax = plt.gca()
-    if len(plots) > 0: plt.legend(plots, labels, fontsize='small', bbox_to_anchor=(0.0, 1.05), fancybox=True, shadow=True, loc='upper center')
-    plt.title(name+' Reflected Angular Distributions', fontsize='small')
+
+    if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, bbox_to_anchor=(-0.25, 0.5), loc='upper left')
     if ax:
         ax.set_thetamin(0.)
         ax.set_thetamax(180.)
         ax.set_yticks([0., 0.5, 1.])
         ax.set_xticks([0., np.pi/6., 2*np.pi/6., 3*np.pi/6., 4*np.pi/6., 5*np.pi/6., np.pi])
         ax.set_xticklabels(['0', '30', '60', '90', '', '', ''])
+    plt.title(f'Refl. Angles {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
     plt.savefig(name+'ref_ang.png')
     plt.close()
 
@@ -661,7 +1028,7 @@ def starshot():
     run_sim = True
     track_recoils = True
     track_trajectories = False
-    track_recoil_trajectories = False
+    track_recoil_trajectories = True
     ffp = True
     esmode = HIGH_ENERGY
 
@@ -705,7 +1072,7 @@ def starshot():
 
                     print(f'{beam["symbol"]} {target["symbol"]} velocity: {velocity} Y: {rustbca_yield_} R: {rustbca_reflection_} depth: {rustbca_range_}')
 
-                    #do_plots(name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
+                    do_plots(name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
                     #breakpoint()
 
             rustbca_reflection_names.append(beam['symbol']+' on '+target['symbol'])
@@ -789,16 +1156,16 @@ def test_rustbca():
     target_species = [beryllium, tungsten]
 
     N = 1 #Number of unique ion kinds
-    N_ = 100000 #Number of ions
+    N_ = 10000 #Number of ions
     theta = 0.0001 #Incident angle w.r.t. surface normal
-    thickness = 100 #micron
-    depth = 100 #micron
-    energies = np.logspace(1, 4, 10)
+    thickness = 1 #micron
+    depth = 1 #micron
+    energies = np.logspace(3, 4, 10)
     tr = True
     trt = False
     tt = False
-    ffp = True
-    esmode = HIGH_ENERGY
+    ffp = False
+    esmode = LOW_ENERGY_EQUIPARTITION
 
     #os.system('rm *.png')
     os.system('rm *.output')
@@ -821,11 +1188,13 @@ def test_rustbca():
         for target in target_species:
 
             #Append names to namelists for legend
-            name_1.append(beam['symbol']+' on '+target['symbol']+' Y RustBCA')
-            name_1.append(beam['symbol']+' on '+target['symbol']+' R RustBCA')
+            name_1.append(beam['symbol']+' on '+target['symbol']+' Y rustbca')
+            name_1.append(beam['symbol']+' on '+target['symbol']+' R rustbca')
             name_1.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura')
             name_1.append(beam['symbol']+' on '+target['symbol']+' R Wierzbicki-Biersack')
-            name_2.append(beam['symbol']+' on '+target['symbol']+' Range RustBCA')
+            name_1.append(beam['symbol']+' on '+target['symbol']+' R Thomas et al.')
+
+            name_2.append(beam['symbol']+' on '+target['symbol']+' Range rustbca')
 
             #Generate empty arrays for each ion-target combo
             rustbca_yield = []
@@ -833,6 +1202,7 @@ def test_rustbca():
             yamamura_yield = []
             rustbca_range = []
             reflection_coefficient = []
+            reflection_coefficient_thomas = []
 
             Zb = target['Z']
             Ecb = target['Ec']
@@ -864,10 +1234,17 @@ def test_rustbca():
                 reflection_coefficient_ = wierzbicki_biersack(beam, target, energy)
                 reflection_coefficient.append(reflection_coefficient_)
 
+                reflection_coefficient_thomas_ = thomas_reflection(beam, target, energy)
+                reflection_coefficient_thomas.append(reflection_coefficient_thomas_)
+
+                do_plots(rustbca_name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
+                #breakpoint()
+
             handle = ax1.loglog(energies, rustbca_yield, '-*')
             ax1.loglog(energies, rustbca_reflection, ':', color=handle[0].get_color())
             ax1.loglog(energies, yamamura_yield, '-', color=handle[0].get_color())
             ax1.loglog(energies, reflection_coefficient, '-.', color=handle[0].get_color())
+            ax1.loglog(energies, reflection_coefficient_thomas, '-^', color=handle[0].get_color())
             ax2.loglog(energies, rustbca_range, color=handle[0].get_color())
 
     ax1.legend(name_1, fontsize='small', loc='best', bbox_to_anchor=(0.85, 1.0))
@@ -885,133 +1262,197 @@ def test_rustbca():
     plt.show()
 
 def benchmark():
-        beam_species = [helium]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
-        target_species = [copper]#, copper]#, copper]#, boron, silicon, copper]
+    beam_species = [helium]#, argon, boron]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
+    target_species = [tungsten]#, silicon, copper]#, copper]#, copper]#, boron, silicon, copper]
 
-        N = 1
-        N_ = 10000
-        theta = 0.0001
-        thickness = 1
-        depth = 1
-        energies = np.logspace(1, 3, 10)
-        #energies = [200.]
-        #energies = [38.]
-        #energies = [15.]
-        #energies = [1000.]
-        #energies = [100.]
-        tr = True
-        trt = False
-        tt = False
-        ffp = False
-        esmode = LOW_ENERGY_EQUIPARTITION
+    N = 1
+    N_ = 1000000
+    theta = 0.0001
+    thickness = 100
+    depth = 100
+    #energies = np.round(np.logspace(1, 5, 30), 1)
+    #energies = np.round(np.logspace(0., 3, 30), 1)
+    energies = [20.]
+    #energies = [1000.]
+    #angles = np.round(np.linspace(0.001, 80, 5), 1)
+    #energies = [8000.]
+    tr = True
+    trt = False
+    tt = False
+    ffp = False
+    esmode = LOW_ENERGY_EQUIPARTITION
+    weak_collision_order = 3
 
-        #os.system('rm *.png')
-        os.system('rm *.output')
+    #os.system('rm *.png')
+    os.system('rm *.output')
+    os.system('rm *.DAT')
+    os.system('rm *.IN')
+    os.system('rm *.OUT')
 
-        os.system('rm rustBCA.exe')
-        os.system('cargo build --release')
-        os.system('mv target/release/rustBCA.exe .')
+    os.system('rm rustBCA.exe')
+    os.system('cargo build --release')
+    os.system('mv target/release/rustBCA.exe .')
 
-        fig1, ax1 = plt.subplots(1, 1, num='yields', figsize=(16, 14))
-        fig2, ax2 = plt.subplots(1, 1, num='ranges', figsize=(16, 14))
+    fig1, ax1 = plt.subplots(1, 1, num='yields_', figsize=(8, 6))
+    fig2, ax2 = plt.subplots(1, 1, num='refl_', figsize=(8, 6))
+    fig3, ax3 = plt.subplots(1, 1, num='range_', figsize=(8, 6))
 
-        name_1 = []
-        name_2 = []
-        rustbca_time = 0.
-        ftridyn_time = 0.
-        for beam in beam_species:
-            Za = beam['Z']
-            Ma = beam['m']
-            Eca = beam['Ec']
-            Esa = beam['Es']
-            for target in target_species:
-                name_1.append(beam['symbol']+' on '+target['symbol']+' Y RustBCA')
-                name_1.append(beam['symbol']+' on '+target['symbol']+' R RustBCA')
-                name_1.append(beam['symbol']+' on '+target['symbol']+' Y F-TRIDYN')
-                name_1.append(beam['symbol']+' on '+target['symbol']+' R F-TRIDYN')
-                name_1.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura')
-                name_1.append(beam['symbol']+' on '+target['symbol']+' R Wierzbicki-Biersack')
+    name_1 = []
+    name_2 = []
+    name_3 = []
+    rustbca_time = 0.
+    ftridyn_time = 0.
+    for beam in beam_species:
+        Za = beam['Z']
+        Ma = beam['m']
+        Eca = beam['Ec']
+        Esa = beam['Es']
+        for target in target_species:
+            name_1.append(beam['symbol']+' on '+target['symbol']+' rustbca')
+            name_2.append(beam['symbol']+' on '+target['symbol']+' rustbca')
 
-                name_2.append(beam['symbol']+' on '+target['symbol']+' Range RustBCA')
-                name_2.append(beam['symbol']+' on '+target['symbol']+' Range F-TRIDYN')
-                rustbca_yield = []
-                rustbca_reflection = []
-                ftridyn_yield = []
-                ftridyn_reflection = []
-                yamamura_yield = []
-                rustbca_range = []
-                ftridyn_range = []
-                reflection_coefficient = []
-                Zb = target['Z']
-                Ecb = target['Ec']
-                Esb = target['Es']
-                Eb = target['Eb']
-                Mb = target['m']
-                n = target['n']
-                for energy in energies:
+            name_1.append(beam['symbol']+' on '+target['symbol']+' F-TRIDYN')
+            name_2.append(beam['symbol']+' on '+target['symbol']+' F-TRIDYN')
 
-                    rustbca_name = str(energy)+'eV_'+str(theta)+'deg_'+beam['symbol']+'_'+target['symbol']
-                    start = time.time()
-                    rustbca_yield_, rustbca_reflection_, rustbca_range_, rustbca_straggle_ = main(Zb,
-                        Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_,
-                        theta, thickness, depth, track_trajectories=tt,
-                        track_recoils=tr, track_recoil_trajectories=trt,
-                        write_files=True, name=rustbca_name, random=False,
-                        free_flight_path=ffp, electronic_stopping_mode=esmode)
-                    stop = time.time()
-                    rustbca_time += stop - start
-                    rustbca_yield.append(rustbca_yield_)
-                    rustbca_reflection.append(rustbca_reflection_)
-                    rustbca_range.append(rustbca_range_)
+            name_1.append(beam['symbol']+' on '+target['symbol']+' Yamamura')
+            name_2.append(beam['symbol']+' on '+target['symbol']+' Wierzbicki-Biersack')
+            name_2.append(beam['symbol']+' on '+target['symbol']+' Thomas et al.')
 
-                    ftridyn_name = beam['symbol'].ljust(2, '_') + target['symbol'].ljust(2, '_')
-                    interface = g.tridyn_interface(beam['symbol'], target['symbol'])
-                    #os.system('rm *.DAT')
-                    #os.system('rm *.OUT')
-                    start = time.time()
-                    ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
-                    stop = time.time()
-                    ftridyn_time += stop - start
-                    ftridyn_yield.append(ftridyn_yield_/np.max([100, N_]))
-                    ftridyn_reflection.append(ftridyn_reflection_/np.max([100, N_]))
-                    ftridyn_range.append(ftridyn_range_)
+            name_3.append(beam['symbol']+' on '+target['symbol']+' Range rustbca')
+            name_3.append(beam['symbol']+' on '+target['symbol']+' Range F-TRIDYN')
+            name_3.append(beam['symbol']+' on '+target['symbol']+' Straggle rustbca')
+            name_3.append(beam['symbol']+' on '+target['symbol']+' Straggle F-TRIDYN')
 
-                    yamamura_yield_ = yamamura(beam, target, energy)
-                    yamamura_yield.append(yamamura_yield_)
+            rustbca_yield = []
+            rustbca_reflection = []
+            ftridyn_yield = []
+            ftridyn_reflection = []
+            yamamura_yield = []
+            rustbca_range = []
+            ftridyn_range = []
+            rustbca_straggle = []
+            ftridyn_straggle = []
+            reflection_coefficient = []
+            reflection_coefficient_thomas = []
 
-                    reflection_coefficient_ = wierzbicki_biersack(beam, target, energy)
-                    reflection_coefficient.append(reflection_coefficient_)
+            Zb = target['Z']
+            Ecb = target['Ec'] #
+            Esb = target['Es']
+            Eb = target['Eb']
+            Mb = target['m']
+            n = target['n']
+            for energy in energies:
 
+                rustbca_name = str(energy)+'eV_'+str(theta)+'deg_'+beam['symbol']+'_'+target['symbol']
+                start = time.time()
+                rustbca_yield_, rustbca_reflection_, rustbca_range_, rustbca_straggle_ = main(Zb,
+                    Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_,
+                    theta, thickness, depth, track_trajectories=tt,
+                    track_recoils=tr, track_recoil_trajectories=trt,
+                    write_files=True, name=rustbca_name, random=False,
+                    free_flight_path=ffp, electronic_stopping_mode=esmode,
+                    weak_collision_order=weak_collision_order)
 
-                    #breakpoint()
-                    plot_distributions(rustbca_name, ftridyn_name, file_num=1)
-                    #os.system('rm *.output')
+                stop = time.time()
+                rustbca_time += stop - start
+                rustbca_yield.append(rustbca_yield_)
+                rustbca_reflection.append(rustbca_reflection_)
+                rustbca_range.append(rustbca_range_)
+                rustbca_straggle.append(rustbca_straggle_)
 
-                handle = ax1.loglog(energies, rustbca_yield, '-*')
-                ax1.loglog(energies, rustbca_reflection, ':', color=handle[0].get_color())
+                ftridyn_name = beam['symbol'].ljust(2, '_') + target['symbol'].ljust(2, '_')
+                interface = g.tridyn_interface(beam['symbol'], target['symbol'])
+                #os.system('rm *.DAT')
+                #os.system('rm *.OUT')
+                start = time.time()
+                ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
+                stop = time.time()
+                ftridyn_time += stop - start
+                ftridyn_yield.append(ftridyn_yield_/np.max([100, N_]))
+                ftridyn_reflection.append(ftridyn_reflection_/np.max([100, N_]))
 
-                ax1.loglog(energies, ftridyn_reflection, '.', color=handle[0].get_color())
-                ax1.loglog(energies, ftridyn_yield, '-o', color=handle[0].get_color())
-                ax1.loglog(energies, yamamura_yield, '-', color=handle[0].get_color())
-                ax1.loglog(energies, reflection_coefficient, '-.', color=handle[0].get_color())
-                #yamamura_table = yamamura_tables[beam['symbol']][target['symbol']]
-                #plt.loglog(yamamura_table[:,0], yamamura_table[:,1], '-', color=handle[0].get_color())
-                ax2.loglog(energies, rustbca_range, color=handle[0].get_color())
-                ax2.loglog(energies, np.array(ftridyn_range)/MICRON, '--', color=handle[0].get_color())
+                df = np.atleast_2d(np.genfromtxt(ftridyn_name+'DUMPPRJ.DAT'))
 
-        ax1.legend(name_1, fontsize='small', loc='best', bbox_to_anchor=(0.85, 1.0))
-        ax1.axis([0.1*np.min(energies), 10.0*np.max(energies), 1./N_, 10.])
-        ax1.set_ylabel('Y/R [at/ion]/[ion/ion]')
-        ax1.set_xlabel('E [eV]')
-        fig1.savefig(rustbca_name+'yields.png')
+                if np.size(df) > 0:
+                    ftridyn_range.append(np.mean(df[:, 2])*1E-10)
+                    ftridyn_straggle.append(np.std(df[:, 2])*1E-10)
+                else:
+                    ftridyn_range.append(0.)
+                    ftridyn_straggle.append(0.)
 
-        ax2.legend(name_2, fontsize='small', loc='best', bbox_to_anchor=(1.0, 0.5))
-        ax2.set_xlabel('E [eV]')
-        ax2.set_ylabel('Range [um]')
-        ax2.axis([0.5*np.min(energies), 10.*np.max(energies), 0.1*np.min(rustbca_range), 10.*np.max(rustbca_range)])
-        fig2.savefig(rustbca_name+'ranges.png')
+                yamamura_yield_ = yamamura(beam, target, energy)
+                yamamura_yield.append(yamamura_yield_)
 
-        print(f'time rustBCA: {rustbca_time} time F-TRIDYN: {ftridyn_time}')
+                reflection_coefficient_ = wierzbicki_biersack(beam, target, energy)
+                reflection_coefficient.append(reflection_coefficient_)
+
+                reflection_coefficient_thomas_ = thomas_reflection(beam, target, energy)
+                reflection_coefficient_thomas.append(reflection_coefficient_thomas_)
+
+                #breakpoint()
+                #plot_distributions(rustbca_name, ftridyn_name, beam, target, file_num=1, incident_energy=energy, incident_angle=theta)
+                #do_plots(rustbca_name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
+                #breakpoint()
+                #os.system('rm *.output')
+
+            handle = ax1.loglog(energies, rustbca_yield, '--*')
+            ax1.loglog(energies, yamamura_yield, '-', color=handle[0].get_color())
+            ax1.loglog(energies, ftridyn_yield, '-o', color=handle[0].get_color())
+
+            ax2.loglog(energies, rustbca_reflection, '--*')#, color=handle[0].get_color())
+            ax2.loglog(energies, ftridyn_reflection, '-^')#, color=handle[0].get_color())
+            ax2.loglog(energies, reflection_coefficient, '-.')#, color=handle[0].get_color())
+            ax2.loglog(energies, reflection_coefficient_thomas, '-')#, color=handle[0].get_color())
+
+            ax3.loglog(energies, rustbca_range, '--', color=handle[0].get_color())
+            ax3.loglog(energies, np.array(ftridyn_range)/MICRON, '-o', color=handle[0].get_color())
+            ax3.loglog(energies, rustbca_straggle, '--*', color=handle[0].get_color())
+            ax3.loglog(energies, np.array(ftridyn_straggle)/MICRON, '-^', color=handle[0].get_color())
+
+    ax1.set_ylabel('Y [at/ion]')
+    ax1.set_xlabel('E [eV]')
+    ax1.set_xlim(1, 2.*np.max(energies))
+    ax1.set_ylim(1e-4, 10)
+    #ax1.axis([0.5*np.min(energies), 2.*np.max(energies), 1./N_, 2.])
+
+    ax2.set_ylabel('R [at/ion]')
+    ax2.set_xlabel('E [eV]')
+    ax2.set_xlim(0.5*np.min(energies), 2.*np.max(energies))
+    #ax2.axis([0.5*np.min(energies), 2.*np.max(energies), 1./N_, 2.])
+
+    if beam['symbol'] == 'He' and target['symbol'] == 'W' and abs(theta) < 1:
+        # V. Borovikov et al. (2014)
+        energies_md = np.array([4.5111375,9.609054,19.816422,29.652786,39.885143,59.930798,79.96684,99.99904])
+        r_md = np.array([0.9973039,0.9975538,0.9745242,0.9083381,0.8343281,0.7411909,0.6676615,0.6019752])
+        ax2.loglog(energies_md, r_md, '--1')#, color=handle[0].get_color())
+        name_2.append('He on W MD*')
+
+        energies_exp = np.array([7.2638583,14.7358055,24.606771,49.786865,99.69532,119.71021])
+        r_van_gorkum = np.array([0.9817522,0.9389802,0.80220586,0.6348087,0.42156383,0.39117166])
+        ax2.loglog(energies_exp, r_van_gorkum, '-x')#, color=handle[0].get_color())
+        name_2.append('He on W Experiment*')
+
+        energies_marlowe = np.array([7.2773147,9.643655,11.221856,13.570896,15.547012,17.523129,19.495398,29.704687,39.123917,49.721508,59.14458])
+        r_marlowe = np.array([0.95430124,0.9269656,0.90743464,0.9153931,0.8841167,0.85284024,0.829407,0.8024558,0.78723085,0.76814204,0.74507403])
+        ax2.loglog(energies_marlowe, r_marlowe, '--s')#, color=handle[0].get_color())
+        name_2.append('He on W MARLOWE*')
+
+    ax1.set_title('Sputtering Yields')
+    ax1.legend(name_1, fontsize='small', loc='best')#, bbox_to_anchor=(0.85, 1.0))
+    fig1.savefig(rustbca_name+'yields.png')
+
+    ax2.set_title('Reflection Coefficients')
+    ax2.legend(name_2, fontsize='small', loc='best')#, bbox_to_anchor=(0.85, 1.0))
+    fig2.savefig(rustbca_name+'refl.png')
+
+    ax3.set_title('Ranges and Straggles')
+    ax3.legend(name_3, fontsize='small', loc='best')#, bbox_to_anchor=(1.0, 0.5))
+    ax3.set_xlabel('E [eV]')
+    ax3.set_ylabel('Range [um]')
+    ax3.axis([0.5*np.min(energies), 10.*np.max(energies), 0.1*np.min(rustbca_range), 10.*np.max(rustbca_range)])
+    fig3.savefig(rustbca_name+'ranges.png')
+
+    print(f'time rustBCA: {rustbca_time} time F-TRIDYN: {ftridyn_time}')
 
 if __name__ == '__main__':
-    test_rustbca()
+    benchmark()
