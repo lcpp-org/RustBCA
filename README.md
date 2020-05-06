@@ -1,6 +1,6 @@
 # rustBCA
 
-A Binary Collision Approximation (BCA) code for ion-solid interactions, written in Rust!
+A Binary Collision Approximation (BCA) code for ion-material interactions, written in Rust!
 
 BCA codes are valid for incident ion energies between approximately 10 eV through MeV (or up to GeV for light ions). By discretizing the collision cascade into a sequence of binary collisions, BCA codes can accurately model reflection, implantation, sputtering, transmission, and displacement damage.
 
@@ -8,14 +8,14 @@ BCA codes are valid for incident ion energies between approximately 10 eV throug
 
 Dependences:
 * Python 3.6+
-* Numpy, Matplotlib, toml, Shapely
+* Numpy, Matplotlib, toml, Shapely, scipy
 * rustup
 
 Steps to install:
 1. Install Python 3.6+.
 2. Install rustup, the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/
-3. Run python3.# -m pip install numpy matplotlib shapely
-4. Install toml from source:
+3. Run python3.# -m pip install numpy matplotlib shapely scipy
+4. Install Python toml library from source:
   * git clone https://github.com/uiri/toml.git
   * cd toml
   * python3.# setup.py install
@@ -30,50 +30,50 @@ Steps to install:
 # Example input file: input.toml
 ~~~~
 [options]
-name = "test_He_Cu" #Output file name
-track_trajectories = false #Tracking of full ion trajectories
-track_recoils = true #Tracking of generated recoils
-track_recoil_trajectories = false #Tracking of generated recoil trajectories
-write_files = true #Write files to disk
-stream_size = 256000 #Size in bytes of disk-writing chunk
-print = true #Print to console
-print_num = 100 #Number of statements to print to console
-weak_collision_order = 3 #Number of weak collisions
-suppress_deep_recoils = false #Eckstein's empirical deep recoil suppression - see Eq. 7.5.3 in Eckstein (1991)
-high_energy_free_flight_paths = false #Use TRIM-style free flight path - must use electronic stopping mode 0
-electronic_stopping_mode = 1 # 0: High energy (Biersack-Varelas interpolation of Lindhard-Scharff and Bethe-Bloch) 1: Low energy nonlocal (Lindhard-Scharff) 2: Low energy local (Oen-Robinson - currently in testing) 3: Low energy equipartition (LS + OR - currently in testing)
+name = "10.0eV_0.0001deg_He_N" #Output file name
+track_trajectories = false #Track ion trajectories (memory intensive)
+track_recoils = false #Track recoils
+track_recoil_trajectories = false #Track recoil trajectories (memory intensive)
+write_files = true #Write output files to disk
+stream_size = 8000  #Streaming write packet size in bytes
+print = true #Print to command line
+print_num = 10 #Number of times to print to command line
+weak_collision_order = 0 #Number of max weak collisions
+suppress_deep_recoils = false #Use Eckstein's deep recoil supression routine
+high_energy_free_flight_paths = true #Use TRIM-style high-energy free-flight paths between ions
+electronic_stopping_mode = 0 #0: Interpolated, Biersack-Varelas (eV-GeV) 1: Low energy nonlocal, Lindhard-Scharff (eV-25keV/amu) 2: Low energy local, Oen-Robinson (eV-25 keV/amu), 3: Equipartition between LS and OR
+mean_free_path_model = 1 #0: Liquid/solid target, 1: Gaseous target
+interaction_potential = 2 #0: Moliere 1: Kr-C 2: ZBL 3: Coulomb
 
 [material_parameters]
 energy_unit = "EV"
 mass_unit = "AMU"
 Eb = 0.0 #Bulk binding energy
-Es = 3.52 #Surface binding energy
-Ec = 3.0 #Cutoff energy
-n = 8.491e+28 #Atomic density
-Z = 29 #Atomic number
-m = 63.546 #Mass number
+Es = 0.0 #Surface binding energy
+Ec = 1.0 #Cutoff energy
+n = 5.4e+25 #Number density 
+Z = 7
+m = 14
+electronic_stopping_correction_factor = 1.0 #C_k, used to compensate for Z1 oscillations in Lindhard-Scharff when known
 
 [geometry]
 length_unit = "MICRON"
-surface = [ [ 1.0, -0.5,], [ 1.0, 0.5,], [ 0.0, 0.5,], [ 0.0, -0.5,], [ 1.0, -0.5,],]
-#Actual geometry of surface
-energy_surface = [ [ 1.0001815322460903, -0.5001815322460903,], [ -0.00018153224609026986, -0.5001815322460903,], [ -0.00018153224609026986, 0.5001815322460903,], [ 1.0001815322460903, 0.5001815322460903,], [ 1.0001815322460903, -0.5001815322460903,],]
-#Geometry of surface boundary potential barrier
-simulation_surface = [ [ 1.0003630644921806, -0.5003630644921805,], [ -0.0003630644921805397, -0.5003630644921805,], [ -0.0003630644921805397, 0.5003630644921805,], [ 1.0003630644921806, 0.5003630644921805,], [ 1.0003630644921806, -0.5003630644921805,],]
-#Simulation boundary
+surface = [ [ 10.0, -5.0,], [ 10.0, 5.0,], [ 0.0, 5.0,], [ 0.0, -5.0,], [ 10.0, -5.0,],]
+energy_surface = [ [ 10.0, -5.0,], [ 0.0, -5.0,], [ 0.0, 5.0,], [ 10.0, 5.0,], [ 10.0, -5.0,],]
+simulation_surface = [ [ 10.0, -5.0,], [ 0.0, -5.0,], [ 0.0, 5.0,], [ 10.0, 5.0,], [ 10.0, -5.0,],]
 
 [particle_parameters]
 length_unit = "MICRON"
 energy_unit = "EV"
 mass_unit = "AMU"
-N = [ 10000,] #Number of particles in each column
-m = [ 4.002602,] #Mass of particles
-Z = [ 2,] #Atomci number
-E = [ 1000.0,] #Incident energy
-Ec = [ 0.1,] #Cutoff energy
+N = [ 10000,] #Number of particles for first column
+m = [ 4.002602,]
+Z = [ 2,]
+E = [ 10.0,] #Incident energy
+Ec = [ 0.01,] #Cutoff energy
 Es = [ 0.0,] #Surface binding energy
-pos = [ [ -0.00018, 0.0, 0.0,],] #Initial position
-dir = [ [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,],] #Initial velocity unit vectors
+pos = [ [ -0.0, 0.0, 0.0,],]
+dir = [ [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,],] #Note: because of gimbal lock, dir[0] != 0
 
  ~~~~
 # Usage
