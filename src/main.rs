@@ -42,6 +42,11 @@ const LOW_ENEGY_EQUIPARTITION: i32 = 3;
 const LIQUID: i32 = 0;
 const GASEOUS: i32 = 1;
 
+const MOLIERE: i32 = 0;
+const KR_C: i32 = 1;
+const ZBL: i32 = 2;
+const COULOMBL i32 = 3;
+
 #[derive(Deserialize)]
 pub struct Input {
     options: Options,
@@ -65,6 +70,7 @@ pub struct Options {
     high_energy_free_flight_paths: bool,
     electronic_stopping_mode: i32,
     mean_free_path_model: i32,
+    interaction_potential: i32,
 }
 
 #[derive(Deserialize)]
@@ -225,19 +231,22 @@ impl Material {
             "ANGSTROM" => ANGSTROM,
             "NM" => NM,
             "M" => 1.,
-            _ => panic!("Incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M", geometry.length_unit.as_str())
+            _ => panic!("Incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
+                geometry.length_unit.as_str())
         };
         let energy_unit: f64 = match material_parameters.energy_unit.as_str() {
             "EV" => EV,
             "J"  => 1.,
             "KEV" => EV*1E3,
             "MEV" => EV*1E6,
-            _ => panic!("Incorrect unit {} in input file. Choose one of: EV, J, KEV, MEV", material_parameters.energy_unit.as_str())
+            _ => panic!("Incorrect unit {} in input file. Choose one of: EV, J, KEV, MEV",
+                material_parameters.energy_unit.as_str())
         };
         let mass_unit: f64 = match material_parameters.mass_unit.as_str() {
             "AMU" => AMU,
             "KG" => 1.,
-            _ => panic!("Incorrect unit {} in input file. Choose one of: AMU, KG", material_parameters.mass_unit.as_str())
+            _ => panic!("Incorrect unit {} in input file. Choose one of: AMU, KG",
+                material_parameters.mass_unit.as_str())
         };
 
         let mut unit_coords = geometry.surface.clone();
@@ -349,7 +358,7 @@ impl Material {
         let beta = (1. - (1. + E/Ma/C.powf(2.)).powf(-2.)).sqrt();
         let v = beta*C;
 
-        //See Biersack and Haggmark - empirical relation for mean ionization potential
+        //See Biersack and Haggmark - empirical relation for mean ionization potential I
         let mut I0 = 0.;
         if Zb < 13. {
             I0 = 12. + 7./Zb
@@ -389,23 +398,24 @@ impl Material {
     }
 }
 
-fn phi(xi: f64) -> f64 {
-    //Kr-C potential
-    return 0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp();
-    //Moliere potential
-    //return 0.35*(-0.3*xi).exp() + 0.55*(-1.2*xi).exp() + 0.10*(-6.0*xi).exp();
-    //ZBL
-    //return 0.02817*(-0.20162*xi).exp() + 0.28022*(-0.40290*xi).exp() + 0.50986*(-0.94229*xi).exp() + 0.18175*(-3.1998*xi).exp();
+fn phi(xi: f64, interaction_potential: i32) -> f64 {
+    match interaction_potential {
+        MOLIERE => 0.35*(-0.3*xi).exp() + 0.55*(-1.2*xi).exp() + 0.10*(-6.0*xi).exp(),
+        KR_C => 0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp(),
+        ZBL => 0.02817*(-0.20162*xi).exp() + 0.28022*(-0.40290*xi).exp() + 0.50986*(-0.94229*xi).exp() + 0.18175*(-3.1998*xi).exp(),
+        COULOMB => 1.,
+        _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
+    }
 }
 
-fn dphi(xi: f64) -> f64 {
-    //First differential of Kr-C potential
-    return -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp();
-    //Moliere potential
-    //return -0.35*0.3*(-0.3*xi).exp() + -0.55*1.2*(-1.2*xi).exp() + -0.10*6.0*(-6.0*xi).exp();
-    //return -0.20162*0.02817*(-0.20162*xi).exp() -0.40290*0.28022*(-0.40290*xi).exp() -0.94229*0.50986*(-0.94229*xi).exp() -3.1998*0.18175*(-3.1998*xi).exp();
-    //ZBL
-    //return -0.20162*0.02817*(-0.20162*xi).exp() + -0.40290*0.28022*(-0.40290*xi).exp() + -0.94229*0.50986*(-0.94229*xi).exp() + -3.1998*0.18175*(-3.1998*xi).exp();
+fn dphi(xi: f64, interaction_potential: i32) -> f64 {
+    match interaction_potential {
+        MOLIERE => -0.35*0.3*(-0.3*xi).exp() + -0.55*1.2*(-1.2*xi).exp() + -0.10*6.0*(-6.0*xi).exp(),
+        KR_C => -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp(),
+        ZBL => -0.20162*0.02817*(-0.20162*xi).exp() + -0.40290*0.28022*(-0.40290*xi).exp() + -0.94229*0.50986*(-0.94229*xi).exp() + -3.1998*0.18175*(-3.1998*xi).exp(),
+        COULOMB => 1.,
+        _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
+    }
 }
 
 fn screening_length(Za: f64, Zb: f64) -> f64 {
@@ -413,19 +423,19 @@ fn screening_length(Za: f64, Zb: f64) -> f64 {
     return 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.);
 }
 
-fn doca_function(x0: f64, beta: f64, reduced_energy: f64) -> f64 {
+fn doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
     //Transcendental function to determine distance of closest approach
-    return x0 - phi(x0)/reduced_energy - beta*beta/x0;
+    return x0 - phi(x0, interaction_potential)/reduced_energy - beta*beta/x0;
 }
 
-fn diff_doca_function(x0: f64, beta: f64, reduced_energy: f64) -> f64 {
+fn diff_doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
     //First differential of distance of closest approach function
-    return beta*beta/x0/x0 - dphi(x0)/reduced_energy + 1.
+    return beta*beta/x0/x0 - dphi(x0, interaction_potential)/reduced_energy + 1.
 }
 
-fn f(x: f64, beta: f64, reduced_energy: f64) -> f64 {
+fn f(x: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
     //Function for scattering integral - see Mendenhall and Weller, 1991 & 2005
-    return (1. - phi(x)/x/reduced_energy - beta*beta/x/x).powf(-0.5);
+    return (1. - phi(x, interaction_potential)/x/reduced_energy - beta*beta/x/x).powf(-0.5);
 }
 
 fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Material,
@@ -522,7 +532,7 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
             return (phis_azimuthal, impact_parameter, ffp);
         }
 
-    } else if mean_free_path_model == LIQUID {
+    } else {
 
         //If not using free flight paths, use weak collision model
         let pmax = mfp/SQRTPI;
@@ -541,22 +551,12 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
             particle_1.first_step = false;
         }
 
-        return (phis_azimuthal, impact_parameters, mfp);
-
-    } else {
-
-        let pmax = mfp/SQRTPI;
-
-        let mut impact_parameters = Vec::with_capacity(1);
-
-        let random_number = rand::random::<f64>();
-        let p = pmax*(random_number).sqrt();
-        impact_parameters.push(p);
-
-        //Gaseous mfp
-        mfp *= -rand::random::<f64>().ln();
+        if mean_free_path_model == GASEOUS {
+            mfp *= -rand::random::<f64>().ln();
+        }
 
         return (phis_azimuthal, impact_parameters, mfp);
+
     }
 }
 
@@ -584,7 +584,7 @@ fn choose_collision_partner(particle_1: &Particle, material: &Material, phi_azim
     return (Z_recoil, M_recoil, Ec_recoil, Es_recoil, x_recoil, y_recoil, z_recoil, ca, cb, cg);
 }
 
-fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impact_parameter: f64, max_iter: usize, tol: f64) -> (f64, f64, f64, f64, f64, f64) {
+fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impact_parameter: f64, max_iter: usize, tol: f64, interaction_potential: i32) -> (f64, f64, f64, f64, f64, f64) {
     let Za: f64 = particle_1.Z;
     let Zb: f64 = particle_2.Z;
     let Ma: f64 = particle_1.m;
@@ -610,7 +610,7 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
     //Newton-Raphson to determine distance of closest approach
     let mut err: f64;
     for _ in 0..max_iter {
-        xn = x0 - doca_function(x0, beta, reduced_energy)/diff_doca_function(x0, beta, reduced_energy);
+        xn = x0 - doca_function(x0, beta, reduced_energy, interaction_potential)/diff_doca_function(x0, beta, reduced_energy, interaction_potential);
         err = (xn - x0).powf(2.);
         x0 = xn;
         if err < tol {
@@ -619,8 +619,8 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
     }
 
     //Scattering integral quadrature from Mendenhall and Weller 2005
-    let lambda_0 = (0.5 + beta*beta/x0/x0/2. - dphi(x0)/2./reduced_energy).powf(-1./2.);
-    let alpha = 1./12.*(1. + lambda_0 + 5.*(0.4206*f(x0/0.9072, beta, reduced_energy) + 0.9072*f(x0/0.4206, beta, reduced_energy)));
+    let lambda_0 = (0.5 + beta*beta/x0/x0/2. - dphi(x0, interaction_potential)/2./reduced_energy).powf(-1./2.);
+    let alpha = 1./12.*(1. + lambda_0 + 5.*(0.4206*f(x0/0.9072, beta, reduced_energy, interaction_potential) + 0.9072*f(x0/0.4206, beta, reduced_energy, interaction_potential)));
     let theta = PI*(1. - beta*alpha/x0);
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
@@ -1022,7 +1022,7 @@ fn bca_from_file() {
                     );
 
                     //Determine scattering angle from binary collision
-                    let (theta, psi, psi_recoil, recoil_energy, asymptotic_deflection, xi) = calculate_binary_collision(&particle_1, &particle_2, impact_parameters[k], 100, 1E-3);
+                    let (theta, psi, psi_recoil, recoil_energy, asymptotic_deflection, xi) = calculate_binary_collision(&particle_1, &particle_2, impact_parameters[k], 100, 1E-3, options.interaction_potential);
 
                     //Only use 0th order collision for local stopping
                     if k == 0 {

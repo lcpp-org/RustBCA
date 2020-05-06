@@ -35,6 +35,11 @@ LOW_ENERGY_EQUIPARTITION = 3
 LIQUID = 0
 GASEOUS = 1
 
+MOLIERE = 0
+KR_C = 1
+ZBL = 2
+COULOMB = 3
+
 titanium = {
     'symbol': 'Ti',
     'name': 'titanium',
@@ -250,7 +255,8 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
     track_recoil_trajectories=False, write_files=True, name='test_',
     random=False, free_flight_path=False,
     electronic_stopping_mode=LOW_ENERGY_NONLOCAL,
-    weak_collision_order=3, ck=1., mean_free_path_model=LIQUID):
+    weak_collision_order=3, ck=1., mean_free_path_model=LIQUID,
+    interaction_potential=ZBL):
 
     options = {
         'name': name,
@@ -266,6 +272,7 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
         'high_energy_free_flight_paths': free_flight_path,
         'electronic_stopping_mode': electronic_stopping_mode,
         'mean_free_path_model': mean_free_path_model,
+        'interaction_potential': interaction_potential,
     }
 
     material_parameters = {
@@ -1317,7 +1324,7 @@ def benchmark():
     target_species = [nitrogen]#, silicon, copper]#, copper]#, copper]#, boron, silicon, copper]
 
     N = 1
-    N_ = 10000
+    N_ = 100000
     angles = np.array([0.0001])
     thickness = 10
     depth = 10
