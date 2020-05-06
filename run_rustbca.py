@@ -256,7 +256,7 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
     random=False, free_flight_path=False,
     electronic_stopping_mode=LOW_ENERGY_NONLOCAL,
     weak_collision_order=3, ck=1., mean_free_path_model=LIQUID,
-    interaction_potential=ZBL):
+    interaction_potential=KR_C):
 
     options = {
         'name': name,
