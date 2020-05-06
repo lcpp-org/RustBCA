@@ -492,6 +492,10 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
                 particle_1.first_step = false;
             }
 
+            if mean_free_path_model == GASEOUS {
+                ffp *= -rand::random::<f64>().ln();
+            }
+
             return (phis_azimuthal, impact_parameter, ffp);
 
         } else {
@@ -509,6 +513,10 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
             if particle_1.first_step {
                 ffp = mfp*rand::random::<f64>();
                 particle_1.first_step = false;
+            }
+
+            if mean_free_path_model == GASEOUS {
+                ffp *= -rand::random::<f64>().ln();
             }
 
             return (phis_azimuthal, impact_parameter, ffp);
