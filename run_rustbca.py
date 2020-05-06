@@ -27,10 +27,13 @@ SQRTPI = 1.77245385
 SQRT2PI = 2.506628274631
 C = 299792000.
 
-HIGH_ENERGY = 0
+INTERPOLATED = 0
 LOW_ENERGY_NONLOCAL = 1
 LOW_ENERGY_LOCAL= 2
 LOW_ENERGY_EQUIPARTITION = 3
+
+LIQUID = 0
+GASEOUS = 1
 
 titanium = {
     'symbol': 'Ti',
@@ -55,6 +58,18 @@ hydrogen = {
     'Es': 1.5,
 }
 
+nitrogen = {
+    'symbol': 'N',
+    'name': 'nitrogen',
+    'Z': 7,
+    'm': 14,
+    'n': 5.4E25,
+    'Es': 0.,
+    'Eb': 0.,
+    'Ec': 1.0,
+    'Q': 1.
+}
+
 deuterium = {
     'symbol': 'D',
     'name': 'deuterium',
@@ -69,7 +84,7 @@ helium = {
     'name': 'helium',
     'Z': 2,
     'm': 4.002602,
-    'Ec': 0.1,
+    'Ec': 0.01,
     'Es': 0.
 }
 
@@ -179,7 +194,7 @@ tungsten = {
     'm': 183.84,
     'n': 6.306E28,
     'Es': 11.75,
-    'Eb': 3.,
+    'Eb': 0.,
     'Ec': 5.,
     'Q': 0.72,
     'W': 2.14,
@@ -230,7 +245,12 @@ xenon = {
     'Es': 0.
 }
 
-def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness, depth, track_trajectories=False, track_recoils=False, track_recoil_trajectories=False, write_files=True, name='test_', random=False, free_flight_path=False, electronic_stopping_mode=LOW_ENERGY_NONLOCAL, weak_collision_order=3):
+def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
+    thickness, depth, track_trajectories=False, track_recoils=False,
+    track_recoil_trajectories=False, write_files=True, name='test_',
+    random=False, free_flight_path=False,
+    electronic_stopping_mode=LOW_ENERGY_NONLOCAL,
+    weak_collision_order=3, ck=1., mean_free_path_model=LIQUID):
 
     options = {
         'name': name,
@@ -240,11 +260,12 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
         'write_files': write_files,
         'stream_size': 8000,
         'print': True,
-        'print_num': np.min((100, int(N_*N))),
+        'print_num': np.min((10, int(N_*N))),
         'weak_collision_order': weak_collision_order,
         'suppress_deep_recoils': False,
         'high_energy_free_flight_paths': free_flight_path,
         'electronic_stopping_mode': electronic_stopping_mode,
+        'mean_free_path_model': mean_free_path_model,
     }
 
     material_parameters = {
@@ -255,12 +276,13 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta, thickness,
         'Ec': Ecb,
         'n': n,
         'Z': Zb,
-        'm': Mb
+        'm': Mb,
+        'electronic_stopping_correction_factor': ck
     }
 
     #dx = 2.*n**(-1./3.)/np.sqrt(2.*np.pi)/MICRON
     #dx = n**(-1./3.)*np.cos(theta)/MICRON
-    dx = n**(-1./3.)*3.
+    dx = 0.
 
     minx, miny, maxx, maxy = 0.0, -thickness/2., depth, thickness/2.
     surface = box(minx, miny, maxx, maxy)
@@ -401,6 +423,32 @@ def wierzbicki_biersack(ion, target, energy_eV):
         print(f'False: 1 < {reduced_energy} <= 10')
 
     return RN_mu*RN_e
+
+def bohdansky_light_ion(ion, target, energy_eV):
+    z1 = ion['Z']
+    z2 = target['Z']
+    m1 = ion['m']
+    m2 = target['m']
+    Us = target['Es']
+    if Us == 0.: return 0
+    alpha = 0.2
+
+    reduced_mass_2 = m2/(m1 + m2)
+    reduced_mass_1 = m1/(m1 + m2)
+
+    #Following assumptions are for very light ions (m1/m2<0.5)
+    K = 0.4
+    R_Rp = K*m2/m1 + 1.
+
+    Eth = (1.9 + 3.8*(m1/m2) + 0.134*(m2/m1)**1.24)*Us
+
+    a0 = 0.529*ANGSTROM
+    a = 0.885*a0*(z1**(2./3.) + z2**(2./3.))**(-1./2.)
+    reduced_energy = 0.03255/(z1*z2*(z1**(2./3.) + z2**(2./3.))**(1./2.))*reduced_mass_2*energy_eV
+    sn = 3.441*np.sqrt(reduced_energy)*np.log(reduced_energy + 2.718)/(1. + 6.355*np.sqrt(reduced_energy) + reduced_energy*(-1.708 + 6.882*np.sqrt(reduced_energy)))
+    Sn = 8.478*z1*z2/(z1**(2./3.) + z2**(2./3.))**(1./2.)*reduced_mass_1*sn
+
+    return 0.042/Us*(R_Rp)*alpha*Sn*(1-(Eth/energy_eV)**(2./3.))*(1-(Eth/energy_eV))**2
 
 def yamamura(ion, target, energy_eV):
     #Yamamura sputtering yield implementation
@@ -575,7 +623,7 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
 
 def plot_distributions(name, ftridyn_name, beam, target, file_num=1, max_collision_contours=4,
 smooth_contours=False, collision_contour_significance_threshold=0.1, slice_angle=45,
-incident_energy=1., incident_angle=0.):
+incident_energy=1., incident_angle=0., plot_garrison_contours=True):
 
     file_num = str(file_num)
     num_bins = 120
@@ -666,6 +714,12 @@ incident_energy=1., incident_angle=0.):
         uy = rf[:,7]
         uz = rf[:,8]
         theta = np.arctan2(ux, np.sqrt(uy**2 + uz**2))*180./np.pi
+        plt.hist2d(rf[:, 2], theta, bins=bins)
+        plt.xlabel('E [eV]')
+        plt.ylabel('Angle [deg]')
+        plt.title(f'Refl. EAD F-TRIDYN {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.savefig(name+'ftridyn_r_ead.png')
+        plt.close()
 
         plt.figure(num='slice')
         mask = (theta > slice_angle - 5) & (theta < slice_angle + 5)
@@ -673,13 +727,6 @@ incident_energy=1., incident_angle=0.):
         plt.yscale('log')
         plt.savefig(name+'slice.png')
         plt.legend(['rustbca', 'F-TRIDYN'])
-        plt.close()
-
-        plt.hist2d(rf[:, 2], theta, bins=bins)
-        plt.xlabel('E [eV]')
-        plt.ylabel('Angle [deg]')
-        plt.title(f'Refl. EAD F-TRIDYN {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
-        plt.savefig(name+'ftridyn_r_ead.png')
         plt.close()
 
     if np.size(s) > 0 and np.size(sf) > 0:
@@ -694,12 +741,13 @@ incident_energy=1., incident_angle=0.):
         #theta = -np.arctan2(ux, np.sqrt(uy**2 + uz**2))
         theta = np.arccos(s[:,7]) - np.pi/2.
 
-        if abs(incident_angle) < 1:
+        if abs(incident_angle) < 1 or plot_garrison_contours:
             garrison = np.zeros((num_bins//2, num_bins//2))
             for i, energy in enumerate(bin_energy):
                 for j, angle in enumerate(bin_angle*np.pi/180.):
                     garrison[j, i] = energy*np.cos(angle)/(energy + target['Es'])**4*(energy*np.cos(angle)**2 + target['Es'])
 
+            plt.figure(num='garrison_2d')
             plt.pcolormesh(bin_energy, bin_angle, garrison)
             plt.xlabel('E [eV]')
             plt.ylabel('angle [deg]')
@@ -708,7 +756,7 @@ incident_energy=1., incident_angle=0.):
             plt.close()
 
         plt.hist2d(s[:, 2], theta*180./np.pi, bins=bins)
-        if abs(incident_angle) < 1: plt.contour(bin_energy, bin_angle, garrison, levels = 5, cmap = matplotlib.cm.get_cmap('Oranges'), alpha=0.5)
+        if abs(incident_angle) < 1 or plot_garrison_contours: plt.contour(bin_energy, bin_angle, garrison, levels = 5, cmap = matplotlib.cm.get_cmap('Oranges'), alpha=0.5)
         plt.xlabel('E [eV]')
         plt.ylabel('angle [deg]')
         plt.title(f'Sputtered EAD rustbca {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
@@ -722,7 +770,7 @@ incident_energy=1., incident_angle=0.):
         #theta = np.arctan2(ux, np.sqrt(uy**2 + uz**2))
         theta = np.arccos(sf[:,7]) - np.pi/2.
         plt.hist2d(sf[:, 2], theta*180./np.pi, bins=bins)
-        if abs(incident_angle) < 1: plt.contour(bin_energy, bin_angle, garrison, levels = 5, cmap = matplotlib.cm.get_cmap('Oranges'), alpha=0.5)
+        if abs(incident_angle) < 1 or plot_garrison_contours: plt.contour(bin_energy, bin_angle, garrison, levels = 5, cmap = matplotlib.cm.get_cmap('Oranges'), alpha=0.5)
         plt.xlabel('E [eV]')
         plt.ylabel('angle [deg]')
         plt.title(f'Sputtered EAD F-TRIDYN {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
@@ -735,12 +783,12 @@ incident_energy=1., incident_angle=0.):
     labels = []
 
     if np.size(d) > 0:
-        _, _, rust = plt.hist(d[d[:,2]>0., 2], linestyle='--', histtype='step',  bins=num_bins, density=True, color='black')
+        _, _, rust = plt.hist(d[d[:,2]>0., 2], linestyle='--', histtype='step',  bins=num_bins, density=False, color='black')
         plots.append(rust[0])
         labels.append('rustbca')
 
     if np.size(df) > 0:
-        _, _, ftridyn = plt.hist(df[df[:,2]>0.,2]*1E-10*1E6, histtype='step', bins=num_bins, density=True, color='black')
+        _, _, ftridyn = plt.hist(df[df[:,2]>0.,2]*1E-10*1E6, histtype='step', bins=num_bins, density=False, color='black')
         plots.append(ftridyn[0])
         labels.append('F-TRIDYN')
 
@@ -789,17 +837,10 @@ incident_energy=1., incident_angle=0.):
                 #normal incidence 20 eV
                     bin_width = 2/incident_energy #eV
                     x_exp = np.array([0.18390535,2.2103872,4.2315845,6.2556005,8.278207,10.3015175,12.232877,14.260767,16.323889,18.284842]) + 1
-                    y_exp = np.array([-0.0017548478,2.2690182,1.1046767,1.7723962,1.5240853,1.7337896,1.9443713,5.131175,31.218742,50.665966])
+                    y_exp = np.array([0.,2.2690182,1.1046767,1.7723962,1.5240853,1.7337896,1.9443713,5.131175,31.218742,50.665966])
                     md = plt.scatter(x_exp/incident_energy, y_exp/np.sum(y_exp)/bin_width)
                     plots.append(md)
                     labels.append('MD*')
-
-                    #bin_width = 2/incident_energy
-                    #x_exp = np.array([0.5105128,2.4229195,4.3773375,6.2898645,8.203715,10.16993,12.077281,14.065224])
-                    #y_exp = np.array([0.02095386,0.028854888,0.019866126,0.031986613,0.09052116,0.49503943,0.32572317,0.002372699])
-                    #md_2 = plt.scatter(x_exp/incident_energy + bin_width/2., y_exp/np.sum(y_exp)/bin_width)
-                    #plots.append(md_2)
-                    #labels.append('MD+')
 
             if target['symbol'] == 'Ni':
             #Further comparison to MD
@@ -814,7 +855,14 @@ incident_energy=1., incident_angle=0.):
                     y_exp = np.array([11.39, 62.28, 25.74])
                     md = plt.scatter(x_exp + bin_width/2., y_exp/np.sum(y_exp)/bin_width)
                     plots.append(md)
-                    labels.append('MD*')
+                    labels.append('T=0K MD*')
+
+                    x_high_temp = np.array([0.3979953,0.45450273,0.4969773,0.55361,0.60341424,0.65146434,0.70176977,0.75113547,0.7996868,0.8500548,0.91395456,0.949538,1.0056069,1.0548472,1.097823,1.1473767,1.1973062,1.2474236,1.2971653,1.3539859,1.403477,1.4457635,1.4955677])
+                    bin_width = 0.05
+                    y_high_temp = np.array([1.3336438,2.060239,2.0788698,2.1037107,0.7219376,9.164726,4.9759355,6.050303,11.686073,7.1464057,6.1217203,5.0846143,8.26735,10.043471,7.2550845,7.27682,5.193293,2.057134,1.0262382,0.0,0.3710604,1.4423226,0.060549606])
+                    md = plt.scatter(x_high_temp + bin_width/2., y_high_temp/np.sum(y_high_temp)/bin_width)
+                    plots.append(md)
+                    labels.append('T=500K MD*')
 
                 #1.0 eV
                 if incident_energy == 1.0 and abs(incident_angle) < 1:
@@ -854,6 +902,8 @@ incident_energy=1., incident_angle=0.):
         plt.xlabel('E/E0')
         plt.ylabel('f(E)')
         plt.gca().set_xlim(0., 1.)
+        plt.gca().set_ylim(bottom=0)
+
         plt.savefig(name+'ref_e.png')
         plt.close()
 
@@ -1030,7 +1080,7 @@ def starshot():
     track_trajectories = False
     track_recoil_trajectories = True
     ffp = True
-    esmode = HIGH_ENERGY
+    esmode = INTERPOLATED
 
     plt.figure('reflection')
     plt.figure('sputtering')
@@ -1191,6 +1241,7 @@ def test_rustbca():
             name_1.append(beam['symbol']+' on '+target['symbol']+' Y rustbca')
             name_1.append(beam['symbol']+' on '+target['symbol']+' R rustbca')
             name_1.append(beam['symbol']+' on '+target['symbol']+' Y Yamamura')
+            nba
             name_1.append(beam['symbol']+' on '+target['symbol']+' R Wierzbicki-Biersack')
             name_1.append(beam['symbol']+' on '+target['symbol']+' R Thomas et al.')
 
@@ -1263,25 +1314,29 @@ def test_rustbca():
 
 def benchmark():
     beam_species = [helium]#, argon, boron]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
-    target_species = [tungsten]#, silicon, copper]#, copper]#, copper]#, boron, silicon, copper]
+    target_species = [nitrogen]#, silicon, copper]#, copper]#, copper]#, boron, silicon, copper]
 
     N = 1
-    N_ = 1000000
-    theta = 0.0001
-    thickness = 100
-    depth = 100
+    N_ = 10000
+    angles = np.array([0.0001])
+    thickness = 10
+    depth = 10
+    energies = [10.]
     #energies = np.round(np.logspace(1, 5, 30), 1)
     #energies = np.round(np.logspace(0., 3, 30), 1)
-    energies = [20.]
+    #energies = np.array([1E7])
     #energies = [1000.]
     #angles = np.round(np.linspace(0.001, 80, 5), 1)
     #energies = [8000.]
-    tr = True
+    tr = False
     trt = False
     tt = False
-    ffp = False
-    esmode = LOW_ENERGY_EQUIPARTITION
-    weak_collision_order = 3
+    ffp = True
+    esmode = INTERPOLATED
+    ck = 1.
+    weak_collision_order = 0
+    mfp_model = GASEOUS
+    do_trajectory_plot = False
 
     #os.system('rm *.png')
     os.system('rm *.output')
@@ -1293,164 +1348,174 @@ def benchmark():
     os.system('cargo build --release')
     os.system('mv target/release/rustBCA.exe .')
 
-    fig1, ax1 = plt.subplots(1, 1, num='yields_', figsize=(8, 6))
-    fig2, ax2 = plt.subplots(1, 1, num='refl_', figsize=(8, 6))
-    fig3, ax3 = plt.subplots(1, 1, num='range_', figsize=(8, 6))
+    for theta in angles:
 
-    name_1 = []
-    name_2 = []
-    name_3 = []
-    rustbca_time = 0.
-    ftridyn_time = 0.
-    for beam in beam_species:
-        Za = beam['Z']
-        Ma = beam['m']
-        Eca = beam['Ec']
-        Esa = beam['Es']
-        for target in target_species:
-            name_1.append(beam['symbol']+' on '+target['symbol']+' rustbca')
-            name_2.append(beam['symbol']+' on '+target['symbol']+' rustbca')
+        fig1, ax1 = plt.subplots(1, 1, num='yields_', figsize=(8, 6))
+        fig2, ax2 = plt.subplots(1, 1, num='refl_', figsize=(8, 6))
+        fig3, ax3 = plt.subplots(1, 1, num='range_', figsize=(8, 6))
 
-            name_1.append(beam['symbol']+' on '+target['symbol']+' F-TRIDYN')
-            name_2.append(beam['symbol']+' on '+target['symbol']+' F-TRIDYN')
+        name_1 = []
+        name_2 = []
+        name_3 = []
+        rustbca_time = 0.
+        ftridyn_time = 0.
+        for beam in beam_species:
+            Za = beam['Z']
+            Ma = beam['m']
+            Eca = beam['Ec']
+            Esa = beam['Es']
+            for target in target_species:
+                Zb = target['Z']
+                Ecb = target['Ec']
+                Esb = target['Es']
+                Eb = target['Eb']
+                Mb = target['m']
+                n = target['n']
 
-            name_1.append(beam['symbol']+' on '+target['symbol']+' Yamamura')
-            name_2.append(beam['symbol']+' on '+target['symbol']+' Wierzbicki-Biersack')
-            name_2.append(beam['symbol']+' on '+target['symbol']+' Thomas et al.')
+                name_1.append(beam['symbol']+' on '+target['symbol']+' rustbca')
+                name_2.append(beam['symbol']+' on '+target['symbol']+' rustbca')
 
-            name_3.append(beam['symbol']+' on '+target['symbol']+' Range rustbca')
-            name_3.append(beam['symbol']+' on '+target['symbol']+' Range F-TRIDYN')
-            name_3.append(beam['symbol']+' on '+target['symbol']+' Straggle rustbca')
-            name_3.append(beam['symbol']+' on '+target['symbol']+' Straggle F-TRIDYN')
+                name_1.append(beam['symbol']+' on '+target['symbol']+' F-TRIDYN')
+                name_2.append(beam['symbol']+' on '+target['symbol']+' F-TRIDYN')
 
-            rustbca_yield = []
-            rustbca_reflection = []
-            ftridyn_yield = []
-            ftridyn_reflection = []
-            yamamura_yield = []
-            rustbca_range = []
-            ftridyn_range = []
-            rustbca_straggle = []
-            ftridyn_straggle = []
-            reflection_coefficient = []
-            reflection_coefficient_thomas = []
+                name_1.append(beam['symbol']+' on '+target['symbol']+' Yamamura')
+                if Ma/Mb < 0.5: name_1.append(beam['symbol']+' on '+target['symbol']+' Bohdansky')
 
-            Zb = target['Z']
-            Ecb = target['Ec'] #
-            Esb = target['Es']
-            Eb = target['Eb']
-            Mb = target['m']
-            n = target['n']
-            for energy in energies:
+                name_2.append(beam['symbol']+' on '+target['symbol']+' Wierzbicki-Biersack')
+                name_2.append(beam['symbol']+' on '+target['symbol']+' Thomas et al.')
 
-                rustbca_name = str(energy)+'eV_'+str(theta)+'deg_'+beam['symbol']+'_'+target['symbol']
-                start = time.time()
-                rustbca_yield_, rustbca_reflection_, rustbca_range_, rustbca_straggle_ = main(Zb,
-                    Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_,
-                    theta, thickness, depth, track_trajectories=tt,
-                    track_recoils=tr, track_recoil_trajectories=trt,
-                    write_files=True, name=rustbca_name, random=False,
-                    free_flight_path=ffp, electronic_stopping_mode=esmode,
-                    weak_collision_order=weak_collision_order)
+                name_3.append(beam['symbol']+' on '+target['symbol']+' Range rustbca')
+                name_3.append(beam['symbol']+' on '+target['symbol']+' Range F-TRIDYN')
+                name_3.append(beam['symbol']+' on '+target['symbol']+' Straggle rustbca')
+                name_3.append(beam['symbol']+' on '+target['symbol']+' Straggle F-TRIDYN')
 
-                stop = time.time()
-                rustbca_time += stop - start
-                rustbca_yield.append(rustbca_yield_)
-                rustbca_reflection.append(rustbca_reflection_)
-                rustbca_range.append(rustbca_range_)
-                rustbca_straggle.append(rustbca_straggle_)
+                rustbca_yield = []
+                rustbca_reflection = []
+                ftridyn_yield = []
+                ftridyn_reflection = []
+                yamamura_yield = []
+                bohdansky_yield = []
+                rustbca_range = []
+                ftridyn_range = []
+                rustbca_straggle = []
+                ftridyn_straggle = []
+                reflection_coefficient = []
+                reflection_coefficient_thomas = []
 
-                ftridyn_name = beam['symbol'].ljust(2, '_') + target['symbol'].ljust(2, '_')
-                interface = g.tridyn_interface(beam['symbol'], target['symbol'])
-                #os.system('rm *.DAT')
-                #os.system('rm *.OUT')
-                start = time.time()
-                ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
-                stop = time.time()
-                ftridyn_time += stop - start
-                ftridyn_yield.append(ftridyn_yield_/np.max([100, N_]))
-                ftridyn_reflection.append(ftridyn_reflection_/np.max([100, N_]))
+                for energy in energies:
+                    rustbca_name = str(energy)+'eV_'+str(theta)+'deg_'+beam['symbol']+'_'+target['symbol']
+                    start = time.time()
+                    rustbca_yield_, rustbca_reflection_, rustbca_range_, rustbca_straggle_ = main(Zb,
+                        Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_,
+                        theta, thickness, depth, track_trajectories=tt,
+                        track_recoils=tr, track_recoil_trajectories=trt,
+                        write_files=True, name=rustbca_name, random=False,
+                        free_flight_path=ffp, electronic_stopping_mode=esmode,
+                        weak_collision_order=weak_collision_order, ck=ck,
+                        mean_free_path_model=mfp_model)
 
-                df = np.atleast_2d(np.genfromtxt(ftridyn_name+'DUMPPRJ.DAT'))
+                    stop = time.time()
+                    rustbca_time += stop - start
+                    rustbca_yield.append(rustbca_yield_)
+                    rustbca_reflection.append(rustbca_reflection_)
+                    rustbca_range.append(rustbca_range_)
+                    rustbca_straggle.append(rustbca_straggle_)
 
-                if np.size(df) > 0:
-                    ftridyn_range.append(np.mean(df[:, 2])*1E-10)
-                    ftridyn_straggle.append(np.std(df[:, 2])*1E-10)
-                else:
-                    ftridyn_range.append(0.)
-                    ftridyn_straggle.append(0.)
+                    ftridyn_name = beam['symbol'].ljust(2, '_') + target['symbol'].ljust(2, '_')
+                    interface = g.tridyn_interface(beam['symbol'], target['symbol'])
+                    #os.system('rm *.DAT')
+                    #os.system('rm *.OUT')
+                    start = time.time()
+                    ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
+                    stop = time.time()
+                    ftridyn_time += stop - start
+                    ftridyn_yield.append(ftridyn_yield_/np.max([100, N_]))
+                    ftridyn_reflection.append(ftridyn_reflection_/np.max([100, N_]))
 
-                yamamura_yield_ = yamamura(beam, target, energy)
-                yamamura_yield.append(yamamura_yield_)
+                    df = np.atleast_2d(np.genfromtxt(ftridyn_name+'DUMPPRJ.DAT'))
 
-                reflection_coefficient_ = wierzbicki_biersack(beam, target, energy)
-                reflection_coefficient.append(reflection_coefficient_)
+                    if np.size(df) > 0:
+                        ftridyn_range.append(np.mean(df[:, 2])*1E-10)
+                        ftridyn_straggle.append(np.std(df[:, 2])*1E-10)
+                    else:
+                        ftridyn_range.append(0.)
+                        ftridyn_straggle.append(0.)
 
-                reflection_coefficient_thomas_ = thomas_reflection(beam, target, energy)
-                reflection_coefficient_thomas.append(reflection_coefficient_thomas_)
+                    yamamura_yield_ = yamamura(beam, target, energy)
+                    if Ma/Mb < 0.5:
+                        bohdansky_yield_ = bohdansky_light_ion(beam, target, energy)
+                        bohdansky_yield.append(bohdansky_yield_)
+                    yamamura_yield.append(yamamura_yield_)
 
-                #breakpoint()
-                #plot_distributions(rustbca_name, ftridyn_name, beam, target, file_num=1, incident_energy=energy, incident_angle=theta)
-                #do_plots(rustbca_name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
-                #breakpoint()
-                #os.system('rm *.output')
+                    reflection_coefficient_ = wierzbicki_biersack(beam, target, energy)
+                    reflection_coefficient.append(reflection_coefficient_)
 
-            handle = ax1.loglog(energies, rustbca_yield, '--*')
-            ax1.loglog(energies, yamamura_yield, '-', color=handle[0].get_color())
-            ax1.loglog(energies, ftridyn_yield, '-o', color=handle[0].get_color())
+                    reflection_coefficient_thomas_ = thomas_reflection(beam, target, energy)
+                    reflection_coefficient_thomas.append(reflection_coefficient_thomas_)
 
-            ax2.loglog(energies, rustbca_reflection, '--*')#, color=handle[0].get_color())
-            ax2.loglog(energies, ftridyn_reflection, '-^')#, color=handle[0].get_color())
-            ax2.loglog(energies, reflection_coefficient, '-.')#, color=handle[0].get_color())
-            ax2.loglog(energies, reflection_coefficient_thomas, '-')#, color=handle[0].get_color())
+                    #breakpoint()
+                    plot_distributions(rustbca_name, ftridyn_name, beam, target, file_num=1, incident_energy=energy, incident_angle=theta)
+                    if do_trajectory_plot: do_plots(rustbca_name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
+                    #breakpoint()
+                    #os.system('rm *.output')
 
-            ax3.loglog(energies, rustbca_range, '--', color=handle[0].get_color())
-            ax3.loglog(energies, np.array(ftridyn_range)/MICRON, '-o', color=handle[0].get_color())
-            ax3.loglog(energies, rustbca_straggle, '--*', color=handle[0].get_color())
-            ax3.loglog(energies, np.array(ftridyn_straggle)/MICRON, '-^', color=handle[0].get_color())
+                handle = ax1.loglog(energies, rustbca_yield, '--*')
+                ax1.loglog(energies, yamamura_yield, '-', color=handle[0].get_color())
+                if Ma/Mb < 0.5: ax1.loglog(energies, bohdansky_yield, '-s', color=handle[0].get_color())
+                ax1.loglog(energies, ftridyn_yield, '-o', color=handle[0].get_color())
 
-    ax1.set_ylabel('Y [at/ion]')
-    ax1.set_xlabel('E [eV]')
-    ax1.set_xlim(1, 2.*np.max(energies))
-    ax1.set_ylim(1e-4, 10)
-    #ax1.axis([0.5*np.min(energies), 2.*np.max(energies), 1./N_, 2.])
+                ax2.loglog(energies, rustbca_reflection, '--*')#, color=handle[0].get_color())
+                ax2.loglog(energies, ftridyn_reflection, '-^')#, color=handle[0].get_color())
+                ax2.loglog(energies, reflection_coefficient, '-.')#, color=handle[0].get_color())
+                ax2.loglog(energies, reflection_coefficient_thomas, '-')#, color=handle[0].get_color())
 
-    ax2.set_ylabel('R [at/ion]')
-    ax2.set_xlabel('E [eV]')
-    ax2.set_xlim(0.5*np.min(energies), 2.*np.max(energies))
-    #ax2.axis([0.5*np.min(energies), 2.*np.max(energies), 1./N_, 2.])
+                ax3.loglog(energies, rustbca_range, '--', color=handle[0].get_color())
+                ax3.loglog(energies, np.array(ftridyn_range)/MICRON, '-o', color=handle[0].get_color())
+                ax3.loglog(energies, rustbca_straggle, '--*', color=handle[0].get_color())
+                ax3.loglog(energies, np.array(ftridyn_straggle)/MICRON, '-^', color=handle[0].get_color())
 
-    if beam['symbol'] == 'He' and target['symbol'] == 'W' and abs(theta) < 1:
-        # V. Borovikov et al. (2014)
-        energies_md = np.array([4.5111375,9.609054,19.816422,29.652786,39.885143,59.930798,79.96684,99.99904])
-        r_md = np.array([0.9973039,0.9975538,0.9745242,0.9083381,0.8343281,0.7411909,0.6676615,0.6019752])
-        ax2.loglog(energies_md, r_md, '--1')#, color=handle[0].get_color())
-        name_2.append('He on W MD*')
+        ax1.set_ylabel('Y [at/ion]')
+        ax1.set_xlabel('E [eV]')
+        ax1.set_xlim(1, 2.*np.max(energies))
+        ax1.set_ylim(1e-4, 10)
+        #ax1.axis([0.5*np.min(energies), 2.*np.max(energies), 1./N_, 2.])
 
-        energies_exp = np.array([7.2638583,14.7358055,24.606771,49.786865,99.69532,119.71021])
-        r_van_gorkum = np.array([0.9817522,0.9389802,0.80220586,0.6348087,0.42156383,0.39117166])
-        ax2.loglog(energies_exp, r_van_gorkum, '-x')#, color=handle[0].get_color())
-        name_2.append('He on W Experiment*')
+        ax2.set_ylabel('R [at/ion]')
+        ax2.set_xlabel('E [eV]')
+        ax2.set_xlim(0.5*np.min(energies), 2.*np.max(energies))
+        #ax2.axis([0.5*np.min(energies), 2.*np.max(energies), 1./N_, 2.])
 
-        energies_marlowe = np.array([7.2773147,9.643655,11.221856,13.570896,15.547012,17.523129,19.495398,29.704687,39.123917,49.721508,59.14458])
-        r_marlowe = np.array([0.95430124,0.9269656,0.90743464,0.9153931,0.8841167,0.85284024,0.829407,0.8024558,0.78723085,0.76814204,0.74507403])
-        ax2.loglog(energies_marlowe, r_marlowe, '--s')#, color=handle[0].get_color())
-        name_2.append('He on W MARLOWE*')
+        if beam['symbol'] == 'He' and target['symbol'] == 'W' and abs(theta) < 1:
+            # V. Borovikov et al. (2014)
+            energies_md = np.array([4.5111375,9.609054,19.816422,29.652786,39.885143,59.930798,79.96684,99.99904])
+            r_md = np.array([0.9973039,0.9975538,0.9745242,0.9083381,0.8343281,0.7411909,0.6676615,0.6019752])
+            ax2.loglog(energies_md, r_md, '--1')#, color=handle[0].get_color())
+            name_2.append('He on W MD*')
 
-    ax1.set_title('Sputtering Yields')
-    ax1.legend(name_1, fontsize='small', loc='best')#, bbox_to_anchor=(0.85, 1.0))
-    fig1.savefig(rustbca_name+'yields.png')
+            energies_exp = np.array([7.2638583,14.7358055,24.606771,49.786865,99.69532,119.71021])
+            r_van_gorkum = np.array([0.9817522,0.9389802,0.80220586,0.6348087,0.42156383,0.39117166])
+            ax2.loglog(energies_exp, r_van_gorkum, '-x')#, color=handle[0].get_color())
+            name_2.append('He on W Experiment*')
 
-    ax2.set_title('Reflection Coefficients')
-    ax2.legend(name_2, fontsize='small', loc='best')#, bbox_to_anchor=(0.85, 1.0))
-    fig2.savefig(rustbca_name+'refl.png')
+            energies_marlowe = np.array([7.2773147,9.643655,11.221856,13.570896,15.547012,17.523129,19.495398,29.704687,39.123917,49.721508,59.14458])
+            r_marlowe = np.array([0.95430124,0.9269656,0.90743464,0.9153931,0.8841167,0.85284024,0.829407,0.8024558,0.78723085,0.76814204,0.74507403])
+            ax2.loglog(energies_marlowe, r_marlowe, '--s')#, color=handle[0].get_color())
+            name_2.append('He on W MARLOWE*')
 
-    ax3.set_title('Ranges and Straggles')
-    ax3.legend(name_3, fontsize='small', loc='best')#, bbox_to_anchor=(1.0, 0.5))
-    ax3.set_xlabel('E [eV]')
-    ax3.set_ylabel('Range [um]')
-    ax3.axis([0.5*np.min(energies), 10.*np.max(energies), 0.1*np.min(rustbca_range), 10.*np.max(rustbca_range)])
-    fig3.savefig(rustbca_name+'ranges.png')
+        ax1.set_title('Sputtering Yields')
+        ax1.legend(name_1, fontsize='small', loc='best')#, bbox_to_anchor=(0.85, 1.0))
+        fig1.savefig(rustbca_name+'yields.png')
+
+        ax2.set_title('Reflection Coefficients')
+        ax2.legend(name_2, fontsize='small', loc='best')#, bbox_to_anchor=(0.85, 1.0))
+        fig2.savefig(rustbca_name+'refl.png')
+
+        ax3.set_title('Ranges and Straggles')
+        ax3.legend(name_3, fontsize='small', loc='best')#, bbox_to_anchor=(1.0, 0.5))
+        ax3.set_xlabel('E [eV]')
+        ax3.set_ylabel('Range [um]')
+        ax3.axis([0.5*np.min(energies), 10.*np.max(energies), 0.1*np.min(rustbca_range), 10.*np.max(rustbca_range)])
+        fig3.savefig(rustbca_name+'ranges.png')
 
     print(f'time rustBCA: {rustbca_time} time F-TRIDYN: {ftridyn_time}')
 

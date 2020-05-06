@@ -88,6 +88,7 @@ class tridyn_interface:
         num_sputtered = 0
         num_reflected = 0
         range_sum = 0.
+        straggle_sum = 0.
 
         #Pull out each row of the iead, and then pull out each element from the
         #rows. Using enumerate allows us to map indices to the appropriate
@@ -107,13 +108,15 @@ class tridyn_interface:
                     self.species_list[0].ALPHA0 = angle
                     self.species_list[0].BE = 0.
                     self.species_list[1].BE = 0.
+                    #self.species_list[0].EC = 0.01
+                    self.species_list[0].CK = 1.0
 
                     #Initialize sim_params object. Each step it's overwritten.
                     simulation_parameters = sim_params(name=self.name, sim_num=sim_number,
                         IFOUT=count*number_histories//20, NH=count*number_histories,
                         IDOUT=count*number_histories//5, IQOUT=int(count)*number_histories//5,
                         NCP=self.number_species, IDREL=0, IQ0=0, IRC0=0, IRAND=np.random.randint(1, 12855897),
-                        JSP1=0, JSP2=1, JFRP=1, JNRM=1, FLC=1e-16, INEL=1, IWC=0, IDIFF=1,
+                        JSP1=0, JSP2=1, JFRP=1, JNRM=1, FLC=1e-16, INEL=1, IWC=3, IDIFF=1,
                         CSBE=0, ANGMN=0, ANGMX=90, TT=depth, TTDYN=1.2*depth,
                         NQX=250, DSF=100.0, IQXN=0, IQXX=250, IMCP=0,
                         surf_name=self.surface_name, species_list=self.species_list,
@@ -230,7 +233,7 @@ class tridyn_lookup:
                     IFOUT=number_histories//20, NH=number_histories,
                     IDOUT=number_histories//5, IQOUT=number_histories//5,
                     NCP=number_species, IDREL=0, IQ0=0, IRC0=0, IRAND=12855897,
-                    JSP1=0, JSP2=1, JFRP=1, JNRM=1, FLC=1e-16, INEL=1, IWC=3,
+                    JSP1=0, JSP2=1, JFRP=1, JNRM=1, FLC=1e-16, INEL=3, IWC=3,
                     IDIFF=1, CSBE=0, ANGMN=0, ANGMX=90, TT=depth,
                     TTDYN=1.2*depth, NQX=number_layers, DSF=100.0, IQXN=0,
                     IQXX=250, IMCP=0,surf_name=surface.name+'.surf',

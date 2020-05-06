@@ -77,54 +77,63 @@ def scattering(Za, Zb, Ma, Mb, E, impact_parameter, xn):
 
     return theta
 
-    #asympototic_deflection = x0*a*(theta/2.).sin();
-    #psi = (theta.sin().atan2(Ma/Mb + theta.cos())).abs();
-    #psi_recoil = (theta.sin().atan2(1. - theta.cos())).abs();
-    #recoil_energy = 4.*(Ma*Mb)/(Ma + Mb)**(2.)*E0*(theta/2.).sin()**(2.);
+def main():
+    Za = 1
+    Zb = 29
+    Ma = 1
+    Mb = 63.54
+    impact_parameter = 1E-10
+    N = 1000
+    n = 8E28
 
-Za = 1
-Zb = 29
-Ma = 1
-Mb = 63.54
-impact_parameter = 1E-10
-N = 1000
-n = 8E28
+    mfp = n**(-1./3.)
+    pmax = mfp/SQRTPI
+    a = screening_length(Za, Zb)
+    mu = Mb/(Ma + Mb)
+    betas = [35, 30, 25, 20, 15, 10, 7.5, 5, 2.5, 0.]
+    impact_parameters = a*np.array(betas)
+    reduced_energies = np.logspace(-5, -1, N)
+    energies = reduced_energies/(LINDHARD_REDUCED_ENERGY_PREFACTOR*a*mu/Za/Zb)
 
-mfp = n**(-1./3.)
-pmax = mfp/SQRTPI
-a = screening_length(Za, Zb)
-mu = Mb/(Ma + Mb)
-betas = [35, 30, 25, 20, 15, 10, 7.5, 5, 2.5, 0.]
-impact_parameters = a*np.array(betas)
-reduced_energies = np.logspace(-5, -1, N)
-energies = reduced_energies/(LINDHARD_REDUCED_ENERGY_PREFACTOR*a*mu/Za/Zb)
+    plt.figure(1)
+    theta = np.zeros(N)
+    beta = np.zeros(N)
+    xn = np.zeros(N)
+    for i, impact_parameter in enumerate(impact_parameters):
+        for j, energy in enumerate(energies):
 
-plt.figure(1)
-theta = np.zeros(N)
-beta = np.zeros(N)
-xn = np.zeros(N)
-for i, impact_parameter in enumerate(impact_parameters):
-    for j, energy in enumerate(energies):
+            xn[j] = distance_of_closest_approach(Za, Zb, Ma, Mb, energy, impact_parameter)
+            #theta[index] = scattering(Za, Zb, Ma, Mb, E, impact_parameter, xn)
 
-        xn[j] = distance_of_closest_approach(Za, Zb, Ma, Mb, energy, impact_parameter)
-        #theta[index] = scattering(Za, Zb, Ma, Mb, E, impact_parameter, xn)
+        plt.semilogx(reduced_energies, xn)
+    plt.legend(betas)
 
-    plt.semilogx(reduced_energies, xn)
-plt.legend(betas)
+    plt.figure(2)
+    theta = np.zeros(N)
+    for j, reduced_energy in enumerate([1E-1, 1E-2, 1E-3, 1E-4, 1E-5]):
+        for i, impact_parameter in enumerate(np.linspace(0., 24, N)*a):
+            energy = reduced_energy/(LINDHARD_REDUCED_ENERGY_PREFACTOR*a*mu/Za/Zb)
+            xn = distance_of_closest_approach(Za, Zb, Ma, Mb, energy, impact_parameter)
+            theta[i] = scattering(Za, Zb, Ma, Mb, energy, impact_parameter, xn)
+        plt.semilogy(np.linspace(0., 24, N), np.sin(theta/2.)**2)
 
-data = np.genfromtxt('doca.dat')
-plt.semilogx(data[:,0], data[:,1], '.')
+    plt.figure(3)
+    theta = np.zeros(N)
+    psi = np.zeros(N)
+    pmax = mfp/np.sqrt(np.pi*2.)
+    for j, reduced_energy in enumerate([1E-1, 1E-2, 1E-3, 1E-4, 1E-5]):
+        for i, impact_parameter in enumerate(np.linspace(0., pmax, N)):
+            energy = reduced_energy/(LINDHARD_REDUCED_ENERGY_PREFACTOR*a*mu/Za/Zb)
+            xn = distance_of_closest_approach(Za, Zb, Ma, Mb, energy, impact_parameter)
+            theta[i] = scattering(Za, Zb, Ma, Mb, energy, impact_parameter, xn)
+            psi[i] = np.arctan2(np.sin(theta[i]), Ma/Mb + np.cos(theta[i]))*180./np.pi
+        plt.plot(np.linspace(0., pmax, N)/mfp, psi)
+    plt.legend(['Reduced E=1E-1', '1E-2', '1E-3', '1E-4', '1E-5'])
+    plt.yticks([0, 30, 60, 90, 120, 150, 180])
+    plt.xlabel('Impact Parameter in MFP')
+    plt.ylabel('Lab Angle Deflection from Initial Direction [deg]')
 
-plt.figure(2)
-theta = np.zeros(N)
-for j, reduced_energy in enumerate([1E-1, 1E-2, 1E-3, 1E-4, 1E-5]):
-    for i, impact_parameter in enumerate(np.linspace(0., 24, N)*a):
-        energy = reduced_energy/(LINDHARD_REDUCED_ENERGY_PREFACTOR*a*mu/Za/Zb)
-        xn = distance_of_closest_approach(Za, Zb, Ma, Mb, energy, impact_parameter)
-        theta[i] = scattering(Za, Zb, Ma, Mb, energy, impact_parameter, xn)
-    plt.semilogy(np.linspace(0., 24, N), np.sin(theta/2.)**2)
+    plt.show()
 
-data = np.genfromtxt('theta.dat')
-plt.semilogy(data[:,0], data[:,1], '.')
-plt.axis([0., 24., 0.001, 1.])
-plt.show()
+if __name__ == '__main__':
+    main()
