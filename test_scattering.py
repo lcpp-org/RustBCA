@@ -2,35 +2,29 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 PI = np.pi
-Q = 1.602E-19;
-EV = Q;
-AMU = 1.66E-27;
-ANGSTROM = 1E-10;
-MICRON = 1E-6;
-NM = 1E-9;
-CM = 1E-2;
-EPS0 = 8.85E-12;
-A0 = 0.52918E-10;
-K = 1.11265E-10;
-ME = 9.11E-31;
-SQRTPI = 1.772453850906;
-SQRT2PI = 2.506628274631;
-C = 299792000.;
-BETHE_BLOCH_PREFACTOR = 4.*PI*(Q*Q/(4.*PI*EPS0))*(Q*Q/(4.*PI*EPS0))/ME/C/C;
-LINDHARD_SCHARFF_PREFACTOR = 1.212*ANGSTROM*ANGSTROM*Q;
-LINDHARD_REDUCED_ENERGY_PREFACTOR = 4.*PI*EPS0/Q/Q;
-
-#def phi(xi):
-#    return 0.190945*np.exp(-0.278544*xi) + 0.473674*np.exp(-0.637174*xi) + 0.335381*np.exp(-1.919249*xi)
-
-#def dphi(xi):
-#    return -0.278544*0.190945*np.exp(-0.278544*xi) - 0.637174*0.473674*np.exp(-0.637174*xi) - 0.335381*1.919249*np.exp(-1.919249*xi)
+Q = 1.602E-19
+EV = Q
+AMU = 1.66E-27
+ANGSTROM = 1E-10
+MICRON = 1E-6
+NM = 1E-9
+CM = 1E-2
+EPS0 = 8.85E-12
+A0 = 0.52918E-10
+K = 1.11265E-10
+ME = 9.11E-31
+SQRTPI = 1.772453850906
+SQRT2PI = 2.506628274631
+C = 299792000.
+BETHE_BLOCH_PREFACTOR = 4.*PI*(Q*Q/(4.*PI*EPS0))*(Q*Q/(4.*PI*EPS0))/ME/C/C
+LINDHARD_SCHARFF_PREFACTOR = 1.212*ANGSTROM*ANGSTROM*Q
+LINDHARD_REDUCED_ENERGY_PREFACTOR = 4.*PI*EPS0/Q/Q
 
 def phi(xi):
-   return 0.35*np.exp(-0.3*xi) + 0.55*np.exp(-1.2*xi) + 0.10*np.exp(-6.*xi)
+    return 0.190945*np.exp(-0.278544*xi) + 0.473674*np.exp(-0.637174*xi) + 0.335381*np.exp(-1.919249*xi)
 
 def dphi(xi):
-    return -0.3*0.35*np.exp(-0.3*xi) - 1.2*0.55*np.exp(-1.2*xi) - 6.*0.1*np.exp(-6.*xi)
+    return -0.278544*0.190945*np.exp(-0.278544*xi) - 0.637174*0.473674*np.exp(-0.637174*xi) - 0.335381*1.919249*np.exp(-1.919249*xi)
 
 def doca_function(x0, beta, reduced_energy):
     return x0 - phi(x0)/reduced_energy - beta**2/x0
@@ -65,15 +59,36 @@ def distance_of_closest_approach(Za, Zb, Ma, Mb, E, impact_parameter, max_iter=1
 
     return xn
 
+def magic(Za, Zb, Ma, Mb, E, impact_parameter, x0, C_):
+    c = [0.190945, 0.473674, 0.335381, 0.0 ]
+    d = [-0.278544, -0.637174, -1.919249, 0.0 ]
+    a_ = 0.8853*A0/(np.sqrt(Za) + np.sqrt(Zb))**(2./3.)
+    V0 = Za*Zb*Q*Q/4.0/PI/EPS0/a_
+    E_c = E*Mb/(Ma + Mb)
+    E_r = E/V0
+    b = impact_parameter/a_
+    SQE = np.sqrt(E_r)
+    R = a_*x0
+    sum = c[0]*np.exp(d[0]*x0) + c[1]*np.exp(d[1]*x0)+ c[2]*np.exp(d[2]*x0)
+    V = V0*a_/R*sum
+    sum = d[0]*c[0]*np.exp(d[0]*x0) + d[1]*c[1]*np.exp(d[1]*x0) + d[2]*c[2]*np.exp(d[2]*x0)
+    dV = -V/R + V0/R*sum
+    rho = -2.0*(E_c - V)/dV
+    D = 2.0*(1.0+C_[0]/SQE)*E_r*b**((C_[1]+SQE)/(C_[2]+SQE))
+    G = (C_[4]+E_r)/(C_[3]+E_r)*(np.sqrt(1.0+D*D) - D)
+    delta =  D*G/(1.0+G)*(x0-b)
+    ctheta2 = (b + rho/a_ + delta)/(x0 + rho/a_)
+    return 2.*np.arccos((b + rho/a_ + delta)/(x0 + rho/a_))
+
 def scattering(Za, Zb, Ma, Mb, E, impact_parameter, xn):
     mu = Mb/(Ma + Mb)
     a = screening_length(Za, Zb)
     reduced_energy = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*mu/Za/Zb*E
     beta = impact_parameter/a
 
-    lambda_0 = (0.5 + beta*beta/xn/xn/2. - dphi(xn)/2./reduced_energy)**(-1./2.);
-    alpha = 1./12.*(1. + lambda_0 + 5.*(0.4206*f(xn/0.9072, beta, reduced_energy) + 0.9072*f(xn/0.4206, beta, reduced_energy)));
-    theta = PI*(1. - beta*alpha/xn);
+    lambda_0 = (0.5 + beta*beta/xn/xn/2. - dphi(xn)/2./reduced_energy)**(-1./2.)
+    alpha = 1./12.*(1. + lambda_0 + 5.*(0.4206*f(xn/0.9072, beta, reduced_energy) + 0.9072*f(xn/0.4206, beta, reduced_energy)))
+    theta = PI*(1. - beta*alpha/xn)
 
     return theta
 
@@ -109,13 +124,31 @@ def main():
     plt.legend(betas)
 
     plt.figure(2)
+
     theta = np.zeros(N)
+    theta_magic_1 = np.zeros(N)
+    theta_magic_2 = np.zeros(N)
+    C1 = [1.0144, 0.235800, 0.126, 63950.0, 83550.0]
+    C2 = [0.7887, 0.01166, 0.006913, 17.16, 10.79]
+    labels = []
+    pmax = mfp/np.sqrt(np.pi*2.)
+
     for j, reduced_energy in enumerate([1E-1, 1E-2, 1E-3, 1E-4, 1E-5]):
-        for i, impact_parameter in enumerate(np.linspace(0., 24, N)*a):
+        for i, impact_parameter in enumerate(np.linspace(0., pmax, N)):
             energy = reduced_energy/(LINDHARD_REDUCED_ENERGY_PREFACTOR*a*mu/Za/Zb)
             xn = distance_of_closest_approach(Za, Zb, Ma, Mb, energy, impact_parameter)
             theta[i] = scattering(Za, Zb, Ma, Mb, energy, impact_parameter, xn)
-        plt.semilogy(np.linspace(0., 24, N), np.sin(theta/2.)**2)
+            theta_magic_1[i] = magic(Za, Zb, Ma, Mb, energy, impact_parameter, xn, C1)
+            theta_magic_2[i] = magic(Za, Zb, Ma, Mb, energy, impact_parameter, xn, C2)
+        handle = plt.plot(np.linspace(0., pmax/mfp, N), theta*180./np.pi)
+        plt.plot(np.linspace(0., pmax/mfp, N), theta_magic_1*180./np.pi, '--', color=handle[0].get_color())
+        plt.plot(np.linspace(0., pmax/mfp, N), theta_magic_2*180./np.pi, ':', color=handle[0].get_color())
+        labels.append('Lobatto 6th Order, E_r='+str(reduced_energy))
+        labels.append('MAGIC F-TRIDYN, E_r='+str(reduced_energy))
+        labels.append('MAGIC SRIM, E_r='+str(reduced_energy))
+    plt.legend(labels)
+    plt.xlabel('Impact Parameter in mfp')
+    plt.ylabel('theta [deg]')
 
     plt.figure(3)
     theta = np.zeros(N)
