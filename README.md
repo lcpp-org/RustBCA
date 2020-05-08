@@ -44,6 +44,7 @@ high_energy_free_flight_paths = true #Use TRIM-style high-energy free-flight pat
 electronic_stopping_mode = 0 #0: Interpolated, Biersack-Varelas (eV-GeV) 1: Low energy nonlocal, Lindhard-Scharff (eV-25keV/amu) 2: Low energy local, Oen-Robinson (eV-25 keV/amu), 3: Equipartition between LS and OR
 mean_free_path_model = 1 #0: Liquid/solid target, 1: Gaseous target
 interaction_potential = 2 #0: Moliere 1: Kr-C 2: ZBL
+scattering_integral = 0 #0: 6th order Lobatto Quadrature 1: MAGIC (Recommended: 0, don't use 1 unless you need to)
 
 [material_parameters]
 energy_unit = "EV"
