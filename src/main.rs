@@ -49,6 +49,7 @@ const GASEOUS: i32 = 1;
 const MOLIERE: i32 = 0;
 const KR_C: i32 = 1;
 const ZBL: i32 = 2;
+const TRIDYN: i32 = 3;
 
 //Scattering integral forms
 const QUADRATURE: i32 = 0;
@@ -413,6 +414,8 @@ fn phi(xi: f64, interaction_potential: i32) -> f64 {
         MOLIERE => 0.35*(-0.3*xi).exp() + 0.55*(-1.2*xi).exp() + 0.10*(-6.0*xi).exp(),
         KR_C => 0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp(),
         ZBL => 0.02817*(-0.20162*xi).exp() + 0.28022*(-0.40290*xi).exp() + 0.50986*(-0.94229*xi).exp() + 0.18175*(-3.1998*xi).exp(),
+        TRIDYN => 0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp(),
+
         _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
     }
 }
@@ -422,6 +425,7 @@ fn dphi(xi: f64, interaction_potential: i32) -> f64 {
         MOLIERE => -0.35*0.3*(-0.3*xi).exp() + -0.55*1.2*(-1.2*xi).exp() + -0.10*6.0*(-6.0*xi).exp(),
         KR_C => -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp(),
         ZBL => -0.20162*0.02817*(-0.20162*xi).exp() + -0.40290*0.28022*(-0.40290*xi).exp() + -0.94229*0.50986*(-0.94229*xi).exp() + -3.1998*0.18175*(-3.1998*xi).exp(),
+        TRIDYN => -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp(),
         _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
     }
 }
@@ -639,6 +643,7 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
                 MOLIERE => vec![ 0.6743, 0.009611, 0.005175, 6.314, 83550.0 ],
                 KR_C => vec![ 0.7887, 0.01166, 00.006913, 17.16, 10.79 ],
                 ZBL => vec![ 0.99229, 0.011615, 0.0071222, 9.3066, 14.813 ],
+                Tridyn => vec![1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
                 _ => panic!("Unimplemented interaction potential.")
             };
             //let C_ = vec![0.7887, 0.01166, 0.006913, 17.16, 10.79];

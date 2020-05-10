@@ -385,7 +385,7 @@ class species_lookup_table:
         self.SBV = []
         for line in self.table1:
             self.species_name.append(line[0:5].strip())
-            self.ZZ.append(float(line[6:10].strip()))
+            self.ZZ.append(int(line[6:10].strip()))
             self.M.append(float(line[11:22].strip()))
             self.BE.append(float(line[114:120].strip()))
             self.ED.append(float(line[53:59].strip()))
@@ -393,10 +393,20 @@ class species_lookup_table:
             self.DNS0.append(float(line[32:41].strip()))
             self.SBV.append(float(line[43:49].strip()))
         #end for
+        print(self.ZZ)
     #end def __init__
 
     def __repr__(self):
         return 'species_lookup_table()'
+
+    def find_species_by_atomic_number(self, ZZ, QU=0.0,CK=1.0,E0=0.0,ALPHA0=0.0,QUBEAM=0.0,QUMAX=0.0):
+        species_index = self.ZZ.index(int(ZZ))
+        return species(ZZ=self.ZZ[species_index],
+        M=self.M[species_index], BE=self.BE[species_index],
+        ED=self.ED[species_index], EF=self.EF[species_index],
+        QU=QU, DNS0=self.DNS0[species_index], CK=CK, E0=E0, ALPHA0=ALPHA0,
+        QUBEAM=QUBEAM, QUMAX=QUMAX, SBV=self.SBV[species_index])
+    #end def find_species
 
     def find_species(self,name,QU=0.0,CK=1.0,E0=0.0,ALPHA0=0.0,QUBEAM=0.0,QUMAX=0.0):
         """

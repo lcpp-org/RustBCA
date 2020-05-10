@@ -1,5 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.optimize import minimize
+from matplotlib import rcParams
+import matplotlib as mpl
+import matplotlib.lines as mlines
+import matplotlib
+rcParams.update({'figure.autolayout': True})
 
 PI = np.pi
 Q = 1.602E-19
@@ -78,7 +84,11 @@ def magic(Za, Zb, Ma, Mb, E, impact_parameter, x0, C_):
     G = (C_[4]+E_r)/(C_[3]+E_r)*(np.sqrt(1.0+D*D) - D)
     delta =  D*G/(1.0+G)*(x0-b)
     ctheta2 = (b + rho/a_ + delta)/(x0 + rho/a_)
-    return 2.*np.arccos((b + rho/a_ + delta)/(x0 + rho/a_))
+    theta = 2.*np.arccos((b + rho/a_ + delta)/(x0 + rho/a_))
+    if np.isnan(theta):
+        return -180
+    else:
+        return theta
 
 def scattering(Za, Zb, Ma, Mb, E, impact_parameter, xn):
     mu = Mb/(Ma + Mb)
@@ -92,10 +102,41 @@ def scattering(Za, Zb, Ma, Mb, E, impact_parameter, xn):
 
     return theta
 
+
+def finding_magic_numbers(C):
+    error = 0.
+    N = 5
+    masses = [1.008, 4.0026, 6.94, 9.012, 10.81, 12.011, 14.007, 15.999, 18.998, 20.18, 22.99, 24.305, 26.98, 28.085, 30.974, 32.06, 35.45, 39.95, 39.04, 40.08]
+    for Za, Ma in zip(range(1, 20), masses):
+        for Zb, Mb in zip(range(1, 20), masses):
+            for beta in np.linspace(0., 24., N):
+                a = screening_length(Za, Zb)
+                impact_parameter = beta*a
+                for reduced_energy in np.logspace(-5, -1, N):
+                    mu = Mb/(Ma + Mb)
+                    energy = reduced_energy/(LINDHARD_REDUCED_ENERGY_PREFACTOR*a*mu/Za/Zb)
+                    xn = distance_of_closest_approach(Za, Zb, Ma, Mb, energy, impact_parameter)
+                    theta = scattering(Za, Zb, Ma, Mb, energy, impact_parameter, xn)
+                    theta_magic = magic(Za, Zb, Ma, Mb, energy, impact_parameter, xn, C)
+                    error += (theta - theta_magic)**2
+    return error
+
+#Result: [8.59262260e-01 6.68325543e-03 3.46455645e-03 1.82866158e+01 8.99228133e+00]
+#Result: [9.21335017e-01 6.89578024e-03 3.54707435e-03 1.86557242e+01, 8.40094612e+00]
+#Result [0.96496923 0.00671429 0.00344473 1.70822142 0.74618368]
+
+def optimize():
+    #C0 = [1.0144, 0.235800, 0.126, 63950.0, 83550.0]
+    C0 = [10., 10., 10., 10., 10.]
+    result = minimize(finding_magic_numbers, C0,
+        bounds=[(0., None), (0., None), (0., None), (0., None), (0., None)],
+        tol=1e-9)
+    print(result.x, result.success, result.message)
+
 def main():
-    Za = 1
+    Za = 29
     Zb = 29
-    Ma = 1
+    Ma = 63.54
     Mb = 63.54
     impact_parameter = 1E-10
     N = 1000
@@ -130,25 +171,50 @@ def main():
     theta_magic_2 = np.zeros(N)
     C1 = [1.0144, 0.235800, 0.126, 63950.0, 83550.0]
     C2 = [0.7887, 0.01166, 0.006913, 17.16, 10.79]
+    #C1 = [8.59262260e-01, 6.68325543e-03, 3.46455645e-03, 1.82866158e+01, 8.99228133e+00]
+    #C1 = [0.94616176, 0.00687416, 0.00354259, 2.41467053, 1.06667728]
+    #C1 = [9.21335017e-01, 6.89578024e-03, 3.54707435e-03, 1.86557242e+01, 8.40094612e+00]
+    #C2 = [0.96496923, 0.00671429, 0.00344473, 1.70822142, 0.74618368]
     labels = []
     pmax = mfp/np.sqrt(np.pi*2.)
 
-    for j, reduced_energy in enumerate([1E-1, 1E-2, 1E-3, 1E-4, 1E-5]):
-        for i, impact_parameter in enumerate(np.linspace(0., pmax, N)):
+    reduced_energies = [1E-1, 1E-2, 1E-3, 1E-4, 1E-5]
+    log_reduced_energies = [1, 2, 3, 4, 5]
+    impact_parameters =np.linspace(0., pmax, N)
+    cmap = matplotlib.cm.get_cmap('viridis')
+    colors = [cmap(log_reduced_energy/max(log_reduced_energies)) for log_reduced_energy in log_reduced_energies]
+
+    for j, reduced_energy in enumerate(reduced_energies):
+        for i, impact_parameter in enumerate(impact_parameters):
             energy = reduced_energy/(LINDHARD_REDUCED_ENERGY_PREFACTOR*a*mu/Za/Zb)
             xn = distance_of_closest_approach(Za, Zb, Ma, Mb, energy, impact_parameter)
             theta[i] = scattering(Za, Zb, Ma, Mb, energy, impact_parameter, xn)
             theta_magic_1[i] = magic(Za, Zb, Ma, Mb, energy, impact_parameter, xn, C1)
             theta_magic_2[i] = magic(Za, Zb, Ma, Mb, energy, impact_parameter, xn, C2)
-        handle = plt.plot(np.linspace(0., pmax/mfp, N), theta*180./np.pi)
-        plt.plot(np.linspace(0., pmax/mfp, N), theta_magic_1*180./np.pi, '--', color=handle[0].get_color())
-        plt.plot(np.linspace(0., pmax/mfp, N), theta_magic_2*180./np.pi, ':', color=handle[0].get_color())
-        labels.append('Lobatto 6th Order, E_r='+str(reduced_energy))
-        labels.append('MAGIC F-TRIDYN, E_r='+str(reduced_energy))
-        labels.append('MAGIC SRIM, E_r='+str(reduced_energy))
-    plt.legend(labels)
-    plt.xlabel('Impact Parameter in mfp')
-    plt.ylabel('theta [deg]')
+        handle = plt.plot(np.linspace(0., pmax/mfp, N), theta*180./np.pi, color=colors[j], linewidth=2)
+        plt.plot(np.linspace(0., pmax/mfp, N), theta_magic_1*180./np.pi, '--', color=handle[0].get_color(), linewidth=2)
+        plt.plot(np.linspace(0., pmax/mfp, N), theta_magic_2*180./np.pi, ':', color=handle[0].get_color(), linewidth=2)
+
+    #cmap = matplotlib.cm.get_cmap('viridis')
+    #colors = [cmap(np.log(reduced_energy)/np.log(max(reduced_energy))) for reduced_energy in reduced_energies]
+    norm = mpl.colors.Normalize(vmin=-5, vmax=-1)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = plt.colorbar(sm)
+    cbar.set_label('log(Reduced Energy)', fontsize='large')
+    cbar_labels = [-5, -4, -3, -2, -1]
+    cbar.set_ticks(cbar_labels)
+    cbar.ax.set_yticklabels(cbar_labels)
+
+
+    dashed_line = mlines.Line2D([], [], color='black', marker='', linestyle='--', label='F-TRIDYN MAGIC')
+    dotted_line = mlines.Line2D([], [], color='black', marker='', linestyle=':', label='SRIM MAGIC')
+    solid_line = mlines.Line2D([], [], color='black', marker='', linestyle='-', label='Lobatto 6th-order')
+
+    plt.title('Scattering Angle Calculation', fontsize='large')
+    plt.legend(handles = [solid_line, dotted_line, dashed_line])
+    plt.xlabel('Impact Parameter in mfp', fontsize='large')
+    plt.ylabel('theta [deg]', fontsize='large')
 
     plt.figure(3)
     theta = np.zeros(N)

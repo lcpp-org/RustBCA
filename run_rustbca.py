@@ -39,7 +39,7 @@ GASEOUS = 1
 MOLIERE = 0
 KR_C = 1
 ZBL = 2
-COULOMB = 3
+TRIDYN = 3
 
 QUADRATURE = 0
 MAGIC = 1
@@ -144,6 +144,15 @@ neon = {
     'name': 'neon',
     'Z': 10,
     'm': 20.1797,
+    'Ec': 0.1,
+    'Es': 0.
+}
+
+krypton = {
+    'symbol': 'Kr',
+    'name': 'krypton',
+    'Z': 36,
+    'm': 83.80,
     'Ec': 0.1,
     'Es': 0.
 }
@@ -634,9 +643,9 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
         plt.close()
 
 def plot_distributions(name, ftridyn_name, beam, target, file_num=1, max_collision_contours=4,
-plot_2d_reflected_contours=False, collision_contour_significance_threshold=0.1, slice_angle=45,
-incident_energy=1., incident_angle=0., plot_garrison_contours=True,
-plot_reflected_energies_by_number_collisions=True):
+    plot_2d_reflected_contours=False, collision_contour_significance_threshold=0.1, slice_angle=45,
+    incident_energy=1., incident_angle=0., plot_garrison_contours=True,
+    plot_reflected_energies_by_number_collisions=True):
 
     file_num = str(file_num)
     num_bins = 80
@@ -666,7 +675,7 @@ plot_reflected_energies_by_number_collisions=True):
 
         #Ar on Si 50 eV 80 deg
         if beam['symbol'] == 'Ar' and target['symbol'] == 'Si' and incident_energy==80. and incident_angle==80.:
-            data_md = np.genfromtxt('ar_si_50ev_80deg.csv', delimiter=',')
+            data_md = np.genfromtxt('comparison_data/ar_si_50ev_80deg.csv', delimiter=',')
             normalized_energies_md = data_md[:, 0]
             angles_md = np.pi/2. -  data_md[:,1]*np.pi/180.
             c3 = ax.scatter(angles_md, normalized_energies_md, s=1, color='blue')
@@ -699,7 +708,7 @@ plot_reflected_energies_by_number_collisions=True):
 
         if plot_2d_reflected_contours:
             n_max = min(int(np.max(number_collision_events)), max_collision_contours)
-            cmap = matplotlib.cm.get_cmap('Oranges')
+            cmap = matplotlib.cm.get_cmap('Wistia')
             colors = [cmap((n - 1)/n_max) for n in range(1, n_max + 1)]
 
             for k in range(1, n_max + 1):
@@ -719,7 +728,7 @@ plot_reflected_energies_by_number_collisions=True):
             cbar = plt.colorbar(sm, ticks=np.array(range(1, n_max + 1))-0.5, boundaries=np.array(range(0, n_max + 1)))
             cbar.set_label('# of Collision Events')
             cbar_labels = list(range(1, n_max + 1))
-            cbar_labels[-1] = '>'+str(cbar_labels[-1])
+            cbar_labels[-1] = '≥'+str(cbar_labels[-1])
             cbar.ax.set_yticklabels(cbar_labels)
 
         plt.xlabel('E [eV]')
@@ -775,7 +784,7 @@ plot_reflected_energies_by_number_collisions=True):
             plt.close()
 
         plt.hist2d(s[:, 2], theta*180./np.pi, bins=bins)
-        if abs(incident_angle) < 1 or plot_garrison_contours: plt.contour(bin_energy, bin_angle, garrison, levels = 5, cmap = matplotlib.cm.get_cmap('Oranges'), alpha=0.5)
+        if abs(incident_angle) < 1 or plot_garrison_contours: plt.contour(bin_energy, bin_angle, garrison, levels = 5, cmap = matplotlib.cm.get_cmap('Wistia'), alpha=0.5)
         plt.xlabel('E [eV]')
         plt.ylabel('angle [deg]')
         plt.title(f'Sputtered EAD rustbca {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
@@ -789,7 +798,7 @@ plot_reflected_energies_by_number_collisions=True):
         #theta = np.arctan2(ux, np.sqrt(uy**2 + uz**2))
         theta = np.arccos(sf[:,7]) - np.pi/2.
         plt.hist2d(sf[:, 2], theta*180./np.pi, bins=bins)
-        if abs(incident_angle) < 1 or plot_garrison_contours: plt.contour(bin_energy, bin_angle, garrison, levels = 5, cmap = matplotlib.cm.get_cmap('Oranges'), alpha=0.5)
+        if abs(incident_angle) < 1 or plot_garrison_contours: plt.contour(bin_energy, bin_angle, garrison, levels = 5, cmap = matplotlib.cm.get_cmap('Wistia'), alpha=0.5)
         plt.xlabel('E [eV]')
         plt.ylabel('angle [deg]')
         plt.title(f'Sputtered EAD F-TRIDYN {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
@@ -845,7 +854,7 @@ plot_reflected_energies_by_number_collisions=True):
             cbar = plt.colorbar(sm, ticks=np.array(range(1, n_max + 1))-0.5, boundaries=np.array(range(0, n_max + 1)))
             cbar.set_label('# of Collision Events')
             cbar_labels = list(range(1, n_max + 1))
-            cbar_labels[-1] = '>'+str(cbar_labels[-1])
+            cbar_labels[-1] = '≥'+str(cbar_labels[-1])
             cbar.ax.set_yticklabels(cbar_labels)
 
         plots.append(rust[0])
@@ -939,7 +948,7 @@ plot_reflected_energies_by_number_collisions=True):
         labels.append('F-TRIDYN')
 
     if np.size(rf) > 0 or np.size(r) > 0:
-        if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='upper left')
+        if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='best')
         plt.title(f'Refl. Energies {beam["symbol"]} on {target["symbol"]} {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
         plt.xlabel('E/E0')
         plt.ylabel('f(E)')
@@ -1239,7 +1248,7 @@ def benchmark_srim():
     ranges = np.array(ranges)
     plt.loglog(energies, ranges)
     plt.loglog(energies, straggles)
-    geant4 = np.genfromtxt('geant4_as_si.dat')
+    geant4 = np.genfromtxt('comparison_data/geant4_as_si.dat')
     plt.loglog(geant4[:,0], geant4[:,1]*1e-3, '.')
     plt.show()
 
@@ -1354,18 +1363,85 @@ def test_rustbca():
 
     plt.show()
 
-def benchmark():
-    beam_species = [argon]#, argon, boron]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
-    target_species = [copper]#, silicon, copper]#, copper]#, copper]#, boron, silicon, copper]
+def reflection_z2_sweep():
 
     N = 1
-    N_ = 1000
-    angles = np.array([0.001])
+    N_ = 10000
+    theta = 0.0001
+    thickness = 10
+    depth = 10
+    energy = 100
+    tr = False
+    trt = False
+    tt = False
+    ffp = False
+    esmode = LOW_ENERGY_NONLOCAL
+    ck = 1.
+    weak_collision_order = 3
+    mfp_model = LIQUID
+    do_trajectory_plot = False
+    run_magic = False
+
+    #os.system('rm *.png')
+    os.system('rm *.output')
+    os.system('rm rustBCA.exe')
+    os.system('cargo build --release')
+    os.system('mv target/release/rustBCA.exe .')
+
+    beam = krypton
+    z2 = list(range(5, 83))
+    lookup = g.species_lookup_table()
+    targets = [lookup.find_species_by_atomic_number(z) for z in z2]
+
+
+    Za = beam['Z']
+    Ma = beam['m']
+    Eca = beam['Ec']
+    Esa = beam['Es']
+
+    reflection_coefficient = []
+
+    for target in targets:
+        Zb = float(target.ZZ)
+        Ecb = target.EF + 0.1
+        Esb = target.SBV
+        Eb = target.BE
+        Mb = target.M
+        n = target.DNS0*1E30
+
+        print(n, Mb, Eb, Ecb, Esb, Zb)
+        rustbca_name = 'Kr_'+str(int(Zb))+'_'
+
+        _, reflection_coefficient_, _, _ = main(Zb,
+        Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_,
+        theta, thickness, depth, track_trajectories=tt,
+        track_recoils=tr, track_recoil_trajectories=trt,
+        write_files=True, name=rustbca_name, random=False,
+        free_flight_path=ffp, electronic_stopping_mode=esmode,
+        weak_collision_order=weak_collision_order, ck=ck,
+        mean_free_path_model=mfp_model, scattering_integral=QUADRATURE,
+        interaction_potential=KR_C)
+
+        reflection_coefficient.append(reflection_coefficient_)
+
+    plt.plot(z2, reflection_coefficient)
+    data = np.genfromtxt('comparison_data/refl_kr')
+    z = [round(Z) for Z in data[:,0]]
+    plt.plot(z, 1. - data[:,1], 'x')
+    plt.show()
+
+def benchmark():
+    beam_species = [neon]#, argon, boron]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
+    target_species = [tungsten]#, silicon, copper]#, copper]#, copper]#, boron, silicon, copper]
+
+    N = 1
+    N_ = 1000000
+    angles = np.array([70.])
     thickness = 1
     depth = 1
     #energies = [1000.]
-    #energies = np.round(np.logspace(1, 4, 30), 1)
-    energies = np.round(np.logspace(1, 4, 20),1)
+    energies = [20.0]
+    #energies = [0.1, 1., 10., 50.]
     #energies = np.round(np.logspace(0., 3, 30), 1)
     #energies = np.array([1E7])
     #energies = [1000.]
@@ -1380,6 +1456,7 @@ def benchmark():
     weak_collision_order = 3
     mfp_model = LIQUID
     do_trajectory_plot = False
+    run_magic = False
 
     #os.system('rm *.png')
     os.system('rm *.output')
@@ -1396,6 +1473,7 @@ def benchmark():
         fig1, ax1 = plt.subplots(1, 1, num='yields_', figsize=(8, 6))
         fig2, ax2 = plt.subplots(1, 1, num='refl_', figsize=(8, 6))
         fig3, ax3 = plt.subplots(1, 1, num='range_', figsize=(8, 6))
+        fig4, ax4 = plt.subplots(1, 1, num='perf_', figsize=(8, 6))
 
         name_1 = []
         name_2 = []
@@ -1416,10 +1494,10 @@ def benchmark():
                 n = target['n']
 
                 name_1.append(beam['symbol']+' on '+target['symbol']+' rustbca')
-                name_1.append(beam['symbol']+' on '+target['symbol']+' rustbca MAGIC')
+                if run_magic: name_1.append(beam['symbol']+' on '+target['symbol']+' rustbca MAGIC')
 
                 name_2.append(beam['symbol']+' on '+target['symbol']+' rustbca')
-                name_2.append(beam['symbol']+' on '+target['symbol']+' rustbca MAGIC')
+                if run_magic: name_2.append(beam['symbol']+' on '+target['symbol']+' rustbca MAGIC')
 
                 name_1.append(beam['symbol']+' on '+target['symbol']+' F-TRIDYN')
                 name_2.append(beam['symbol']+' on '+target['symbol']+' F-TRIDYN')
@@ -1427,7 +1505,7 @@ def benchmark():
                 name_1.append(beam['symbol']+' on '+target['symbol']+' Yamamura')
                 if Ma/Mb < 0.5: name_1.append(beam['symbol']+' on '+target['symbol']+' Bohdansky')
 
-                name_2.append(beam['symbol']+' on '+target['symbol']+' Wierzbicki-Biersack')
+                #name_2.append(beam['symbol']+' on '+target['symbol']+' Wierzbicki-Biersack')
                 name_2.append(beam['symbol']+' on '+target['symbol']+' Thomas et al.')
 
                 name_3.append(beam['symbol']+' on '+target['symbol']+' Range rustbca')
@@ -1461,10 +1539,14 @@ def benchmark():
                 reflection_coefficient = []
                 reflection_coefficient_thomas = []
 
+                computational_time_rustbca = []
+                computational_time_rustbca_ffp = []
+                computational_time_ftridyn = []
+
                 for energy in energies:
                     rustbca_name = str(energy)+'eV_'+str(theta)+'deg_'+beam['symbol']+'_'+target['symbol']
-                    start = time.time()
 
+                    start = time.time()
                     rustbca_yield_, rustbca_reflection_, rustbca_range_, rustbca_straggle_ = main(Zb,
                         Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_,
                         theta, thickness, depth, track_trajectories=tt,
@@ -1472,24 +1554,32 @@ def benchmark():
                         write_files=True, name=rustbca_name, random=False,
                         free_flight_path=ffp, electronic_stopping_mode=esmode,
                         weak_collision_order=weak_collision_order, ck=ck,
-                        mean_free_path_model=mfp_model, scattering_integral=QUADRATURE)
-
-                    os.system('rm *.output')
-                    rustbca_yield_MAGIC_, rustbca_reflection_MAGIC_, rustbca_range_MAGIC_, rustbca_straggle_MAGIC_ = main(Zb,
-                        Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_,
-                        theta, thickness, depth, track_trajectories=tt,
-                        track_recoils=tr, track_recoil_trajectories=trt,
-                        write_files=True, name=rustbca_name, random=False,
-                        free_flight_path=ffp, electronic_stopping_mode=esmode,
-                        weak_collision_order=weak_collision_order, ck=ck,
-                        mean_free_path_model=mfp_model, scattering_integral=MAGIC)
-
+                        mean_free_path_model=mfp_model, scattering_integral=QUADRATURE,
+                        interaction_potential=KR_C)
                     stop = time.time()
+
                     rustbca_time += stop - start
-                    rustbca_yield_MAGIC.append(rustbca_yield_MAGIC_)
-                    rustbca_reflection_MAGIC.append(rustbca_reflection_MAGIC_)
-                    rustbca_range_MAGIC.append(rustbca_range_MAGIC_)
-                    rustbca_straggle_MAGIC.append(rustbca_straggle_MAGIC_)
+                    computational_time_rustbca.append(stop - start)
+
+                    if run_magic:
+                        start = time.time()
+                        os.system('rm *.output')
+                        rustbca_yield_MAGIC_, rustbca_reflection_MAGIC_, rustbca_range_MAGIC_, rustbca_straggle_MAGIC_ = main(Zb,
+                            Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_,
+                            theta, thickness, depth, track_trajectories=tt,
+                            track_recoils=tr, track_recoil_trajectories=trt,
+                            write_files=True, name=rustbca_name, random=False,
+                            free_flight_path=True, electronic_stopping_mode=INTERPOLATED,
+                            weak_collision_order=0, ck=ck,
+                            mean_free_path_model=mfp_model, scattering_integral=MAGIC,
+                            interaction_potential=TRIDYN)
+                        stop = time.time()
+                        computational_time_rustbca_ffp.append(stop - start)
+
+                        rustbca_yield_MAGIC.append(rustbca_yield_MAGIC_)
+                        rustbca_reflection_MAGIC.append(rustbca_reflection_MAGIC_)
+                        rustbca_range_MAGIC.append(rustbca_range_MAGIC_)
+                        rustbca_straggle_MAGIC.append(rustbca_straggle_MAGIC_)
 
                     rustbca_yield.append(rustbca_yield_)
                     rustbca_reflection.append(rustbca_reflection_)
@@ -1504,6 +1594,7 @@ def benchmark():
                     ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
                     stop = time.time()
                     ftridyn_time += stop - start
+                    computational_time_ftridyn.append(stop - start)
                     ftridyn_yield.append(ftridyn_yield_/np.max([100, N_]))
                     ftridyn_reflection.append(ftridyn_reflection_/np.max([100, N_]))
 
@@ -1522,20 +1613,22 @@ def benchmark():
                         bohdansky_yield.append(bohdansky_yield_)
                     yamamura_yield.append(yamamura_yield_)
 
-                    reflection_coefficient_ = wierzbicki_biersack(beam, target, energy)
-                    reflection_coefficient.append(reflection_coefficient_)
+                    #reflection_coefficient_ = wierzbicki_biersack(beam, target, energy)
+                    #reflection_coefficient.append(reflection_coefficient_)
 
                     reflection_coefficient_thomas_ = thomas_reflection(beam, target, energy)
                     reflection_coefficient_thomas.append(reflection_coefficient_thomas_)
 
                     #breakpoint()
-                    plot_distributions(rustbca_name, ftridyn_name, beam, target, file_num=1, incident_energy=energy, incident_angle=theta)
+                    plot_distributions(rustbca_name, ftridyn_name, beam, target,
+                        file_num=1, incident_energy=energy, incident_angle=theta,
+                        plot_2d_reflected_contours=True)
                     if do_trajectory_plot: do_plots(rustbca_name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
                     #breakpoint()
                     #os.system('rm *.output')
 
                 handle = ax1.semilogx(energies, rustbca_yield, '--*')
-                ax1.semilogx(energies, rustbca_yield_MAGIC, '--+')
+                if run_magic: ax1.semilogx(energies, rustbca_yield_MAGIC, '--+')
                 ax1.semilogx(energies, ftridyn_yield, '-o', color=handle[0].get_color())
                 ax1.semilogx(energies, yamamura_yield, '-', color=handle[0].get_color())
                 if Ma/Mb < 0.5: ax1.semilogx(energies, bohdansky_yield, '-s', color=handle[0].get_color())
@@ -1550,16 +1643,16 @@ def benchmark():
                 #    name_1.append(beam['symbol']+' on '+target['symbol']+' SD.TRIM.SP Gauss-Mehler')
 
                 ax2.loglog(energies, rustbca_reflection, '--*')#, color=handle[0].get_color())
-                ax2.loglog(energies, rustbca_reflection_MAGIC, '--+')
+                if run_magic: ax2.loglog(energies, rustbca_reflection_MAGIC, '--+')
                 ax2.loglog(energies, ftridyn_reflection, '-^')#, color=handle[0].get_color())
-                ax2.loglog(energies, reflection_coefficient, '-.')#, color=handle[0].get_color())
+                #ax2.loglog(energies, reflection_coefficient, '-.')#, color=handle[0].get_color())
                 ax2.plot(energies, reflection_coefficient_thomas, '-')#, color=handle[0].get_color())
 
                 ax3.loglog(energies, rustbca_range, '--', color=handle[0].get_color())
-                ax3.loglog(energies, rustbca_range_MAGIC, '--+', color=handle[0].get_color())
+                if run_magic: ax3.loglog(energies, rustbca_range_MAGIC, '--+', color=handle[0].get_color())
 
                 ax3.loglog(energies, rustbca_straggle, '--*', color=handle[0].get_color())
-                ax3.loglog(energies, rustbca_straggle_MAGIC, '--+', color=handle[0].get_color())
+                if run_magic: ax3.loglog(energies, rustbca_straggle_MAGIC, '--+', color=handle[0].get_color())
 
                 ax3.loglog(energies, np.array(ftridyn_range)/MICRON, '-o', color=handle[0].get_color())
                 ax3.loglog(energies, np.array(ftridyn_straggle)/MICRON, '-^', color=handle[0].get_color())
@@ -1567,7 +1660,6 @@ def benchmark():
         ax1.set_ylabel('Y [at/ion]')
         ax1.set_xlabel('E [eV]')
         ax1.set_xlim(1, 2.*np.max(energies))
-        ax1.set_ylim(bottom=0.)
         #ax1.axis([0.5*np.min(energies), 2.*np.max(energies), 1./N_, 2.])
 
         ax2.set_ylabel('R [at/ion]')
@@ -1592,6 +1684,33 @@ def benchmark():
             ax2.loglog(energies_marlowe, r_marlowe, '--s')#, color=handle[0].get_color())
             name_2.append('He on W MARLOWE*')
 
+        if target['symbol'] == 'W' and abs(theta) < 1:
+            close_yarwood = np.genfromtxt('comparison_data/close_yarwood')
+            close_yarwood_2 = np.genfromtxt('comparison_data/close_yarwood_2')
+            if beam['symbol'] == 'He':
+                data = close_yarwood_2[:15, :]
+                ax2.loglog(data[:, 0], 1. - data[:, 1], '>')
+                name_2.append('He on W Experiment+')
+
+            if beam['symbol'] == 'Ne':
+                data = close_yarwood[:13, :]
+                handle = ax2.loglog(data[:, 0], 1. - data[:, 1], '<')
+                name_2.append('Ne on W Experiment+')
+
+                data = close_yarwood_2[15:, :]
+                ax2.loglog(data[:, 0], 1. - data[:, 1], '>', color=handle[0].get_color())
+                name_2.append('Ne on W Experiment+')
+
+            if beam['symbol'] == 'Ar':
+                data = close_yarwood[13:25, :]
+                ax2.loglog(data[:, 0], 1. - data[:, 1], '>')
+                name_2.append('Ar on W Experiment+')
+
+            if beam['symbol'] == 'Kr':
+                data = close_yarwood[25:, :]
+                ax2.loglog(data[:, 0], 1. - data[:, 1], '>')
+                name_2.append('K on W Experiment+')
+
         ax1.set_title('Sputtering Yields')
         ax1.legend(name_1, fontsize='small', loc='best')#, bbox_to_anchor=(0.85, 1.0))
         fig1.savefig(str(theta)+'_deg_yields.png')
@@ -1604,8 +1723,18 @@ def benchmark():
         ax3.legend(name_3, fontsize='small', loc='best')#, bbox_to_anchor=(1.0, 0.5))
         ax3.set_xlabel('E [eV]')
         ax3.set_ylabel('Range [um]')
-        ax3.axis([0.5*np.min(energies), 10.*np.max(energies), 0.1*np.min(rustbca_range), 10.*np.max(rustbca_range)])
+        #ax3.axis([0.5*np.min(energies), 10.*np.max(energies), 0.1*np.min(rustbca_range), 10.*np.max(rustbca_range)])
         fig3.savefig(str(theta)+'_deg_ranges.png')
+
+        ax4.loglog(energies, computational_time_rustbca)
+        if run_magic: ax4.loglog(energies, computational_time_rustbca_ffp)
+        ax4.loglog(energies, computational_time_ftridyn)
+
+        ax4.set_title('Computational Time of BCA Codes for '+beam['symbol']+' on '+target['symbol'])
+        ax4.set_xlabel('Energy [eV]')
+        ax4.set_ylabel('Computational Time [s]')
+        ax4.legend(['rustbca', 'rustbca FFP', 'F-TRIDYN'])
+        fig4.savefig('performance.png')
 
     print(f'time rustBCA: {rustbca_time} time F-TRIDYN: {ftridyn_time}')
 
