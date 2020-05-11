@@ -415,7 +415,6 @@ fn phi(xi: f64, interaction_potential: i32) -> f64 {
         KR_C => 0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp(),
         ZBL => 0.02817*(-0.20162*xi).exp() + 0.28022*(-0.40290*xi).exp() + 0.50986*(-0.94229*xi).exp() + 0.18175*(-3.1998*xi).exp(),
         TRIDYN => 0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp(),
-
         _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
     }
 }
@@ -430,9 +429,13 @@ fn dphi(xi: f64, interaction_potential: i32) -> f64 {
     }
 }
 
-fn screening_length(Za: f64, Zb: f64) -> f64 {
-    //Lindhard/Firsov screening length
-    return 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.);
+fn screening_length(Za: f64, Zb: f64, interaction_potential: i32) -> f64 {
+    match interaction_potential {
+        //ZBL screening length, Eckstein (4.1.8)
+        ZBL => 0.88534*A0*(Za.powf(0.23) + Zb.powf(0.23)).powf(-1.),
+        //Lindhard/Firsov screening length, Eckstein (4.1.5)
+        _ => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.)
+    }
 }
 
 fn doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
@@ -441,7 +444,7 @@ fn doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential:
 }
 
 fn diff_doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
-    //First differential of distance of closest approach function
+    //First differential of distance of closest approach function for N-R solver
     return beta*beta/x0/x0 - dphi(x0, interaction_potential)/reduced_energy + 1.
 }
 
@@ -451,7 +454,8 @@ fn f(x: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 
 }
 
 fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Material,
-    collision_order: usize, high_energy_free_flight_paths: bool, mean_free_path_model: i32) -> (Vec<f64>, Vec<f64>, f64) {
+    collision_order: usize, high_energy_free_flight_paths: bool, mean_free_path_model: i32,
+    interaction_potential: i32) -> (Vec<f64>, Vec<f64>, f64) {
 
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
@@ -459,10 +463,10 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
 
     let mut mfp = material.mfp(x, y);
 
-    //azimuthal angle randomly selected (0..2pi)
-    let mut phis_azimuthal = Vec::with_capacity(collision_order + 1);
 
+    let mut phis_azimuthal = Vec::with_capacity(collision_order + 1);
     //Each weak collision gets its own aziumuthal angle in annuli around collision point
+    //azimuthal angle randomly selected (0..2pi)
     for k in 0..collision_order + 1 {
         phis_azimuthal.push(2.*PI*rand::random::<f64>());
     }
@@ -476,10 +480,10 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
         let n: f64  = material.number_density(x, y);
         let E: f64  = particle_1.E;
         let Ec: f64 = particle_1.Ec;
-        let a: f64 = screening_length(Za, Zb);
+        let a: f64 = screening_length(Za, Zb, interaction_potential);
         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
 
-        //Minimum energy transfer for scattering event set to cutoff energy
+        //Minimum energy transfer for generating scattering event set to cutoff energy
         let E_min = Ec*(Ma + Mb).powf(2.)/4./Ma/Mb;
         let reduced_energy_min: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E_min;
 
@@ -605,7 +609,7 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
     let mu: f64 = Mb/(Ma + Mb);
 
     //Lindhard screening length and reduced energy
-    let a: f64 = screening_length(Za, Zb);
+    let a: f64 = screening_length(Za, Zb, interaction_potential);
     let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
     let beta: f64 = impact_parameter/a;
 
@@ -640,10 +644,10 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
             //MAGIC algorithm
             //Since this is legacy code I don't think I will clean this up
             let C_ = match interaction_potential {
-                MOLIERE => vec![ 0.6743, 0.009611, 0.005175, 6.314, 83550.0 ],
+                MOLIERE => vec![ 0.6743, 0.009611, 0.005175, 6.314, 10.0 ],
                 KR_C => vec![ 0.7887, 0.01166, 00.006913, 17.16, 10.79 ],
                 ZBL => vec![ 0.99229, 0.011615, 0.0071222, 9.3066, 14.813 ],
-                Tridyn => vec![1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
+                TRIDYN => vec![1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
                 _ => panic!("Unimplemented interaction potential.")
             };
             //let C_ = vec![0.7887, 0.01166, 0.006913, 17.16, 10.79];
@@ -738,7 +742,8 @@ fn test_rotate_particle() {
 
 }
 
-fn update_particle_energy(particle_1: &mut Particle, material: &Material, distance_traveled: f64, recoil_energy: f64, xi: f64, electronic_stopping_mode: i32) {
+fn update_particle_energy(particle_1: &mut Particle, material: &Material, distance_traveled: f64,
+    recoil_energy: f64, xi: f64, electronic_stopping_mode: i32, interaction_potential: i32) {
 
     //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
     particle_1.E = particle_1.E - recoil_energy;
@@ -750,7 +755,8 @@ fn update_particle_energy(particle_1: &mut Particle, material: &Material, distan
     let y = particle_1.pos.y;
     let ck = material.electronic_stopping_correction_factor;
 
-    if material.inside_energy_barrier(x, y) {
+    //if material.inside_energy_barrier(x, y) {
+    if material.inside(x, y) {
 
         let electronic_stopping_power = material.electronic_stopping_power(particle_1, electronic_stopping_mode);
         let n = material.number_density(x, y);
@@ -763,11 +769,15 @@ fn update_particle_energy(particle_1: &mut Particle, material: &Material, distan
                 let Zb: f64 = material.Z_eff(x, y);
 
                 //Oen-Robinson local electronic stopping power
-                let a = screening_length(Za, Zb);
-                //d1 is the first interior constant of the screening function
-                //let d1 = 0.3; //Moliere
-                let d1 = 0.278544; //Kr-C
-
+                let a = screening_length(Za, Zb, interaction_potential);
+                //d1 is the first (smallest) interior constant of the screening function
+                let d1 = match interaction_potential {
+                    MOLIERE => 0.3,
+                    KR_C => 0.278544,
+                    ZBL => 0.20162,
+                    TRIDYN => 0.278544,
+                    _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
+                };
                 d1*d1/2./PI*electronic_stopping_power*(-d1*xi).exp()/a/a*ck
                 },
             LOW_ENERGY_EQUIPARTITION => {
@@ -775,9 +785,15 @@ fn update_particle_energy(particle_1: &mut Particle, material: &Material, distan
                 let Zb: f64 = material.Z_eff(particle_1.pos.x, particle_1.pos.y);
 
                 //Oen-Robinson local electronic stopping power
-                let a = screening_length(Za, Zb);
-                //d1 is the first interior constant of the screening function
-                let d1 = 0.278544; //Moliere
+                let a = screening_length(Za, Zb, interaction_potential);
+                //d1 is the first (smallest) interior constant of the screening function
+                let d1 = match interaction_potential {
+                    MOLIERE => 0.3,
+                    KR_C => 0.278544,
+                    ZBL => 0.20162,
+                    TRIDYN => 0.278544,
+                    _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
+                };
                 let delta_energy_local = d1*d1/2./PI*electronic_stopping_power*(-d1*xi).exp()/a/a;
                 //println!("S_local: {}, S_low: {}, xi: {}", S_local/Q, S_low/Q, xi*a/ANGSTROM);
                 let delta_energy_nonlocal = electronic_stopping_power*n*distance_traveled;
@@ -1107,7 +1123,8 @@ fn bca_from_file() {
             //Choose recoil partner location and species
             let (phis_azimuthal, impact_parameters, mfp) = determine_mfp_phi_impact_parameter(
                     &mut particle_1, &material, options.weak_collision_order,
-                    options.high_energy_free_flight_paths, options.mean_free_path_model);
+                    options.high_energy_free_flight_paths, options.mean_free_path_model,
+                    options.interaction_potential);
 
             let mut total_energy_loss = 0.;
             let mut total_asymptotic_deflection = 0.;
@@ -1168,7 +1185,7 @@ fn bca_from_file() {
                         let Mb = particle_2.m;
 
                         let n = material.number_density(xr, yr);
-                        let a: f64 = screening_length(Za, Zb);
+                        let a: f64 = screening_length(Za, Zb, options.interaction_potential);
                         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
                         let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powf(3.)/n/a/a;
 
@@ -1193,7 +1210,9 @@ fn bca_from_file() {
             let distance_traveled = particle_advance(&mut particle_1, mfp, total_asymptotic_deflection);
 
             //Subtract total energy from all simultaneous collisions and electronic stopping
-            update_particle_energy(&mut particle_1, &material, distance_traveled, total_energy_loss, distance_of_closest_approach, options.electronic_stopping_mode);
+            update_particle_energy(&mut particle_1, &material, distance_traveled,
+                total_energy_loss, distance_of_closest_approach, options.electronic_stopping_mode,
+                options.interaction_potential);
 
             //Check boundary conditions on leaving and stopping
             boundary_condition_2D_planar(&mut particle_1, &material);
