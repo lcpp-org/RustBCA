@@ -49,11 +49,12 @@ const GASEOUS: i32 = 1;
 const MOLIERE: i32 = 0;
 const KR_C: i32 = 1;
 const ZBL: i32 = 2;
-const TRIDYN: i32 = 3;
+const LENZ_JENSEN: i32 = 3;
+const TRIDYN: i32 = -1;
 
 //Scattering integral forms
 const QUADRATURE: i32 = 0;
-const MAGIC: i32 = 0;
+const MAGIC: i32 = 1;
 
 #[derive(Deserialize)]
 pub struct Input {
@@ -79,7 +80,9 @@ pub struct Options {
     electronic_stopping_mode: i32,
     mean_free_path_model: i32,
     interaction_potential: i32,
-    scattering_integral: i32
+    scattering_integral: i32,
+    tolerance: f64,
+    max_iterations: usize
 }
 
 #[derive(Deserialize)]
@@ -108,7 +111,6 @@ pub struct ParticleParameters {
     Es: Vec<f64>,
     pos: Vec<(f64, f64, f64)>,
     dir: Vec<(f64, f64, f64)>,
-
 }
 
 #[derive(Deserialize)]
@@ -409,11 +411,51 @@ impl Material {
     }
 }
 
+pub struct BinaryCollisionGeometry {
+    phi_azimuthal: f64,
+    impact_parameter: f64,
+    mfp: f64
+}
+
+impl BinaryCollisionGeometry {
+    pub fn new(phi_azimuthal: f64, impact_parameter: f64, mfp: f64) -> BinaryCollisionGeometry {
+        BinaryCollisionGeometry {
+            phi_azimuthal: phi_azimuthal,
+            impact_parameter: impact_parameter,
+            mfp: mfp
+        }
+    }
+}
+
+pub struct BinaryCollisionResult {
+    theta: f64,
+    psi: f64,
+    psi_recoil: f64,
+    recoil_energy: f64,
+    asymptotic_deflection: f64,
+    normalized_distance_of_closest_approach: f64
+}
+
+impl BinaryCollisionResult {
+    pub fn new(theta: f64, psi: f64, psi_recoil: f64, recoil_energy: f64,
+        asymptotic_deflection: f64, normalized_distance_of_closest_approach: f64) -> BinaryCollisionResult {
+        BinaryCollisionResult {
+            theta: theta,
+            psi: psi,
+            psi_recoil: psi_recoil,
+            recoil_energy: recoil_energy,
+            asymptotic_deflection: asymptotic_deflection,
+            normalized_distance_of_closest_approach: normalized_distance_of_closest_approach
+        }
+    }
+}
+
 fn phi(xi: f64, interaction_potential: i32) -> f64 {
     match interaction_potential {
         MOLIERE => 0.35*(-0.3*xi).exp() + 0.55*(-1.2*xi).exp() + 0.10*(-6.0*xi).exp(),
         KR_C => 0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp(),
         ZBL => 0.02817*(-0.20162*xi).exp() + 0.28022*(-0.40290*xi).exp() + 0.50986*(-0.94229*xi).exp() + 0.18175*(-3.1998*xi).exp(),
+        LENZ_JENSEN => 0.01018*(-0.206*xi).exp() + 0.24330*(-0.3876*xi).exp() + 0.7466*(-1.038*xi).exp(),
         TRIDYN => 0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp(),
         _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
     }
@@ -424,6 +466,7 @@ fn dphi(xi: f64, interaction_potential: i32) -> f64 {
         MOLIERE => -0.35*0.3*(-0.3*xi).exp() + -0.55*1.2*(-1.2*xi).exp() + -0.10*6.0*(-6.0*xi).exp(),
         KR_C => -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp(),
         ZBL => -0.20162*0.02817*(-0.20162*xi).exp() + -0.40290*0.28022*(-0.40290*xi).exp() + -0.94229*0.50986*(-0.94229*xi).exp() + -3.1998*0.18175*(-3.1998*xi).exp(),
+        LENZ_JENSEN => -0.206*0.01018*(-0.206*xi).exp() + -0.3876*0.24330*(-0.3876*xi).exp() + -1.038*0.7466*(-1.038*xi).exp(),
         TRIDYN => -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp(),
         _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
     }
@@ -439,7 +482,7 @@ fn screening_length(Za: f64, Zb: f64, interaction_potential: i32) -> f64 {
 }
 
 fn doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
-    //Transcendental function to determine distance of closest approach
+    //Transcendental function to _ distance of closest approach
     return x0 - phi(x0, interaction_potential)/reduced_energy - beta*beta/x0;
 }
 
@@ -453,9 +496,7 @@ fn f(x: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 
     return (1. - phi(x, interaction_potential)/x/reduced_energy - beta*beta/x/x).powf(-0.5);
 }
 
-fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Material,
-    collision_order: usize, high_energy_free_flight_paths: bool, mean_free_path_model: i32,
-    interaction_potential: i32) -> (Vec<f64>, Vec<f64>, f64) {
+fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Material, options: &Options) -> Vec<BinaryCollisionGeometry> {
 
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
@@ -463,15 +504,16 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
 
     let mut mfp = material.mfp(x, y);
 
+    let mut phis_azimuthal = Vec::with_capacity(options.weak_collision_order + 1);
+    let mut binary_collision_geometries = Vec::with_capacity(options.weak_collision_order + 1);
 
-    let mut phis_azimuthal = Vec::with_capacity(collision_order + 1);
     //Each weak collision gets its own aziumuthal angle in annuli around collision point
     //azimuthal angle randomly selected (0..2pi)
-    for k in 0..collision_order + 1 {
+    for k in 0..options.weak_collision_order + 1 {
         phis_azimuthal.push(2.*PI*rand::random::<f64>());
     }
 
-    if high_energy_free_flight_paths {
+    if options.high_energy_free_flight_paths {
 
         let Ma: f64 = particle_1.m;
         let Mb: f64  = material.m_eff(x, y);
@@ -480,7 +522,7 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
         let n: f64  = material.number_density(x, y);
         let E: f64  = particle_1.E;
         let Ec: f64 = particle_1.Ec;
-        let a: f64 = screening_length(Za, Zb, interaction_potential);
+        let a: f64 = screening_length(Za, Zb, options.interaction_potential);
         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
 
         //Minimum energy transfer for generating scattering event set to cutoff energy
@@ -518,11 +560,12 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
                 particle_1.first_step = false;
             }
 
-            if mean_free_path_model == GASEOUS {
+            if options.mean_free_path_model == GASEOUS {
                 ffp *= -rand::random::<f64>().ln();
             }
 
-            return (phis_azimuthal, impact_parameter, ffp);
+            binary_collision_geometries.push(BinaryCollisionGeometry::new(phis_azimuthal[0], impact_parameter[0], ffp));
+            return binary_collision_geometries;
 
         } else {
 
@@ -541,11 +584,12 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
                 particle_1.first_step = false;
             }
 
-            if mean_free_path_model == GASEOUS {
+            if options.mean_free_path_model == GASEOUS {
                 ffp *= -rand::random::<f64>().ln();
             }
 
-            return (phis_azimuthal, impact_parameter, ffp);
+            binary_collision_geometries.push(BinaryCollisionGeometry::new(phis_azimuthal[0], impact_parameter[0], ffp));
+            return binary_collision_geometries;
         }
 
     } else {
@@ -554,8 +598,8 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
         let pmax = mfp/SQRTPI;
 
         //Cylindrical geometry
-        let mut impact_parameters = Vec::with_capacity(collision_order + 1);
-        for k in 0..(collision_order + 1) {
+        let mut impact_parameters = Vec::with_capacity(options.weak_collision_order + 1);
+        for k in 0..(options.weak_collision_order + 1) {
             let random_number = rand::random::<f64>();
             let p = pmax*(random_number + k as f64).sqrt();
             impact_parameters.push(p)
@@ -567,19 +611,24 @@ fn determine_mfp_phi_impact_parameter(particle_1: &mut Particle, material: &Mate
             particle_1.first_step = false;
         }
 
-        if mean_free_path_model == GASEOUS {
+        if options.mean_free_path_model == GASEOUS {
             mfp *= -rand::random::<f64>().ln();
         }
 
-        return (phis_azimuthal, impact_parameters, mfp);
-
+        for k in 0..(options.weak_collision_order + 1) {
+            binary_collision_geometries.push(BinaryCollisionGeometry::new(phis_azimuthal[k], impact_parameters[k], mfp))
+        }
+        return binary_collision_geometries;
     }
 }
 
-fn choose_collision_partner(particle_1: &Particle, material: &Material, phi_azimuthal: f64, impact_parameter: f64, mfp: f64) -> (f64, f64, f64, f64, f64, f64, f64, f64, f64, f64) {
+fn choose_collision_partner(particle_1: &Particle, material: &Material, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> Particle {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;
+    let impact_parameter = binary_collision_geometry.impact_parameter;
+    let mfp = binary_collision_geometry.mfp;
+    let phi_azimuthal = binary_collision_geometry.phi_azimuthal;
 
     //Determine cosines and sines
     let sphi: f64 = phi_azimuthal.sin();
@@ -597,10 +646,15 @@ fn choose_collision_partner(particle_1: &Particle, material: &Material, phi_azim
     //Choose recoil Z, M
     let (Z_recoil, M_recoil, Ec_recoil, Es_recoil) = material.choose(x, y);
 
-    return (Z_recoil, M_recoil, Ec_recoil, Es_recoil, x_recoil, y_recoil, z_recoil, ca, cb, cg);
+    Particle::new(
+        M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil,
+        x_recoil, z_recoil, z_recoil,
+        ca, cb, cg,
+        false, options.track_recoil_trajectories
+    )
 }
 
-fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impact_parameter: f64, max_iter: usize, tol: f64, interaction_potential: i32, scattering_integral: i32) -> (f64, f64, f64, f64, f64, f64) {
+fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> BinaryCollisionResult {
     let Za: f64 = particle_1.Z;
     let Zb: f64 = particle_2.Z;
     let Ma: f64 = particle_1.m;
@@ -609,9 +663,9 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
     let mu: f64 = Mb/(Ma + Mb);
 
     //Lindhard screening length and reduced energy
-    let a: f64 = screening_length(Za, Zb, interaction_potential);
+    let a: f64 = screening_length(Za, Zb, options.interaction_potential);
     let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
-    let beta: f64 = impact_parameter/a;
+    let beta: f64 = binary_collision_geometry.impact_parameter/a;
 
     //Guess for large reduced energy from Mendenhall and Weller 1991
     //For small energies, use pure Newton-Raphson with arbitrary guess of 1
@@ -624,40 +678,39 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
 
     //Newton-Raphson to determine distance of closest approach
     let mut err: f64;
-    for _ in 0..max_iter {
-        xn = x0 - doca_function(x0, beta, reduced_energy, interaction_potential)/diff_doca_function(x0, beta, reduced_energy, interaction_potential);
+    for _ in 0..options.max_iterations {
+        xn = x0 - doca_function(x0, beta, reduced_energy,  options.interaction_potential)/diff_doca_function(x0, beta, reduced_energy, options.interaction_potential);
         err = (xn - x0).powf(2.);
         x0 = xn;
-        if err < tol {
+        if err < options.tolerance {
             break;
         }
     }
 
-    let theta = match scattering_integral {
-        0 => {
+    let theta = match  options.scattering_integral {
+        QUADRATURE => {
             //Scattering integral quadrature from Mendenhall and Weller 2005
-            let lambda_0 = (0.5 + beta*beta/x0/x0/2. - dphi(x0, interaction_potential)/2./reduced_energy).powf(-1./2.);
-            let alpha = 1./12.*(1. + lambda_0 + 5.*(0.4206*f(x0/0.9072, beta, reduced_energy, interaction_potential) + 0.9072*f(x0/0.4206, beta, reduced_energy, interaction_potential)));
+            let lambda_0 = (0.5 + beta*beta/x0/x0/2. - dphi(x0,  options.interaction_potential)/2./reduced_energy).powf(-1./2.);
+            let alpha = 1./12.*(1. + lambda_0 + 5.*(0.4206*f(x0/0.9072, beta, reduced_energy,  options.interaction_potential) + 0.9072*f(x0/0.4206, beta, reduced_energy,  options.interaction_potential)));
             PI*(1. - beta*alpha/x0)
         },
-        1 => {
+        MAGIC => {
             //MAGIC algorithm
             //Since this is legacy code I don't think I will clean this up
-            let C_ = match interaction_potential {
+            let C_ = match  options.interaction_potential {
                 MOLIERE => vec![ 0.6743, 0.009611, 0.005175, 6.314, 10.0 ],
                 KR_C => vec![ 0.7887, 0.01166, 00.006913, 17.16, 10.79 ],
                 ZBL => vec![ 0.99229, 0.011615, 0.0071222, 9.3066, 14.813 ],
                 TRIDYN => vec![1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
-                _ => panic!("Unimplemented interaction potential.")
+                _ => panic!("Unimplemented interaction potential {} for MAGIC algorithm.",  options.interaction_potential)
             };
-            //let C_ = vec![0.7887, 0.01166, 0.006913, 17.16, 10.79];
             let c = vec![ 0.190945, 0.473674, 0.335381, 0.0 ];
             let d = vec![ -0.278544, -0.637174, -1.919249, 0.0 ];
             let a_ = 0.8853*A0/((Za).sqrt() + (Zb).sqrt()).powf(2./3.);
             let V0 = Za*Zb*Q*Q/4.0/PI/EPS0/a_;
             let E_c = E0*Mb/(Ma + Mb);
             let E_r = E0/V0;
-            let b = impact_parameter/a_;
+            let b = binary_collision_geometry.impact_parameter/a_;
             let SQE = E_r.sqrt();
             let R = a_*x0;
             let sum = c[0]*(d[0]*x0).exp() + c[1]*(d[1]*x0).exp() + c[2]*(d[2]*x0).exp();
@@ -671,7 +724,7 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
             let ctheta2 = (b + rho/a_ + delta)/(x0 + rho/a_);
             2.*((b + rho/a_ + delta)/(x0 + rho/a_)).acos()
         },
-        _ => panic!("Unimplemented scattering integral. Use 0: Mendenhall-Weller Quadrature 1: MAGIC Algorithm")
+        _ => panic!("Unimplemented scattering integral: {}. Use 0: Mendenhall-Weller Quadrature 1: MAGIC Algorithm",  options.scattering_integral)
     };
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
@@ -680,7 +733,9 @@ fn calculate_binary_collision(particle_1: &Particle, particle_2: &Particle, impa
     let psi_recoil = (theta.sin().atan2(1. - theta.cos())).abs();
     let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*(theta/2.).sin().powf(2.);
 
-    return (theta, psi, psi_recoil, recoil_energy, asympototic_deflection, x0);
+    //return (theta, psi, psi_recoil, recoil_energy, asympototic_deflection, x0);
+
+    BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asympototic_deflection, x0)
 }
 
 fn rotate_particle(particle_1: &mut Particle, psi: f64, phi: f64) {
@@ -743,7 +798,7 @@ fn test_rotate_particle() {
 }
 
 fn update_particle_energy(particle_1: &mut Particle, material: &Material, distance_traveled: f64,
-    recoil_energy: f64, xi: f64, electronic_stopping_mode: i32, interaction_potential: i32) {
+    recoil_energy: f64, xi: f64, options: &Options) {
 
     //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
     particle_1.E = particle_1.E - recoil_energy;
@@ -756,12 +811,12 @@ fn update_particle_energy(particle_1: &mut Particle, material: &Material, distan
     let ck = material.electronic_stopping_correction_factor;
 
     //if material.inside_energy_barrier(x, y) {
-    if material.inside(x, y) {
+    if material.inside_energy_barrier(x, y) {
 
-        let electronic_stopping_power = material.electronic_stopping_power(particle_1, electronic_stopping_mode);
+        let electronic_stopping_power = material.electronic_stopping_power(particle_1, options.electronic_stopping_mode);
         let n = material.number_density(x, y);
 
-        let delta_energy = match electronic_stopping_mode {
+        let delta_energy = match options.electronic_stopping_mode {
             INTERPOLATED => electronic_stopping_power*n*distance_traveled*ck,
             LOW_ENERGY_NONLOCAL => electronic_stopping_power*n*distance_traveled*ck,
             LOW_ENERGY_LOCAL => {
@@ -769,15 +824,17 @@ fn update_particle_energy(particle_1: &mut Particle, material: &Material, distan
                 let Zb: f64 = material.Z_eff(x, y);
 
                 //Oen-Robinson local electronic stopping power
-                let a = screening_length(Za, Zb, interaction_potential);
+                let a = screening_length(Za, Zb, options.interaction_potential);
                 //d1 is the first (smallest) interior constant of the screening function
-                let d1 = match interaction_potential {
+                let d1 = match options.interaction_potential {
                     MOLIERE => 0.3,
                     KR_C => 0.278544,
                     ZBL => 0.20162,
+                    LENZ_JENSEN => 0.206,
                     TRIDYN => 0.278544,
                     _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
                 };
+
                 d1*d1/2./PI*electronic_stopping_power*(-d1*xi).exp()/a/a*ck
                 },
             LOW_ENERGY_EQUIPARTITION => {
@@ -785,17 +842,17 @@ fn update_particle_energy(particle_1: &mut Particle, material: &Material, distan
                 let Zb: f64 = material.Z_eff(particle_1.pos.x, particle_1.pos.y);
 
                 //Oen-Robinson local electronic stopping power
-                let a = screening_length(Za, Zb, interaction_potential);
+                let a = screening_length(Za, Zb, options.interaction_potential);
                 //d1 is the first (smallest) interior constant of the screening function
-                let d1 = match interaction_potential {
+                let d1 = match options.interaction_potential {
                     MOLIERE => 0.3,
                     KR_C => 0.278544,
                     ZBL => 0.20162,
+                    LENZ_JENSEN => 0.206,
                     TRIDYN => 0.278544,
                     _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
                 };
                 let delta_energy_local = d1*d1/2./PI*electronic_stopping_power*(-d1*xi).exp()/a/a;
-                //println!("S_local: {}, S_low: {}, xi: {}", S_local/Q, S_low/Q, xi*a/ANGSTROM);
                 let delta_energy_nonlocal = electronic_stopping_power*n*distance_traveled;
 
                 (0.5*delta_energy_local + 0.5*delta_energy_nonlocal)*ck
@@ -1120,11 +1177,8 @@ fn bca_from_file() {
         //BCA loop
         'trajectory_loop: while !particle_1.stopped & !particle_1.left {
 
-            //Choose recoil partner location and species
-            let (phis_azimuthal, impact_parameters, mfp) = determine_mfp_phi_impact_parameter(
-                    &mut particle_1, &material, options.weak_collision_order,
-                    options.high_energy_free_flight_paths, options.mean_free_path_model,
-                    options.interaction_potential);
+            //Choose impact parameters and azimuthal angles for all collisions, and determine mean free path
+            let binary_collision_geometries = determine_mfp_phi_impact_parameter(&mut particle_1, &material, &options);
 
             let mut total_energy_loss = 0.;
             let mut total_asymptotic_deflection = 0.;
@@ -1136,41 +1190,39 @@ fn bca_from_file() {
 
             'collision_loop: for k in 0..options.weak_collision_order + 1 {
 
-                let (Z_recoil, M_recoil, Ec_recoil, Es_recoil, xr, yr, zr, cxr, cyr, czr) = choose_collision_partner(&mut particle_1, &material, phis_azimuthal[k], impact_parameters[k], mfp);
-                //If recoil location is inside, proceed with binary collision loop
-                if material.inside(xr, yr) {
+                let mut particle_2 = choose_collision_partner(&mut particle_1, &material,
+                    &binary_collision_geometries[k], &options);
 
-                    //Generate new particle at recoil position
-                    let mut particle_2 = Particle::new(
-                        M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil,
-                        xr, yr, zr,
-                        cxr, cyr, czr,
-                        false, options.track_recoil_trajectories
-                    );
+                //If recoil location is inside, proceed with binary collision loop
+                if material.inside(particle_2.pos.x, particle_2.pos.y) {
 
                     //Determine scattering angle from binary collision
-                    let (theta, psi, psi_recoil, recoil_energy, asymptotic_deflection, xi) = calculate_binary_collision(&particle_1, &particle_2, impact_parameters[k], 100, 1E-3, options.interaction_potential, options.scattering_integral);
+                    let binary_collision_result = calculate_binary_collision(&particle_1,
+                        &particle_2, &binary_collision_geometries[k], &options);
 
                     //Only use 0th order collision for local electronic stopping
                     if k == 0 {
-                        distance_of_closest_approach = xi;
+                        distance_of_closest_approach = binary_collision_result.normalized_distance_of_closest_approach;
                     }
 
                     //Energy transfer to recoil
-                    particle_2.E = recoil_energy - material.Eb;
+                    particle_2.E = binary_collision_result.recoil_energy - material.Eb;
 
                     //Accumulate asymptotic deflections for primary particle
-                    total_energy_loss += recoil_energy;
+                    total_energy_loss += binary_collision_result.recoil_energy;
 
                     //total_deflection_angle += psi;
-                    total_asymptotic_deflection += asymptotic_deflection;
+                    total_asymptotic_deflection += binary_collision_result.asymptotic_deflection;
 
                     //Rotate particle 1, 2 by lab frame scattering angles
-                    rotate_particle(&mut particle_1, psi, phis_azimuthal[k]);
-                    rotate_particle(&mut particle_2, -psi_recoil, phis_azimuthal[k]);
+                    rotate_particle(&mut particle_1, binary_collision_result.psi,
+                        binary_collision_geometries[k].phi_azimuthal);
+                        
+                    rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
+                        binary_collision_geometries[k].phi_azimuthal);
 
                     //Only track number of strong collisions, i.e., k = 0
-                    if (psi > 0.) & (k == 0) {
+                    if (binary_collision_result.psi > 0.) & (k == 0) {
                         particle_1.number_collision_events += 1;
                     }
 
@@ -1184,35 +1236,35 @@ fn bca_from_file() {
                         let Ma = particle_1.m;
                         let Mb = particle_2.m;
 
-                        let n = material.number_density(xr, yr);
+                        let n = material.number_density(particle_2.pos.x, particle_2.pos.y);
                         let a: f64 = screening_length(Za, Zb, options.interaction_potential);
                         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
                         let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powf(3.)/n/a/a;
 
-                        if let Closest::SinglePoint(p2) = material.closest_point(xr, yr) {
-                            let dx = p2.x() - xr;
-                            let dy = p2.y() - yr;
+                        if let Closest::SinglePoint(p2) = material.closest_point(particle_2.pos.x, particle_2.pos.y) {
+                            let dx = p2.x() - particle_2.pos.x;
+                            let dy = p2.y() - particle_2.pos.y;
                             let distance_to_surface = (dx*dx + dy*dy).sqrt();
 
-                            if (distance_to_surface < estimated_range_of_recoils) & (recoil_energy > particle_2.Ec) {
+                            if (distance_to_surface < estimated_range_of_recoils) & (binary_collision_result.recoil_energy > particle_2.Ec) {
                                 particle_2.add_trajectory();
                                 particles.push(particle_2);
                             }
                         }
                     //If transferred energy > cutoff energy, add recoil to particle vector
-                    } else if options.track_recoils & (recoil_energy > particle_2.Ec) {
+                } else if options.track_recoils & (binary_collision_result.recoil_energy > particle_2.Ec) {
                         particles.push(particle_2);
                     }
                 }
             }
 
             //Advance particle in space and track total distance traveled
-            let distance_traveled = particle_advance(&mut particle_1, mfp, total_asymptotic_deflection);
+            let distance_traveled = particle_advance(&mut particle_1,
+                binary_collision_geometries[0].mfp, total_asymptotic_deflection);
 
             //Subtract total energy from all simultaneous collisions and electronic stopping
             update_particle_energy(&mut particle_1, &material, distance_traveled,
-                total_energy_loss, distance_of_closest_approach, options.electronic_stopping_mode,
-                options.interaction_potential);
+                total_energy_loss, distance_of_closest_approach, &options);
 
             //Check boundary conditions on leaving and stopping
             boundary_condition_2D_planar(&mut particle_1, &material);
@@ -1223,7 +1275,6 @@ fn bca_from_file() {
 
         //Once particle finishes, begin data output
         //Stream current particle output to files
-
         //Incident particle, left material: reflected
         if particle_1.incident & particle_1.left {
             writeln!(
