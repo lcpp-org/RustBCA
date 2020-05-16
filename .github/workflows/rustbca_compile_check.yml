@@ -20,7 +20,7 @@ jobs:
         sudo apt-get install curl
     - name: Install rust
       run: |
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+        curl --proto '=https' --tlsv1.2 -sSf -y https://sh.rustup.rs | sh
     - name: Install pip for Python-3
       run: |
         sudo apt-get install python3-pip
