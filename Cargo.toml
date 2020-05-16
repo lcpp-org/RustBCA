@@ -9,6 +9,7 @@ rand = "0.7"
 geo = "0.12.2"
 serde = { version = "1", features = ["derive"] }
 toml = "0.5"
+float-cmp = "0.5.2"
 
 [profile.release]
 lto = "fat"
