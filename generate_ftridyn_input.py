@@ -108,7 +108,7 @@ class tridyn_interface:
                     self.species_list[0].ALPHA0 = angle
                     self.species_list[0].BE = 0.
                     self.species_list[1].BE = 0.
-                    #self.species_list[0].EC = 0.01
+                    #self.species_list[0].EC = 0.1
                     self.species_list[0].CK = 1.0
 
                     #Initialize sim_params object. Each step it's overwritten.
@@ -166,7 +166,7 @@ class tridyn_interface:
 
                     if np.size(deposited_list) > 0:
                         for row in deposited_list:
-                            range_sum += row[2]
+                            if row[2] > 0.: range_sum += row[2]
 
                     #TODO implement implanted/deposited projectile list
                     sim_number += 1

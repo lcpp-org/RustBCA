@@ -27,10 +27,25 @@ LINDHARD_SCHARFF_PREFACTOR = 1.212*ANGSTROM*ANGSTROM*Q
 LINDHARD_REDUCED_ENERGY_PREFACTOR = 4.*PI*EPS0/Q/Q
 
 def phi(xi):
-    return 0.190945*np.exp(-0.278544*xi) + 0.473674*np.exp(-0.637174*xi) + 0.335381*np.exp(-1.919249*xi)
+    #return 0.190945*np.exp(-0.278544*xi) + 0.473674*np.exp(-0.637174*xi) + 0.335381*np.exp(-1.919249*xi)
+    #return 0.35*np.exp(-0.3*xi) + 0.55*np.exp(-1.2*xi) + 0.1*np.exp(-6.0*xi)
+    Za = 1
+    Zb = 29
+    epsilon = 10.*EV
+    rm = 4.10*ANGSTROM
+    a = screening_length(Za, Zb)
+    k = Za*Q*Zb*Q/4./np.pi/EPS0
+    return (xi*a)/k*(epsilon*((rm/(xi*a))**12 - 2.*(rm/(xi*a))**6))
 
 def dphi(xi):
-    return -0.278544*0.190945*np.exp(-0.278544*xi) - 0.637174*0.473674*np.exp(-0.637174*xi) - 0.335381*1.919249*np.exp(-1.919249*xi)
+    #return -0.278544*0.190945*np.exp(-0.278544*xi) - 0.637174*0.473674*np.exp(-0.637174*xi) - 0.335381*1.919249*np.exp(-1.919249*xi)
+    #return -0.35*0.3*np.exp(-0.3*xi) - 0.55*1.2*np.exp(-1.2*xi) - 0.10*6.0*np.exp(-6.0*xi)
+    epsilon = 0.01834*EV
+    rm = 4.10*ANGSTROM
+    Za = 1
+    Zb = 29
+    a = screening_length(Za, Zb)
+    return -xi*a/K*(epsilon*(11.*(rm**12 - 1.09091*rm**6*(xi*a)**5))/(xi*a)**12)
 
 def doca_function(x0, beta, reduced_energy):
     return x0 - phi(x0)/reduced_energy - beta**2/x0
@@ -134,13 +149,20 @@ def optimize():
     print(result.x, result.success, result.message)
 
 def main():
-    Za = 29
+    Za = 1
     Zb = 29
-    Ma = 63.54
+    Ma = 1.008
     Mb = 63.54
     impact_parameter = 1E-10
-    N = 1000
+    N = 10000
     n = 8E28
+
+    a = screening_length(Za, Zb)
+    x = np.linspace(1E-10, 10E-10, 100000)
+    y = phi(x/a)*K/x
+    plt.plot(x, y)
+    plt.show()
+    exit()
 
     mfp = n**(-1./3.)
     pmax = mfp/SQRTPI
@@ -163,6 +185,8 @@ def main():
 
         plt.semilogx(reduced_energies, xn)
     plt.legend(betas)
+    plt.title('Distance of Closest Approach')
+    plt.xlabel('Impact parameter')
 
     plt.figure(2)
 
@@ -180,7 +204,7 @@ def main():
 
     reduced_energies = [1E-1, 1E-2, 1E-3, 1E-4, 1E-5]
     log_reduced_energies = [1, 2, 3, 4, 5]
-    impact_parameters =np.linspace(0., pmax, N)
+    impact_parameters =np.linspace(0., 24*a, N)
     cmap = matplotlib.cm.get_cmap('viridis')
     colors = [cmap(log_reduced_energy/max(log_reduced_energies)) for log_reduced_energy in log_reduced_energies]
 
@@ -191,9 +215,12 @@ def main():
             theta[i] = scattering(Za, Zb, Ma, Mb, energy, impact_parameter, xn)
             theta_magic_1[i] = magic(Za, Zb, Ma, Mb, energy, impact_parameter, xn, C1)
             theta_magic_2[i] = magic(Za, Zb, Ma, Mb, energy, impact_parameter, xn, C2)
-        handle = plt.plot(np.linspace(0., pmax/mfp, N), theta*180./np.pi, color=colors[j], linewidth=2)
-        plt.plot(np.linspace(0., pmax/mfp, N), theta_magic_1*180./np.pi, '--', color=handle[0].get_color(), linewidth=2)
-        plt.plot(np.linspace(0., pmax/mfp, N), theta_magic_2*180./np.pi, ':', color=handle[0].get_color(), linewidth=2)
+        handle = plt.semilogy(np.linspace(0., 24, N), np.sin(theta/2.)**2, color=colors[j], linewidth=2)
+        #plt.plot(np.linspace(0., pmax/mfp, N), theta_magic_1, '--', color=handle[0].get_color(), linewidth=2)
+        #plt.plot(np.linspace(0., pmax/mfp, N), theta_magic_2, ':', color=handle[0].get_color(), linewidth=2)
+
+    eckstein = np.genfromtxt('comparison_data/eckstein_scattering')
+    plt.semilogy(eckstein[:, 0], eckstein[:, 1], '*', color='red')
 
     #cmap = matplotlib.cm.get_cmap('viridis')
     #colors = [cmap(np.log(reduced_energy)/np.log(max(reduced_energy))) for reduced_energy in reduced_energies]
@@ -206,15 +233,16 @@ def main():
     cbar.set_ticks(cbar_labels)
     cbar.ax.set_yticklabels(cbar_labels)
 
-
     dashed_line = mlines.Line2D([], [], color='black', marker='', linestyle='--', label='F-TRIDYN MAGIC')
     dotted_line = mlines.Line2D([], [], color='black', marker='', linestyle=':', label='SRIM MAGIC')
     solid_line = mlines.Line2D([], [], color='black', marker='', linestyle='-', label='Lobatto 6th-order')
+    red_star = mlines.Line2D([], [], color='red', marker='*', linestyle='', label='Eckstein')
 
     plt.title('Scattering Angle Calculation', fontsize='large')
-    plt.legend(handles = [solid_line, dotted_line, dashed_line])
-    plt.xlabel('Impact Parameter in mfp', fontsize='large')
-    plt.ylabel('theta [deg]', fontsize='large')
+    plt.legend(handles = [solid_line, red_star])
+    plt.xlabel('p/a', fontsize='large')
+    plt.ylabel('sin(theta/2)^2', fontsize='large')
+    plt.ylim(bottom=0.001, top=1)
 
     plt.figure(3)
     theta = np.zeros(N)
@@ -231,6 +259,7 @@ def main():
     plt.yticks([0, 30, 60, 90, 120, 150, 180])
     plt.xlabel('Impact Parameter in MFP')
     plt.ylabel('Lab Angle Deflection from Initial Direction [deg]')
+
 
     plt.show()
 
