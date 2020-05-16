@@ -45,6 +45,8 @@ electronic_stopping_mode = 0 #0: Interpolated, Biersack-Varelas (eV-GeV) 1: Low 
 mean_free_path_model = 1 #0: Liquid/solid target, 1: Gaseous target
 interaction_potential = 2 #0: Moliere 1: Kr-C 2: ZBL
 scattering_integral = 0 #0: 6th order Lobatto Quadrature 1: MAGIC (Recommended: 0, don't use 1 unless you need to)
+tolerance = 1e-6 #tolerance on distance of closest approach algorithm
+max_iterations = 100 #maximum number of newton-raphson iterations for distance of closest approach calculation
 
 [material_parameters]
 energy_unit = "EV"
