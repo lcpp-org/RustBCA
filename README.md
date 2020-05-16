@@ -12,23 +12,23 @@ Dependences:
 * rustup
 
 Ubuntu 18.04 LTS:
-1. Make sure you h ave Python 3.6+ (this comes natively in Ubuntu 18.04)
-1. Install curl, `apt-get install curl`
-1. Install rustup, the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/
-1. Install pip for Python-3, `apt-get install python3-pip`
-1. Install Python librarires, `python3.# -m pip install numpy matplotlib shapely scipy`
-1. Install Python toml library from source:
-  * git clone https://github.com/uiri/toml.git
-  * cd toml
-  * python3.# setup.py install
-1. Install Cargo, `apt install cargo`
-1. Build RustBCA
-  * git clone https://github.com/lcpp-org/rustBCA
-  * cd rustBCA
-  * cargo build --release
-1. input.toml is the input file -- example included below
-1. cargo run --relase
-1. Output files are .output
+1. Make sure you have Python 3.6+ (this comes natively in Ubuntu 18.04)
+2. Install curl, `apt-get install curl`
+3. Install rustup, the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/
+4. Install pip for Python-3, `apt-get install python3-pip`
+5. Install Python librarires, `python3.# -m pip install numpy matplotlib shapely scipy`
+6. Install Python toml library from source:
+- git clone https://github.com/uiri/toml.git
+- cd toml
+- python3.# setup.py install
+7. Install Cargo, `apt install cargo`
+8. Build RustBCA
+- git clone https://github.com/lcpp-org/rustBCA
+- cd rustBCA
+- cargo build --release
+9. input.toml is the input file -- example included below
+10. cargo run --relase
+11. Output files are .output
 
 # Example input file: input.toml
 ~~~~
