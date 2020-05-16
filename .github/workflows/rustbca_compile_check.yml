@@ -31,7 +31,7 @@ jobs:
       run: |
         git clone https://github.com/uiri/toml.git
         cd toml
-        python3.6 setup.py install
+        sudo python3.6 setup.py install
     - name: Install Cargo
       run: |
         sudo apt install cargo
