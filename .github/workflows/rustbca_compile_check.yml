@@ -1,0 +1,41 @@
+name: rustBCA Compile check
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install curl
+      run: |
+        sudo apt-get install curl
+    - name: Install rust
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    - name: Install pip for Python-3
+      run: |
+        sudo apt-get install python3-pip
+    - name: Install Python libraries
+      run: |
+        python3.6 -m pip install numpy matplotlib shapely scipy
+    - name: Install Python toml library from source
+      run: |
+        git clone https://github.com/uiri/toml.git
+        cd toml
+        python3.6 setup install
+    - name: Install Cargo
+      run: |
+        sudo apt install cargo
+    - name: Build RustBCA
+      run: |
+        cargo build --release
+        
