@@ -27,11 +27,11 @@ jobs:
     - name: Install Python libraries
       run: |
         python3.6 -m pip install numpy matplotlib shapely scipy
-    - name: Install Python toml library from source
+    - name: Install python TOML library from source
       run: |
         git clone https://github.com/uiri/toml.git
         cd toml
-        python3.6 setup install
+        python3.6 setup.py install
     - name: Install Cargo
       run: |
         sudo apt install cargo
