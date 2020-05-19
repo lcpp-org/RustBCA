@@ -6,8 +6,8 @@ fn test_momentum_conservation() {
 
     for energy_eV in vec![1., 10., 100., 1000., 10000., 100000., 1000000., 10000000.] {
         //Aluminum
-        let m1 = 63.54*AMU;
-        let Z1 = 29.;
+        let m1 = 4.008*AMU;
+        let Z1 = 2.;
         let E1 = energy_eV*EV;
         let Ec1 = 1.*EV;
         let Es1 = 1.*EV;
@@ -16,8 +16,8 @@ fn test_momentum_conservation() {
         let z1 = 0.;
 
         //Aluminum
-        let m2 = 63.54;
-        let Z2 = 29.;
+        let m2 = 6.941;
+        let Z2 = 3.;
         let Ec2 = 1.;
         let Es2 = 1.;
 

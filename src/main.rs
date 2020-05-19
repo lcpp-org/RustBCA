@@ -397,13 +397,13 @@ fn main() {
                             let dy = p2.y() - particle_2.pos.y;
                             let distance_to_surface = (dx*dx + dy*dy).sqrt();
 
-                            if (distance_to_surface < estimated_range_of_recoils) & (binary_collision_result.recoil_energy > particle_2.Ec) {
+                            if (distance_to_surface < estimated_range_of_recoils) & (particle_2.E > particle_2.Ec) {
                                 particle_2.add_trajectory();
                                 particles.push(particle_2);
                             }
                         }
                     //If transferred energy > cutoff energy, add recoil to particle vector
-                } else if options.track_recoils & (binary_collision_result.recoil_energy > particle_2.Ec) {
+                } else if options.track_recoils & (particle_2.E > particle_2.Ec) {
                         particles.push(particle_2);
                     }
                 }
