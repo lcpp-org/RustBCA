@@ -10,6 +10,7 @@ geo = "0.12.2"
 serde = { version = "1", features = ["derive"] }
 toml = "0.5"
 float-cmp = "0.5.2"
+anyhow = "1.0"
 
 [profile.release]
 lto = "fat"
