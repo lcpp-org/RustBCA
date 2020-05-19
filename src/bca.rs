@@ -212,7 +212,7 @@ pub fn choose_collision_partner(particle_1: &particle::Particle, material: &mate
     )
 }
 
-pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &particle::Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> BinaryCollisionResult {
+fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &particle::Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> Result<f64, anyhow::Error> {
     let Za: f64 = particle_1.Z;
     let Zb: f64 = particle_2.Z;
     let Ma: f64 = particle_1.m;
@@ -235,17 +235,34 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     }
 
     //Newton-Raphson to determine distance of closest approach
-    let mut err: f64;
-    for _ in 0..options.max_iterations {
+    let mut err: f64 = options.tolerance + 1.;
+    for k in 0..options.max_iterations {
         let f = doca_function(x0, beta, reduced_energy,  options.interaction_potential);
         let df = diff_doca_function(x0, beta, reduced_energy, options.interaction_potential);
         xn = x0 - f/df;
         err = (xn - x0).powf(2.);
         x0 = xn;
         if err < options.tolerance {
-            break;
+            return Ok(x0);
         }
     }
+    return Err(anyhow!("Exceeded maximum number of Newton-Raphson iterations, {}. x0: {}; Error: {}; Tolerance: {}", options.max_iterations, x0, err, options.tolerance));
+}
+
+pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &particle::Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> BinaryCollisionResult {
+    let Za: f64 = particle_1.Z;
+    let Zb: f64 = particle_2.Z;
+    let Ma: f64 = particle_1.m;
+    let Mb: f64 = particle_2.m;
+    let E0: f64 = particle_1.E;
+    let mu: f64 = Mb/(Ma + Mb);
+
+    //Lindhard screening length and reduced energy
+    let a: f64 = interactions::screening_length(Za, Zb, options.interaction_potential);
+    let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
+    let beta: f64 = binary_collision_geometry.impact_parameter/a;
+
+    let x0 = distance_of_closest_approach(particle_1, particle_2, binary_collision_geometry, options).unwrap();
 
     let theta = match  options.scattering_integral {
         QUADRATURE => {

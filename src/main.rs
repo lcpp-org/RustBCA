@@ -1,6 +1,10 @@
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
 
+//Error handling crate
+//use anyhow::Result;
+use anyhow::*;
+
 //Geometry crate
 use geo::algorithm::contains::Contains;
 use geo::algorithm::closest_point::ClosestPoint;
@@ -187,13 +191,14 @@ fn main() {
 
     //Check that particle arrays are equal length
     assert_eq!(particle_parameters.Z.len(), particle_parameters.m.len(),
-        "Particle input arrays of unequal length.");
+        "Particle input arrays of unequal length. Check masses.");
     assert_eq!(particle_parameters.Z.len(), particle_parameters.E.len(),
-        "Particle input arrays of unequal length.");
+        "Particle input arrays of unequal length. Check energies.");
     assert_eq!(particle_parameters.Z.len(), particle_parameters.pos.len(),
-        "Particle input arrays of unequal length.");
+        "Particle input arrays of unequal length. Check initial positions.");
     assert_eq!(particle_parameters.Z.len(), particle_parameters.dir.len(),
-        "Particle input arrays of unequal length.");
+        "Particle input arrays of unequal length. Check initial directions.");
+
     let N = particle_parameters.Z.len();
 
     //Determine the length, energy, and mass units for particle input
