@@ -68,12 +68,12 @@ max_iterations = 100 #maximum number of newton-raphson iterations for distance o
 [material_parameters]
 energy_unit = "EV"
 mass_unit = "AMU"
-Eb = 0.0 #Bulk binding energy
-Es = 0.0 #Surface binding energy
-Ec = 1.0 #Cutoff energy
-n = 5.4e+25 #Number density 
-Z = 7
-m = 14
+Eb = [0.0] #Bulk binding energy
+Es = [0.0] #Surface binding energy
+Ec = [1.0] #Cutoff energy
+n = [5.4e+25] #Number density 
+Z = [7]
+m = [14]
 electronic_stopping_correction_factor = 1.0 #C_k, used to compensate for Z1 oscillations in Lindhard-Scharff when known
 
 [geometry]
