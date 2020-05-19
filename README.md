@@ -2,7 +2,20 @@
 
 A Binary Collision Approximation (BCA) code for ion-material interactions, written in Rust!
 
-BCA codes are valid for incident ion energies between approximately 10 eV through MeV (or up to GeV for light ions). By discretizing the collision cascade into a sequence of binary collisions, BCA codes can accurately model reflection, implantation, sputtering, transmission, and displacement damage.
+BCA codes are valid for incident ion energies between approximately 10 eV  through GeV. By discretizing the collision cascade into a sequence of binary collisions, BCA codes can accurately and efficiently model reflection, implantation, sputtering, transmission, and displacement damage.
+
+# Features
+
+* Ion-solid interactions for all combinations of incident ion and target species
+* Low energy (<25 keV/nucleon) electronic stopping modes include local (Oen-Robinson), nonlocal (Lindhard-Scharff), and equipartition forms
+* Includes Biersack-Varelas interpolation to extend electronic stopping validity up to ~1 GeV/nucleon
+* Includes MAGIC algorithm and more accurate Mendenhall-Weller quadrature to solve scattering integral
+* Arbitrary 2D geometry
+* Full trajectory tracking
+* Human-readable input file using the TOML format
+* Output of energies and directions of emitted particles (reflected ions and sputtered atoms)
+* Output of final positions of implanted ions
+* Output of full trajectory tracking for incident ions and target atoms
 
 # Installation
 
@@ -84,6 +97,6 @@ dir = [ [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,],] #Note: because of g
  ~~~~
 # Usage
 
-Modify input.toml as wanted; run ./rustBCA with input.toml in the same directory as rustBCA
+Modify input.toml to configure simulation; run ./rustBCA with input.toml in the same directory as rustBCA
 
-Recommended usage: use run_rustbca.py to generate input files programmatically
+Recommended usage: use run_rustbca.py to generate input files programmatically using toml
