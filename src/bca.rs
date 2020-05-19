@@ -49,7 +49,7 @@ fn diff_doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_poten
     return beta*beta/x0/x0 - interactions::dphi(x0, interaction_potential)/reduced_energy + 1.
 }
 
-fn f(x: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
+fn scattering_function(x: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
     //Function for scattering integral - see Mendenhall and Weller, 1991 & 2005
     return (1. - interactions::phi(x, interaction_potential)/x/reduced_energy - beta*beta/x/x).powf(-0.5);
 }
@@ -91,12 +91,12 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
         let ep = (reduced_energy*reduced_energy_min).sqrt();
         let mut pmax = a/(ep + ep.sqrt() + 0.125*ep.powf(0.1));
         let mut ffp = 1./(n*pmax*pmax*PI);
-        let delta_energy_electronic = material.electronic_stopping_power(particle_1, INTERPOLATED)*n*ffp*material.electronic_stopping_correction_factor;
+        let deltaenergy_electronic = material.electronic_stopping_power(particle_1, INTERPOLATED)*n*ffp*material.electronic_stopping_correction_factor;
 
         //If losing too much energy, scale free-flight-path down
         //5 percent limit set in original TRIM paper, Biersack and Haggmark 1980
-        if delta_energy_electronic > 0.05*E {
-            ffp = 0.05*E/delta_energy_electronic*ffp;
+        if deltaenergy_electronic > 0.05*E {
+            ffp = 0.05*E/deltaenergy_electronic*ffp;
             pmax = (1./(n*PI*ffp)).sqrt()
         }
 
@@ -237,7 +237,9 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     //Newton-Raphson to determine distance of closest approach
     let mut err: f64;
     for _ in 0..options.max_iterations {
-        xn = x0 - doca_function(x0, beta, reduced_energy,  options.interaction_potential)/diff_doca_function(x0, beta, reduced_energy, options.interaction_potential);
+        let f = doca_function(x0, beta, reduced_energy,  options.interaction_potential);
+        let df = diff_doca_function(x0, beta, reduced_energy, options.interaction_potential);
+        xn = x0 - f/df;
         err = (xn - x0).powf(2.);
         x0 = xn;
         if err < options.tolerance {
@@ -248,8 +250,8 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     let theta = match  options.scattering_integral {
         QUADRATURE => {
             //Scattering integral quadrature from Mendenhall and Weller 2005
-            let lambda_0 = (0.5 + beta*beta/x0/x0/2. - interactions::dphi(x0,  options.interaction_potential)/2./reduced_energy).powf(-1./2.);
-            let alpha = 1./12.*(1. + lambda_0 + 5.*(0.4206*f(x0/0.9072, beta, reduced_energy,  options.interaction_potential) + 0.9072*f(x0/0.4206, beta, reduced_energy,  options.interaction_potential)));
+            let lambda0 = (0.5 + beta*beta/x0/x0/2. - interactions::dphi(x0,  options.interaction_potential)/2./reduced_energy).powf(-1./2.);
+            let alpha = 1./12.*(1. + lambda0 + 5.*(0.4206*scattering_function(x0/0.9072, beta, reduced_energy,  options.interaction_potential) + 0.9072*scattering_function(x0/0.4206, beta, reduced_energy,  options.interaction_potential)));
             PI*(1. - beta*alpha/x0)
         },
         MAGIC => {
@@ -264,23 +266,22 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
             };
             let c = vec![ 0.190945, 0.473674, 0.335381, 0.0 ];
             let d = vec![ -0.278544, -0.637174, -1.919249, 0.0 ];
-            let a_ = 0.8853*A0/((Za).sqrt() + (Zb).sqrt()).powf(2./3.);
-            let V0 = Za*Zb*Q*Q/4.0/PI/EPS0/a_;
+            let V0 = Za*Zb*Q*Q/4.0/PI/EPS0/a;
             let E_c = E0*Mb/(Ma + Mb);
             let E_r = E0/V0;
-            let b = binary_collision_geometry.impact_parameter/a_;
+            let b = binary_collision_geometry.impact_parameter/a;
             let SQE = E_r.sqrt();
-            let R = a_*x0;
+            let R = a*x0;
             let sum = c[0]*(d[0]*x0).exp() + c[1]*(d[1]*x0).exp() + c[2]*(d[2]*x0).exp();
-            let V = V0*a_/R*sum;
+            let V = V0*a/R*sum;
             let sum = d[0]*c[0]*(d[0]*x0).exp() + d[1]*c[1]*(d[1]*x0).exp() + d[2]*c[2]*(d[2]*x0).exp();
             let dV = -V/R + V0/R*sum; //1174
             let rho = -2.0*(E_c - V)/dV; //1176
-            let D = 2.0*(1.0+C_[0]/SQE)*E_r*b.powf((C_[1]+SQE)/(C_[2]+SQE)); //1179
-            let G = (C_[4]+E_r)/(C_[3]+E_r)*((1.0+D*D).sqrt()-D); //F-TRIDYN line 1180
-            let delta =  D*G/(1.0+G)*(x0-b);
-            let ctheta2 = (b + rho/a_ + delta)/(x0 + rho/a_);
-            2.*((b + rho/a_ + delta)/(x0 + rho/a_)).acos()
+            let D = 2.0*(1.0 + C_[0]/SQE)*E_r*b.powf((C_[1] + SQE)/(C_[2] + SQE)); //1179
+            let G = (C_[4] + E_r)/(C_[3] + E_r)*((1. + D*D).sqrt() - D); //F-TRIDYN line 1180
+            let delta =  D*G/(1.0 + G)*(x0 - b);
+            let ctheta2 = (b + rho/a + delta)/(x0 + rho/a);
+            2.*((b + rho/a + delta)/(x0 + rho/a)).acos()
         },
         _ => panic!("Unimplemented scattering integral: {}. Use 0: Mendenhall-Weller Quadrature 1: MAGIC Algorithm",  options.scattering_integral)
     };
@@ -290,8 +291,6 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     let psi = (theta.sin().atan2(Ma/Mb + theta.cos())).abs();
     let psi_recoil = (theta.sin().atan2(1. - theta.cos())).abs();
     let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*(theta/2.).sin().powf(2.);
-
-    //return (theta, psi, psi_recoil, recoil_energy, asympototic_deflection, x0);
 
     BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asympototic_deflection, x0)
 }
@@ -315,7 +314,7 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
         let electronic_stopping_power = material.electronic_stopping_power(particle_1, options.electronic_stopping_mode);
         let n = material.number_density(x, y);
 
-        let delta_energy = match options.electronic_stopping_mode {
+        let deltaenergy = match options.electronic_stopping_mode {
             INTERPOLATED => electronic_stopping_power*n*distance_traveled*ck,
             LOW_ENERGY_NONLOCAL => electronic_stopping_power*n*distance_traveled*ck,
             LOW_ENERGY_LOCAL => {
@@ -351,16 +350,16 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
                     TRIDYN => 0.278544,
                     _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
                 };
-                let delta_energy_local = d1*d1/2./PI*electronic_stopping_power*(-d1*xi).exp()/a/a;
-                let delta_energy_nonlocal = electronic_stopping_power*n*distance_traveled;
+                let deltaenergy_local = d1*d1/2./PI*electronic_stopping_power*(-d1*xi).exp()/a/a;
+                let deltaenergy_nonlocal = electronic_stopping_power*n*distance_traveled;
 
-                (0.5*delta_energy_local + 0.5*delta_energy_nonlocal)*ck
+                (0.5*deltaenergy_local + 0.5*deltaenergy_nonlocal)*ck
             },
             //Panic at unimplemented electronic stopping mode
             _ => panic!("Unimplemented electronic stopping mode. Use 0: Biersack-Varelas 1: Lindhard-Scharff 2: Oen-Robinson 3: Equipartition")
         };
 
-        particle_1.E += -delta_energy;
+        particle_1.E += -deltaenergy;
     }
 
     //Make sure particle energy doesn't become negative again

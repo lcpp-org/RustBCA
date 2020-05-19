@@ -15,10 +15,10 @@ pub struct MaterialParameters {
 
 #[derive(Deserialize)]
 pub struct Geometry {
-    length_unit: String,
-    surface: Vec<(f64, f64)>,
-    energy_surface: Vec<(f64, f64)>,
-    simulation_surface: Vec<(f64, f64)>
+    pub length_unit: String,
+    pub surface: Vec<(f64, f64)>,
+    pub energy_surface: Vec<(f64, f64)>,
+    pub simulation_surface: Vec<(f64, f64)>
 }
 
 pub struct Material {

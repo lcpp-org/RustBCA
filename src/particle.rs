@@ -61,6 +61,15 @@ impl Particle {
             self.trajectory.push(Vector4 {E: self.E, x: self.pos.x, y: self.pos.y, z: self.pos.z});
         }
     }
+
+    pub fn get_momentum(&mut self) -> Vector {
+        let speed = (2.*self.E/self.m).sqrt();
+        Vector::new(
+            self.m*speed*self.dir.x,
+            self.m*speed*self.dir.y,
+            self.m*speed*self.dir.z,
+        )
+    }
 }
 
 pub fn rotate_particle(particle_1: &mut particle::Particle, psi: f64, phi: f64) {
