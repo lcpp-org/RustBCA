@@ -7,6 +7,7 @@ BCA codes are valid for incident ion energies between approximately 10 eV  throu
 # Features
 
 * Ion-solid interactions for all combinations of incident ion and target species
+* Includes homogeneous multicomponent materials
 * Low energy (<25 keV/nucleon) electronic stopping modes include local (Oen-Robinson), nonlocal (Lindhard-Scharff), and equipartition forms
 * Includes Biersack-Varelas interpolation to extend electronic stopping validity up to ~1 GeV/nucleon
 * Includes MAGIC algorithm and more accurate Mendenhall-Weller quadrature to solve scattering integral
