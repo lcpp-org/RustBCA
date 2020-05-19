@@ -30,12 +30,12 @@ fn test_momentum_conservation() {
         let material_parameters = material::MaterialParameters{
             energy_unit: "EV".to_string(),
             mass_unit: "AMU".to_string(),
-            Eb: 0.0,
-            Es: Es2,
-            Ec: Ec2,
-            n: 6.026E28,
-            Z: Z2,
-            m: m2,
+            Eb: vec![0.0],
+            Es: vec![Es2],
+            Ec: vec![Ec2],
+            n: vec![6.026E28],
+            Z: vec![Z2],
+            m: vec![m2],
             electronic_stopping_correction_factor: 0.0
         };
 
@@ -83,7 +83,7 @@ fn test_momentum_conservation() {
                         binary_collision_geometries[0].impact_parameter/ANGSTROM,
                         binary_collision_geometries[0].mfp/ANGSTROM);
 
-                    let mut particle_2 = bca::choose_collision_partner(&mut particle_1, &material_1,
+                    let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material_1,
                         &binary_collision_geometries[0], &options);
 
                     let mom1_0 = particle_1.get_momentum();
@@ -101,7 +101,7 @@ fn test_momentum_conservation() {
                     println!("Initial Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
 
                     //Energy transfer to recoil
-                    particle_2.E = binary_collision_result.recoil_energy - material_1.Eb;
+                    particle_2.E = binary_collision_result.recoil_energy - material_1.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y);
 
                     //Rotate particle 1, 2 by lab frame scattering angles
                     particle::rotate_particle(&mut particle_1, binary_collision_result.psi,
@@ -112,7 +112,7 @@ fn test_momentum_conservation() {
 
                     //Subtract total energy from all simultaneous collisions and electronic stopping
                     bca::update_particle_energy(&mut particle_1, &material_1, 0.,
-                        binary_collision_result.recoil_energy, 0., &options);
+                        binary_collision_result.recoil_energy, 0., particle_2.Z, species_index, &options);
 
                     let mom1_1 = particle_1.get_momentum();
                     let mom2_1 = particle_2.get_momentum();
