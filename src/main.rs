@@ -9,7 +9,7 @@ use serde::*;
 //Macros for comparing floats
 use float_cmp::*;
 
-//I/O 
+//I/O
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::BufWriter;
@@ -93,6 +93,14 @@ impl Vector {
         self.x /= magnitude;
         self.y /= magnitude;
         self.z /= magnitude;
+    }
+
+    fn add(&self, other: &Vector) -> Vector {
+        Vector::new(
+            self.x + other.x,
+            self.y + other.y,
+            self.z + other.z,
+        )
     }
 }
 
