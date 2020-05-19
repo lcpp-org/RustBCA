@@ -23,7 +23,6 @@ pub fn dphi(xi: f64, interaction_potential: i32) -> f64 {
 }
 
 pub fn screening_length(Za: f64, Zb: f64, interaction_potential: i32) -> f64 {
-    println!("{} {}", 0.88534*A0/(Za.powf(0.23) + Zb.powf(0.23))/ANGSTROM, 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.)/ANGSTROM);
     match interaction_potential {
         //ZBL screening length, Eckstein (4.1.8)
         ZBL => 0.88534*A0/(Za.powf(0.23) + Zb.powf(0.23)),
