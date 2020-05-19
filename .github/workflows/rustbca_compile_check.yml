@@ -38,4 +38,6 @@ jobs:
     - name: Build RustBCA
       run: |
         cargo build --release
-        
+    - name: Test RustBCA
+      run: |
+        cargo test
