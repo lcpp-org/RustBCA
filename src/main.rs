@@ -238,7 +238,7 @@ fn main() {
 
     //Create particle vector from input file
     let estimated_num_particles: usize = match options.track_recoils {
-        true => total_particles + ((max_energy/material.Ec).ceil() as usize),
+        true => total_particles + ((max_energy/material.minimum_cutoff_energy()).ceil() as usize),
         false => total_particles,
     };
 
@@ -330,6 +330,8 @@ fn main() {
             let mut total_energy_loss = 0.;
             let mut total_asymptotic_deflection = 0.;
             let mut distance_of_closest_approach = 0.;
+            let mut strong_collision_Z = 0.;
+            let mut strong_collision_index: usize = 0;
 
             if particle_1.track_trajectories {
                 particle_1.add_trajectory();
@@ -337,7 +339,7 @@ fn main() {
 
             'collision_loop: for k in 0..options.weak_collision_order + 1 {
 
-                let mut particle_2 = bca::choose_collision_partner(&mut particle_1, &material,
+                let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material,
                     &binary_collision_geometries[k], &options);
 
                 //If recoil location is inside, proceed with binary collision loop
@@ -350,10 +352,12 @@ fn main() {
                     //Only use 0th order collision for local electronic stopping
                     if k == 0 {
                         distance_of_closest_approach = binary_collision_result.normalized_distance_of_closest_approach;
+                        strong_collision_Z = particle_2.Z;
+                        strong_collision_index = species_index;
                     }
 
                     //Energy transfer to recoil
-                    particle_2.E = binary_collision_result.recoil_energy - material.Eb;
+                    particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y);
 
                     //Accumulate asymptotic deflections for primary particle
                     total_energy_loss += binary_collision_result.recoil_energy;
@@ -377,13 +381,13 @@ fn main() {
                     //See Eckstein 1991 7.5.3 for recoil suppression function
                     if options.track_recoils & options.suppress_deep_recoils {
                         let E = particle_1.E;
-                        let Za = particle_1.Z;
-                        let Zb = particle_2.Z;
+                        let Za: f64 = particle_1.Z;
+                        let Zb: f64 = particle_2.Z;
 
-                        let Ma = particle_1.m;
-                        let Mb = particle_2.m;
+                        let Ma: f64 = particle_1.m;
+                        let Mb: f64 = particle_2.m;
 
-                        let n = material.number_density(particle_2.pos.x, particle_2.pos.y);
+                        let n = material.total_number_density(particle_2.pos.x, particle_2.pos.y);
                         let a: f64 = interactions::screening_length(Za, Zb, options.interaction_potential);
                         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
                         let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powf(3.)/n/a/a;
@@ -411,7 +415,8 @@ fn main() {
 
             //Subtract total energy from all simultaneous collisions and electronic stopping
             bca::update_particle_energy(&mut particle_1, &material, distance_traveled,
-                total_energy_loss, distance_of_closest_approach, &options);
+                total_energy_loss, distance_of_closest_approach, strong_collision_Z,
+                strong_collision_index, &options);
 
             //Check boundary conditions on leaving and stopping
             material::boundary_condition_2D_planar(&mut particle_1, &material);
