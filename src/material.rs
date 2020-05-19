@@ -226,7 +226,7 @@ pub fn boundary_condition_2D_planar(particle_1: &mut particle::Particle, materia
             let costheta = dx*cosx/mag + dy*cosy/mag;
             let leaving_energy = E*costheta*costheta;
 
-            if (costheta < 0.) {
+            if costheta < 0. {
                 if leaving_energy > Es {
 
                     particle_1.left = true;

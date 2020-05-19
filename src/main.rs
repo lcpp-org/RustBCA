@@ -1,7 +1,10 @@
+#![allow(unused_variables)]
+#![allow(non_snake_case)]
+
 //Geometry crate
 use geo::algorithm::contains::Contains;
 use geo::algorithm::closest_point::ClosestPoint;
-use geo::{point, polygon, Polygon, LineString, Closest};
+use geo::{point, Polygon, LineString, Closest};
 
 //Serializing/Deserializing crate
 use serde::*;
@@ -45,7 +48,7 @@ const LINDHARD_REDUCED_ENERGY_PREFACTOR: f64 = 4.*PI*EPS0/Q/Q;
 const INTERPOLATED: i32 = 0;
 const LOW_ENERGY_NONLOCAL: i32 = 1;
 const LOW_ENERGY_LOCAL: i32 = 2;
-const LOW_ENEGY_EQUIPARTITION: i32 = 3;
+const LOW_ENERGY_EQUIPARTITION: i32 = 3;
 
 //Mean free path models
 const LIQUID: i32 = 0;
