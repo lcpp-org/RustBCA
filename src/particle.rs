@@ -36,6 +36,8 @@ pub struct Particle {
 }
 impl Particle {
     pub fn new(m: f64, Z: f64, E: f64, Ec: f64, Es: f64, x: f64, y: f64, z: f64, dirx: f64, diry: f64, dirz: f64, incident: bool, track_trajectories: bool) -> Particle {
+        let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
+
         Particle {
             m: m,
             Z: Z,
@@ -43,7 +45,7 @@ impl Particle {
             Ec: Ec,
             Es: Es,
             pos: Vector::new(x, y, z),
-            dir: Vector::new(dirx, diry, dirz),
+            dir: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
             pos_old: Vector::new(x, y, z),
             pos_origin: Vector::new(x, y, z),
             asympototic_deflection: 0.,

@@ -262,11 +262,8 @@ fn main() {
         let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
         for sub_particle_index in 0..N_ {
 
-            //Surface refraction
-            let Es = particle_parameters.Es[particle_index];
+            let E_old = E*energy_unit;
             let E_new = E*energy_unit + Es*energy_unit;
-
-            let delta_theta = particle::refraction_angle(cosx, E*energy_unit, (E + Es)*energy_unit);
 
             //Add new particle to particle vector
             particles.push(particle::Particle::new(
@@ -274,6 +271,8 @@ fn main() {
                 x*length_unit, y*length_unit, z*length_unit,
                 cosx, cosy, cosz, true, options.track_trajectories
             ));
+            //Surface refraction
+            let delta_theta = particle::refraction_angle(cosx, E_old, E_new);
             particle::rotate_particle(particles.last_mut().unwrap(), delta_theta, 0.);
         }
     }

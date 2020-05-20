@@ -38,9 +38,9 @@ fn test_surface_refraction() {
     println!("{} {} {}", particle_1.dir.x, particle_1.dir.y, particle_1.dir.z);
     println!();
 
-    assert!(approx_eq!(f64, particle_1.dir.x, cosx_new, epsilon=1E-6));
-    assert!(approx_eq!(f64, particle_1.dir.y, cosy_new, epsilon=1E-6));
-    assert!(approx_eq!(f64, particle_1.dir.z, cosz_new, epsilon=1E-6));
+    assert!(approx_eq!(f64, particle_1.dir.x, cosx_new, epsilon=1E-9));
+    assert!(approx_eq!(f64, particle_1.dir.y, cosy_new, epsilon=1E-9));
+    assert!(approx_eq!(f64, particle_1.dir.z, cosz_new, epsilon=1E-9));
 
     //Test particle leaving material and losing energy
 
@@ -57,9 +57,9 @@ fn test_surface_refraction() {
     println!("{} {} {}", cosx_new, cosy_new, cosz_new);
     println!("{} {} {}", particle_1.dir.x, particle_1.dir.y, particle_1.dir.z);
 
-    assert!(approx_eq!(f64, particle_1.dir.x, cosx_new, epsilon=1E-6));
-    assert!(approx_eq!(f64, particle_1.dir.y, cosy_new, epsilon=1E-6));
-    assert!(approx_eq!(f64, particle_1.dir.z, cosz_new, epsilon=1E-6));
+    assert!(approx_eq!(f64, particle_1.dir.x, cosx_new, epsilon=1E-9));
+    assert!(approx_eq!(f64, particle_1.dir.y, cosy_new, epsilon=1E-9));
+    assert!(approx_eq!(f64, particle_1.dir.z, cosz_new, epsilon=1E-9));
 }
 
 #[test]
