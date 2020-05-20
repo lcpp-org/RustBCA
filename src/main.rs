@@ -165,39 +165,44 @@ fn main() {
         .write(false)
         .create(false)
         .open("input.toml")
-        .expect("Could not open input file.");
+        .expect("Input errror: could not open input file, input.toml.");
     file.read_to_string(&mut input_toml).unwrap();
     let input: Input = toml::from_str(&input_toml).unwrap();
 
     //Unpack toml information into structs
     let material = material::Material::new(input.material_parameters, input.geometry);
+    assert!(material.n.len() == material.m.len(), "Input error: material input arrays of unequal length.");
+    assert!(material.n.len() == material.Z.len(), "Input error: material input arrays of unequal length.");
+    assert!(material.n.len() == material.Eb.len(), "Input error: material input arrays of unequal length.");
+    assert!(material.n.len() == material.Es.len(), "Input error: material input arrays of unequal length.");
+
     let options = input.options;
     let particle_parameters = input.particle_parameters;
 
     //Check that incompatible options are not on simultaneously
     assert!(options.high_energy_free_flight_paths == (options.electronic_stopping_mode == INTERPOLATED),
-        "High energy free flight paths used with low energy stoppping power.");
+        "Input error: High energy free flight paths used with low energy stoppping power.");
 
     if options.electronic_stopping_mode == INTERPOLATED {
         assert!(options.weak_collision_order == 0,
-            "Cannot use weak collision loop with free flight paths.");
+            "Input error: Cannot use weak collision loop with free flight paths.");
         //assert!(options.mean_free_path_model == LIQUID,
         //    "Gaseous model not currently implemented for high energy free flight paths.");
     }
     if options.mean_free_path_model == GASEOUS {
         assert!(options.weak_collision_order == 0,
-            "Cannot use weak collisions with gaseous mean free path model.");
+            "Input error: Cannot use weak collisions with gaseous mean free path model.");
     }
 
     //Check that particle arrays are equal length
     assert_eq!(particle_parameters.Z.len(), particle_parameters.m.len(),
-        "Particle input arrays of unequal length. Check masses.");
+        "Input error: particle input arrays of unequal length.");
     assert_eq!(particle_parameters.Z.len(), particle_parameters.E.len(),
-        "Particle input arrays of unequal length. Check energies.");
+        "Input error: particle input arrays of unequal length.");
     assert_eq!(particle_parameters.Z.len(), particle_parameters.pos.len(),
-        "Particle input arrays of unequal length. Check initial positions.");
+        "Input error: particle input arrays of unequal length.");
     assert_eq!(particle_parameters.Z.len(), particle_parameters.dir.len(),
-        "Particle input arrays of unequal length. Check initial directions.");
+        "Input error: particle input arrays of unequal length.");
 
     let N = particle_parameters.Z.len();
 
@@ -208,7 +213,7 @@ fn main() {
         "ANGSTROM" => ANGSTROM,
         "NM" => NM,
         "M" => 1.,
-        _ => panic!("Unknown unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
+        _ => panic!("Input error: unknown unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
             particle_parameters.length_unit.as_str())
     };
     let energy_unit: f64 = match particle_parameters.energy_unit.as_str() {
@@ -216,12 +221,14 @@ fn main() {
         "J"  => 1.,
         "KEV" => EV*1E3,
         "MEV" => EV*1E6,
-        _ => panic!("Unknown unit {} in input file. Choose one of: EV, J, KEV, MEV", particle_parameters.energy_unit.as_str())
+        _ => panic!("Input error: unknown unit {} in input file. Choose one of: EV, J, KEV, MEV",
+            particle_parameters.energy_unit.as_str())
     };
     let mass_unit: f64 = match particle_parameters.mass_unit.as_str() {
         "AMU" => AMU,
         "KG" => 1.0,
-        _ => panic!("Unknown unit {} in input file. Choose one of: AMU, KG", particle_parameters.mass_unit.as_str())
+        _ => panic!("Input error: unknown unit {} in input file. Choose one of: AMU, KG",
+            particle_parameters.mass_unit.as_str())
     };
 
     //Estimate maximum number of recoils produced per ion
@@ -258,18 +265,16 @@ fn main() {
             //Surface refraction
             let Es = particle_parameters.Es[particle_index];
             let E_new = E*energy_unit + Es*energy_unit;
-            let cosx_new = ((E*cosx*cosx + Es)/(E + Es)).sqrt();
-            let sinx = (1. - cosx*cosx).sqrt();
-            let sinx_new = (1. - cosx_new*cosx_new).sqrt();
-            let cosy_new = cosy*sinx_new/sinx;
-            let cosz_new = cosz*sinx_new/sinx;
+
+            let delta_theta = particle::refraction_angle(cosx, E*energy_unit, (E + Es)*energy_unit);
 
             //Add new particle to particle vector
             particles.push(particle::Particle::new(
                 m*mass_unit, Z, E_new, Ec*energy_unit, Es*energy_unit,
                 x*length_unit, y*length_unit, z*length_unit,
-                cosx_new, cosy_new, cosz_new, true, options.track_trajectories
+                cosx, cosy, cosz, true, options.track_trajectories
             ));
+            particle::rotate_particle(particles.last_mut().unwrap(), delta_theta, 0.);
         }
     }
 
@@ -435,7 +440,7 @@ fn main() {
                 particle_1.pos.x/length_unit, particle_1.pos.y/length_unit, particle_1.pos.z/length_unit,
                 particle_1.dir.x, particle_1.dir.y, particle_1.dir.z,
                 particle_1.number_collision_events
-            ).expect("Could not write to reflected.output.");
+            ).expect("Output error: could not write to reflected.output.");
 
         }
 
@@ -446,7 +451,7 @@ fn main() {
                 particle_1.m/mass_unit, particle_1.Z,
                 particle_1.pos.x/length_unit, particle_1.pos.y/length_unit, particle_1.pos.z/length_unit,
                 particle_1.number_collision_events
-            ).expect("Could not write to deposited.output.");
+            ).expect("Output error: could not write to deposited.output.");
         }
 
         //Not an incident particle, left material: sputtered
@@ -458,20 +463,20 @@ fn main() {
                 particle_1.dir.x, particle_1.dir.y, particle_1.dir.z,
                 particle_1.number_collision_events,
                 particle_1.pos_origin.x, particle_1.pos_origin.y, particle_1.pos_origin.z
-            ).expect("Could not write to sputtered.output.");
+            ).expect("Output error: could not write to sputtered.output.");
         }
 
         //Trajectory output
         if particle_1.track_trajectories {
             writeln!(trajectory_data_stream, "{}", particle_1.trajectory.len())
-                .expect("Could not write trajectory length data.");
+                .expect("Output error: could not write trajectory length data.");
 
             for pos in particle_1.trajectory {
                 writeln!(
                     trajectory_file_stream, "{},{},{},{},{},{}",
                     particle_1.m/mass_unit, particle_1.Z, pos.E/energy_unit,
                     pos.x/length_unit, pos.y/length_unit, pos.z/length_unit,
-                ).expect("Could not write to trajectories.output.");
+                ).expect("Output error: could not write to trajectories.output.");
             }
         }
     }

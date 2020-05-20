@@ -109,3 +109,11 @@ pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asympotot
 
     return distance_traveled;
 }
+
+pub fn refraction_angle(costheta: f64, energy_old: f64, energy_new: f64) -> f64 {
+    let sintheta0 = (1. - costheta*costheta).sqrt();
+    let sintheta1 = sintheta0*(energy_old/energy_new).sqrt();
+    let delta_theta = sintheta1.asin() - sintheta0.asin();
+    let sign = -costheta.signum();
+    return sign*delta_theta;
+}
