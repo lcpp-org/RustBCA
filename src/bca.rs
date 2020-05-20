@@ -250,7 +250,8 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
             return Ok(x0);
         }
     }
-    return Err(anyhow!("Exceeded maximum number of Newton-Raphson iterations, {}. x0: {}; Error: {}; Tolerance: {}", options.max_iterations, x0, err, options.tolerance));
+    return Err(anyhow!("Numerical error: exceeded maximum number of Newton-Raphson iterations, {}. x0: {}; Error: {}; Tolerance: {}",
+        options.max_iterations, x0, err, options.tolerance));
 }
 
 pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &particle::Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> BinaryCollisionResult {
@@ -283,7 +284,7 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
                 KR_C => vec![ 0.7887, 0.01166, 00.006913, 17.16, 10.79 ],
                 ZBL => vec![ 0.99229, 0.011615, 0.0071222, 9.3066, 14.813 ],
                 TRIDYN => vec![1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
-                _ => panic!("Unimplemented interaction potential {} for MAGIC algorithm.",  options.interaction_potential)
+                _ => panic!("Input error: unimplemented interaction potential {} for MAGIC algorithm.",  options.interaction_potential)
             };
             let c = vec![ 0.190945, 0.473674, 0.335381, 0.0 ];
             let d = vec![ -0.278544, -0.637174, -1.919249, 0.0 ];
@@ -304,7 +305,8 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
             let ctheta2 = (b + rho/a + delta)/(x0 + rho/a);
             2.*((b + rho/a + delta)/(x0 + rho/a)).acos()
         },
-        _ => panic!("Unimplemented scattering integral: {}. Use 0: Mendenhall-Weller Quadrature 1: MAGIC Algorithm",  options.scattering_integral)
+        _ => panic!("Input error: unimplemented scattering integral: {}. Use 0: Mendenhall-Weller Quadrature 1: MAGIC Algorithm",
+            options.scattering_integral)
     };
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
@@ -355,7 +357,7 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
                     ZBL => 0.20162,
                     LENZ_JENSEN => 0.206,
                     TRIDYN => 0.278544,
-                    _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
+                    _ => panic!("Input error: unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
                 };
 
                 d1*d1/2./PI*electronic_stopping_powers[strong_collision_index]*(-d1*xi).exp()/a/a*ck
@@ -373,7 +375,7 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
                     ZBL => 0.20162,
                     LENZ_JENSEN => 0.206,
                     TRIDYN => 0.278544,
-                    _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
+                    _ => panic!("Input error: unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
                 };
                 let delta_energy_local = d1*d1/2./PI*electronic_stopping_powers[strong_collision_index]*(-d1*xi).exp()/a/a;
                 let delta_energy_nonlocal = electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled*ck;
@@ -381,7 +383,7 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
                 (0.5*delta_energy_local + 0.5*delta_energy_nonlocal)*ck
             },
             //Panic at unimplemented electronic stopping mode
-            _ => panic!("Unimplemented electronic stopping mode. Use 0: Biersack-Varelas 1: Lindhard-Scharff 2: Oen-Robinson 3: Equipartition")
+            _ => panic!("Input error: unimplemented electronic stopping mode. Use 0: Biersack-Varelas 1: Lindhard-Scharff 2: Oen-Robinson 3: Equipartition")
         };
 
         particle_1.E += -delta_energy;

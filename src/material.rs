@@ -43,7 +43,7 @@ impl Material {
             "ANGSTROM" => ANGSTROM,
             "NM" => NM,
             "M" => 1.,
-            _ => panic!("Incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
+            _ => panic!("Input error: incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
                 geometry.length_unit.as_str())
         };
         let energy_unit: f64 = match material_parameters.energy_unit.as_str() {
@@ -51,13 +51,13 @@ impl Material {
             "J"  => 1.,
             "KEV" => EV*1E3,
             "MEV" => EV*1E6,
-            _ => panic!("Incorrect unit {} in input file. Choose one of: EV, J, KEV, MEV",
+            _ => panic!("Input error: incorrect unit {} in input file. Choose one of: EV, J, KEV, MEV",
                 material_parameters.energy_unit.as_str())
         };
         let mass_unit: f64 = match material_parameters.mass_unit.as_str() {
             "AMU" => AMU,
             "KG" => 1.,
-            _ => panic!("Incorrect unit {} in input file. Choose one of: AMU, KG",
+            _ => panic!("Input error: incorrect unit {} in input file. Choose one of: AMU, KG",
                 material_parameters.mass_unit.as_str())
         };
 
@@ -177,7 +177,7 @@ impl Material {
                 return (component_index, self.Z[component_index], self.m[component_index], self.Ec[component_index], self.Es[component_index]);
             }
         }
-        panic!("Species choice operation failed. Check concentrations.");
+        panic!("Input error: species choice operation failed. Check densities.");
     }
 
     pub fn electronic_stopping_cross_sections(&self, particle_1: &super::particle::Particle, electronic_stopping_mode: i32) -> Vec<f64> {
@@ -227,7 +227,7 @@ impl Material {
                 //Lindhard-Scharff and Oen-Robinson, using Lindhard Equipartition
                 LOW_ENERGY_EQUIPARTITION => S_low,
                 //Panic at unimplemented electronic stopping mode
-                _ => panic!("Unimplemented electronic stopping mode. Use 0: Biersack-Varelas 1: Lindhard-Scharff 2: Oen-Robinson 3: Equipartition")
+                _ => panic!("Input error: unimplemented electronic stopping mode. Use 0: Biersack-Varelas 1: Lindhard-Scharff 2: Oen-Robinson 3: Equipartition")
             };
 
             stopping_powers.push(stopping_power);
@@ -239,6 +239,8 @@ impl Material {
 pub fn boundary_condition_2D_planar(particle_1: &mut particle::Particle, material: &material::Material) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
+    let x_old = particle_1.pos_old.x;
+    let y_old = particle_1.pos_old.y;
     let cosx = particle_1.dir.x;
     let cosy = particle_1.dir.y;
     let cosz = particle_1.dir.z;
@@ -246,6 +248,7 @@ pub fn boundary_condition_2D_planar(particle_1: &mut particle::Particle, materia
     let Es = particle_1.Es;
     let Ec = particle_1.Ec;
 
+    //if !material.inside_energy_barrier(x, y) & material.inside_energy_barrier(x_old, y_old) {
     if !material.inside_energy_barrier(x, y) {
         if let Closest::SinglePoint(p2) = material.closest_point(x, y) {
             let dx = p2.x() - x;
@@ -262,11 +265,9 @@ pub fn boundary_condition_2D_planar(particle_1: &mut particle::Particle, materia
                     particle_1.E += -Es;
 
                     //Surface refraction via Snell's law
-                    let sintheta0 = (1. - costheta*costheta).sqrt();
-                    let sintheta1 = sintheta0*(E/(E - Es)).sqrt();
-                    let delta_theta = sintheta1.asin() - sintheta0.asin();
+                    let delta_theta = particle::refraction_angle(costheta, E, E - Es);
+                    particle::rotate_particle(particle_1, delta_theta, 0.);
 
-                    super::particle::rotate_particle(particle_1, delta_theta, 0.);
                     particle_1.add_trajectory();
 
                 } else {
@@ -278,9 +279,14 @@ pub fn boundary_condition_2D_planar(particle_1: &mut particle::Particle, materia
                 }
             }
         } else {
-            panic!("Surface boundary algorithm encountered an error. Check geometry.");
+            panic!("Numerical error: surface boundary algorithm encountered an error. Check geometry.");
         }
     }
+
+    //if !material.inside_simulation_boundary(x, y) {
+    //    particle_1.left = true;
+    //    particle_1.add_trajectory();
+    //}
 
     if (E < Ec) & !particle_1.left {
         particle_1.stopped = true;
