@@ -94,7 +94,7 @@ helium = {
     'name': 'helium',
     'Z': 2,
     'm': 4.002602,
-    'Ec': 0.01,
+    'Ec': 1.0,
     'Es': 0.
 }
 
@@ -212,7 +212,7 @@ tungsten = {
     'Z': 74,
     'm': 183.84,
     'n': 6.306E28,
-    'Es': 8.79,
+    'Es': 11.75,
     'Eb': 0.,
     'Ec': 6.,
     'Q': 0.72,
@@ -321,13 +321,19 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
         'simulation_surface': list(simulation_surface.exterior.coords),
     }
 
+    mesh_2d_input = {
+        'length_unit': 'MICRON',
+        'coordinate_sets': [[0., depth, 0., thickness/2., -thickness/2., -thickness/2.], [0., depth, depth, thickness/2., thickness/2., -thickness/2.]],
+        'data': [[n], [n]]
+    }
+
     cosx = np.cos(theta*np.pi/180.)
     sinx = np.sin(theta*np.pi/180.)
 
     if random:
         positions = [(-dx, np.random.uniform(-thickness/2., thickness/2.), 0.) for _ in range(N)]
     else:
-        positions = [(0., 0., 0.) for _ in range(N)]
+        positions = [(-dx*np.sin(theta*np.pi/180.), 0., 0.) for _ in range(N)]
 
     particle_parameters = {
         'length_unit': 'MICRON',
@@ -347,7 +353,8 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
         'options': options,
         'material_parameters': material_parameters,
         'geometry': geometry,
-        'particle_parameters': particle_parameters
+        'particle_parameters': particle_parameters,
+        'mesh_2d_input': mesh_2d_input
     }
 
     with open('input.toml', 'w') as file:
@@ -1384,7 +1391,7 @@ def test_rustbca():
     plt.show()
 
 def benchmark():
-    beam_species = [helium]#, argon, boron]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
+    beam_species = [neon]#, argon, boron]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
     target_species = [tungsten]#, tungsten]#, tungsten]#, nickel]#, silicon, copper]#, copper]#, copper]#, boron, silicon, copper]
 
     N = 1
@@ -1395,7 +1402,8 @@ def benchmark():
     #energies = [1000.]
     #energies = [20.0]
     #energies = [0.1, 1., 10., 50.]
-    energies = np.round(np.logspace(1., 3, 6), 1)
+    energies = np.round(np.logspace(1., 2, 10), 1)
+    energies = [1000.]
     #energies = [55.]
     #energies = [100.]
     #energies = np.array([1E7])
@@ -1408,12 +1416,14 @@ def benchmark():
     ffp = False
     esmode = LOW_ENERGY_NONLOCAL
     ck = 1.
-    weak_collision_order = 3
+    weak_collision_order = 6
     mfp_model = LIQUID
     do_trajectory_plot = False
     run_magic = False
-    interaction_potential = KR_C
+    interaction_potential = ZBL
     scattering_integral = QUADRATURE
+    scattering_curve = True
+    collision_number_breakdown = True
 
     #os.system('rm *.png')
     os.system('rm *.output')
@@ -1579,8 +1589,8 @@ def benchmark():
                     plot_distributions(rustbca_name, ftridyn_name, beam, target,
                         file_num=1, incident_energy=energy, incident_angle=theta,
                         plot_2d_reflected_contours=False,
-                        plot_reflected_energies_by_number_collisions=False,
-                        plot_scattering_energy_curve=True)
+                        plot_reflected_energies_by_number_collisions=collision_number_breakdown,
+                        plot_scattering_energy_curve=scattering_curve)
                     if do_trajectory_plot: do_plots(rustbca_name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
                     #breakpoint()
                     #os.system('rm *.output')

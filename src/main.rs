@@ -7,8 +7,9 @@ use anyhow::*;
 
 //Geometry crate
 use geo::algorithm::contains::Contains;
+use geo::algorithm::convexhull::ConvexHull;
 use geo::algorithm::closest_point::ClosestPoint;
-use geo::{point, Polygon, LineString, Closest};
+use geo::{point, Polygon, LineString, Closest, MultiPoint, Point};
 
 //Serializing/Deserializing crate
 use serde::*;
@@ -133,7 +134,8 @@ pub struct Input {
     options: Options,
     material_parameters: material::MaterialParameters,
     geometry: material::Geometry,
-    particle_parameters: particle::ParticleParameters
+    particle_parameters: particle::ParticleParameters,
+    mesh_2d_input: material::Mesh2DInput,
 }
 
 #[derive(Deserialize)]
@@ -170,7 +172,7 @@ fn main() {
     let input: Input = toml::from_str(&input_toml).unwrap();
 
     //Unpack toml information into structs
-    let material = material::Material::new(input.material_parameters, input.geometry);
+    let material = material::Material::new(input.material_parameters, input.geometry, input.mesh_2d_input);
     assert!(material.n.len() == material.m.len(), "Input error: material input arrays of unequal length.");
     assert!(material.n.len() == material.Z.len(), "Input error: material input arrays of unequal length.");
     assert!(material.n.len() == material.Eb.len(), "Input error: material input arrays of unequal length.");
@@ -271,9 +273,6 @@ fn main() {
                 x*length_unit, y*length_unit, z*length_unit,
                 cosx, cosy, cosz, true, options.track_trajectories
             ));
-            //Surface refraction
-            //let delta_theta = particle::refraction_angle(cosx, E_old, E_new);
-            //particle::rotate_particle(particles.last_mut().unwrap(), delta_theta, 0.);
         }
     }
 
