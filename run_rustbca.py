@@ -270,7 +270,8 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
     random=False, free_flight_path=False,
     electronic_stopping_mode=LOW_ENERGY_NONLOCAL,
     weak_collision_order=3, ck=1., mean_free_path_model=LIQUID,
-    interaction_potential=KR_C, scattering_integral=QUADRATURE):
+    interaction_potential=KR_C, scattering_integral=QUADRATURE,
+    triangle_list=False, density_list=False):
 
     options = {
         'name': name,
@@ -295,16 +296,16 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
     material_parameters = {
         'energy_unit': 'EV',
         'mass_unit': 'AMU',
-        'Eb': [Eb],
-        'Es': [Esb],
-        'Ec': [Ecb],
-        'n': [n],
-        'Z': [Zb],
-        'm': [Mb],
+        'Eb': Eb,
+        'Es': Esb,
+        'Ec': Ecb,
+        'n': n,
+        'Z': Zb,
+        'm': Mb,
         'electronic_stopping_correction_factor': ck
     }
 
-    dx = 2.*n**(-1./3.)/np.sqrt(2.*np.pi)/MICRON
+    dx = 2.*n[0]**(-1./3.)/np.sqrt(2.*np.pi)/MICRON
     #dx = n**(-1./3.)*np.cos(theta)/MICRON
     #dx = 0.
 
@@ -321,11 +322,18 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
         'simulation_surface': list(simulation_surface.exterior.coords),
     }
 
-    mesh_2d_input = {
-        'length_unit': 'MICRON',
-        'coordinate_sets': [[0., depth, 0., thickness/2., -thickness/2., -thickness/2.], [0., depth, depth, thickness/2., thickness/2., -thickness/2.]],
-        'data': [[n], [n]]
-    }
+    if triangle_list and density_list:
+        mesh_2d_input = {
+            'length_unit': 'MICRON',
+            'coordinate_sets': triangle_list,
+            'data': density_list
+        }
+    else:
+        mesh_2d_input = {
+            'length_unit': 'MICRON',
+            'coordinate_sets': [[0., depth, 0., thickness/2., -thickness/2., -thickness/2.], [0., depth, depth, thickness/2., thickness/2., -thickness/2.]],
+            'data': [n, n]
+        }
 
     cosx = np.cos(theta*np.pi/180.)
     sinx = np.sin(theta*np.pi/180.)
@@ -1286,8 +1294,8 @@ def test_rustbca():
     N = 1 #Number of unique ion kinds
     N_ = 10000 #Number of ions
     theta = 0.0001 #Incident angle w.r.t. surface normal
-    thickness = 1 #micron
-    depth = 1 #micron
+    thickness = 1. #micron
+    depth = 1. #micron
     energies = np.logspace(3, 4, 10)
     tr = True
     trt = False
@@ -1392,13 +1400,13 @@ def test_rustbca():
 
 def benchmark():
     beam_species = [neon]#, argon, boron]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
-    target_species = [tungsten]#, tungsten]#, tungsten]#, nickel]#, silicon, copper]#, copper]#, copper]#, boron, silicon, copper]
+    target_species = [boron]#, tungsten]#, tungsten]#, nickel]#, silicon, copper]#, copper]#, copper]#, boron, silicon, copper]
 
     N = 1
     N_ = 10000
     angles = np.array([0.0001])
-    thickness = 1
-    depth = 1
+    thickness = 1.
+    depth = 0.006
     #energies = [1000.]
     #energies = [20.0]
     #energies = [0.1, 1., 10., 50.]
@@ -1424,6 +1432,21 @@ def benchmark():
     scattering_integral = QUADRATURE
     scattering_curve = True
     collision_number_breakdown = True
+
+    #mesh geometry
+    triangle_list = [
+        [0., depth/3., 0., thickness/2., thickness/2., -thickness/2.],
+        [0., depth/3., depth/3., -thickness/2., thickness/2., -thickness/2.],
+        [depth/3., depth/3., 2.*depth/3., -thickness/2., thickness/2., -thickness/2.],
+        [depth/3., 2*depth/3., 2*depth/3., thickness/2., thickness/2., -thickness/2.],
+        [2*depth/3., depth, 2*depth/3., thickness/2., thickness/2., -thickness/2.],
+        [2*depth/3., depth, depth, -thickness/2., thickness/2., -thickness/2.],
+    ]
+
+    n1 = gold['n']
+    n2 = aluminum['n']
+    n3 = tungsten['n']
+    density_list = [[n1, 0., 0.], [n1, 0., 0.], [0., n2, 0.], [0., n2, 0.], [0., 0., n3], [0., 0., n3]]
 
     #os.system('rm *.png')
     os.system('rm *.output')
@@ -1453,12 +1476,12 @@ def benchmark():
             Eca = beam['Ec']
             Esa = beam['Es']
             for target in target_species:
-                Zb = target['Z']
-                Ecb = target['Ec']
-                Esb = target['Es']
-                Eb = target['Eb']
-                Mb = target['m']
-                n = target['n']
+                Zb = [boron['Z'], tungsten['Z'], aluminum['Z']]
+                Ecb = [boron['Ec'], tungsten['Ec'], aluminum['Ec']]
+                Esb = [boron['Es'], tungsten['Es'], aluminum['Es']]
+                Eb = [boron['Eb'], tungsten['Eb'], aluminum['Eb']]
+                Mb = [boron['m'], tungsten['m'], aluminum['m']]
+                n = [boron['n'], tungsten['n'], aluminum['n']]
 
                 name_1.append(beam['symbol']+' on '+target['symbol']+' rustbca')
                 if run_magic: name_1.append(beam['symbol']+' on '+target['symbol']+' rustbca MAGIC')
@@ -1470,7 +1493,7 @@ def benchmark():
                 name_2.append(beam['symbol']+' on '+target['symbol']+' F-TRIDYN')
 
                 name_1.append(beam['symbol']+' on '+target['symbol']+' Yamamura')
-                if Ma/Mb < 0.5: name_1.append(beam['symbol']+' on '+target['symbol']+' Bohdansky')
+                if Ma/Mb[0] < 0.5: name_1.append(beam['symbol']+' on '+target['symbol']+' Bohdansky')
 
                 #name_2.append(beam['symbol']+' on '+target['symbol']+' Wierzbicki-Biersack')
                 name_2.append(beam['symbol']+' on '+target['symbol']+' Thomas et al.')
@@ -1522,7 +1545,8 @@ def benchmark():
                         free_flight_path=ffp, electronic_stopping_mode=esmode,
                         weak_collision_order=weak_collision_order, ck=ck,
                         mean_free_path_model=mfp_model, scattering_integral=scattering_integral,
-                        interaction_potential=interaction_potential)
+                        interaction_potential=interaction_potential, triangle_list=triangle_list,
+                        density_list=density_list)
                     stop = time.time()
 
                     rustbca_time += stop - start
@@ -1575,7 +1599,7 @@ def benchmark():
                         ftridyn_straggle.append(0.)
 
                     yamamura_yield_ = yamamura(beam, target, energy)
-                    if Ma/Mb < 0.5:
+                    if Ma/Mb[0] < 0.5:
                         bohdansky_yield_ = bohdansky_light_ion(beam, target, energy)
                         bohdansky_yield.append(bohdansky_yield_)
                     yamamura_yield.append(yamamura_yield_)
@@ -1599,7 +1623,7 @@ def benchmark():
                 if run_magic: ax1.semilogx(energies, rustbca_yield_MAGIC, '-+')
                 ax1.semilogx(energies, ftridyn_yield, '--o', color=handle[0].get_color())
                 ax1.semilogx(energies, yamamura_yield, '-', color=handle[0].get_color())
-                if Ma/Mb < 0.5: ax1.semilogx(energies, bohdansky_yield, '-s', color=handle[0].get_color())
+                if Ma/Mb[0] < 0.5: ax1.semilogx(energies, bohdansky_yield, '-s', color=handle[0].get_color())
 
                 #if beam['symbol'] == 'D' and target['symbol'] == 'Be' and abs(theta) < 1:
                 #    data = np.genfromtxt('sdtrimsp_d_be')

@@ -108,7 +108,15 @@ fn test_momentum_conservation() {
             simulation_surface: vec![]
         };
 
-        let material_1 = material::Material::new(material_parameters, geometry);
+        let thickness: f64 = 1000.;
+        let depth: f64 = 1000.;
+        let mesh_2d_input = material::Mesh2DInput {
+            length_unit: "ANGSTROM".to_string(),
+            coordinate_sets: vec![(0., depth, 0., thickness/2., -thickness/2., -thickness/2.), (0., depth, depth, thickness/2., thickness/2., -thickness/2.)],
+            data: vec![vec![6.026E28], vec![6.026E28]],
+        };
+
+        let material_1 = material::Material::new(material_parameters, geometry, mesh_2d_input);
 
         for high_energy_free_flight_paths in vec![true, false] {
             for potential in vec![KR_C, MOLIERE, ZBL, TRIDYN] {

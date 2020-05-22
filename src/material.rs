@@ -23,9 +23,9 @@ pub struct Geometry {
 
 #[derive(Deserialize)]
 pub struct Mesh2DInput {
-    length_unit: String,
-    coordinate_sets: Vec<(f64, f64, f64, f64, f64, f64)>,
-    data: Vec<Vec<f64>>,
+    pub length_unit: String,
+    pub coordinate_sets: Vec<(f64, f64, f64, f64, f64, f64)>,
+    pub data: Vec<Vec<f64>>,
 }
 
 pub struct Mesh2D {
@@ -77,7 +77,7 @@ impl Mesh2D {
                 return cell.data.clone();
             }
         }
-        panic!("Point ({}, {}) not found in any cell of the mesh.", x, y);
+        panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
     }
 
     pub fn get_total_density(&self, x: f64, y: f64) -> f64 {
@@ -86,7 +86,7 @@ impl Mesh2D {
                 return cell.data.clone().iter().sum::<f64>();
             }
         }
-        panic!("Point ({}, {}) not found in any cell of the mesh.", x, y);
+        panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
     }
 
     pub fn get_concentrations(&self, x: f64, y: f64) -> Vec<f64> {
@@ -98,7 +98,7 @@ impl Mesh2D {
                     return densities.iter().map(|&i| i/total_density).collect::<Vec<f64>>()
                 }
             }
-            panic!("Geometry error.")
+            panic!("Geometry error: method inside() is returning true for points outside all cells.")
         } else {
             let densities = self.nearest_cell_to(x, y).data.clone();
             let total_density: f64 = densities.clone().iter().sum();
@@ -383,7 +383,7 @@ impl Material {
                 return (component_index, self.Z[component_index], self.m[component_index], self.Ec[component_index], self.Es[component_index]);
             }
         }
-        panic!("Input error: species choice operation failed. Check densities.");
+        panic!("Input error: method choose() operation failed to choose a valid species. Check densities.");
     }
 
     pub fn electronic_stopping_cross_sections(&self, particle_1: &super::particle::Particle, electronic_stopping_mode: i32) -> Vec<f64> {
