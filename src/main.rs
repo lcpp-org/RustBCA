@@ -267,13 +267,13 @@ fn main() {
 
             //Add new particle to particle vector
             particles.push(particle::Particle::new(
-                m*mass_unit, Z, E_new, Ec*energy_unit, Es*energy_unit,
+                m*mass_unit, Z, E_old, Ec*energy_unit, Es*energy_unit,
                 x*length_unit, y*length_unit, z*length_unit,
                 cosx, cosy, cosz, true, options.track_trajectories
             ));
             //Surface refraction
-            let delta_theta = particle::refraction_angle(cosx, E_old, E_new);
-            particle::rotate_particle(particles.last_mut().unwrap(), delta_theta, 0.);
+            //let delta_theta = particle::refraction_angle(cosx, E_old, E_new);
+            //particle::rotate_particle(particles.last_mut().unwrap(), delta_theta, 0.);
         }
     }
 
@@ -347,7 +347,7 @@ fn main() {
                     &binary_collision_geometries[k], &options);
 
                 //If recoil location is inside, proceed with binary collision loop
-                if material.inside(particle_2.pos.x, particle_2.pos.y) {
+                if material.inside(particle_2.pos.x, particle_2.pos.y) & material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) {
 
                     //Determine scattering angle from binary collision
                     let binary_collision_result = bca::calculate_binary_collision(&particle_1,

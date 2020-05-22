@@ -212,9 +212,9 @@ tungsten = {
     'Z': 74,
     'm': 183.84,
     'n': 6.306E28,
-    'Es': 11.75,
+    'Es': 8.79,
     'Eb': 0.,
-    'Ec': 5.,
+    'Ec': 6.,
     'Q': 0.72,
     'W': 2.14,
     's': 2.8
@@ -295,24 +295,24 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
     material_parameters = {
         'energy_unit': 'EV',
         'mass_unit': 'AMU',
-        'Eb': Eb,
-        'Es': Esb,
-        'Ec': Ecb,
-        'n': n,
-        'Z': Zb,
-        'm': Mb,
+        'Eb': [Eb],
+        'Es': [Esb],
+        'Ec': [Ecb],
+        'n': [n],
+        'Z': [Zb],
+        'm': [Mb],
         'electronic_stopping_correction_factor': ck
     }
 
-    #dx = 2.*n**(-1./3.)/np.sqrt(2.*np.pi)/MICRON
+    dx = 2.*n**(-1./3.)/np.sqrt(2.*np.pi)/MICRON
     #dx = n**(-1./3.)*np.cos(theta)/MICRON
-    dx = 0.
+    #dx = 0.
 
     minx, miny, maxx, maxy = 0.0, -thickness/2., depth, thickness/2.
     surface = box(minx, miny, maxx, maxy)
 
     energy_surface = surface.buffer(dx, cap_style=2, join_style=2)
-    simulation_surface = surface.buffer(2.*dx, cap_style=2, join_style=2)
+    simulation_surface = surface.buffer(10.*dx, cap_style=2, join_style=2)
 
     geometry = {
         'length_unit': 'MICRON',
@@ -327,7 +327,7 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
     if random:
         positions = [(-dx, np.random.uniform(-thickness/2., thickness/2.), 0.) for _ in range(N)]
     else:
-        positions = [(-dx, 0., 0.) for _ in range(N)]
+        positions = [(0., 0., 0.) for _ in range(N)]
 
     particle_parameters = {
         'length_unit': 'MICRON',
@@ -1389,13 +1389,14 @@ def benchmark():
 
     N = 1
     N_ = 10000
-    angles = np.array([0.001])
+    angles = np.array([0.0001])
     thickness = 1
     depth = 1
     #energies = [1000.]
     #energies = [20.0]
     #energies = [0.1, 1., 10., 50.]
-    energies = np.round(np.logspace(1., 4, 20), 1)
+    energies = np.round(np.logspace(1., 3, 6), 1)
+    #energies = [55.]
     #energies = [100.]
     #energies = np.array([1E7])
     #energies = [1000.]
@@ -1411,8 +1412,8 @@ def benchmark():
     mfp_model = LIQUID
     do_trajectory_plot = False
     run_magic = False
-    interaction_potential = TRIDYN
-    scattering_integral = MAGIC
+    interaction_potential = KR_C
+    scattering_integral = QUADRATURE
 
     #os.system('rm *.png')
     os.system('rm *.output')
@@ -1578,7 +1579,7 @@ def benchmark():
                     plot_distributions(rustbca_name, ftridyn_name, beam, target,
                         file_num=1, incident_energy=energy, incident_angle=theta,
                         plot_2d_reflected_contours=False,
-                        plot_reflected_energies_by_number_collisions=True,
+                        plot_reflected_energies_by_number_collisions=False,
                         plot_scattering_energy_curve=True)
                     if do_trajectory_plot: do_plots(rustbca_name, file_num=str(1), symmetric=False, thickness=thickness, depth=depth)
                     #breakpoint()

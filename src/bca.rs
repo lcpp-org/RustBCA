@@ -250,8 +250,10 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
             return Ok(x0);
         }
     }
-    return Err(anyhow!("Numerical error: exceeded maximum number of Newton-Raphson iterations, {}. x0: {}; Error: {}; Tolerance: {}",
-        options.max_iterations, x0, err, options.tolerance));
+    return Err(anyhow!("Numerical error: exceeded maximum number of Newton-Raphson iterations, {}. E: {}; x, y, z: ({},{},{}); x0: {}; Error: {}; Tolerance: {}",
+        options.max_iterations, E0,
+        particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM,
+        x0, err, options.tolerance));
 }
 
 pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &particle::Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> BinaryCollisionResult {
@@ -332,7 +334,7 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
     let ck = material.electronic_stopping_correction_factor;
 
     //if material.inside_energy_barrier(x, y) {
-    if material.inside_energy_barrier(x, y) {
+    if material.inside(x, y) {
 
         let electronic_stopping_powers = material.electronic_stopping_cross_sections(particle_1, options.electronic_stopping_mode);
         let n = material.n.clone();
