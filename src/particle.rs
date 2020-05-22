@@ -24,6 +24,7 @@ pub struct Particle {
     pub pos: Vector,
     pub dir: Vector,
     pub pos_old: Vector,
+    pub dir_old: Vector,
     pub pos_origin: Vector,
     pub asympototic_deflection: f64,
     pub stopped: bool,
@@ -32,7 +33,8 @@ pub struct Particle {
     pub first_step: bool,
     pub trajectory: Vec<Vector4>,
     pub track_trajectories: bool,
-    pub number_collision_events: usize
+    pub number_collision_events: usize,
+    pub backreflected: bool,
 }
 impl Particle {
     pub fn new(m: f64, Z: f64, E: f64, Ec: f64, Es: f64, x: f64, y: f64, z: f64, dirx: f64, diry: f64, dirz: f64, incident: bool, track_trajectories: bool) -> Particle {
@@ -47,15 +49,17 @@ impl Particle {
             pos: Vector::new(x, y, z),
             dir: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
             pos_old: Vector::new(x, y, z),
+            dir_old: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
             pos_origin: Vector::new(x, y, z),
             asympototic_deflection: 0.,
             stopped: false,
             left: false,
             incident: incident,
             first_step: incident,
-            trajectory: Vec::new(),
+            trajectory: vec![Vector4::new(E, x, y, z)],
             track_trajectories: track_trajectories,
-            number_collision_events: 0
+            number_collision_events: 0,
+            backreflected: false
         }
     }
     pub fn add_trajectory(&mut self) {
@@ -104,10 +108,15 @@ pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asympotot
     //In order to keep average denisty constant, must add back previous asymptotic deflection
     let distance_traveled = mfp + particle_1.asympototic_deflection - asympototic_deflection;
 
-    particle_1.pos.x += particle_1.dir.x*distance_traveled;
-    particle_1.pos.y += particle_1.dir.y*distance_traveled;
-    particle_1.pos.z += particle_1.dir.z*distance_traveled;
+    particle_1.pos.x += particle_1.dir_old.x*distance_traveled;
+    particle_1.pos.y += particle_1.dir_old.y*distance_traveled;
+    particle_1.pos.z += particle_1.dir_old.z*distance_traveled;
     particle_1.asympototic_deflection = asympototic_deflection;
+
+    //Update previous direction
+    particle_1.dir_old.x = particle_1.dir.x;
+    particle_1.dir_old.y = particle_1.dir.y;
+    particle_1.dir_old.z = particle_1.dir.z;
 
     return distance_traveled;
 }

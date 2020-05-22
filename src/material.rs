@@ -236,6 +236,82 @@ impl Material {
     }
 }
 
+pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &material::Material) {
+    let x = particle_1.pos.x;
+    let y = particle_1.pos.y;
+    let x_old = particle_1.pos_old.x;
+    let y_old = particle_1.pos_old.y;
+    let cosx = particle_1.dir.x;
+    let cosy = particle_1.dir.y;
+    let cosz = particle_1.dir.z;
+    let E = particle_1.E;
+    let Es = particle_1.Es;
+    let Ec = particle_1.Ec;
+
+    let inside_now = material.inside_energy_barrier(x, y);
+    let inside_old = material.inside_energy_barrier(x_old, y_old);
+
+    let leaving = !inside_now & inside_old;
+    let entering = inside_now & !inside_old;
+
+    if entering {
+        if particle_1.backreflected {
+            particle_1.backreflected = false;
+        } else if let Closest::SinglePoint(p2) = material.closest_point(x, y) {
+            let dx = p2.x() - x;
+            let dy = p2.y() - y;
+            let mag = (dx*dx + dy*dy).sqrt();
+
+            let costheta = dx*cosx/mag + dy*cosy/mag;
+            particle_1.E += Es;
+
+            //Surface refraction via Snell's law
+            let delta_theta = particle::refraction_angle(costheta, E, E + Es);
+            particle::rotate_particle(particle_1, delta_theta, 0.);
+
+            particle_1.add_trajectory();
+        } else {
+            panic!("Numerical error: surface boundary algorithm encountered an error. Check geometry.");
+        }
+    }
+
+    if leaving {
+        if let Closest::SinglePoint(p2) = material.closest_point(x, y) {
+            let dx = p2.x() - x;
+            let dy = p2.y() - y;
+            let mag = (dx*dx + dy*dy).sqrt();
+
+            let costheta = dx*cosx/mag + dy*cosy/mag;
+            let leaving_energy = E*costheta*costheta;
+
+            if costheta < 0. {
+                if leaving_energy > Es {
+
+                    //particle_1.left = true;
+                    particle_1.E += -Es;
+
+                    //Surface refraction via Snell's law
+                    let delta_theta = particle::refraction_angle(costheta, E, E - Es);
+                    particle::rotate_particle(particle_1, delta_theta, 0.);
+
+                    particle_1.add_trajectory();
+
+                } else {
+
+                    //Specular reflection at local surface normal
+                    particle_1.dir.x = -2.*(costheta)*dx/mag + cosx;
+                    particle_1.dir.y = -2.*(costheta)*dy/mag + cosy;
+
+                    particle_1.backreflected = true;
+                    particle_1.add_trajectory();
+                }
+            }
+        } else {
+            panic!("Numerical error: surface boundary algorithm encountered an error. Check geometry.");
+        }
+    }
+}
+
 pub fn boundary_condition_2D_planar(particle_1: &mut particle::Particle, material: &material::Material) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
@@ -248,48 +324,17 @@ pub fn boundary_condition_2D_planar(particle_1: &mut particle::Particle, materia
     let Es = particle_1.Es;
     let Ec = particle_1.Ec;
 
-    //if !material.inside_energy_barrier(x, y) & material.inside_energy_barrier(x_old, y_old) {
-    if !material.inside_energy_barrier(x, y) {
-        if let Closest::SinglePoint(p2) = material.closest_point(x, y) {
-            let dx = p2.x() - x;
-            let dy = p2.y() - y;
-            let mag = (dx*dx + dy*dy).sqrt();
+    surface_binding_energy(particle_1, material);
 
-            let costheta = dx*cosx/mag + dy*cosy/mag;
-            let leaving_energy = E*costheta*costheta;
-
-            if costheta < 0. {
-                if leaving_energy > Es {
-
-                    particle_1.left = true;
-                    particle_1.E += -Es;
-
-                    //Surface refraction via Snell's law
-                    let delta_theta = particle::refraction_angle(costheta, E, E - Es);
-                    particle::rotate_particle(particle_1, delta_theta, 0.);
-
-                    particle_1.add_trajectory();
-
-                } else {
-                    //Specular reflection at local surface normal
-                    particle_1.dir.x = -2.*(costheta)*dx/mag + cosx;
-                    particle_1.dir.y = -2.*(costheta)*dy/mag + cosy;
-
-                    particle_1.add_trajectory();
-                }
-            }
-        } else {
-            panic!("Numerical error: surface boundary algorithm encountered an error. Check geometry.");
-        }
+    if !material.inside_simulation_boundary(x, y) {
+        particle_1.left = true;
+        particle_1.add_trajectory();
     }
 
-    //if !material.inside_simulation_boundary(x, y) {
-    //    particle_1.left = true;
-    //    particle_1.add_trajectory();
-    //}
-
     if (E < Ec) & !particle_1.left {
-        particle_1.stopped = true;
-        particle_1.add_trajectory();
+        if material.inside_energy_barrier(x, y) {
+            particle_1.stopped = true;
+            particle_1.add_trajectory();
+        }
     }
 }
