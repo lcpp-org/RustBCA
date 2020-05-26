@@ -47,53 +47,58 @@ Ubuntu 18.04 LTS:
 # Example input file: input.toml
 ~~~~
 [options]
-name = "10.0eV_0.0001deg_He_N" #Output file name
-track_trajectories = false #Track ion trajectories (memory intensive)
-track_recoils = false #Track recoils
-track_recoil_trajectories = false #Track recoil trajectories (memory intensive)
+name = "10.0eV_0.0001deg_Ne_TiO2_Al_Si_" #Output file name
+track_trajectories = false #Track incident ion trajectories
+track_recoils = true #Track target atoms
+track_recoil_trajectories = false #Track target atom trajectories
 write_files = true #Write output files to disk
-stream_size = 8000  #Streaming write packet size in bytes
-print = true #Print to command line
-print_num = 10 #Number of times to print to command line
-weak_collision_order = 0 #Number of max weak collisions
-suppress_deep_recoils = false #Use Eckstein's deep recoil supression routine
-high_energy_free_flight_paths = true #Use TRIM-style high-energy free-flight paths between ions
-electronic_stopping_mode = 0 #0: Interpolated, Biersack-Varelas (eV-GeV) 1: Low energy nonlocal, Lindhard-Scharff (eV-25keV/amu) 2: Low energy local, Oen-Robinson (eV-25 keV/amu), 3: Equipartition between LS and OR
-mean_free_path_model = 1 #0: Liquid/solid target, 1: Gaseous target
-interaction_potential = 2 #0: Moliere 1: Kr-C 2: ZBL
-scattering_integral = 0 #0: 6th order Lobatto Quadrature 1: MAGIC (Recommended: 0, don't use 1 unless you need to)
-tolerance = 1e-6 #tolerance on distance of closest approach algorithm
-max_iterations = 100 #maximum number of newton-raphson iterations for distance of closest approach calculation
+stream_size = 8000 #Size of streaming write in bytes
+print = true #Print to std out
+print_num = 10 #Number of times to print to std out
+weak_collision_order = 3 #Number of weak collisions (>0)
+suppress_deep_recoils = false #Eckstein's empirical recoil suppression for target atoms that cannot sputter
+high_energy_free_flight_paths = false #TRIM-style free flight paths between collisions
+electronic_stopping_mode = 1 #0: Biersack-Varelas Interpolation (~10eV/nuclean-100MeV/nuclean) 1: Lindhard-Scharff local (<=25keV/nucleon) 2: Oen-Robinson nonlocal (<=25keV/nucleon) 3: Equipartition betw. LS and OR (<=25keV/nucleon)
+mean_free_path_model = 0 #0: Liquid (1/n^3) 1: Gaseous 
+interaction_potential = 2 #0: Moliere 1: Krypton-Carbon 2: ZBL 3: Lenz-Jensen
+scattering_integral = 0 #0: Mendenhall-Weller Quadrature 1: MAGIC algorithm
+tolerance = 0.001 #Tolerance for Newton-Raphson distance of closest approach algorithm
+max_iterations = 100 #Max iterations for Newton-Raphson distance of closest approach algorithm
 
 [material_parameters]
-energy_unit = "EV"
-mass_unit = "AMU"
-Eb = [0.0] #Bulk binding energy
-Es = [0.0] #Surface binding energy
-Ec = [1.0] #Cutoff energy
-n = [5.4e+25] #Number density 
-Z = [7]
-m = [14]
-electronic_stopping_correction_factor = 1.0 #C_k, used to compensate for Z1 oscillations in Lindhard-Scharff when known
-
-[geometry]
-length_unit = "MICRON"
-surface = [ [ 10.0, -5.0,], [ 10.0, 5.0,], [ 0.0, 5.0,], [ 0.0, -5.0,], [ 10.0, -5.0,],]
-energy_surface = [ [ 10.0, -5.0,], [ 0.0, -5.0,], [ 0.0, 5.0,], [ 10.0, 5.0,], [ 10.0, -5.0,],]
-simulation_surface = [ [ 10.0, -5.0,], [ 0.0, -5.0,], [ 0.0, 5.0,], [ 10.0, 5.0,], [ 10.0, -5.0,],]
+energy_unit = "EV" #energy unit, one of: EV, J, KEV, MEV
+mass_unit = "AMU" #mass unit, one of: AMU, KG
+Eb = [ 3.0, 2.58, 3.0, 0.0,] #Binding energy of each species
+Es = [ 4.84, 2.58, 3.39, 4.72,] #Surface binding energy of each species
+Ec = [ 3.5, 2.0, 3.0, 1.5,] #Cutoff energy of each species
+n = [ 5.67e+28, 4.291e+28, 6.026e+28, 4.996e+28,] #Nominal number density of each species
+Z = [ 22, 8, 13, 14,] #Atomic number of each species
+m = [ 47.867, 15.9994, 26.98, 28.08553,] #Atomic mass of each species
+electronic_stopping_correction_factor = 1.0 #Correction factor for electronic stopping, used for Z1 oscillations when known
+energy_barrier_thickness = 6.713580575220781e-5 #Distance from surface that surface binding energy is computed (typically ~mfp)
 
 [particle_parameters]
+length_unit = "MICRON" #length unit, one of ANGSTROM, NM, MICRON, CM, M
+energy_unit = "EV" #energy unit, one of: EV, J, KEV, MEV
+mass_unit = "AMU" #mass unit, one of: AMU, KG
+N = [ 100000,] #Number of particles in column 0
+m = [ 20.1797,] #Atomic mass of each particle species
+Z = [ 10,] #Atomic number of each particle species
+E = [ 10.0,] #Initial energy of each particle species
+Ec = [ 1.0,] #Cutoff energy of each particle species
+Es = [ 0.0,] #Surface binding energy of each particle species
+pos = [ [ -1.7453292519934434e-8, 0.0, 0.0,],] #Initial position (x, y, z) of each particle species
+dir = [ [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,],] #Initial directional cosines (ux, uy, uz) of each particle species
+
+[mesh_2d_input]
 length_unit = "MICRON"
-energy_unit = "EV"
-mass_unit = "AMU"
-N = [ 10000,] #Number of particles for first column
-m = [ 4.002602,]
-Z = [ 2,]
-E = [ 10.0,] #Incident energy
-Ec = [ 0.01,] #Cutoff energy
-Es = [ 0.0,] #Surface binding energy
-pos = [ [ -0.0, 0.0, 0.0,],]
-dir = [ [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,],] #Note: because of gimbal lock, dir[0] != 0
+#List of triangles that make up mesh
+coordinate_sets = [ [ 0.0, 0.1, 0.0, 0.5, 0.5, -0.5,], [ 0.0, 0.1, 0.1, -0.5, 0.5, -0.5,], [ 0.1, 0.1, 0.4, -0.5, 0.5, -0.5,], [ 0.1, 0.4, 0.4, 0.5, 0.5, -0.5,], [ 0.4, 0.5, 0.4, 0.5, 0.5, -0.5,], [ 0.4, 0.5, 0.5, -0.5, 0.5, -0.5,],]
+densities = [ [ 3e+28, 6e+28, 0.0, 0.0,], [ 3e+28, 6e+28, 0.0, 0.0,], [ 0.0, 0.0, 6.026e+28, 0.0,], [ 0.0, 0.0, 6.026e+28, 0.0,], [ 0.0, 0.0, 0.0, 4.996e+28,], [ 0.0, 0.0, 0.0, 4.996e+28,],]
+#Boundary of mesh
+boundary_points = [ [ 0.0, 0.5,], [ 0.5, 0.5,], [ 0.5, -0.5,], [ 0.0, -0.5,],]
+#Simulation boundary
+simulation_boundary_points = [ [ 0.6, -0.6,], [ -0.1, -0.6,], [ -0.1, 0.6,], [ 0.6, 0.6,], [ 0.6, -0.6,],]
 
  ~~~~
 # Usage

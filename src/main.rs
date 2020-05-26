@@ -7,14 +7,12 @@ use anyhow::*;
 
 //Geometry crate
 use geo::algorithm::contains::Contains;
+//use geo::algorithm::convexhull::ConvexHull;
 use geo::algorithm::closest_point::ClosestPoint;
-use geo::{point, Polygon, LineString, Closest};
+use geo::{point, Polygon, LineString, Closest, Point};// MultiPoint, Point};
 
 //Serializing/Deserializing crate
 use serde::*;
-
-//Macros for comparing floats
-use float_cmp::*;
 
 //I/O
 use std::fs::OpenOptions;
@@ -28,6 +26,7 @@ pub mod particle;
 pub mod tests;
 pub mod interactions;
 pub mod bca;
+pub mod mesh;
 
 //Physical constants
 const Q: f64 = 1.60217646E-19;
@@ -132,8 +131,8 @@ impl Vector4 {
 pub struct Input {
     options: Options,
     material_parameters: material::MaterialParameters,
-    geometry: material::Geometry,
-    particle_parameters: particle::ParticleParameters
+    particle_parameters: particle::ParticleParameters,
+    mesh_2d_input: mesh::Mesh2DInput,
 }
 
 #[derive(Deserialize)]
@@ -170,7 +169,7 @@ fn main() {
     let input: Input = toml::from_str(&input_toml).unwrap();
 
     //Unpack toml information into structs
-    let material = material::Material::new(input.material_parameters, input.geometry);
+    let material = material::Material::new(input.material_parameters, input.mesh_2d_input);
     assert!(material.n.len() == material.m.len(), "Input error: material input arrays of unequal length.");
     assert!(material.n.len() == material.Z.len(), "Input error: material input arrays of unequal length.");
     assert!(material.n.len() == material.Eb.len(), "Input error: material input arrays of unequal length.");
@@ -180,8 +179,10 @@ fn main() {
     let particle_parameters = input.particle_parameters;
 
     //Check that incompatible options are not on simultaneously
-    assert!(options.high_energy_free_flight_paths == (options.electronic_stopping_mode == INTERPOLATED),
-        "Input error: High energy free flight paths used with low energy stoppping power.");
+    if options.high_energy_free_flight_paths {
+        assert!(options.electronic_stopping_mode == INTERPOLATED,
+            "Input error: High energy free flight paths used with low energy stoppping power.");
+    }
 
     if options.electronic_stopping_mode == INTERPOLATED {
         assert!(options.weak_collision_order == 0,
@@ -261,19 +262,12 @@ fn main() {
         let (x, y, z) = particle_parameters.pos[particle_index];
         let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
         for sub_particle_index in 0..N_ {
-
-            let E_old = E*energy_unit;
-            let E_new = E*energy_unit + Es*energy_unit;
-
             //Add new particle to particle vector
             particles.push(particle::Particle::new(
-                m*mass_unit, Z, E_old, Ec*energy_unit, Es*energy_unit,
+                m*mass_unit, Z, E*energy_unit, Ec*energy_unit, Es*energy_unit,
                 x*length_unit, y*length_unit, z*length_unit,
                 cosx, cosy, cosz, true, options.track_trajectories
             ));
-            //Surface refraction
-            //let delta_theta = particle::refraction_angle(cosx, E_old, E_new);
-            //particle::rotate_particle(particles.last_mut().unwrap(), delta_theta, 0.);
         }
     }
 
@@ -337,10 +331,6 @@ fn main() {
             let mut strong_collision_Z = 0.;
             let mut strong_collision_index: usize = 0;
 
-            if particle_1.track_trajectories {
-                particle_1.add_trajectory();
-            }
-
             'collision_loop: for k in 0..options.weak_collision_order + 1 {
 
                 let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material,
@@ -375,6 +365,9 @@ fn main() {
 
                     particle::rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
                         binary_collision_geometries[k].phi_azimuthal);
+                    particle_2.dir_old.x = particle_2.dir.x;
+                    particle_2.dir_old.y = particle_2.dir.y;
+                    particle_2.dir_old.z = particle_2.dir.z;
 
                     //Only track number of strong collisions, i.e., k = 0
                     if (binary_collision_result.psi > 0.) & (k == 0) {
@@ -402,12 +395,11 @@ fn main() {
                             let distance_to_surface = (dx*dx + dy*dy).sqrt();
 
                             if (distance_to_surface < estimated_range_of_recoils) & (particle_2.E > particle_2.Ec) {
-                                particle_2.add_trajectory();
                                 particles.push(particle_2);
                             }
                         }
                     //If transferred energy > cutoff energy, add recoil to particle vector
-                } else if options.track_recoils & (particle_2.E > particle_2.Ec) {
+                    } else if options.track_recoils & (particle_2.E > particle_2.Ec) {
                         particles.push(particle_2);
                     }
                 }
@@ -461,7 +453,7 @@ fn main() {
                 particle_1.pos.x/length_unit, particle_1.pos.y/length_unit, particle_1.pos.z/length_unit,
                 particle_1.dir.x, particle_1.dir.y, particle_1.dir.z,
                 particle_1.number_collision_events,
-                particle_1.pos_origin.x, particle_1.pos_origin.y, particle_1.pos_origin.z
+                particle_1.pos_origin.x/length_unit, particle_1.pos_origin.y/length_unit, particle_1.pos_origin.z/length_unit
             ).expect("Output error: could not write to sputtered.output.");
         }
 

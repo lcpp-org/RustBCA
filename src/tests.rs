@@ -1,8 +1,112 @@
 #[cfg(test)]
 use super::*;
+use float_cmp::*;
+
+#[test]
+fn test_surface_binding_energy_barrier() {
+    let mass = 1.;
+    let Z = 1.;
+    let E = 10.*EV;
+    let Ec = 1.*EV;
+    let Es = 5.76*EV;
+    let x = 0.;
+    let y = 0.;
+    let z = 0.;
+    let cosx = 1./(2.0_f64).sqrt();
+    let cosy = 1./(2.0_f64).sqrt();
+    let cosz = 0.;
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false);
+
+    let material_parameters = material::MaterialParameters{
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: vec![0.0, 0.0],
+        Es: vec![2.0, 4.0],
+        Ec: vec![1.0, 1.0],
+        n: vec![6E28, 6E28],
+        Z: vec![29., 1.],
+        m: vec![63.54, 1.0008],
+        electronic_stopping_correction_factor: 0.0,
+        energy_barrier_thickness: 10.
+    };
+
+    let thickness: f64 = 1000.;
+    let depth: f64 = 1000.;
+    let mesh_2d_input = mesh::Mesh2DInput {
+        length_unit: "ANGSTROM".to_string(),
+        coordinate_sets: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
+        densities: vec![vec![3E28, 3E28], vec![3E28, 3E28]],
+        boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
+        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)]
+    };
+
+    let material_1 = material::Material::new(material_parameters, mesh_2d_input);
+
+    particle_1.pos.x = 500.*ANGSTROM;
+    particle_1.pos.y = 0.;
+
+    particle_1.pos_old.x = -500.*ANGSTROM;
+    particle_1.pos_old.y = 0.;
+
+    let inside = material_1.inside(particle_1.pos.x, particle_1.pos.y);
+    let inside_old = material_1.inside(particle_1.pos_old.x, particle_1.pos_old.y);
+
+    //println!("{} {}", inside, inside_old);
+    assert!(inside);
+    assert!(!inside_old);
+
+    //Test concentration-dependent surface binding energy
+    let surface_binding_energy = material_1.actual_surface_binding_energy(particle_1.pos.x, particle_1.pos.y);
+    assert!(approx_eq!(f64, surface_binding_energy/EV, (2. + 4.)/2., epsilon=1E-12));
+    //println!("sbv: {}", surface_binding_energy/EV);
+
+    //Test leftmost boundary
+    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, 0.));
+    assert!(material_1.inside_energy_barrier(-5.*ANGSTROM, 0.));
+    assert!(!material_1.inside_energy_barrier(-15.*ANGSTROM, 0.));
+
+    //Test top boundary
+    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, 0.));
+    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, 505.*ANGSTROM));
+    assert!(!material_1.inside_energy_barrier(500.*ANGSTROM, 515.*ANGSTROM));
+
+    //Test bottom boundary
+    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, -505.*ANGSTROM));
+    assert!(!material_1.inside_energy_barrier(500.*ANGSTROM, -515.*ANGSTROM));
+
+    //Test rightmost boundary
+    assert!(material_1.inside_energy_barrier(1005.*ANGSTROM, 0.));
+    assert!(!material_1.inside_energy_barrier(1015.*ANGSTROM, 0.));
+}
+
+#[test]
+fn test_triangle_contains() {
+    let triangle_1 = mesh::Triangle2D::new((0., 2., 0., 2., 0., 0.));
+    assert!(triangle_1.contains(0.5, 0.5));
+    assert!(!triangle_1.contains(2., 2.));
+
+    let triangle_2 = mesh::Triangle2D::new((-2., 0., 0., 0., 0., -2.));
+    assert!(triangle_2.contains(-0.5, -0.5));
+    assert!(!triangle_2.contains(0.5, 0.5));
+    assert!(!triangle_2.contains(-2., -2.));
+}
+
+#[test]
+fn test_triangle_distance_to() {
+    let triangle_1 = mesh::Triangle2D::new((0., 2., 0., 2., 0., 0.));
+    assert!(approx_eq!(f64, triangle_1.distance_to(-2., 0.), 2., epsilon=1E-12), "{}", triangle_1.distance_to(-2., 0.));
+
+    assert!(approx_eq!(f64, triangle_1.distance_to(2., 2.), (2.0_f64).sqrt(), epsilon=1E-12), "{}", triangle_1.distance_to(2., 2.));
+
+    assert!(approx_eq!(f64, triangle_1.distance_to(0., 0.), 0., epsilon=1E-12), "{}", triangle_1.distance_to(0., 0.));
+    assert!(approx_eq!(f64, triangle_1.distance_to(2., 0.), 0., epsilon=1E-12), "{}", triangle_1.distance_to(2., 0.));
+    assert!(approx_eq!(f64, triangle_1.distance_to(0., 2.), 0., epsilon=1E-12), "{}", triangle_1.distance_to(0., 2.));
+}
 
 #[test]
 fn test_surface_refraction() {
+    let print_output = false;
+
     let mass = 1.;
     let Z = 1.;
     let E = 10.*EV;
@@ -25,7 +129,6 @@ fn test_surface_refraction() {
     let cosy_new = cosy*sinx_new/sinx;
     let cosz_new = cosz*sinx_new/sinx;
     let dir_mag = (cosx_new*cosx_new + cosy_new*cosy_new + cosz_new*cosz_new).sqrt();
-    println!("dir_mag: {}", dir_mag);
     let cosx_new = cosx_new/dir_mag;
     let cosy_new = cosy_new/dir_mag;
     let cosz_new = cosz_new/dir_mag;
@@ -33,14 +136,17 @@ fn test_surface_refraction() {
     let delta_theta = particle::refraction_angle(cosx, E, E + Es);
     particle::rotate_particle(&mut particle_1, delta_theta, 0.);
 
-    println!("{} {} {}", cosx, cosy, cosz);
-    println!("{} {} {}", cosx_new, cosy_new, cosz_new);
-    println!("{} {} {}", particle_1.dir.x, particle_1.dir.y, particle_1.dir.z);
-    println!();
+    if print_output {
+        println!("dir_mag: {}", dir_mag);
+        println!("{} {} {}", cosx, cosy, cosz);
+        println!("{} {} {}", cosx_new, cosy_new, cosz_new);
+        println!("{} {} {}", particle_1.dir.x, particle_1.dir.y, particle_1.dir.z);
+        println!();
+    }
 
-    assert!(approx_eq!(f64, particle_1.dir.x, cosx_new, epsilon=1E-9));
-    assert!(approx_eq!(f64, particle_1.dir.y, cosy_new, epsilon=1E-9));
-    assert!(approx_eq!(f64, particle_1.dir.z, cosz_new, epsilon=1E-9));
+    assert!(approx_eq!(f64, particle_1.dir.x, cosx_new, epsilon=1E-12));
+    assert!(approx_eq!(f64, particle_1.dir.y, cosy_new, epsilon=1E-12));
+    assert!(approx_eq!(f64, particle_1.dir.z, cosz_new, epsilon=1E-12));
 
     //Test particle leaving material and losing energy
 
@@ -50,16 +156,21 @@ fn test_surface_refraction() {
     let cosy_new = particle_1.dir.y*sinx_new/sinx;
     let cosz_new = particle_1.dir.z*sinx_new/sinx;
 
-    println!("{} {} {}", particle_1.dir.x, particle_1.dir.y, particle_1.dir.z);
+    if print_output {
+        println!("{} {} {}", particle_1.dir.x, particle_1.dir.y, particle_1.dir.z);
+    }
+
     let delta_theta = particle::refraction_angle(particle_1.dir.x, particle_1.E, particle_1.E - Es);
     particle::rotate_particle(&mut particle_1, delta_theta, 0.);
 
-    println!("{} {} {}", cosx_new, cosy_new, cosz_new);
-    println!("{} {} {}", particle_1.dir.x, particle_1.dir.y, particle_1.dir.z);
+    if print_output {
+        println!("{} {} {}", cosx_new, cosy_new, cosz_new);
+        println!("{} {} {}", particle_1.dir.x, particle_1.dir.y, particle_1.dir.z);
+    }
 
-    assert!(approx_eq!(f64, particle_1.dir.x, cosx_new, epsilon=1E-9));
-    assert!(approx_eq!(f64, particle_1.dir.y, cosy_new, epsilon=1E-9));
-    assert!(approx_eq!(f64, particle_1.dir.z, cosz_new, epsilon=1E-9));
+    assert!(approx_eq!(f64, particle_1.dir.x, cosx_new, epsilon=1E-12));
+    assert!(approx_eq!(f64, particle_1.dir.y, cosy_new, epsilon=1E-12));
+    assert!(approx_eq!(f64, particle_1.dir.z, cosz_new, epsilon=1E-12));
 }
 
 #[test]
@@ -97,24 +208,27 @@ fn test_momentum_conservation() {
             n: vec![6.026E28],
             Z: vec![Z2],
             m: vec![m2],
-            electronic_stopping_correction_factor: 0.0
+            electronic_stopping_correction_factor: 0.0,
+            energy_barrier_thickness: 0.
         };
 
-        //Generate empty geometry
-        let geometry = material::Geometry {
+        let thickness: f64 = 1000.;
+        let depth: f64 = 1000.;
+        let mesh_2d_input = mesh::Mesh2DInput {
             length_unit: "ANGSTROM".to_string(),
-            surface: vec![],
-            energy_surface: vec![],
-            simulation_surface: vec![]
+            coordinate_sets: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
+            densities: vec![vec![6.026E28], vec![6.026E28]],
+            boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
+            simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)]
         };
 
-        let material_1 = material::Material::new(material_parameters, geometry);
+        let material_1 = material::Material::new(material_parameters, mesh_2d_input);
 
         for high_energy_free_flight_paths in vec![true, false] {
             for potential in vec![KR_C, MOLIERE, ZBL, TRIDYN] {
                 for scattering_integral in vec![QUADRATURE, MAGIC] {
 
-                    println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
+                    //println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
 
                     let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, x1, y1, z1, cosx, cosy, cosz, false, false);
 

@@ -79,26 +79,31 @@ impl Particle {
 }
 
 pub fn rotate_particle(particle_1: &mut particle::Particle, psi: f64, phi: f64) {
-    let ca: f64 = particle_1.dir.x;
-    let cb: f64 = particle_1.dir.y;
-    let cg: f64 = particle_1.dir.z;
+    let cosx: f64 = particle_1.dir.x;
+    let cosy: f64 = particle_1.dir.y;
+    let cosz: f64 = particle_1.dir.z;
     let cphi: f64 = phi.cos();
     let sphi: f64 = phi.sin();
-    let sa = (1. - ca*ca).sqrt();
+    let sa = (1. - cosx*cosx).sqrt();
 
     //Particle direction update formulas from TRIDYN, see Moeller and Eckstein 1988
     let cpsi: f64 = psi.cos();
     let spsi: f64 = psi.sin();
-    let ca_new: f64 = cpsi*ca + spsi*cphi*sa;
-    let cb_new: f64 = cpsi*cb - spsi/sa*(cphi*ca*cb - sphi*cg);
-    let cg_new: f64 = cpsi*cg - spsi/sa*(cphi*ca*cg + sphi*cb);
+    let cosx_new: f64 = cpsi*cosx + spsi*cphi*sa;
+    let cosy_new: f64 = cpsi*cosy - spsi/sa*(cphi*cosx*cosy - sphi*cosz);
+    let cosz_new: f64 = cpsi*cosz - spsi/sa*(cphi*cosx*cosz + sphi*cosy);
 
-    let dir_new = Vector {x: ca_new, y: cb_new, z: cg_new};
+    let dir_new = Vector {x: cosx_new, y: cosy_new, z: cosz_new};
+
     particle_1.dir.assign(&dir_new);
     particle_1.dir.normalize();
 }
 
 pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asympototic_deflection: f64) -> f64 {
+
+    if particle_1.E > particle_1.Ec {
+        particle_1.add_trajectory();
+    }
 
     //Update previous position
     particle_1.pos_old.x = particle_1.pos.x;
@@ -122,9 +127,12 @@ pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asympotot
 }
 
 pub fn refraction_angle(costheta: f64, energy_old: f64, energy_new: f64) -> f64 {
+    //println!("energy_old: {} energy_new: {} costheta: {}", energy_old/EV, energy_new/EV, costheta);
+    let costheta = if costheta.abs() > 1. {costheta.signum()} else {costheta};
     let sintheta0 = (1. - costheta*costheta).sqrt();
     let sintheta1 = sintheta0*(energy_old/energy_new).sqrt();
     let delta_theta = sintheta1.asin() - sintheta0.asin();
+    assert!(!delta_theta.is_nan(), "Numerical error: refraction returned NaN.");
     let sign = -costheta.signum();
     return sign*delta_theta;
 }
