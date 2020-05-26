@@ -1632,7 +1632,61 @@ def boron_carbon_tungsten_aps():
             os.system('rm *.OUT')
             os.system('rm *.DAT')
 
+def titanium_oxide_aluminum_silicon(number_histories, incident_energy, incident_angle, depth):
+    width = depth
+    lookup_table = species_lookup_table()
+    beam = lookup_table.find_species('Ne', E0=incident_energy, ALPHA0=incident_angle, QUBEAM=1., QUMAX=0.)
+    target_symbols = ['Ti', 'O', 'Al', 'Si']
+
+    number_species = 5
+
+    name = 'TOAS'
+    sim_number = 1
+
+    targets = [lookup_table.find_species(target_symbol, QUBEAM=0.0, QU=0.25, QUMAX=1.) for target_symbol in target_symbols]
+    species_list = [beam]+targets
+    species_list[1].DNS0 = 0.09
+    species_list[2].DNS0 = 0.09
+
+    surface = fractal_surface(FD=1, width=width, iterations=1)
+    surface.print_fractal_surface_file()
+
+    layers = [[0., 0.33, 0.67, 0., 0.], [0., 0., 0., 1., 0.], [0., 0., 0., 0., 1.]]
+    num_layers = [100, 300, 100]
+    print(sum(num_layers))
+
+    with open('TOAS0001.LAY', 'w+') as file:
+        for num, layer in zip(num_layers, layers):
+            for _ in range(num):
+                print(f'{layer[0]} {layer[1]} {layer[2]} {layer[3]} {layer[4]}', file=file)
+
+    simulation_parameters = sim_params(name=name, sim_num=sim_number, IFOUT=number_histories//20,
+    NH=number_histories, IDOUT=number_histories//5, IQOUT=number_histories//5, NCP=number_species, IDREL=0,
+    IQ0=1, IRC0=-1, IRAND=12855897, JSP1=0, JSP2=1, JFRP=1, JNRM=1, FLC=1e-16, INEL=1,
+    IWC=3, IDIFF=0, CSBE=0, ANGMN=0, ANGMX=90, TT=depth, TTDYN=depth, NQX=sum(num_layers),
+    DSF=100.0, IQXN=0, IQXX=250, IMCP=0, surf_name=surface.name+'.surf', species_list=species_list,
+    output_pka=0, output_ska=0, output_prj=1, output_rflst=1, output_splst=1, output_prof=1)
+    simulation_parameters.print_input_file()
+
+    os.system('FTridyn_Clean.exe < TOAS0001.IN')
+
+    #Read sputtered and reflected particle lists and force 2D
+    sputtered_list = np.atleast_2d(np.genfromtxt('TOASSPLST.DAT'))
+    reflected_list = np.atleast_2d(np.genfromtxt('TOASRFLST.DAT'))
+    deposited_list = np.atleast_2d(np.genfromtxt('TOASDUMPPRJ.DAT'))
+
+    num_sputtered = len(sputtered_list)
+    num_reflected = len(reflected_list)
+
+    range_sum = 0.
+    if np.size(deposited_list) > 0:
+        for row in deposited_list:
+            if row[2] > 0.: range_sum += row[2]
+
+    ion_range = range_sum/number_histories
+    return num_sputtered, num_reflected, ion_range*1E-10
+
 if __name__ == '__main__':
     #boron_carbon_tungsten_aps()
     #boron_carbon_tungsten_aps()
-    main()
+    titanium_oxide_aluminum_silicon(10000, 16000, 0.0001, 5000)

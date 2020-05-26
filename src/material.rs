@@ -10,39 +10,24 @@ pub struct MaterialParameters {
     pub n: Vec<f64>,
     pub Z: Vec<f64>,
     pub m: Vec<f64>,
-    pub electronic_stopping_correction_factor: f64
+    pub electronic_stopping_correction_factor: f64,
+    pub energy_barrier_thickness: f64
 }
 
-#[derive(Deserialize)]
-pub struct Geometry {
-    pub length_unit: String,
-    pub surface: Vec<(f64, f64)>,
-    pub energy_surface: Vec<(f64, f64)>,
-    pub simulation_surface: Vec<(f64, f64)>
+pub struct Material {
+    pub n: Vec<f64>,
+    pub m: Vec<f64>,
+    pub Z: Vec<f64>,
+    pub Eb: Vec<f64>,
+    pub Es: Vec<f64>,
+    pub Ec: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64,
+    pub mesh_2d: mesh::Mesh2D,
+    pub energy_barrier_thickness: f64
+
 }
-
-#[derive(Deserialize)]
-pub struct Mesh2DInput {
-    pub length_unit: String,
-    pub coordinate_sets: Vec<(f64, f64, f64, f64, f64, f64)>,
-    pub data: Vec<Vec<f64>>,
-}
-
-pub struct Mesh2D {
-    mesh: Vec<Cell2D>,
-    boundary: Polygon<f64>
-}
-impl Mesh2D {
-    pub fn new(mesh_2d_input: Mesh2DInput) -> Mesh2D {
-
-        let coordinate_sets = mesh_2d_input.coordinate_sets;
-        let data = mesh_2d_input.data;
-
-        assert_eq!(coordinate_sets.len(), data.len(), "Coordinates and data of unequal length.");
-        let n = coordinate_sets.len();
-
-        let mut cells: Vec<Cell2D> =  Vec::with_capacity(n);
-        let mut points: Vec<(f64, f64)> = Vec::with_capacity(n);
+impl Material {
+    pub fn new(material_parameters: MaterialParameters, mesh_2d_input: mesh::Mesh2DInput) -> Material {
 
         //Multiply all coordinates by value of geometry unit.
         let length_unit: f64 = match mesh_2d_input.length_unit.as_str() {
@@ -55,181 +40,6 @@ impl Mesh2D {
                 mesh_2d_input.length_unit.as_str())
         };
 
-        for (coordinate_set, densities) in coordinate_sets.iter().zip(data) {
-            cells.push(Cell2D::new(coordinate_set.clone(), densities));
-
-            points.push((coordinate_set.0*length_unit, coordinate_set.3*length_unit));
-            points.push((coordinate_set.1*length_unit, coordinate_set.4*length_unit));
-            points.push((coordinate_set.2*length_unit, coordinate_set.5*length_unit));
-        }
-        let multi_point: MultiPoint<f64> = points.into();
-        let boundary: Polygon<f64> = multi_point.convex_hull();
-
-        Mesh2D {
-            mesh: cells,
-            boundary: boundary
-        }
-    }
-
-    pub fn get_densities(&self, x: f64, y: f64) -> Vec<f64> {
-        for cell in &self.mesh {
-            if cell.contains(x, y) {
-                return cell.data.clone();
-            }
-        }
-        panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
-    }
-
-    pub fn get_total_density(&self, x: f64, y: f64) -> f64 {
-        for cell in &self.mesh {
-            if cell.contains(x, y) {
-                return cell.data.clone().iter().sum::<f64>();
-            }
-        }
-        panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
-    }
-
-    pub fn get_concentrations(&self, x: f64, y: f64) -> Vec<f64> {
-        if self.inside(x, y) {
-            for cell in &self.mesh {
-                if cell.contains(x, y) {
-                    let densities = cell.data.clone();
-                    let total_density: f64 = cell.data.clone().iter().sum();
-                    return densities.iter().map(|&i| i/total_density).collect::<Vec<f64>>()
-                }
-            }
-            panic!("Geometry error: method inside() is returning true for points outside all cells.")
-        } else {
-            let densities = self.nearest_cell_to(x, y).data.clone();
-            let total_density: f64 = densities.clone().iter().sum();
-            return densities.iter().map(|&i| i/total_density).collect::<Vec<f64>>()
-        }
-    }
-
-    pub fn inside(&self, x: f64, y: f64) -> bool {
-        self.boundary.contains(&Point::new(x, y))
-    }
-
-    pub fn nearest_cell_to(&self, x: f64, y: f64) -> &Cell2D {
-
-        let mut min_distance: f64 = std::f64::MAX;
-        let mut index: usize = 0;
-
-        for (cell_index, cell) in self.mesh.iter().enumerate() {
-            let distance_to = cell.distance_to(x, y);
-            if distance_to < min_distance {
-                min_distance = distance_to;
-                index = cell_index;
-            }
-        }
-
-        return &self.mesh[index];
-    }
-}
-
-pub struct Cell2D {
-    triangle: Triangle2D,
-    pub data: Vec<f64>
-}
-impl Cell2D {
-    pub fn new(coordinate_set: (f64, f64, f64, f64, f64, f64), data: Vec<f64>) -> Cell2D {
-        Cell2D {
-            triangle: Triangle2D::new(coordinate_set),
-            data: data
-        }
-    }
-
-    pub fn contains(&self, x: f64, y: f64) -> bool {
-        self.triangle.contains(x, y)
-    }
-
-    pub fn distance_to(&self, x: f64, y: f64) -> f64 {
-        self.triangle.distance_to(x, y)
-    }
-}
-
-pub struct Triangle2D {
-    x1: f64,
-    x2: f64,
-    x3: f64,
-    y1: f64,
-    y2: f64,
-    y3: f64,
-}
-
-impl Triangle2D {
-    pub fn new(coordinate_set: (f64, f64, f64, f64, f64, f64)) -> Triangle2D {
-
-        let x1 = coordinate_set.0;
-        let x2 = coordinate_set.1;
-        let x3 = coordinate_set.2;
-
-        let y1 = coordinate_set.3;
-        let y2 = coordinate_set.4;
-        let y3 = coordinate_set.5;
-
-        Triangle2D {
-            x1: x1,
-            x2: x2,
-            x3: x3,
-            y1: y1,
-            y2: y2,
-            y3: y3
-        }
-    }
-
-    pub fn contains(&self, x: f64, y: f64) -> bool {
-        let x1 = self.x1;
-        let x2 = self.x2;
-        let x3 = self.x3;
-        let y1 = self.y1;
-        let y2 = self.y2;
-        let y3 = self.y3;
-
-        let a = ((y2 - y3)*(x - x3) + (x3 - x2)*(y - y3)) / ((y2 - y3)*(x1 - x3) + (x3 - x2)*(y1 - y3));
-        let b = ((y3 - y1)*(x - x3) + (x1 - x3)*(y - y3)) / ((y2 - y3)*(x1 - x3) + (x3 - x2)*(y1 - y3));
-        let c = 1. - a - b;
-
-         (0. <= a) & (a <= 1.) & (0. <= b) & (b <= 1.) & (0. <= c) & (c <= 1.)
-    }
-
-    pub fn centroid(&self) -> (f64, f64) {
-        ((self.x1 + self.x2 + self.x3)/3., (self.y1 + self.y2 + self.y3)/3.)
-    }
-
-    pub fn distance_to(&self, x: f64, y: f64) -> f64 {
-        let centroid = self.centroid();
-        ((x - centroid.0).powf(2.) + (y - centroid.1).powf(2.)).sqrt()
-    }
-}
-
-pub struct Material {
-    pub n: Vec<f64>,
-    pub m: Vec<f64>,
-    pub Z: Vec<f64>,
-    pub Eb: Vec<f64>,
-    pub Es: Vec<f64>,
-    pub Ec: Vec<f64>,
-    pub surface: Polygon<f64>,
-    pub energy_surface: Polygon<f64>,
-    pub simulation_surface: Polygon<f64>,
-    pub electronic_stopping_correction_factor: f64,
-    pub mesh_2d: Mesh2D
-
-}
-impl Material {
-    pub fn new(material_parameters: MaterialParameters, geometry: Geometry, mesh_2d_input: Mesh2DInput) -> Material {
-
-        //Multiply all coordinates by value of geometry unit.
-        let length_unit: f64 = match geometry.length_unit.as_str() {
-            "MICRON" => MICRON,
-            "CM" => CM,
-            "ANGSTROM" => ANGSTROM,
-            "NM" => NM,
-            "M" => 1.,
-            _ => panic!("Input error: incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
-                geometry.length_unit.as_str())
-        };
         let energy_unit: f64 = match material_parameters.energy_unit.as_str() {
             "EV" => EV,
             "J"  => 1.,
@@ -238,28 +48,13 @@ impl Material {
             _ => panic!("Input error: incorrect unit {} in input file. Choose one of: EV, J, KEV, MEV",
                 material_parameters.energy_unit.as_str())
         };
+
         let mass_unit: f64 = match material_parameters.mass_unit.as_str() {
             "AMU" => AMU,
             "KG" => 1.,
             _ => panic!("Input error: incorrect unit {} in input file. Choose one of: AMU, KG",
                 material_parameters.mass_unit.as_str())
         };
-
-        let mut unit_coords = geometry.surface.clone();
-        for pair in &mut unit_coords {
-            pair.0 *= length_unit;
-            pair.1 *= length_unit;
-        }
-        let mut unit_e_coords = geometry.energy_surface.clone();
-        for pair in &mut unit_e_coords {
-            pair.0 *= length_unit;
-            pair.1 *= length_unit;
-        }
-        let mut unit_b_coords = geometry.simulation_surface.clone();
-        for pair in &mut unit_b_coords {
-            pair.0 *= length_unit;
-            pair.1 *= length_unit;
-        }
 
         Material {
             n: material_parameters.n,
@@ -269,10 +64,8 @@ impl Material {
             Es: material_parameters.Es.iter().map(|&i| i*energy_unit).collect(),
             Ec: material_parameters.Ec.iter().map(|&i| i*energy_unit).collect(),
             electronic_stopping_correction_factor: material_parameters.electronic_stopping_correction_factor,
-            surface: Polygon::new(LineString::from(unit_coords), vec![]),
-            energy_surface: Polygon::new(LineString::from(unit_e_coords), vec![]),
-            simulation_surface: Polygon::new(LineString::from(unit_b_coords), vec![]),
-            mesh_2d: Mesh2D::new(mesh_2d_input),
+            mesh_2d: mesh::Mesh2D::new(mesh_2d_input),
+            energy_barrier_thickness: material_parameters.energy_barrier_thickness*length_unit
         }
     }
 
@@ -281,7 +74,7 @@ impl Material {
         let total_number_density: f64 = if self.inside(x, y) {
             self.mesh_2d.get_total_density(x,y)
         } else {
-            self.mesh_2d.nearest_cell_to(x, y).data.iter().sum::<f64>()
+            self.mesh_2d.nearest_cell_to(x, y).densities.iter().sum::<f64>()
         };
 
         return self.mesh_2d.get_densities(x, y).iter().map(|&i| i / total_number_density).collect();
@@ -312,20 +105,36 @@ impl Material {
         if self.inside(x, y) {
             return self.mesh_2d.get_densities(x, y).iter().sum::<f64>();
         } else {
-            return self.mesh_2d.nearest_cell_to(x, y).data.iter().sum::<f64>();
+            return self.mesh_2d.nearest_cell_to(x, y).densities.iter().sum::<f64>();
+        }
+        //return self.n.iter().sum::<f64>();
+    }
+
+    pub fn number_densities(&self, x: f64, y: f64) -> &Vec<f64> {
+        if self.inside(x, y) {
+            return &self.mesh_2d.get_densities(x, y);
+        } else {
+            return &self.mesh_2d.nearest_cell_to(x, y).densities;
         }
         //return self.n.iter().sum::<f64>();
     }
 
     pub fn inside_energy_barrier(&self, x: f64, y: f64) -> bool {
-        return self.mesh_2d.inside(x, y);
+
+        if self.mesh_2d.inside(x, y) {
+            true
+        } else {
+            let nearest_cell = self.mesh_2d.nearest_cell_to(x, y);
+            let distance = nearest_cell.distance_to(x, y);
+            distance < self.energy_barrier_thickness
+        }
         //let p = point!(x: x, y: y);
         //return self.energy_surface.contains(&p);
     }
 
     pub fn inside_simulation_boundary(&self, x:f64, y: f64) -> bool {
         let p = point!(x: x, y: y);
-        return self.simulation_surface.contains(&p);
+        return self.mesh_2d.simulation_boundary.contains(&p);
     }
 
     pub fn closest_point(&self, x: f64, y: f64) -> Closest<f64> {
@@ -342,7 +151,7 @@ impl Material {
 
     pub fn closest_point_on_simulation_surface(&self, x: f64, y: f64) -> Closest<f64> {
         let p = point!(x: x, y: y);
-        return self.simulation_surface.closest_point(&p)
+        return self.mesh_2d.simulation_boundary.closest_point(&p)
     }
 
     pub fn average_Z(&self, x: f64, y: f64) -> f64 {
@@ -362,6 +171,11 @@ impl Material {
         let concentrations = self.mesh_2d.get_concentrations(x, y);
         return self.Eb.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum();
         //return self.Eb.iter().sum::<f64>()/self.Eb.len() as f64;
+    }
+
+    pub fn actual_surface_binding_energy(&self, x: f64, y: f64) -> f64 {
+        let concentrations = self.mesh_2d.get_concentrations(x, y);
+        return self.Es.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum();
     }
 
     pub fn minimum_cutoff_energy(&self) -> f64 {
@@ -396,21 +210,21 @@ impl Material {
 
         //Bragg's rule: total stopping power is sum of stopping powers of individual atoms
         //Therefore, compute each stopping power separately, and add them up
-        for (n, Zb) in self.n.iter().zip(self.Z.clone()) {
+        for (n, Zb) in self.n.iter().zip(&self.Z) {
             //let n = self.number_density(particle_1.pos.x, particle_1.pos.y);
             //let Zb = self.Z_eff(particle_1.pos.x, particle_1.pos.y);
 
             let beta = (1. - (1. + E/Ma/C.powf(2.)).powf(-2.)).sqrt();
             let v = beta*C;
 
-            let I0 = match Zb < 13. {
+            let I0 = match *Zb < 13. {
                 true => 12. + 7./Zb,
                 false => 9.76 + 58.5*Zb.powf(-1.19),
             };
             let I = Zb*I0*Q;
 
             //See Biersack and Haggmark - this looks like an empirical shell correction
-            let B = match Zb < 3. {
+            let B = match *Zb < 3. {
                 true => 100.*Za/Zb,
                 false => 5.
             };
@@ -451,7 +265,9 @@ pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &ma
     let cosy = particle_1.dir.y;
     let cosz = particle_1.dir.z;
     let E = particle_1.E;
-    let Es = particle_1.Es;
+
+    //Actual surface binding energies
+    let Es = if particle_1.incident {particle_1.Es} else {material.actual_surface_binding_energy(x_old, y_old)};
     let Ec = particle_1.Ec;
 
     let inside_now = material.inside_energy_barrier(x, y);
@@ -475,7 +291,7 @@ pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &ma
             let delta_theta = particle::refraction_angle(costheta, E, E + Es);
             particle::rotate_particle(particle_1, delta_theta, 0.);
 
-            particle_1.add_trajectory();
+            //particle_1.add_trajectory();
         } else {
             panic!("Numerical error: surface boundary algorithm encountered an error. Check geometry.");
         }
@@ -483,6 +299,7 @@ pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &ma
 
     if leaving {
         if let Closest::SinglePoint(p2) = material.closest_point(x, y) {
+
             let dx = p2.x() - x;
             let dy = p2.y() - y;
             let mag = (dx*dx + dy*dy).sqrt();
@@ -500,7 +317,7 @@ pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &ma
                     let delta_theta = particle::refraction_angle(costheta, E, E - Es);
                     particle::rotate_particle(particle_1, delta_theta, 0.);
 
-                    particle_1.add_trajectory();
+                    //particle_1.add_trajectory();
 
                 } else {
 
@@ -509,7 +326,7 @@ pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &ma
                     particle_1.dir.y = -2.*(costheta)*dy/mag + cosy;
 
                     particle_1.backreflected = true;
-                    particle_1.add_trajectory();
+                    //particle_1.add_trajectory();
                 }
             }
         } else {
@@ -521,26 +338,20 @@ pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &ma
 pub fn boundary_condition_2D_planar(particle_1: &mut particle::Particle, material: &material::Material) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
-    let x_old = particle_1.pos_old.x;
-    let y_old = particle_1.pos_old.y;
-    let cosx = particle_1.dir.x;
-    let cosy = particle_1.dir.y;
-    let cosz = particle_1.dir.z;
     let E = particle_1.E;
-    let Es = particle_1.Es;
     let Ec = particle_1.Ec;
-
-    surface_binding_energy(particle_1, material);
 
     if !material.inside_simulation_boundary(x, y) {
         particle_1.left = true;
         particle_1.add_trajectory();
     }
 
-    if (E < Ec) & !particle_1.left {
-        if material.inside_energy_barrier(x, y) {
-            particle_1.stopped = true;
-            particle_1.add_trajectory();
-        }
+    if (E < Ec) & !particle_1.left & material.inside_energy_barrier(x, y) {
+        particle_1.stopped = true;
+        particle_1.add_trajectory();
+    }
+
+    if !particle_1.stopped & !particle_1.left {
+        surface_binding_energy(particle_1, material);
     }
 }

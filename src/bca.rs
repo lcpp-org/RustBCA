@@ -77,14 +77,14 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
         let Mb: f64  = material.average_mass(x, y);
         let Za: f64  = particle_1.Z;
         let Zb: f64  = material.average_Z(x, y);
-        let n: Vec<f64>  = material.n.clone();
+        let n: &Vec<f64>  = material.number_densities(x, y);
         let E: f64  = particle_1.E;
         let Ec: f64 = particle_1.Ec;
         let a: f64 = interactions::screening_length(Za, Zb, options.interaction_potential);
         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
 
         //Minimum energy transfer for generating scattering event set to cutoff energy
-        let E_min = Ec*(Ma + Mb).powf(2.)/4./Ma/Mb;
+        let E_min = Ec*(Ma + Mb)*(Ma + Mb)/4./Ma/Mb;
         let reduced_energy_min: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E_min;
 
         //Free flight path formulation here described in SRIM textbook chapter 7, and Eckstein 1991 7.5.2
@@ -93,7 +93,7 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
         let mut ffp = 1./(material.total_number_density(x, y)*pmax*pmax*PI);
         let stopping_powers = material.electronic_stopping_cross_sections(particle_1, INTERPOLATED);
 
-        let delta_energy_electronic = stopping_powers.iter().zip(material.n.clone()).map(|(&i1, i2)| i1*i2).sum::<f64>()*ffp*material.electronic_stopping_correction_factor;
+        let delta_energy_electronic = stopping_powers.iter().zip(material.number_densities(x, y)).map(|(&i1, i2)| i1*i2).sum::<f64>()*ffp*material.electronic_stopping_correction_factor;
 
         //If losing too much energy, scale free-flight-path down
         //5 percent limit set in original TRIM paper, Biersack and Haggmark 1980
@@ -186,6 +186,7 @@ pub fn choose_collision_partner(particle_1: &particle::Particle, material: &mate
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;
+
     let impact_parameter = binary_collision_geometry.impact_parameter;
     let mfp = binary_collision_geometry.mfp;
     let phi_azimuthal = binary_collision_geometry.phi_azimuthal;
@@ -204,12 +205,12 @@ pub fn choose_collision_partner(particle_1: &particle::Particle, material: &mate
     let z_recoil: f64 = z + mfp*cg + impact_parameter*(sphi*cb - cphi*ca*cg)/sa;
 
     //Choose recoil Z, M
-    let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil) = material.choose(x, y);
+    let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil) = material.choose(x_recoil, y_recoil);
 
     return (species_index,
         particle::Particle::new(
             M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil,
-            x_recoil, z_recoil, z_recoil,
+            x_recoil, y_recoil, z_recoil,
             ca, cb, cg,
             false, options.track_recoil_trajectories
         )
@@ -244,7 +245,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         let f = doca_function(x0, beta, reduced_energy,  options.interaction_potential);
         let df = diff_doca_function(x0, beta, reduced_energy, options.interaction_potential);
         xn = x0 - f/df;
-        err = (xn - x0).powf(2.);
+        err = (xn - x0)*(xn - x0);
         x0 = xn;
         if err < options.tolerance {
             return Ok(x0);
@@ -311,6 +312,8 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
             options.scattering_integral)
     };
 
+    assert!(!theta.is_nan());
+
     //See Eckstein 1991 for details on center of mass and lab frame angles
     let asympototic_deflection = x0*a*(theta/2.).sin();
     let psi = (theta.sin().atan2(Ma/Mb + theta.cos())).abs();
@@ -333,17 +336,13 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
     let y = particle_1.pos.y;
     let ck = material.electronic_stopping_correction_factor;
 
-    //if material.inside_energy_barrier(x, y) {
     if material.inside(x, y) {
 
         let electronic_stopping_powers = material.electronic_stopping_cross_sections(particle_1, options.electronic_stopping_mode);
-        let n = material.n.clone();
+        let n = material.number_densities(x, y);
 
         let delta_energy = match options.electronic_stopping_mode {
             INTERPOLATED => electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled*ck,
-
-            //v1.iter().zip(v2).map(|(&i1, &i2)| i1 * i2).collect()
-
             LOW_ENERGY_NONLOCAL => electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled*ck,
             LOW_ENERGY_LOCAL => {
                 let Za: f64  = particle_1.Z;
@@ -370,15 +369,9 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
 
                 //Oen-Robinson local electronic stopping power
                 let a = interactions::screening_length(Za, Zb, options.interaction_potential);
+
                 //d1 is the first (smallest) interior constant of the screening function
-                let d1 = match options.interaction_potential {
-                    MOLIERE => 0.3,
-                    KR_C => 0.278544,
-                    ZBL => 0.20162,
-                    LENZ_JENSEN => 0.206,
-                    TRIDYN => 0.278544,
-                    _ => panic!("Input error: unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
-                };
+                let d1 = interactions::first_screening_radius(options.interaction_potential);
                 let delta_energy_local = d1*d1/2./PI*electronic_stopping_powers[strong_collision_index]*(-d1*xi).exp()/a/a;
                 let delta_energy_nonlocal = electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled*ck;
 
