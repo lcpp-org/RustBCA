@@ -7,12 +7,12 @@ BCA codes are valid for incident ion energies between approximately 10 eV  throu
 # Features
 
 * Ion-solid interactions for all combinations of incident ion and target species
-* Includes homogeneous multicomponent materials
+* 2D geometry
+* Arbitrary, mesh-based inhomogeneous composition
 * Low energy (<25 keV/nucleon) electronic stopping modes include local (Oen-Robinson), nonlocal (Lindhard-Scharff), and equipartition forms
 * Includes Biersack-Varelas interpolation to extend electronic stopping validity up to ~1 GeV/nucleon
-* Includes MAGIC algorithm and more accurate Mendenhall-Weller quadrature to solve scattering integral
-* Arbitrary 2D geometry
-* Full trajectory tracking
+* Includes MAGIC algorithm and Mendenhall-Weller quadrature to solve scattering integral
+* Full trajectory tracking of ions and target atoms
 * Human-readable input file using the TOML format
 * Output of energies and directions of emitted particles (reflected ions and sputtered atoms)
 * Output of final positions of implanted ions
