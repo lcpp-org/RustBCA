@@ -1,0 +1,50 @@
+[options]
+name = "2000.0eV_0.0001deg_He_W"
+track_trajectories = false
+track_recoils = true
+track_recoil_trajectories = false
+write_files = true
+stream_size = 8000
+print = true
+print_num = 10
+weak_collision_order = 0
+suppress_deep_recoils = false
+high_energy_free_flight_paths = true
+electronic_stopping_mode = 0
+mean_free_path_model = 0
+interaction_potential = 1
+scattering_integral = 0
+tolerance = 0.001
+max_iterations = 100
+
+[material_parameters]
+energy_unit = "EV"
+mass_unit = "AMU"
+Eb = [ 3.0, 2.58, 3.0, 0.0,]
+Es = [ 4.84, 2.58, 3.39, 4.72,]
+Ec = [ 3.5, 2.0, 3.0, 1.5,]
+n = [ 5.67e+28, 4.291e+28, 6.026e+28, 4.996e+28,]
+Z = [ 22, 8, 13, 14,]
+m = [ 47.867, 15.9994, 26.98, 28.08553,]
+electronic_stopping_correction_factor = 1.0
+energy_barrier_thickness = 6.713580575220781e-5
+
+[particle_parameters]
+length_unit = "MICRON"
+energy_unit = "EV"
+mass_unit = "AMU"
+N = [ 100000,]
+m = [ 4.002602,]
+Z = [ 2,]
+E = [ 2000.0,]
+Ec = [ 1.0,]
+Es = [ 0.0,]
+pos = [ [ -1.7453292519934434e-8, 0.0, 0.0,],]
+dir = [ [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,],]
+
+[mesh_2d_input]
+length_unit = "MICRON"
+coordinate_sets = [ [ 0.0, 0.01, 0.0, 0.5, 0.5, -0.5,], [ 0.0, 0.01, 0.01, -0.5, 0.5, -0.5,], [ 0.01, 0.01, 0.04, -0.5, 0.5, -0.5,], [ 0.01, 0.04, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5000000000000001, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5000000000000001, 0.5000000000000001, -0.5, 0.5, -0.5,],]
+densities = [ [ 2.9999999999999997e+28, 5.999999999999999e+28, 0.0, 0.0,], [ 2.9999999999999997e+28, 5.999999999999999e+28, 0.0, 0.0,], [ 0.0, 0.0, 6.026e+28, 0.0,], [ 0.0, 0.0, 6.026e+28, 0.0,], [ 0.0, 0.0, 0.0, 4.996e+28,], [ 0.0, 0.0, 0.0, 4.996e+28,],]
+boundary_points = [ [ 0.0, 0.5,], [ 0.5000000000000001, 0.5,], [ 0.5000000000000001, -0.5,], [ 0.0, -0.5,],]
+simulation_boundary_points = [ [ 0.6000000000000001, -0.6,], [ -0.1, -0.6,], [ -0.1, 0.6,], [ 0.6000000000000001, 0.6,], [ 0.6000000000000001, -0.6,],]
