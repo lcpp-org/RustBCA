@@ -3,6 +3,7 @@
 
 //Error handling crate
 //use anyhow::Result;
+use anyhow::Result;
 use anyhow::*;
 
 //Geometry crate
@@ -13,6 +14,9 @@ use geo::{point, Polygon, LineString, Closest, Point};// MultiPoint, Point};
 
 //Serializing/Deserializing crate
 use serde::*;
+
+//Array input via hdf5
+use hdf5::*;
 
 //I/O
 use std::fs::OpenOptions;
@@ -27,6 +31,7 @@ pub mod tests;
 pub mod interactions;
 pub mod bca;
 pub mod mesh;
+use crate::particle::ParticleInput;
 
 //Physical constants
 const Q: f64 = 1.60217646E-19;
@@ -249,6 +254,13 @@ fn main() {
         true => total_particles + ((max_energy/material.minimum_cutoff_energy()).ceil() as usize),
         false => total_particles,
     };
+
+    //Read in HDF5 (Experimental)
+    let filename = "particles.h5";
+    let _e = hdf5::silence_errors();
+    let particle_input_file = hdf5::File::open(filename).unwrap();
+    let particle_input = particle_input_file.dataset("particles").unwrap();
+    let particle_input_array = particle_input.read_raw::<ParticleInput>().unwrap();
 
     let mut particles: Vec<particle::Particle> = Vec::with_capacity(estimated_num_particles);
     for particle_index in 0..N {

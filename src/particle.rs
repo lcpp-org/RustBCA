@@ -15,6 +15,22 @@ pub struct ParticleParameters {
     pub dir: Vec<(f64, f64, f64)>,
 }
 
+#[derive(hdf5::H5Type, Clone, PartialEq, Debug)]
+#[repr(C)]
+pub struct ParticleInput {
+    pub m: f64,
+    pub Z: f64,
+    pub E: f64,
+    pub Ec: f64,
+    pub Es: f64,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub ux: f64,
+    pub uy: f64,
+    pub uz: f64
+}
+
 pub struct Particle {
     pub m: f64,
     pub Z: f64,
