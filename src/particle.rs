@@ -2,6 +2,7 @@ use super::*;
 
 #[derive(Deserialize)]
 pub struct ParticleParameters {
+    //pub particle_input_filename: String,
     pub length_unit: String,
     pub energy_unit: String,
     pub mass_unit: String,
@@ -31,6 +32,7 @@ pub struct ParticleInput {
     pub uz: f64
 }
 
+#[derive(Clone)]
 pub struct Particle {
     pub m: f64,
     pub Z: f64,

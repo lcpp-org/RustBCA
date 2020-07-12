@@ -389,3 +389,122 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
         particle_1.E = 0.;
     }
 }
+
+pub fn single_ion_bca(particle: particle::Particle, material: &material::Material, options: &Options) -> Vec<particle::Particle> {
+
+    let mut particles: Vec<particle::Particle> = Vec::new();
+    particles.push(particle);
+
+    let mut particle_output: Vec<particle::Particle> = Vec::new();
+
+    let mut particle_index = particles.len();
+
+    'particle_loop: while particle_index > 0 {
+        //Remove particle from top of vector as particle_1
+        let mut particle_1 = particles.pop().unwrap();
+
+        //BCA loop
+        'trajectory_loop: while !particle_1.stopped & !particle_1.left {
+
+            //Choose impact parameters and azimuthal angles for all collisions, and determine mean free path
+            let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material, &options);
+
+            let mut total_energy_loss = 0.;
+            let mut total_asymptotic_deflection = 0.;
+            let mut distance_of_closest_approach = 0.;
+            let mut strong_collision_Z = 0.;
+            let mut strong_collision_index: usize = 0;
+
+            'collision_loop: for k in 0..options.weak_collision_order + 1 {
+
+                let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material,
+                    &binary_collision_geometries[k], &options);
+
+                //If recoil location is inside, proceed with binary collision loop
+                if material.inside(particle_2.pos.x, particle_2.pos.y) & material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) {
+
+                    //Determine scattering angle from binary collision
+                    let binary_collision_result = bca::calculate_binary_collision(&particle_1,
+                        &particle_2, &binary_collision_geometries[k], &options);
+
+                    //Only use 0th order collision for local electronic stopping
+                    if k == 0 {
+                        distance_of_closest_approach = binary_collision_result.normalized_distance_of_closest_approach;
+                        strong_collision_Z = particle_2.Z;
+                        strong_collision_index = species_index;
+                    }
+
+                    //Energy transfer to recoil
+                    particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y);
+
+                    //Accumulate asymptotic deflections for primary particle
+                    total_energy_loss += binary_collision_result.recoil_energy;
+
+                    //total_deflection_angle += psi;
+                    total_asymptotic_deflection += binary_collision_result.asymptotic_deflection;
+
+                    //Rotate particle 1, 2 by lab frame scattering angles
+                    particle::rotate_particle(&mut particle_1, binary_collision_result.psi,
+                        binary_collision_geometries[k].phi_azimuthal);
+
+                    particle::rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
+                        binary_collision_geometries[k].phi_azimuthal);
+                    particle_2.dir_old.x = particle_2.dir.x;
+                    particle_2.dir_old.y = particle_2.dir.y;
+                    particle_2.dir_old.z = particle_2.dir.z;
+
+                    //Only track number of strong collisions, i.e., k = 0
+                    if (binary_collision_result.psi > 0.) & (k == 0) {
+                        particle_1.number_collision_events += 1;
+                    }
+
+                    //Deep recoil suppression
+                    //See Eckstein 1991 7.5.3 for recoil suppression function
+                    if options.track_recoils & options.suppress_deep_recoils {
+                        let E = particle_1.E;
+                        let Za: f64 = particle_1.Z;
+                        let Zb: f64 = particle_2.Z;
+
+                        let Ma: f64 = particle_1.m;
+                        let Mb: f64 = particle_2.m;
+
+                        let n = material.total_number_density(particle_2.pos.x, particle_2.pos.y);
+                        let a: f64 = interactions::screening_length(Za, Zb, options.interaction_potential);
+                        let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
+                        let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powf(3.)/n/a/a;
+
+                        if let Closest::SinglePoint(p2) = material.closest_point(particle_2.pos.x, particle_2.pos.y) {
+                            let dx = p2.x() - particle_2.pos.x;
+                            let dy = p2.y() - particle_2.pos.y;
+                            let distance_to_surface = (dx*dx + dy*dy).sqrt();
+
+                            if (distance_to_surface < estimated_range_of_recoils) & (particle_2.E > particle_2.Ec) {
+                                particles.push(particle_2);
+                            }
+                        }
+                    //If transferred energy > cutoff energy, add recoil to particle vector
+                    } else if options.track_recoils & (particle_2.E > particle_2.Ec) {
+                        particles.push(particle_2);
+                    }
+                }
+            }
+
+            //Advance particle in space and track total distance traveled
+            let distance_traveled = particle::particle_advance(&mut particle_1,
+                binary_collision_geometries[0].mfp, total_asymptotic_deflection);
+
+            //Subtract total energy from all simultaneous collisions and electronic stopping
+            bca::update_particle_energy(&mut particle_1, &material, distance_traveled,
+                total_energy_loss, distance_of_closest_approach, strong_collision_Z,
+                strong_collision_index, &options);
+
+            //Check boundary conditions on leaving and stopping
+            material::boundary_condition_2D_planar(&mut particle_1, &material);
+
+            //Set particle index to topmost particle
+            particle_index = particles.len();
+        }
+        particle_output.push(particle_1);
+    }
+    particle_output
+}
