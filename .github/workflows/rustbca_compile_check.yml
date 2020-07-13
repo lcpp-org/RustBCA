@@ -35,6 +35,9 @@ jobs:
     - name: Install Cargo
       run: |
         sudo apt install cargo
+    - name: Install HDF5 Libraries
+      run: |
+        sudo apt install libhdf5-dev
     - name: Build RustBCA
       run: |
         cargo build --release
