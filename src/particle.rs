@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Deserialize)]
 pub struct ParticleParameters {
-    //pub particle_input_filename: String,
+    pub particle_input_filename: String,
     pub length_unit: String,
     pub energy_unit: String,
     pub mass_unit: String,
