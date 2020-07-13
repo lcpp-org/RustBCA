@@ -250,6 +250,8 @@ fn test_momentum_conservation() {
                         scattering_integral: scattering_integral,
                         tolerance: 1E-12,
                         max_iterations: 100,
+                        num_threads: 1,
+                        use_hdf5: false,
                     };
 
                     let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
