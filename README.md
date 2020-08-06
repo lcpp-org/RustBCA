@@ -58,8 +58,8 @@ print_num = 10 #Number of times to print to std out
 weak_collision_order = 3 #Number of weak collisions (>0)
 suppress_deep_recoils = false #Eckstein's empirical recoil suppression for target atoms that cannot sputter
 high_energy_free_flight_paths = false #TRIM-style free flight paths between collisions
-electronic_stopping_mode = 1 #0: Biersack-Varelas Interpolation (~10eV/nuclean-100MeV/nuclean) 1: Lindhard-Scharff local (<=25keV/nucleon) 2: Oen-Robinson nonlocal (<=25keV/nucleon) 3: Equipartition betw. LS and OR (<=25keV/nucleon)
-mean_free_path_model = 0 #0: Liquid (1/n^3) 1: Gaseous 
+electronic_stopping_mode = 1 #0: Biersack-Varelas Interpolation (~10eV/nucleon-100MeV/nucloan) 1: Lindhard-Scharff nonlocal (<=25keV/nucleon) 2: Oen-Robinson local (<=25keV/nucleon) 3: Equipartition betw. LS and OR (<=25keV/nucleon)
+mean_free_path_model = 0 #0: Liquid (1/n^3) 1: Gaseous (exponential)
 interaction_potential = 2 #0: Moliere 1: Krypton-Carbon 2: ZBL 3: Lenz-Jensen
 scattering_integral = 0 #0: Mendenhall-Weller Quadrature 1: MAGIC algorithm
 tolerance = 0.001 #Tolerance for Newton-Raphson distance of closest approach algorithm
