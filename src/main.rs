@@ -73,8 +73,14 @@ const LENZ_JENSEN: i32 = 3;
 const TRIDYN: i32 = -1;
 
 //Scattering integral forms
-const QUADRATURE: i32 = 0;
+const MENDENHALL_WELLER: i32 = 0;
 const MAGIC: i32 = 1;
+const GAUSS_MEHLER: i32 = 2;
+const GAUSS_LEGENDRE: i32 = 3;
+
+//Distance of closest approach determination
+const NEWTON: i32 = 0;
+const CPR: i32 = 1;
 
 #[derive(Clone)]
 pub struct Vector {
@@ -166,6 +172,7 @@ pub struct Options {
     max_iterations: usize,
     num_threads: usize,
     use_hdf5: bool,
+    root_finder: i32,
 }
 
 fn main() {
@@ -244,61 +251,74 @@ fn main() {
             particle_parameters.mass_unit.as_str())
     };
 
-    let mut particles: Vec<particle::Particle> = Vec::new();
-    for particle_index in 0..N {
-
-        let N_ = particle_parameters.N[particle_index];
-        let m = particle_parameters.m[particle_index];
-        let Z = particle_parameters.Z[particle_index];
-        let E = particle_parameters.E[particle_index];
-        let Ec = particle_parameters.Ec[particle_index];
-        let Es = particle_parameters.Es[particle_index];
-        let (x, y, z) = particle_parameters.pos[particle_index];
-        let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
-        for sub_particle_index in 0..N_ {
-            //Add new particle to particle vector
-            particles.push(particle::Particle::new(
-                m*mass_unit, Z, E*energy_unit, Ec*energy_unit, Es*energy_unit,
-                x*length_unit, y*length_unit, z*length_unit,
-                cosx, cosy, cosz, true, options.track_trajectories
-            ));
-        }
-    }
-
     //HDF5
-    if options.use_hdf5 {
-        let particle_input_filename = particle_parameters.particle_input_filename.as_str();
-        let _e = hdf5::silence_errors();
-        let particle_input_file = hdf5::File::open(particle_input_filename).unwrap();
-        let particle_input = particle_input_file.dataset("particles").unwrap();
-        let particle_input_array = particle_input.read_raw::<particle::ParticleInput>().unwrap();
+    let particle_input_array: Vec<particle::ParticleInput> = {
+        if options.use_hdf5 {
+            let particle_input_filename = particle_parameters.particle_input_filename.as_str();
+            let _e = hdf5::silence_errors();
+            let particle_input_file = hdf5::File::open(particle_input_filename).unwrap();
+            let particle_input = particle_input_file.dataset("particles").unwrap();
+            particle_input.read_raw::<particle::ParticleInput>().unwrap()
 
-        for particle in particle_input_array {
-            particles.push(
-                particle::Particle::new(
-                    particle.m*mass_unit, particle.Z, particle.E*energy_unit,
-                    particle.Ec*energy_unit, particle.Es*energy_unit,
-                    particle.x*length_unit, particle.y*length_unit, particle.z*length_unit,
-                    particle.ux, particle.uy, particle.uz,
-                    true, options.track_trajectories
-                )
-            );
+        } else {
+            let mut particle_input: Vec<particle::ParticleInput> = Vec::new();
+
+            for particle_index in 0..N {
+                let N_ = particle_parameters.N[particle_index];
+                let m = particle_parameters.m[particle_index];
+                let Z = particle_parameters.Z[particle_index];
+                let E = particle_parameters.E[particle_index];
+                let Ec = particle_parameters.Ec[particle_index];
+                let Es = particle_parameters.Es[particle_index];
+                let (x, y, z) = particle_parameters.pos[particle_index];
+                let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
+                for sub_particle_index in 0..N_ {
+                    //Add new particle to particle vector
+                    particle_input.push(
+                        particle::ParticleInput{
+                            m: m*mass_unit,
+                            Z: Z,
+                            E: E*energy_unit,
+                            Ec: Ec*energy_unit,
+                            Es: Es*energy_unit,
+                            x: x*length_unit,
+                            y: y*length_unit,
+                            z: z*length_unit,
+                            ux: cosx,
+                            uy: cosy,
+                            uz: cosz
+                        }
+                    );
+                }
+            }
+            particle_input
         }
-    }
+    };
 
     //Initialize threads with rayon
     println!("Initializing with {} threads...", options.num_threads);
     let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global().unwrap();
 
+    println!("Processing {} ions...", particle_input_array.len());
+
     //Main loop
     let mut finished_particles: Vec<particle::Particle> = Vec::new();
 
-    println!("Processing {} ions...", particles.len());
-    finished_particles.par_extend(
-        particles.into_par_iter()
-            .map(|particle| bca::single_ion_bca(particle.clone(), &material, &options))
-            .flatten()
-    );
+    let parallel = true;
+    if parallel {
+        finished_particles.par_extend(
+            particle_input_array.into_par_iter()
+            .map(|particle_input| bca::single_ion_bca(particle::Particle::from_input(particle_input, &options), &material, &options))
+                .flatten()
+        );
+    } else {
+        finished_particles.extend(
+            particle_input_array.into_iter()
+            .map(|particle_input| bca::single_ion_bca(particle::Particle::from_input(particle_input, &options), &material, &options))
+                .flatten()
+        );
+    }
+
 
     println!("Simulation finished. Writing {} particles to disk...", finished_particles.len());
     //Open output files for streaming output
@@ -384,6 +404,7 @@ fn main() {
             }
         }
     }
+
     //Flush all file streams before dropping to ensure all data is written
     reflected_file_stream.flush().unwrap();
     deposited_file_stream.flush().unwrap();

@@ -55,6 +55,36 @@ pub struct Particle {
     pub backreflected: bool,
 }
 impl Particle {
+    pub fn from_input(input: ParticleInput, options: &Options) -> Particle {
+        let dirx = input.ux;
+        let diry = input.uy;
+        let dirz = input.uz;
+
+        let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
+
+        Particle {
+            m: input.m,
+            Z: input.Z,
+            E: input.E,
+            Ec: input.Ec,
+            Es: input.Es,
+            pos: Vector::new(input.x, input.y, input.z),
+            dir: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
+            pos_old: Vector::new(input.x, input.y, input.z),
+            dir_old: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
+            pos_origin: Vector::new(input.x, input.y, input.z),
+            asympototic_deflection: 0.,
+            stopped: false,
+            left: false,
+            incident: true,
+            first_step: true,
+            trajectory: vec![Vector4::new(input.E, input.x, input.y, input.z)],
+            track_trajectories: options.track_trajectories,
+            number_collision_events: 0,
+            backreflected: false
+        }
+    }
+
     pub fn new(m: f64, Z: f64, E: f64, Ec: f64, Es: f64, x: f64, y: f64, z: f64, dirx: f64, diry: f64, dirz: f64, incident: bool, track_trajectories: bool) -> Particle {
         let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
 

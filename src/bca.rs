@@ -1,4 +1,5 @@
 use super::*;
+use rcpr::chebyshev::*;
 
 pub struct BinaryCollisionGeometry {
     pub phi_azimuthal: f64,
@@ -44,14 +45,40 @@ fn doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential:
     return x0 - interactions::phi(x0, interaction_potential)/reduced_energy - beta*beta/x0;
 }
 
+fn doca_function_transformed(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
+    return x0*x0 - x0*interactions::phi(x0, interaction_potential)/reduced_energy - beta*beta;
+}
+
 fn diff_doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
     //First differential of distance of closest approach function for N-R solver
     return beta*beta/x0/x0 - interactions::dphi(x0, interaction_potential)/reduced_energy + 1.
 }
 
-fn scattering_function(x: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
+fn scattering_function_mh(x: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
     //Function for scattering integral - see Mendenhall and Weller, 1991 & 2005
     return (1. - interactions::phi(x, interaction_potential)/x/reduced_energy - beta*beta/x/x).powf(-0.5);
+}
+
+fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
+    4.*impact_parameter*u/(r0*(1. - interaction_potential(r0/(1. - u*u))/relative_energy - impact_parameter*impact_parameter*(1. - u*u).powf(2.)/r0/r0).sqrt())
+}
+
+fn scattering_function_gm(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
+    impact_parameter/r0/(1. - interaction_potential(r0/u)/relative_energy - (impact_parameter*u/r0).powf(2.)).sqrt()
+}
+
+fn scattering_integral_gauss_mehler(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: &dyn Fn(f64) -> f64, n_points: usize) -> f64 {
+    let x: Vec<f64> = (1..=n_points).map(|i| ((2.*i as f64 - 1.)/4./n_points as f64*PI).cos()).collect();
+    let w: Vec<f64> = (1..=n_points).map(|i| PI/n_points as f64*((2.*i as f64 - 1.)/4./n_points as f64*PI).sin()).collect();
+
+    PI - x.iter().zip(w).map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential)).sum::<f64>()
+}
+
+fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
+    let x: Vec<f64> = vec![0., -0.538469, 0.538469, -0.90618, 0.90618].iter().map(|x| x/2. + 1./2.).collect();
+    let w: Vec<f64> = vec![0.568889, 0.478629, 0.478629, 0.236927, 0.236927].iter().map(|w| w/2.).collect();
+
+    PI - x.iter().zip(w).map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential)).sum::<f64>()
 }
 
 pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, material: &material::Material, options: &Options) -> Vec<BinaryCollisionGeometry> {
@@ -230,31 +257,54 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
     let beta: f64 = binary_collision_geometry.impact_parameter/a;
 
-    //Guess for large reduced energy from Mendenhall and Weller 1991
-    //For small energies, use pure Newton-Raphson with arbitrary guess of 1
-    let mut x0 = 1.;
-    let mut xn: f64;
-    if reduced_energy > 5. {
-        let inv_er_2 = 0.5/reduced_energy;
-        x0 = inv_er_2 + (inv_er_2*inv_er_2 + beta*beta).sqrt();
-    }
+    let x0 = match options.root_finder {
+        CPR => {
+            let g = |x: f64| -> f64 {doca_function_transformed(x, beta, reduced_energy, options.interaction_potential)/(x.powf(2.) + 1.)};
+            let f = |x: f64| -> f64 {doca_function(x, beta, reduced_energy, options.interaction_potential)};
+            let df = |x: f64| -> f64 {diff_doca_function(x, beta, reduced_energy, options.interaction_potential)};
 
-    //Newton-Raphson to determine distance of closest approach
-    let mut err: f64 = options.tolerance + 1.;
-    for k in 0..options.max_iterations {
-        let f = doca_function(x0, beta, reduced_energy,  options.interaction_potential);
-        let df = diff_doca_function(x0, beta, reduced_energy, options.interaction_potential);
-        xn = x0 - f/df;
-        err = (xn - x0)*(xn - x0);
-        x0 = xn;
-        if err < options.tolerance {
-            return Ok(x0);
-        }
-    }
-    return Err(anyhow!("Numerical error: exceeded maximum number of Newton-Raphson iterations, {}. E: {}; x, y, z: ({},{},{}); x0: {}; Error: {}; Tolerance: {}",
-        options.max_iterations, E0,
-        particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM,
-        x0, err, options.tolerance));
+            let roots = find_roots_with_newton_polishing(&g, &f, &df, 0., 100., 5, 1E-3, 100, 1E-12, 1E-12, 1E-9);
+            let max_root = roots.iter().cloned().fold(0./0., f64::max);
+
+            if roots.len() == 0 || max_root.is_nan() {
+                return Err(anyhow!("Numerical error: CPR rootfinder failed to find root, {}. E: {}; x, y, z: ({},{},{}); x0: {};",
+                    options.max_iterations, E0,
+                    particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM,
+                    max_root));
+            } else {
+                return Ok(max_root);
+            }
+        },
+        NEWTON => {
+
+                //Guess for large reduced energy from Mendenhall and Weller 1991
+                //For small energies, use pure Newton-Raphson with arbitrary guess of 1
+                let mut x0 = 1.;
+                let mut xn: f64;
+                if reduced_energy > 5. {
+                    let inv_er_2 = 0.5/reduced_energy;
+                    x0 = inv_er_2 + (inv_er_2*inv_er_2 + beta*beta).sqrt();
+                }
+
+                //Newton-Raphson to determine distance of closest approach
+                let mut err: f64 = options.tolerance + 1.;
+                for k in 0..options.max_iterations {
+                    let f = doca_function(x0, beta, reduced_energy,  options.interaction_potential);
+                    let df = diff_doca_function(x0, beta, reduced_energy, options.interaction_potential);
+                    xn = x0 - f/df;
+                    err = (xn - x0)*(xn - x0);
+                    x0 = xn;
+                    if err < options.tolerance {
+                        return Ok(x0);
+                    }
+                }
+                return Err(anyhow!("Numerical error: exceeded maximum number of Newton-Raphson iterations, {}. E: {}; x, y, z: ({},{},{}); x0: {}; Error: {}; Tolerance: {}",
+                    options.max_iterations, E0,
+                    particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM,
+                    x0, err, options.tolerance));
+        },
+        _ => panic!("Input error: unimplemented root-finder. Choose 0: Newton 1: Adaptive Chebyshev Proxy Rootfinder with Subdivision")
+    };
 }
 
 pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &particle::Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> BinaryCollisionResult {
@@ -271,13 +321,26 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     let beta: f64 = binary_collision_geometry.impact_parameter/a;
 
     let x0 = distance_of_closest_approach(particle_1, particle_2, binary_collision_geometry, options).unwrap();
+    let r0 = x0*a;
 
     let theta = match  options.scattering_integral {
-        QUADRATURE => {
+        MENDENHALL_WELLER => {
             //Scattering integral quadrature from Mendenhall and Weller 2005
             let lambda0 = (0.5 + beta*beta/x0/x0/2. - interactions::dphi(x0,  options.interaction_potential)/2./reduced_energy).powf(-1./2.);
-            let alpha = 1./12.*(1. + lambda0 + 5.*(0.4206*scattering_function(x0/0.9072, beta, reduced_energy,  options.interaction_potential) + 0.9072*scattering_function(x0/0.4206, beta, reduced_energy,  options.interaction_potential)));
+            let alpha = 1./12.*(1. + lambda0 + 5.*(0.4206*scattering_function_mh(x0/0.9072, beta, reduced_energy,  options.interaction_potential) + 0.9072*scattering_function_mh(x0/0.4206, beta, reduced_energy,  options.interaction_potential)));
             PI*(1. - beta*alpha/x0)
+        },
+        GAUSS_MEHLER => {
+            let V = |r| {Za*Zb*Q*Q/4./PI/EPS0/r*interactions::phi(r/a, options.interaction_potential)};
+            let relative_energy = E0*Mb/(Ma + Mb);
+            let impact_parameter = binary_collision_geometry.impact_parameter;
+            scattering_integral_gauss_mehler(impact_parameter, relative_energy, r0, &V, 100)
+        },
+        GAUSS_LEGENDRE => {
+            let V = |r| {Za*Zb*Q*Q/4./PI/EPS0/r*interactions::phi(r/a, options.interaction_potential)};
+            let relative_energy = E0*Mb/(Ma + Mb);
+            let impact_parameter = binary_collision_geometry.impact_parameter;
+            scattering_integral_gauss_legendre(impact_parameter, relative_energy, r0, &V)
         },
         MAGIC => {
             //MAGIC algorithm
@@ -352,14 +415,7 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
                 let a = interactions::screening_length(Za, Zb, options.interaction_potential);
 
                 //d1 is the first (smallest) interior constant of the screening function
-                let d1 = match options.interaction_potential {
-                    MOLIERE => 0.3,
-                    KR_C => 0.278544,
-                    ZBL => 0.20162,
-                    LENZ_JENSEN => 0.206,
-                    TRIDYN => 0.278544,
-                    _ => panic!("Input error: unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
-                };
+                let d1 = interactions::first_screening_radius(options.interaction_potential);
 
                 d1*d1/2./PI*electronic_stopping_powers[strong_collision_index]*(-d1*xi).exp()/a/a*ck
                 },

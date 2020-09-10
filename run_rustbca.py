@@ -5,7 +5,7 @@ from shapely.geometry import Point, Polygon, box
 from itertools import chain
 import os
 import toml
-import generate_ftridyn_input as g
+#import generate_ftridyn_input as g
 import time
 from scipy.stats import gaussian_kde
 from scipy.interpolate import interp1d
@@ -376,7 +376,7 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
     with open('input.toml', 'w') as file:
         toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
 
-    os.system('rustBCA.exe')
+    os.system('./rustBCA')
 
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
@@ -1484,9 +1484,9 @@ def starshot():
     velocities = np.arange(0.025, 0.51, 0.01)
     #velocities = [0.05]
 
-    os.system('rm rustBCA.exe')
+    os.system('rm rustBCA')
     os.system('cargo build --release')
-    os.system('mv target/release/rustBCA.exe .')
+    os.system('mv target/release/rustBCA .')
 
     os.system('rm *.output')
 
@@ -1590,9 +1590,9 @@ def benchmark_srim():
     ffp = True
 
     os.system('rm *.output')
-    os.system('rm rustBCA.exe')
+    os.system('rm rustBCA')
     os.system('cargo build --release')
-    os.system('mv target/release/rustBCA.exe .')
+    os.system('mv target/release/rustBCA .')
 
     ranges = []
     straggles = []
@@ -1634,9 +1634,9 @@ def test_rustbca():
 
     #os.system('rm *.png')
     os.system('rm *.output')
-    os.system('rm rustBCA.exe')
+    os.system('rm rustBCA')
     os.system('cargo build --release')
-    os.system('mv target/release/rustBCA.exe .')
+    os.system('mv target/release/rustBCA .')
 
     fig1, ax1 = plt.subplots(1, 1, num='yields', figsize=(16, 14))
     fig2, ax2 = plt.subplots(1, 1, num='ranges', figsize=(16, 14))
@@ -1788,9 +1788,9 @@ def benchmark():
     os.system('rm *.IN')
     os.system('rm *.OUT')
 
-    os.system('rm rustBCA.exe')
+    os.system('rm rustBCA')
     os.system('cargo build --release')
-    os.system('mv target/release/rustBCA.exe .')
+    os.system('mv target/release/rustBCA .')
 
     for theta in angles:
 
@@ -2068,31 +2068,31 @@ def benchmark():
     print(f'time rustBCA: {rustbca_time} time F-TRIDYN: {ftridyn_time}')
 
 def west():
-    run_sim = False
-    do_plots = True
-
-    # Get SOLPS input data
-    solps = np.genfromtxt('hPIC_WEST_noOxygen/hpic_output_from_solps_radscale5p5/solpsTarg_5p5.txt',delimiter='  ',skip_header=1)
-    LLsep   = solps[:,0]
-    R_m     = solps[:,1]
-    Z_m     = solps[:,2]
-    Te_eV   = solps[:,3]
-    Ti_eV   = solps[:,4]
-    FluxHe2 = solps[:,5]
-    FluxHe1 = solps[:,6]
-    nHe2    = solps[:,7]
-    nHe1    = solps[:,8]
-    Btot    = solps[:,9]
-    Bangle  = solps[:,10]
-
-    # Number of Points along the surface
-    Npoints = np.size(LLsep,0)
-    num_resamples = 0.1
-
-    total_impurity_flux  = np.zeros(Npoints)
-    # Species sp0 (He+) sp1 (He++)
+    run_sim = True
+    do_plots = False
 
     for radscale in ['2', '5p5']:
+        # Get SOLPS input data
+        solps = np.genfromtxt(f'hPIC_WEST_noOxygen/hpic_output_from_solps_radscale{radscale}/solpsTarg_{radscale}.txt',delimiter='  ',skip_header=1)
+        LLsep   = solps[:,0]
+        R_m     = solps[:,1]
+        Z_m     = solps[:,2]
+        Te_eV   = solps[:,3]
+        Ti_eV   = solps[:,4]
+        FluxHe2 = solps[:,5]
+        FluxHe1 = solps[:,6]
+        nHe2    = solps[:,7]
+        nHe1    = solps[:,8]
+        Btot    = solps[:,9]
+        Bangle  = solps[:,10]
+
+        # Number of Points along the surface
+        Npoints = np.size(LLsep,0)
+        num_resamples = 1
+
+        total_impurity_flux  = np.zeros(Npoints)
+        # Species sp0 (He+) sp1 (He++)
+
         for species in [0, 1]:
             yields = []
             reflection_coefficient = []
@@ -2140,15 +2140,17 @@ def west():
                         'stream_size': 8000,
                         'print': True,
                         'print_num': np.min((10, int(N_*N))),
-                        'weak_collision_order': 3,
+                        'weak_collision_order': 0,
                         'suppress_deep_recoils': False,
-                        'high_energy_free_flight_paths': False,
-                        'electronic_stopping_mode': LOW_ENERGY_NONLOCAL,
+                        'high_energy_free_flight_paths': True,
+                        'electronic_stopping_mode': INTERPOLATED,
                         'mean_free_path_model': LIQUID,
                         'interaction_potential': KR_C,
                         'scattering_integral': QUADRATURE,
                         'tolerance': 1E-3,
-                        'max_iterations': 100
+                        'max_iterations': 100,
+                        'num_threads': 4,
+                        'use_hdf5': False,
                     }
 
                     dx = 20.*ANGSTROM/MICRON
@@ -2158,7 +2160,7 @@ def west():
                         'mass_unit': 'AMU',
                         'Eb': [tungsten['Eb']],
                         'Es': [tungsten['Es']],
-                        'Ec': [tungsten['Ec']],
+                        'Ec': [tungsten['Es']],
                         'n': [tungsten['n']],
                         'Z': [tungsten['Z']],
                         'm': [tungsten['m']],
@@ -2207,10 +2209,11 @@ def west():
                         'm': [helium['m'] for _ in range(N)],
                         'Z': [helium['Z'] for _ in range(N)],
                         'E': helium_energies,
-                        'Ec': [helium['Ec'] for _ in range(N)],
+                        'Ec': [1. for _ in range(N)],
                         'Es': [helium['Es'] for _ in range(N)],
                         'pos': [(-dx, 0., 0.) for _ in range(N)],
-                        'dir': [[dirx, diry, 0] for dirx, diry in zip(cosx, sinx)]
+                        'dir': [[dirx, diry, 0] for dirx, diry in zip(cosx, sinx)],
+                        'particle_input_filename': '',
                     }
 
                     input_file = {
@@ -2227,7 +2230,7 @@ def west():
                 #run rustbca
                 if run_sim:
                     start = time.time()
-                    os.system('rustBCA.exe')
+                    os.system('./rustBCA')
                     stop = time.time()
                     print('Time per Ion: '+str((stop - start)/(N*N_)))
 
@@ -2262,61 +2265,69 @@ def west():
                         plot_garrison_contours=False,
                         plot_reflected_energies_by_number_collisions=True,
                         plot_scattering_energy_curve=False)
+                    plt.close('all')
 
                 yields.append(Y)
                 reflection_coefficient.append(R)
 
                 print(f'Radscale: {radscale} Index: {i} Charge: {species+1} Te: {Te_eV[i]} Y: {Y} R: {R}')
+                os.system('rm *.output')
 
-        print(yields)
-        print(reflection_coefficient)
-        print(np.mean(FluxHe1))
-        print(np.mean(yields))
+            print(yields)
+            print(reflection_coefficient)
+            print(np.mean(FluxHe1))
+            print(np.mean(yields))
+
+            plt.figure(1)
+            plt.plot(LLsep, yields)
+            np.savetxt(name+'yields.dat', yields)
+
+            plt.figure(2)
+            plt.plot(LLsep, reflection_coefficient)
+            np.savetxt(name+'refl_coeff.dat', reflection_coefficient)
+
+            plt.figure(3)
+            if species == 0:
+                impurity_flux = np.array(yields)*FluxHe1
+                total_impurity_flux += impurity_flux
+            else:
+                impurity_flux = np.array(yields)*FluxHe2
+                total_impurity_flux += impurity_flux
+            plt.plot(LLsep, impurity_flux)
 
         plt.figure(1)
-        plt.plot(LLsep, yields)
-        np.savetxt(name+'yields.dat', yields)
+        plt.legend(['He+', 'He++'])
+        plt.xlabel('L - Lsep [m]')
+        plt.ylabel('Y [at/ion]')
+        plt.title('He on W Sputtering Yield')
+        plt.savefig(f'{name}_yields.png')
+        plt.clf()
 
         plt.figure(2)
-        plt.plot(LLsep, reflection_coefficient)
-        np.savetxt(name+'refl_coeff.dat', reflection_coefficient)
+        plt.legend(['He+', 'He++'])
+        plt.xlabel('L - Lsep [m]')
+        plt.ylabel('R')
+        plt.title('He on W Reflection Coefficient')
+        plt.savefig(f'{name}_refl.png')
+        plt.clf()
 
         plt.figure(3)
-        if species == 0:
-            impurity_flux = np.array(yields)*FluxHe1
-            total_impurity_flux += impurity_flux
-        else:
-            impurity_flux = np.array(yields)*FluxHe2
-            total_impurity_flux += impurity_flux
-        plt.plot(LLsep, impurity_flux)
+        plt.legend(['He+', 'He++'])
+        plt.xlabel('L - Lsep [m]')
+        plt.ylabel('Sputtered W Flux [1/m^2/s]')
+        plt.title('Impurity Flux')
+        plt.savefig(f'{name}_impurity_by_charge.png')
+        plt.clf()
 
-    plt.figure(1)
-    plt.legend(['He+', 'He++'])
-    plt.xlabel('L - Lsep [m]')
-    plt.ylabel('Y [at/ion]')
-    plt.title('He on W Sputtering Yield')
-
-    plt.figure(2)
-    plt.legend(['He+', 'He++'])
-    plt.xlabel('L - Lsep [m]')
-    plt.ylabel('R')
-    plt.title('He on W Reflection Coefficient')
-
-    plt.figure(3)
-    plt.legend(['He+', 'He++'])
-    plt.xlabel('L - Lsep [m]')
-    plt.ylabel('Sputtered W Flux [1/m^2/s]')
-    plt.title('Impurity Flux')
-
-    plt.figure(4)
-    plt.plot(LLsep, total_impurity_flux)
-    plt.xlabel('L - Lsep [m]')
-    plt.ylabel('Sputtered W Flux [1/m^2/s]')
-    plt.title('Impurity Flux')
-    integrated_flux = np.trapz(total_impurity_flux, LLsep)
-    np.savetxt('impurity_fluxes.dat', total_impurity_flux)
-
-    plt.show()
+        plt.figure(4)
+        plt.plot(LLsep, total_impurity_flux)
+        plt.xlabel('L - Lsep [m]')
+        plt.ylabel('Sputtered W Flux [1/m^2/s]')
+        plt.title('Impurity Flux')
+        integrated_flux = np.trapz(total_impurity_flux, LLsep)
+        np.savetxt('impurity_fluxes.dat', total_impurity_flux)
+        plt.savefig(f'{name}_impurity.png')
+        plt.clf()
 
 if __name__ == '__main__':
     west()
