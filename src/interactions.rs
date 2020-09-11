@@ -1,5 +1,25 @@
 use super::*;
 
+pub const LJ: &dyn Fn(f64) -> f64 = &lennard_jones;
+
+pub const PHI_MOLIERE: &dyn Fn(f64) -> f64 = &moliere;
+pub const PHI_KR_C: &dyn Fn(f64) -> f64 = &kr_c;
+pub const PHI_LENZ_JENSEN: &dyn Fn(f64) -> f64 = &lenz_jensen;
+pub const PHI_ZBL: &dyn Fn(f64) -> f64 = &zbl;
+
+pub const DPHI_MOLIERE: &dyn Fn(f64) -> f64 = &diff_moliere;
+pub const DPHI_KR_C: &dyn Fn(f64) -> f64 = &diff_kr_c;
+pub const DPHI_LENZ_JENSEN: &dyn Fn(f64) -> f64 = &diff_lenz_jensen;
+pub const DPHI_ZBL: &dyn Fn(f64) -> f64 = &diff_zbl;
+
+pub fn screened_coulomb(r: f64, a: f64, Za: f64, Zb: f64, screening_function: &dyn Fn(f64) -> f64) -> f64 {
+    Za*Zb*Q*Q/4./PI/EPS0/r*screening_function(r/a)
+}
+
+pub fn doca_function(r: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: i32) -> f64 {
+
+}
+
 pub fn phi(xi: f64, interaction_potential: i32) -> f64 {
     match interaction_potential {
         MOLIERE => moliere(xi),
@@ -31,7 +51,29 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: i32) -> f64 {
     }
 }
 
-fn moliere(xi: f64) -> f64{
+pub fn lennard_jones(r: f64) -> f64 {
+    let epsilon = 0.343*EV;
+    let sigma = 2.*ANGSTROM;
+
+    4.*epsilon*((sigma/r).powf(12.) - (sigma/r).powf(6.))
+}
+
+pub fn doca_lennard_jones(r: f64, p: f64, relative_energy: f64) -> f64 {
+    let epsilon = 0.343*EV;
+    let sigma = 2.*ANGSTROM;
+
+    r.powf(12.) - 4.*epsilon/relative_energy*(sigma.powf(12.) - sigma.powf(6.)*r.powf(6.)) - p*p*r.powf(10.)
+}
+
+pub fn diff_doca_lennard_jones(r: f64, p: f64, relative_energy: f64) -> f64 {
+
+    let epsilon = 0.343*EV;
+    let sigma = 2.*ANGSTROM;
+
+    12.*r.powf(11.) + 4.*epsilon*sigma.powf(6.)*6.*r.powf(5.) - p*p*10.*r.powf(9.)
+}
+
+fn moliere(xi: f64) -> f64 {
     0.35*(-0.3*xi).exp() + 0.55*(-1.2*xi).exp() + 0.10*(-6.0*xi).exp()
 }
 

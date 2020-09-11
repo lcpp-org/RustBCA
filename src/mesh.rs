@@ -170,12 +170,12 @@ impl Triangle2D {
         let y3 = coordinate_set.5;
 
         Triangle2D {
-            x1: x1,
-            x2: x2,
-            x3: x3,
-            y1: y1,
-            y2: y2,
-            y3: y3,
+            x1,
+            x2,
+            x3,
+            y1,
+            y2,
+            y3,
             segments: vec![(x1, y1, x2, y2), (x2, y2, x3, y3), (x3, y3, x1, y1)]
         }
     }

@@ -70,6 +70,7 @@ const MOLIERE: i32 = 0;
 const KR_C: i32 = 1;
 const ZBL: i32 = 2;
 const LENZ_JENSEN: i32 = 3;
+const LENNARD_JONES_12_6: i32 = 4;
 const TRIDYN: i32 = -1;
 
 //Scattering integral forms
@@ -91,9 +92,9 @@ pub struct Vector {
 impl Vector {
     pub fn new(x: f64, y: f64, z: f64) -> Vector {
         Vector {
-            x: x,
-            y: y,
-            z: z
+            x,
+            y,
+            z
         }
     }
     fn magnitude(&self) -> f64 {
@@ -135,10 +136,10 @@ pub struct Vector4 {
 impl Vector4 {
     fn new(E: f64, x: f64, y: f64, z: f64) -> Vector4 {
         Vector4 {
-            E: E,
-            x: x,
-            y: y,
-            z: z
+            E,
+            x,
+            y,
+            z
         }
     }
 }
@@ -256,7 +257,7 @@ fn main() {
         if options.use_hdf5 {
             let particle_input_filename = particle_parameters.particle_input_filename.as_str();
             let _e = hdf5::silence_errors();
-            let particle_input_file = hdf5::File::open(particle_input_filename).unwrap();
+            let particle_input_file = hdf5::File::open(particle_input_filename).expect("Input error: cannot open HDF5 file.");
             let particle_input = particle_input_file.dataset("particles").unwrap();
             particle_input.read_raw::<particle::ParticleInput>().unwrap()
 

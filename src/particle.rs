@@ -89,11 +89,11 @@ impl Particle {
         let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
 
         Particle {
-            m: m,
-            Z: Z,
-            E: E,
-            Ec: Ec,
-            Es: Es,
+            m,
+            Z,
+            E,
+            Ec,
+            Es,
             pos: Vector::new(x, y, z),
             dir: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
             pos_old: Vector::new(x, y, z),
@@ -102,10 +102,10 @@ impl Particle {
             asympototic_deflection: 0.,
             stopped: false,
             left: false,
-            incident: incident,
+            incident,
             first_step: incident,
             trajectory: vec![Vector4::new(E, x, y, z)],
-            track_trajectories: track_trajectories,
+            track_trajectories,
             number_collision_events: 0,
             backreflected: false
         }
