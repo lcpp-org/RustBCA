@@ -1,7 +1,5 @@
 use super::*;
 
-pub const LJ: &dyn Fn(f64) -> f64 = &lennard_jones;
-
 pub const PHI_MOLIERE: &dyn Fn(f64) -> f64 = &moliere;
 pub const PHI_KR_C: &dyn Fn(f64) -> f64 = &kr_c;
 pub const PHI_LENZ_JENSEN: &dyn Fn(f64) -> f64 = &lenz_jensen;
@@ -12,12 +10,143 @@ pub const DPHI_KR_C: &dyn Fn(f64) -> f64 = &diff_kr_c;
 pub const DPHI_LENZ_JENSEN: &dyn Fn(f64) -> f64 = &diff_lenz_jensen;
 pub const DPHI_ZBL: &dyn Fn(f64) -> f64 = &diff_zbl;
 
-pub fn screened_coulomb(r: f64, a: f64, Za: f64, Zb: f64, screening_function: &dyn Fn(f64) -> f64) -> f64 {
-    Za*Zb*Q*Q/4./PI/EPS0/r*screening_function(r/a)
+const LENNARD_JONES_EPSILON: f64 = 0.343*EV;
+const LENNARD_JONES_SIGMA: f64 = 2.*ANGSTROM;
+
+pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: i32) -> f64 {
+    match interaction_potential {
+        MOLIERE | KR_C | LENZ_JENSEN | ZBL => {
+            screened_coulomb(r, a, Za, Zb, interaction_potential)
+        },
+        LENNARD_JONES_12_6 => {
+            let epsilon = LENNARD_JONES_EPSILON;
+            let sigma = LENNARD_JONES_SIGMA;
+            lennard_jones(r, sigma, epsilon)
+        },
+        _ => panic!("Input error: unimplemented interaction potential {}.", interaction_potential)
+    }
 }
 
-pub fn doca_function(r: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: i32) -> f64 {
+pub fn energy_threshold_single_root(interaction_potential: i32) -> f64 {
+    match interaction_potential{
+        LENNARD_JONES_12_6 => 4./5.*LENNARD_JONES_EPSILON*1E9,
+        MOLIERE | KR_C | LENZ_JENSEN | ZBL => 0.,
+        _ => panic!("Input error: unimplemented interaction potential {},", interaction_potential)
+    }
+}
 
+fn doca_function_transformed(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
+    return x0*x0 - x0*interactions::phi(x0, interaction_potential)/reduced_energy - beta*beta;
+}
+
+fn doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
+    //Transcendental function to _ distance of closest approach
+    return x0 - interactions::phi(x0, interaction_potential)/reduced_energy - beta*beta/x0;
+}
+
+fn diff_doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
+    //First differential of distance of closest approach function for N-R solver
+    return beta*beta/x0/x0 - interactions::dphi(x0, interaction_potential)/reduced_energy + 1.
+}
+
+fn diff_doca_function_transformed(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {
+    //First differential of distance of closest approach function for N-R solver
+    return 2.*x0 - interactions::phi(x0, interaction_potential)/reduced_energy
+}
+
+pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: i32) -> f64 {
+    if r.is_nan() {
+        panic!("r is nan")
+    }
+    match interaction_potential {
+        MOLIERE | KR_C | LENZ_JENSEN | ZBL => {
+            let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+            let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
+            let beta: f64 = impact_parameter/a;
+            doca_function(r/a, beta, reduced_energy, interaction_potential)
+
+        },
+        LENNARD_JONES_12_6 => {
+            let epsilon = LENNARD_JONES_EPSILON;
+            let sigma = LENNARD_JONES_SIGMA;
+            doca_lennard_jones(r, impact_parameter, relative_energy, sigma, epsilon)
+        }
+        _ => panic!("Input error. Unimplemented interaction potential {}.", interaction_potential),
+    }
+}
+
+pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: i32) -> f64 {
+    if r.is_nan() {
+        panic!("r is nan")
+    }
+    match interaction_potential {
+        MOLIERE | KR_C | LENZ_JENSEN | ZBL => {
+            let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+            let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
+            let beta: f64 = impact_parameter/a;
+            doca_function_transformed(r/a, beta, reduced_energy, interaction_potential)
+        },
+        LENNARD_JONES_12_6 => {
+            let epsilon = LENNARD_JONES_EPSILON;
+            let sigma = LENNARD_JONES_SIGMA;
+            doca_lennard_jones(r, impact_parameter, relative_energy, sigma, epsilon)
+        }
+        _ => panic!("Input error. Unimplemented interaction potential {}.", interaction_potential),
+    }
+}
+
+pub fn scaling_function(r: f64, interaction_potential: i32) -> f64 {
+    match interaction_potential {
+        MOLIERE | KR_C | LENZ_JENSEN | ZBL => {
+            let n = 0.;
+            1./(1.*ANGSTROM.powf(n) + r.powf(n))
+        },
+        LENNARD_JONES_12_6 => {
+            let n = 10.;
+            1./(1.*ANGSTROM.powf(n) + r.powf(n))
+        },
+        _ => panic!("Input error. Unimplemented interaction potential {}.", interaction_potential),
+    }
+}
+
+pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: i32) -> f64 {
+    match interaction_potential {
+        MOLIERE | KR_C | LENZ_JENSEN |ZBL => {
+            let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+            //let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
+            let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
+            let beta: f64 = impact_parameter/a;
+            diff_doca_function(r/a, beta, reduced_energy, interaction_potential)
+        },
+        LENNARD_JONES_12_6 => {
+            let epsilon = LENNARD_JONES_EPSILON;
+            let sigma = LENNARD_JONES_SIGMA;
+            diff_doca_lennard_jones(r, impact_parameter, relative_energy, sigma, epsilon)
+        },
+        _ => panic!("Input error: unimplemented interaction potential {}.", interaction_potential)
+    }
+}
+
+pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: i32) -> f64 {
+    match interaction_potential {
+        MOLIERE | KR_C | LENZ_JENSEN |ZBL => {
+            let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+            //let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
+            let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
+            let beta: f64 = impact_parameter/a;
+            diff_doca_function_transformed(r/a, beta, reduced_energy, interaction_potential)
+        },
+        LENNARD_JONES_12_6 => {
+            let epsilon = LENNARD_JONES_EPSILON;
+            let sigma = LENNARD_JONES_SIGMA;
+            diff_doca_lennard_jones(r, impact_parameter, relative_energy, sigma, epsilon)
+        },
+        _ => panic!("Input error: unimplemented interaction potential {}.", interaction_potential)
+    }
+}
+
+pub fn screened_coulomb(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: i32) -> f64 {
+    Za*Zb*Q*Q/4./PI/EPS0/r*phi(r/a, interaction_potential)
 }
 
 pub fn phi(xi: f64, interaction_potential: i32) -> f64 {
@@ -27,7 +156,7 @@ pub fn phi(xi: f64, interaction_potential: i32) -> f64 {
         ZBL => zbl(xi),
         LENZ_JENSEN => lenz_jensen(xi),
         TRIDYN => kr_c(xi),
-        _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
+        _ => panic!("Unimplemented interaction potential: {}. Use 0: MOLIERE 1: KR_C 2: ZBL", interaction_potential)
     }
 }
 
@@ -38,7 +167,7 @@ pub fn dphi(xi: f64, interaction_potential: i32) -> f64 {
         ZBL => diff_zbl(xi),
         LENZ_JENSEN => diff_lenz_jensen(xi),
         TRIDYN => diff_kr_c(xi),
-        _ => panic!("Unimplemented interaction potential. Use 0: MOLIERE 1: KR_C 2: ZBL")
+        _ => panic!("Unimplemented interaction potential: {}, Use 0: MOLIERE 1: KR_C 2: ZBL", interaction_potential)
     }
 }
 
@@ -51,25 +180,15 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: i32) -> f64 {
     }
 }
 
-pub fn lennard_jones(r: f64) -> f64 {
-    let epsilon = 0.343*EV;
-    let sigma = 2.*ANGSTROM;
-
+pub fn lennard_jones(r: f64, sigma: f64, epsilon: f64) -> f64 {
     4.*epsilon*((sigma/r).powf(12.) - (sigma/r).powf(6.))
 }
 
-pub fn doca_lennard_jones(r: f64, p: f64, relative_energy: f64) -> f64 {
-    let epsilon = 0.343*EV;
-    let sigma = 2.*ANGSTROM;
-
+pub fn doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
     r.powf(12.) - 4.*epsilon/relative_energy*(sigma.powf(12.) - sigma.powf(6.)*r.powf(6.)) - p*p*r.powf(10.)
 }
 
-pub fn diff_doca_lennard_jones(r: f64, p: f64, relative_energy: f64) -> f64 {
-
-    let epsilon = 0.343*EV;
-    let sigma = 2.*ANGSTROM;
-
+pub fn diff_doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
     12.*r.powf(11.) + 4.*epsilon*sigma.powf(6.)*6.*r.powf(5.) - p*p*10.*r.powf(9.)
 }
 

@@ -193,7 +193,7 @@ fn test_momentum_conservation() {
         let Ec2 = 1.;
         let Es2 = 1.;
 
-        //Random initial angle
+        //Arbitrary initial angle
         let theta = 0.974194583091052_f64;
         let cosx = (theta).cos();
         let cosy = (theta).sin();
@@ -225,92 +225,95 @@ fn test_momentum_conservation() {
         let material_1 = material::Material::new(material_parameters, mesh_2d_input);
 
         for high_energy_free_flight_paths in vec![true, false] {
-            for potential in vec![KR_C, MOLIERE, ZBL, TRIDYN] {
-                for scattering_integral in vec![QUADRATURE, MAGIC] {
+            for potential in vec![KR_C, MOLIERE, ZBL] {
+                for scattering_integral in vec![GAUSS_MEHLER, GAUSS_LEGENDRE] {
+                    for root_finder in vec![CPR, NEWTON] {
 
-                    //println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
+                        println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
 
-                    let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, x1, y1, z1, cosx, cosy, cosz, false, false);
+                        let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, x1, y1, z1, cosx, cosy, cosz, false, false);
 
-                    let options = Options {
-                        name: "test".to_string(),
-                        track_trajectories: true,
-                        track_recoils: true,
-                        track_recoil_trajectories: true,
-                        write_files: true,
-                        stream_size: 8000,
-                        print: true,
-                        print_num: 100,
-                        weak_collision_order: 0,
-                        suppress_deep_recoils: false,
-                        high_energy_free_flight_paths: high_energy_free_flight_paths,
-                        electronic_stopping_mode: INTERPOLATED,
-                        mean_free_path_model: LIQUID,
-                        interaction_potential: potential,
-                        scattering_integral: scattering_integral,
-                        tolerance: 1E-12,
-                        max_iterations: 100,
-                        num_threads: 1,
-                        use_hdf5: false,
-                    };
+                        let options = Options {
+                            name: "test".to_string(),
+                            track_trajectories: true,
+                            track_recoils: true,
+                            track_recoil_trajectories: true,
+                            write_files: true,
+                            stream_size: 8000,
+                            print: true,
+                            print_num: 100,
+                            weak_collision_order: 0,
+                            suppress_deep_recoils: false,
+                            high_energy_free_flight_paths: high_energy_free_flight_paths,
+                            electronic_stopping_mode: INTERPOLATED,
+                            mean_free_path_model: LIQUID,
+                            interaction_potential: potential,
+                            scattering_integral: scattering_integral,
+                            tolerance: 1E-12,
+                            max_iterations: 100,
+                            num_threads: 1,
+                            use_hdf5: false,
+                            root_finder: root_finder,
+                        };
 
-                    let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
+                        let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
 
-                    println!("Phi: {} rad p: {} Angstrom mfp: {} Angstrom", binary_collision_geometries[0].phi_azimuthal,
-                        binary_collision_geometries[0].impact_parameter/ANGSTROM,
-                        binary_collision_geometries[0].mfp/ANGSTROM);
+                        println!("Phi: {} rad p: {} Angstrom mfp: {} Angstrom", binary_collision_geometries[0].phi_azimuthal,
+                            binary_collision_geometries[0].impact_parameter/ANGSTROM,
+                            binary_collision_geometries[0].mfp/ANGSTROM);
 
-                    let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material_1,
-                        &binary_collision_geometries[0], &options);
+                        let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material_1,
+                            &binary_collision_geometries[0], &options);
 
-                    let mom1_0 = particle_1.get_momentum();
-                    let mom2_0 = particle_2.get_momentum();
+                        let mom1_0 = particle_1.get_momentum();
+                        let mom2_0 = particle_2.get_momentum();
 
-                    let initial_momentum = mom1_0.add(&mom2_0);
+                        let initial_momentum = mom1_0.add(&mom2_0);
 
-                    let binary_collision_result = bca::calculate_binary_collision(&particle_1,
-                        &particle_2, &binary_collision_geometries[0], &options);
+                        let binary_collision_result = bca::calculate_binary_collision(&particle_1,
+                            &particle_2, &binary_collision_geometries[0], &options);
 
-                    println!("E_recoil: {} eV Psi: {} rad Psi_recoil: {} rad", binary_collision_result.recoil_energy/EV,
-                        binary_collision_result.psi,
-                        binary_collision_result.psi_recoil);
+                        println!("E_recoil: {} eV Psi: {} rad Psi_recoil: {} rad", binary_collision_result.recoil_energy/EV,
+                            binary_collision_result.psi,
+                            binary_collision_result.psi_recoil);
 
-                    println!("Initial Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
+                        println!("Initial Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
 
-                    //Energy transfer to recoil
-                    particle_2.E = binary_collision_result.recoil_energy - material_1.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y);
+                        //Energy transfer to recoil
+                        particle_2.E = binary_collision_result.recoil_energy - material_1.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y);
 
-                    //Rotate particle 1, 2 by lab frame scattering angles
-                    particle::rotate_particle(&mut particle_1, binary_collision_result.psi,
-                        binary_collision_geometries[0].phi_azimuthal);
+                        //Rotate particle 1, 2 by lab frame scattering angles
+                        particle::rotate_particle(&mut particle_1, binary_collision_result.psi,
+                            binary_collision_geometries[0].phi_azimuthal);
 
-                    particle::rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
-                        binary_collision_geometries[0].phi_azimuthal);
+                        particle::rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
+                            binary_collision_geometries[0].phi_azimuthal);
 
-                    //Subtract total energy from all simultaneous collisions and electronic stopping
-                    bca::update_particle_energy(&mut particle_1, &material_1, 0.,
-                        binary_collision_result.recoil_energy, 0., particle_2.Z, species_index, &options);
+                        //Subtract total energy from all simultaneous collisions and electronic stopping
+                        bca::update_particle_energy(&mut particle_1, &material_1, 0.,
+                            binary_collision_result.recoil_energy, 0., particle_2.Z, species_index, &options);
 
-                    let mom1_1 = particle_1.get_momentum();
-                    let mom2_1 = particle_2.get_momentum();
+                        let mom1_1 = particle_1.get_momentum();
+                        let mom2_1 = particle_2.get_momentum();
 
-                    let final_momentum = mom1_1.add(&mom2_1);
+                        let final_momentum = mom1_1.add(&mom2_1);
 
-                    println!("Final Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
-                    println!("X: {} {} {}% Error", initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, 100.*(final_momentum.x - initial_momentum.x)/initial_momentum.magnitude());
-                    println!("Y: {} {} {}% Error", initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, 100.*(final_momentum.y - initial_momentum.y)/initial_momentum.magnitude());
-                    println!("Z: {} {} {}% Error", initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, 100.*(final_momentum.z - initial_momentum.z)/initial_momentum.magnitude());
-                    println!();
+                        println!("Final Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
+                        println!("X: {} {} {}% Error", initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, 100.*(final_momentum.x - initial_momentum.x)/initial_momentum.magnitude());
+                        println!("Y: {} {} {}% Error", initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, 100.*(final_momentum.y - initial_momentum.y)/initial_momentum.magnitude());
+                        println!("Z: {} {} {}% Error", initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, 100.*(final_momentum.z - initial_momentum.z)/initial_momentum.magnitude());
+                        println!();
 
-                    assert!(approx_eq!(f64, initial_momentum.x, final_momentum.x, epsilon = 1E-12));
-                    assert!(approx_eq!(f64, initial_momentum.y, final_momentum.y, epsilon = 1E-12));
-                    assert!(approx_eq!(f64, initial_momentum.z, final_momentum.z, epsilon = 1E-12));
+                        assert!(approx_eq!(f64, initial_momentum.x, final_momentum.x, epsilon = 1E-12));
+                        assert!(approx_eq!(f64, initial_momentum.y, final_momentum.y, epsilon = 1E-12));
+                        assert!(approx_eq!(f64, initial_momentum.z, final_momentum.z, epsilon = 1E-12));
 
-                    assert!(!particle_1.E.is_nan());
-                    assert!(!particle_2.E.is_nan());
-                    assert!(!initial_momentum.x.is_nan());
-                    assert!(!initial_momentum.x.is_nan());
-                    assert!(!initial_momentum.x.is_nan());
+                        assert!(!particle_1.E.is_nan());
+                        assert!(!particle_2.E.is_nan());
+                        assert!(!initial_momentum.x.is_nan());
+                        assert!(!initial_momentum.x.is_nan());
+                        assert!(!initial_momentum.x.is_nan());
+                    }
                 }
             }
         }
