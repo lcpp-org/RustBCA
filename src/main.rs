@@ -210,9 +210,33 @@ fn main() {
         //assert!(options.mean_free_path_model == LIQUID,
         //    "Gaseous model not currently implemented for high energy free flight paths.");
     }
+
     if options.mean_free_path_model == GASEOUS {
         assert!(options.weak_collision_order == 0,
             "Input error: Cannot use weak collisions with gaseous mean free path model.");
+    }
+
+    if options.interaction_potential == LENNARD_JONES_12_6 {
+        assert!((options.scattering_integral == GAUSS_MEHLER) | (options.scattering_integral == GAUSS_LEGENDRE),
+        "Input error: Cannot use scattering integral {} with interaction potential {}. Use 2: Gauss-Mehler or 3: Gauss-Legendre.",
+        options.scattering_integral, options.interaction_potential);
+
+        assert!(options.root_finder == CPR,
+        "Input error: Cannot use Newton root-finder with attractive-repulsive potentials. Use 1: Chebyshev-Proxy Rootfinder.");
+    }
+
+    if options.scattering_integral == MENDENHALL_WELLER {
+        assert!(match options.interaction_potential {
+            MOLIERE | ZBL | KR_C | LENZ_JENSEN | TRIDYN => true,
+            _ => false
+        }, "Input error: Mendenhall-Weller formulation can only be used with screened Coulomb potentials. Use 2: Gauss-Mehler or 3: Gauss-Legendre.")
+    }
+
+    if (options.scattering_integral == MENDENHALL_WELLER) | (options.scattering_integral == MAGIC) {
+        assert!(match options.interaction_potential {
+            MOLIERE | ZBL | KR_C | LENZ_JENSEN | TRIDYN => true,
+            _ => false
+        }, "Input error: Mendenhall-Weller quadrature and Magic formula can only be used with screened Coulomb potentials. Use 2: Gauss-Mehler or 3: Gauss-Legendre.")
     }
 
     //Check that particle arrays are equal length

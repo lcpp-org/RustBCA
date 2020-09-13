@@ -48,7 +48,7 @@ fn scattering_integral_mw(x: f64, beta: f64, reduced_energy: f64, interaction_po
 fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
     let result = 4.*impact_parameter*u/(r0*(1. - interaction_potential(r0/(1. - u*u))/relative_energy - impact_parameter*impact_parameter*(1. - u*u).powf(2.)/r0/r0).sqrt());
     if result.is_nan() {
-        panic!("Numerical error: Gauss-Legendre scattering integrand complex. Likely incorrect distance of closest approach - check root-finder.")
+        panic!("Numerical error: Gauss-Mehler scattering integrand complex. Likely incorrect distance of closest approach r0 = {} A, p = {} A - check root-finder.", r0/ANGSTROM, impact_parameter/ANGSTROM)
     } else {
         result
     }
@@ -57,7 +57,7 @@ fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energ
 fn scattering_function_gm(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
     let result = impact_parameter/r0/(1. - interaction_potential(r0/u)/relative_energy - (impact_parameter*u/r0).powf(2.)).sqrt();
     if result.is_nan() {
-        panic!("Numerical error: Gauss-Mehler scattering integrand complex. Likely incorrect distance of closest approach - check root-finder.")
+        panic!("Numerical error: Gauss-Mehler scattering integrand complex. Likely incorrect distance of closest approach r0 = {} A, p = {} A - check root-finder.", r0/ANGSTROM, impact_parameter/ANGSTROM)
     } else {
         result
     }
@@ -260,9 +260,9 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
 
     let x0 = match root_finder {
         CPR => {
-            let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, binary_collision_geometry.impact_parameter, options.interaction_potential)*interactions::scaling_function(r, options.interaction_potential)};
+            let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, binary_collision_geometry.impact_parameter, options.interaction_potential)*interactions::scaling_function(r, a, options.interaction_potential)};
 
-            let roots = find_roots_with_newton_polishing(&g, &f, &df, 0., 100.*beta*a, 2, 1E-10, 200, 1E-12, 1E-12, 1E-12, 1E6);
+            let roots = find_roots_with_newton_polishing(&g, &f, &df, 0., 100.*beta*a, 6, 1E-9, 200, 1E-12, 1E-12, 1E-12, 1E2);
             let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
 
             if roots.is_empty() || max_root.is_nan() {
@@ -327,14 +327,12 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
             PI*(1. - beta*alpha/x0)
         },
         GAUSS_MEHLER => {
-            //let V = |r| {Za*Zb*Q*Q/4./PI/EPS0/r*interactions::phi(r/a, options.interaction_potential)};
             let V = |r| {interactions::interaction_potential(r, a, Za, Zb, options.interaction_potential)};
             let relative_energy = E0*Mb/(Ma + Mb);
             let impact_parameter = binary_collision_geometry.impact_parameter;
-            scattering_integral_gauss_mehler(impact_parameter, relative_energy, r0, &V, 1000)
+            scattering_integral_gauss_mehler(impact_parameter, relative_energy, r0, &V, 10)
         },
         GAUSS_LEGENDRE => {
-            //let V = |r| {Za*Zb*Q*Q/4./PI/EPS0/r*interactions::phi(r/a, options.interaction_potential)};
             let V = |r| {interactions::interaction_potential(r, a, Za, Zb, options.interaction_potential)};
             let relative_energy = E0*Mb/(Ma + Mb);
             let impact_parameter = binary_collision_geometry.impact_parameter;
@@ -360,9 +358,11 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
             let b = binary_collision_geometry.impact_parameter/a;
             let SQE = E_r.sqrt();
             let R = a*x0;
-            let sum = c[0]*(d[0]*x0).exp() + c[1]*(d[1]*x0).exp() + c[2]*(d[2]*x0).exp();
+            //let sum = c[0]*(d[0]*x0).exp() + c[1]*(d[1]*x0).exp() + c[2]*(d[2]*x0).exp();
+            let sum = interactions::phi(x0, options.interaction_potential);
             let V = V0*a/R*sum;
-            let sum = d[0]*c[0]*(d[0]*x0).exp() + d[1]*c[1]*(d[1]*x0).exp() + d[2]*c[2]*(d[2]*x0).exp();
+            //let sum = d[0]*c[0]*(d[0]*x0).exp() + d[1]*c[1]*(d[1]*x0).exp() + d[2]*c[2]*(d[2]*x0).exp();
+            let sum = interactions::dphi(x0, options.interaction_potential);
             let dV = -V/R + V0/R*sum; //1174
             let rho = -2.0*(E_c - V)/dV; //1176
             let D = 2.0*(1.0 + C_[0]/SQE)*E_r*b.powf((C_[1] + SQE)/(C_[2] + SQE)); //1179

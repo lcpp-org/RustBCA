@@ -176,7 +176,7 @@ fn test_surface_refraction() {
 #[test]
 fn test_momentum_conservation() {
 
-    for energy_eV in vec![1., 10., 100., 1000., 10000., 100000., 1000000., 10000000.] {
+    for energy_eV in vec![1., 10., 100., 1000., 10000.] {
         //Aluminum
         let m1 = 4.008*AMU;
         let Z1 = 2.;
@@ -225,7 +225,7 @@ fn test_momentum_conservation() {
         let material_1 = material::Material::new(material_parameters, mesh_2d_input);
 
         for high_energy_free_flight_paths in vec![true, false] {
-            for potential in vec![KR_C, MOLIERE, ZBL] {
+            for potential in vec![KR_C, MOLIERE, ZBL, LENZ_JENSEN, LENNARD_JONES_12_6] {
                 for scattering_integral in vec![GAUSS_MEHLER, GAUSS_LEGENDRE] {
                     for root_finder in vec![CPR, NEWTON] {
 
@@ -253,7 +253,7 @@ fn test_momentum_conservation() {
                             max_iterations: 100,
                             num_threads: 1,
                             use_hdf5: false,
-                            root_finder: root_finder,
+                            root_finder: 1,
                         };
 
                         let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
