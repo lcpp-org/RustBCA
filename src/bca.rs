@@ -45,21 +45,25 @@ fn scattering_integral_mw(x: f64, beta: f64, reduced_energy: f64, interaction_po
     return (1. - interactions::phi(x, interaction_potential)/x/reduced_energy - beta*beta/x/x).powf(-0.5);
 }
 
-fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
+fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> Result<f64, anyhow::Error> {
     let result = 4.*impact_parameter*u/(r0*(1. - interaction_potential(r0/(1. - u*u))/relative_energy - impact_parameter*impact_parameter*(1. - u*u).powf(2.)/r0/r0).sqrt());
+
     if result.is_nan() {
-        panic!("Numerical error: Gauss-Mehler scattering integrand complex. Likely incorrect distance of closest approach r0 = {} A, p = {} A - check root-finder.", r0/ANGSTROM, impact_parameter/ANGSTROM)
+        Err(anyhow!("Numerical error: Gauss-Mehler scattering integrand complex. Likely incorrect distance of closest approach Er = {}, r0 = {} A, p = {} A - check root-finder.",
+            relative_energy/EV, r0/ANGSTROM, impact_parameter/ANGSTROM))
     } else {
-        result
+        Ok(result)
     }
 }
 
-fn scattering_function_gm(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
+fn scattering_function_gm(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> Result<f64, anyhow::Error> {
     let result = impact_parameter/r0/(1. - interaction_potential(r0/u)/relative_energy - (impact_parameter*u/r0).powf(2.)).sqrt();
+
     if result.is_nan() {
-        panic!("Numerical error: Gauss-Mehler scattering integrand complex. Likely incorrect distance of closest approach r0 = {} A, p = {} A - check root-finder.", r0/ANGSTROM, impact_parameter/ANGSTROM)
+        Err(anyhow!("Numerical error: Gauss-Mehler scattering integrand complex. Likely incorrect distance of closest approach Er = {}, r0 = {} A, p = {} A - check root-finder.",
+            relative_energy/EV, r0/ANGSTROM, impact_parameter/ANGSTROM))
     } else {
-        result
+        Ok(result)
     }
 }
 
@@ -67,14 +71,14 @@ fn scattering_integral_gauss_mehler(impact_parameter: f64, relative_energy: f64,
     let x: Vec<f64> = (1..=n_points).map(|i| ((2.*i as f64 - 1.)/4./n_points as f64*PI).cos()).collect();
     let w: Vec<f64> = (1..=n_points).map(|i| PI/n_points as f64*((2.*i as f64 - 1.)/4./n_points as f64*PI).sin()).collect();
 
-    PI - x.iter().zip(w).map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential)).sum::<f64>()
+    PI - x.iter().zip(w).map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential).unwrap()).sum::<f64>()
 }
 
 fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
     let x: Vec<f64> = vec![0., -0.538469, 0.538469, -0.90618, 0.90618].iter().map(|x| x/2. + 1./2.).collect();
     let w: Vec<f64> = vec![0.568889, 0.478629, 0.478629, 0.236927, 0.236927].iter().map(|w| w/2.).collect();
 
-    PI - x.iter().zip(w).map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential)).sum::<f64>()
+    PI - x.iter().zip(w).map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential).unwrap()).sum::<f64>()
 }
 
 pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, material: &material::Material, options: &Options) -> Vec<BinaryCollisionGeometry> {
@@ -250,26 +254,34 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
 
     //Lindhard screening length and reduced energy
     let a: f64 = interactions::screening_length(Za, Zb, options.interaction_potential);
+
     let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
     let relative_energy = E0*Mb/(Ma + Mb);
     let beta: f64 = binary_collision_geometry.impact_parameter/a;
 
     let root_finder = if (relative_energy < interactions::energy_threshold_single_root(options.interaction_potential)) {options.root_finder} else {NEWTON};
+
     let f = |r: f64| -> f64 {interactions::distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, binary_collision_geometry.impact_parameter, options.interaction_potential)};
     let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, binary_collision_geometry.impact_parameter, options.interaction_potential)};
 
     let x0 = match root_finder {
         CPR => {
+
             let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, binary_collision_geometry.impact_parameter, options.interaction_potential)*interactions::scaling_function(r, a, options.interaction_potential)};
 
-            let roots = find_roots_with_newton_polishing(&g, &f, &df, 0., 100.*beta*a, 6, 1E-9, 200, 1E-12, 1E-12, 1E-12, 1E2);
+            let upper_bound = f64::max(10.*a*beta, 10.*a);
+
+            let roots = find_roots_with_newton_polishing(&g, &f, &df, 0., upper_bound,
+                options.cpr_n0, options.cpr_epsilon, options.cpr_nmax, options.cpr_complex,
+                options.cpr_truncation, options.cpr_interval_limit, options.cpr_far_from_zero);
+
             let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
 
             if roots.is_empty() || max_root.is_nan() {
-                return Err(anyhow!("Numerical error: CPR rootfinder failed to find root, {}. E: {}; x, y, z: ({},{},{}); x0: {};",
+                return Err(anyhow!("Numerical error: CPR rootfinder failed to find root, {}. E: {}; x, y, z: ({},{},{}); x0: {}, F(a): {}, F(b): {};",
                     options.max_iterations, E0/EV,
                     particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM,
-                    max_root));
+                    max_root, g(0.), g(upper_bound)));
             } else {
                 return Ok(max_root);
             }

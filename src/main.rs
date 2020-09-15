@@ -1,6 +1,10 @@
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
 
+//extern crate openblas_src;
+
+use indicatif::ParallelProgressIterator;
+
 //Error handling crate
 //use anyhow::Result;
 use anyhow::Result;
@@ -72,6 +76,7 @@ const ZBL: i32 = 2;
 const LENZ_JENSEN: i32 = 3;
 const LENNARD_JONES_12_6: i32 = 4;
 const TRIDYN: i32 = -1;
+const BUCKINGHAM: i32 = 5;
 
 //Scattering integral forms
 const MENDENHALL_WELLER: i32 = 0;
@@ -174,6 +179,13 @@ pub struct Options {
     num_threads: usize,
     use_hdf5: bool,
     root_finder: i32,
+    cpr_n0: usize,
+    cpr_nmax: usize,
+    cpr_epsilon: f64,
+    cpr_complex: f64,
+    cpr_truncation: f64,
+    cpr_far_from_zero: f64,
+    cpr_interval_limit: f64
 }
 
 fn main() {
@@ -216,20 +228,13 @@ fn main() {
             "Input error: Cannot use weak collisions with gaseous mean free path model.");
     }
 
-    if options.interaction_potential == LENNARD_JONES_12_6 {
+    if options.interaction_potential == LENNARD_JONES_12_6 | BUCKINGHAM {
         assert!((options.scattering_integral == GAUSS_MEHLER) | (options.scattering_integral == GAUSS_LEGENDRE),
         "Input error: Cannot use scattering integral {} with interaction potential {}. Use 2: Gauss-Mehler or 3: Gauss-Legendre.",
         options.scattering_integral, options.interaction_potential);
 
         assert!(options.root_finder == CPR,
         "Input error: Cannot use Newton root-finder with attractive-repulsive potentials. Use 1: Chebyshev-Proxy Rootfinder.");
-    }
-
-    if options.scattering_integral == MENDENHALL_WELLER {
-        assert!(match options.interaction_potential {
-            MOLIERE | ZBL | KR_C | LENZ_JENSEN | TRIDYN => true,
-            _ => false
-        }, "Input error: Mendenhall-Weller formulation can only be used with screened Coulomb potentials. Use 2: Gauss-Mehler or 3: Gauss-Legendre.")
     }
 
     if (options.scattering_integral == MENDENHALL_WELLER) | (options.scattering_integral == MAGIC) {
@@ -320,19 +325,23 @@ fn main() {
         }
     };
 
-    //Initialize threads with rayon
-    println!("Initializing with {} threads...", options.num_threads);
-    let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global().unwrap();
+
 
     println!("Processing {} ions...", particle_input_array.len());
 
     //Main loop
     let mut finished_particles: Vec<particle::Particle> = Vec::new();
+    let total_count: u64 = particle_input_array.len() as u64;
 
     let parallel = true;
     if parallel {
+        //Initialize threads with rayon
+        println!("Initializing with {} threads...", options.num_threads);
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global().unwrap();
+
+        println!("Simulation progress: ");
         finished_particles.par_extend(
-            particle_input_array.into_par_iter()
+            particle_input_array.into_par_iter().progress_count(total_count)
             .map(|particle_input| bca::single_ion_bca(particle::Particle::from_input(particle_input, &options), &material, &options))
                 .flatten()
         );

@@ -176,7 +176,7 @@ fn test_surface_refraction() {
 #[test]
 fn test_momentum_conservation() {
 
-    for energy_eV in vec![1., 10., 100., 1000., 10000.] {
+    for energy_eV in vec![1., 10., 100., 1000., 1000.] {
         //Aluminum
         let m1 = 4.008*AMU;
         let Z1 = 2.;
@@ -235,9 +235,9 @@ fn test_momentum_conservation() {
 
                         let options = Options {
                             name: "test".to_string(),
-                            track_trajectories: true,
+                            track_trajectories: false,
                             track_recoils: true,
-                            track_recoil_trajectories: true,
+                            track_recoil_trajectories: false,
                             write_files: true,
                             stream_size: 8000,
                             print: true,
@@ -254,6 +254,13 @@ fn test_momentum_conservation() {
                             num_threads: 1,
                             use_hdf5: false,
                             root_finder: 1,
+                            cpr_n0: 10,
+                            cpr_nmax: 500,
+                            cpr_epsilon: 1E-16,
+                            cpr_complex: 1E-16,
+                            cpr_truncation: 1E-18,
+                            cpr_far_from_zero: 1E6,
+                            cpr_interval_limit: 1E-18,
                         };
 
                         let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
