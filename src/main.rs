@@ -1,8 +1,15 @@
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
 
+use itertools::Itertools;
+
+//extern crate openblas_src;
+//Progress bar crate - works wiht rayon
+use indicatif::{ParallelProgressIterator, ProgressIterator, ProgressBar, ProgressStyle};
+
 //Error handling crate
 //use anyhow::Result;
+use anyhow::Result;
 use anyhow::*;
 
 //Geometry crate
@@ -13,6 +20,14 @@ use geo::{point, Polygon, LineString, Closest, Point};// MultiPoint, Point};
 
 //Serializing/Deserializing crate
 use serde::*;
+
+//Array input via hdf5
+#[cfg(feature = "hdf5_input")]
+use hdf5::*;
+
+//Parallelization
+use rayon::prelude::*;
+use rayon::*;
 
 //I/O
 use std::fs::OpenOptions;
@@ -62,12 +77,22 @@ const MOLIERE: i32 = 0;
 const KR_C: i32 = 1;
 const ZBL: i32 = 2;
 const LENZ_JENSEN: i32 = 3;
+const LENNARD_JONES_12_6: i32 = 4;
 const TRIDYN: i32 = -1;
+const BUCKINGHAM: i32 = 5;
 
 //Scattering integral forms
-const QUADRATURE: i32 = 0;
+const MENDENHALL_WELLER: i32 = 0;
 const MAGIC: i32 = 1;
+const GAUSS_MEHLER: i32 = 2;
+const GAUSS_LEGENDRE: i32 = 3;
 
+//Distance of closest approach determination
+const NEWTON: i32 = 0;
+const CPR: i32 = 1;
+const POLYNOMIAL: i32 = 2;
+
+#[derive(Clone)]
 pub struct Vector {
     x: f64,
     y: f64,
@@ -76,22 +101,19 @@ pub struct Vector {
 impl Vector {
     pub fn new(x: f64, y: f64, z: f64) -> Vector {
         Vector {
-            x: x,
-            y: y,
-            z: z
+            x,
+            y,
+            z
         }
     }
     fn magnitude(&self) -> f64 {
         return (self.x*self.x + self.y*self.y + self.z*self.z).sqrt();
     }
+
     fn assign(&mut self, other: &Vector) {
         self.x = other.x;
         self.y = other.y;
         self.z = other.z;
-    }
-
-    fn dot(&self, other: &Vector) -> f64 {
-        return self.x*other.x + self.y*other.y + self.z*other.z;
     }
 
     fn normalize(&mut self) {
@@ -101,15 +123,12 @@ impl Vector {
         self.z /= magnitude;
     }
 
-    fn add(&self, other: &Vector) -> Vector {
-        Vector::new(
-            self.x + other.x,
-            self.y + other.y,
-            self.z + other.z,
-        )
+    pub fn add(&self, other: &Vector) -> Vector {
+        Vector::new(self.x + other.x, self.y + other.y, self.z + other.z)
     }
 }
 
+#[derive(Clone)]
 pub struct Vector4 {
     E: f64,
     x: f64,
@@ -119,10 +138,10 @@ pub struct Vector4 {
 impl Vector4 {
     fn new(E: f64, x: f64, y: f64, z: f64) -> Vector4 {
         Vector4 {
-            E: E,
-            x: x,
-            y: y,
-            z: z
+            E,
+            x,
+            y,
+            z
         }
     }
 }
@@ -153,10 +172,24 @@ pub struct Options {
     interaction_potential: i32,
     scattering_integral: i32,
     tolerance: f64,
-    max_iterations: usize
+    max_iterations: usize,
+    num_threads: usize,
+    num_chunks: u64,
+    use_hdf5: bool,
+    root_finder: i32,
+    cpr_n0: usize,
+    cpr_nmax: usize,
+    cpr_epsilon: f64,
+    cpr_complex: f64,
+    cpr_truncation: f64,
+    cpr_far_from_zero: f64,
+    cpr_interval_limit: f64,
+    cpr_upper_bound_const: f64,
+    polynom_complex_threshold: f64
 }
 
 fn main() {
+
     //Read input file, convert to string, and open with toml
     let mut input_toml = String::new();
     let mut file = OpenOptions::new()
@@ -186,13 +219,28 @@ fn main() {
 
     if options.electronic_stopping_mode == INTERPOLATED {
         assert!(options.weak_collision_order == 0,
-            "Input error: Cannot use weak collision loop with free flight paths.");
-        //assert!(options.mean_free_path_model == LIQUID,
-        //    "Gaseous model not currently implemented for high energy free flight paths.");
+            "Input error: Cannot use weak collisions with free flight paths. Set weak_collision_order = 0.");
     }
+
     if options.mean_free_path_model == GASEOUS {
         assert!(options.weak_collision_order == 0,
-            "Input error: Cannot use weak collisions with gaseous mean free path model.");
+            "Input error: Cannot use weak collisions with gaseous mean free path model. Set weak_collision_order = 0.");
+    }
+
+    if options.interaction_potential == LENNARD_JONES_12_6 {
+        assert!((options.scattering_integral == GAUSS_MEHLER) | (options.scattering_integral == GAUSS_LEGENDRE),
+        "Input error: Cannot use scattering integral {} with interaction potential {}. Use scattering integral 2: Gauss-Mehler or 3: Gauss-Legendre.",
+        options.scattering_integral, options.interaction_potential);
+
+        assert!((options.root_finder == CPR) | (options.root_finder == POLYNOMIAL),
+        "Input error: Cannot use Newton root-finder with attractive-repulsive potentials. Use 1: Chebyshev-Proxy Rootfinder. or 2: Polynomial (if interatomic potential has only power-of-r terms.)");
+    }
+
+    if (options.scattering_integral == MENDENHALL_WELLER) | (options.scattering_integral == MAGIC) {
+        assert!(match options.interaction_potential {
+            MOLIERE | ZBL | KR_C | LENZ_JENSEN | TRIDYN => true,
+            _ => false
+        }, "Input error: Mendenhall-Weller quadrature and Magic formula can only be used with screened Coulomb potentials. Use scattering integral 2: Gauss-Mehler or 3: Gauss-Legendre.")
     }
 
     //Check that particle arrays are equal length
@@ -217,6 +265,7 @@ fn main() {
         _ => panic!("Input error: unknown unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
             particle_parameters.length_unit.as_str())
     };
+
     let energy_unit: f64 = match particle_parameters.energy_unit.as_str() {
         "EV" => EV,
         "J"  => 1.,
@@ -225,6 +274,7 @@ fn main() {
         _ => panic!("Input error: unknown unit {} in input file. Choose one of: EV, J, KEV, MEV",
             particle_parameters.energy_unit.as_str())
     };
+
     let mass_unit: f64 = match particle_parameters.mass_unit.as_str() {
         "AMU" => AMU,
         "KG" => 1.0,
@@ -232,44 +282,90 @@ fn main() {
             particle_parameters.mass_unit.as_str())
     };
 
-    //Estimate maximum number of recoils produced per ion
-    let mut max_energy: f64 = 0.;
-    let mut total_particles: usize = 0;
-    for particle_index in 0..N {
-        let E = particle_parameters.E[particle_index];
-        let N_ = particle_parameters.N[particle_index];
-        if E > max_energy {
-            max_energy = E*energy_unit;
-        }
-        total_particles += N_;
-    }
+    //HDF5
+    #[cfg(feature = "hdf5_input")]
+    let particle_input_array: Vec<particle::ParticleInput> = {
+        if options.use_hdf5 {
+            let particle_input_filename = particle_parameters.particle_input_filename.as_str();
+            let _e = hdf5::silence_errors();
+            let particle_input_file = hdf5::File::open(particle_input_filename).expect("Input error: cannot open HDF5 file.");
+            let particle_input = particle_input_file.dataset("particles").unwrap();
+            particle_input.read_raw::<particle::ParticleInput>().unwrap()
 
-    //Create particle vector from input file
-    let estimated_num_particles: usize = match options.track_recoils {
-        true => total_particles + ((max_energy/material.minimum_cutoff_energy()).ceil() as usize),
-        false => total_particles,
+        } else {
+            let mut particle_input: Vec<particle::ParticleInput> = Vec::new();
+
+            for particle_index in 0..N {
+                let N_ = particle_parameters.N[particle_index];
+                let m = particle_parameters.m[particle_index];
+                let Z = particle_parameters.Z[particle_index];
+                let E = particle_parameters.E[particle_index];
+                let Ec = particle_parameters.Ec[particle_index];
+                let Es = particle_parameters.Es[particle_index];
+                let (x, y, z) = particle_parameters.pos[particle_index];
+                let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
+                for sub_particle_index in 0..N_ {
+                    //Add new particle to particle vector
+                    particle_input.push(
+                        particle::ParticleInput{
+                            m: m*mass_unit,
+                            Z: Z,
+                            E: E*energy_unit,
+                            Ec: Ec*energy_unit,
+                            Es: Es*energy_unit,
+                            x: x*length_unit,
+                            y: y*length_unit,
+                            z: z*length_unit,
+                            ux: cosx,
+                            uy: cosy,
+                            uz: cosz
+                        }
+                    );
+                }
+            }
+            particle_input
+        }
     };
 
-    let mut particles: Vec<particle::Particle> = Vec::with_capacity(estimated_num_particles);
-    for particle_index in 0..N {
+    #[cfg(not(feature = "hdf5_input"))]
+    let particle_input_array: Vec<particle::ParticleInput> = {
+        if options.use_hdf5 {
+            panic!("HDF5 particle input not enabled. Enable with: cargo build --features hdf5_input")
+        } else {
+            let mut particle_input: Vec<particle::ParticleInput> = Vec::new();
 
-        let N_ = particle_parameters.N[particle_index];
-        let m = particle_parameters.m[particle_index];
-        let Z = particle_parameters.Z[particle_index];
-        let E = particle_parameters.E[particle_index];
-        let Ec = particle_parameters.Ec[particle_index];
-        let Es = particle_parameters.Es[particle_index];
-        let (x, y, z) = particle_parameters.pos[particle_index];
-        let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
-        for sub_particle_index in 0..N_ {
-            //Add new particle to particle vector
-            particles.push(particle::Particle::new(
-                m*mass_unit, Z, E*energy_unit, Ec*energy_unit, Es*energy_unit,
-                x*length_unit, y*length_unit, z*length_unit,
-                cosx, cosy, cosz, true, options.track_trajectories
-            ));
+            for particle_index in 0..N {
+                let N_ = particle_parameters.N[particle_index];
+                let m = particle_parameters.m[particle_index];
+                let Z = particle_parameters.Z[particle_index];
+                let E = particle_parameters.E[particle_index];
+                let Ec = particle_parameters.Ec[particle_index];
+                let Es = particle_parameters.Es[particle_index];
+                let (x, y, z) = particle_parameters.pos[particle_index];
+                let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
+                for sub_particle_index in 0..N_ {
+
+                    //Add new particle to particle vector
+                    particle_input.push(
+                        particle::ParticleInput{
+                            m: m*mass_unit,
+                            Z: Z,
+                            E: E*energy_unit,
+                            Ec: Ec*energy_unit,
+                            Es: Es*energy_unit,
+                            x: x*length_unit,
+                            y: y*length_unit,
+                            z: z*length_unit,
+                            ux: cosx,
+                            uy: cosy,
+                            uz: cosz
+                        }
+                    );
+                }
+            }
+            particle_input
         }
-    }
+    };
 
     //Open output files for streaming output
     let reflected_file = OpenOptions::new()
@@ -307,174 +403,94 @@ fn main() {
         .unwrap();
     let mut trajectory_data_stream = BufWriter::with_capacity(options.stream_size, trajectory_data);
 
+    println!("Processing {} ions...", particle_input_array.len());
+
     //Main loop
-    let mut particle_index: usize = particles.len();
+    let total_count: u64 = particle_input_array.len() as u64;
 
-    'particle_loop: while particle_index > 0 {
-        //Remove particle from top of vector as particle_1
-        let mut particle_1 = particles.pop().unwrap();
+    //Initialize threads with rayon
+    println!("Initializing with {} threads...", options.num_threads);
+    if options.num_threads > 1 {let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global().unwrap();};
 
-        //Print to stdout
-        if options.print & particle_1.incident & (particle_index % (total_particles / options.print_num) == 0){
-            println!("Incident Ion {} of {}", particle_index, total_particles);
+    let bar: ProgressBar = ProgressBar::new(options.num_chunks);
+
+    bar.set_style(ProgressStyle::default_bar()
+        .template("{spinnter:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {percent}%")
+        .progress_chars("#>-"));
+
+    for (chunk_index, particle_input_chunk) in particle_input_array.chunks((total_count/options.num_chunks) as usize).progress_with(bar).enumerate() {
+
+        let mut finished_particles: Vec<particle::Particle> = Vec::new();
+
+        if options.num_threads > 1 {
+            finished_particles.par_extend(
+                particle_input_chunk.into_par_iter()
+                .map(|particle_input| bca::single_ion_bca(particle::Particle::from_input(*particle_input, &options), &material, &options))
+                    .flatten()
+            );
+        } else {
+            finished_particles.extend(
+                particle_input_chunk.into_iter()
+                .map(|particle_input| bca::single_ion_bca(particle::Particle::from_input(*particle_input, &options), &material, &options))
+                    .flatten()
+            );
         }
 
-        //BCA loop
-        'trajectory_loop: while !particle_1.stopped & !particle_1.left {
-
-            //Choose impact parameters and azimuthal angles for all collisions, and determine mean free path
-            let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material, &options);
-
-            let mut total_energy_loss = 0.;
-            let mut total_asymptotic_deflection = 0.;
-            let mut distance_of_closest_approach = 0.;
-            let mut strong_collision_Z = 0.;
-            let mut strong_collision_index: usize = 0;
-
-            'collision_loop: for k in 0..options.weak_collision_order + 1 {
-
-                let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material,
-                    &binary_collision_geometries[k], &options);
-
-                //If recoil location is inside, proceed with binary collision loop
-                if material.inside(particle_2.pos.x, particle_2.pos.y) & material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) {
-
-                    //Determine scattering angle from binary collision
-                    let binary_collision_result = bca::calculate_binary_collision(&particle_1,
-                        &particle_2, &binary_collision_geometries[k], &options);
-
-                    //Only use 0th order collision for local electronic stopping
-                    if k == 0 {
-                        distance_of_closest_approach = binary_collision_result.normalized_distance_of_closest_approach;
-                        strong_collision_Z = particle_2.Z;
-                        strong_collision_index = species_index;
-                    }
-
-                    //Energy transfer to recoil
-                    particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y);
-
-                    //Accumulate asymptotic deflections for primary particle
-                    total_energy_loss += binary_collision_result.recoil_energy;
-
-                    //total_deflection_angle += psi;
-                    total_asymptotic_deflection += binary_collision_result.asymptotic_deflection;
-
-                    //Rotate particle 1, 2 by lab frame scattering angles
-                    particle::rotate_particle(&mut particle_1, binary_collision_result.psi,
-                        binary_collision_geometries[k].phi_azimuthal);
-
-                    particle::rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
-                        binary_collision_geometries[k].phi_azimuthal);
-                    particle_2.dir_old.x = particle_2.dir.x;
-                    particle_2.dir_old.y = particle_2.dir.y;
-                    particle_2.dir_old.z = particle_2.dir.z;
-
-                    //Only track number of strong collisions, i.e., k = 0
-                    if (binary_collision_result.psi > 0.) & (k == 0) {
-                        particle_1.number_collision_events += 1;
-                    }
-
-                    //Deep recoil suppression
-                    //See Eckstein 1991 7.5.3 for recoil suppression function
-                    if options.track_recoils & options.suppress_deep_recoils {
-                        let E = particle_1.E;
-                        let Za: f64 = particle_1.Z;
-                        let Zb: f64 = particle_2.Z;
-
-                        let Ma: f64 = particle_1.m;
-                        let Mb: f64 = particle_2.m;
-
-                        let n = material.total_number_density(particle_2.pos.x, particle_2.pos.y);
-                        let a: f64 = interactions::screening_length(Za, Zb, options.interaction_potential);
-                        let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
-                        let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powf(3.)/n/a/a;
-
-                        if let Closest::SinglePoint(p2) = material.closest_point(particle_2.pos.x, particle_2.pos.y) {
-                            let dx = p2.x() - particle_2.pos.x;
-                            let dy = p2.y() - particle_2.pos.y;
-                            let distance_to_surface = (dx*dx + dy*dy).sqrt();
-
-                            if (distance_to_surface < estimated_range_of_recoils) & (particle_2.E > particle_2.Ec) {
-                                particles.push(particle_2);
-                            }
-                        }
-                    //If transferred energy > cutoff energy, add recoil to particle vector
-                    } else if options.track_recoils & (particle_2.E > particle_2.Ec) {
-                        particles.push(particle_2);
-                    }
-                }
+        for particle in finished_particles {
+            if particle.incident & particle.left {
+                writeln!(
+                    reflected_file_stream, "{},{},{},{},{},{},{},{},{},{}",
+                    particle.m/mass_unit, particle.Z, particle.E/energy_unit,
+                    particle.pos.x/length_unit, particle.pos.y/length_unit, particle.pos.z/length_unit,
+                    particle.dir.x, particle.dir.y, particle.dir.z,
+                    particle.number_collision_events
+                ).expect("Output error: could not write to reflected.output.");
             }
 
-            //Advance particle in space and track total distance traveled
-            let distance_traveled = particle::particle_advance(&mut particle_1,
-                binary_collision_geometries[0].mfp, total_asymptotic_deflection);
-
-            //Subtract total energy from all simultaneous collisions and electronic stopping
-            bca::update_particle_energy(&mut particle_1, &material, distance_traveled,
-                total_energy_loss, distance_of_closest_approach, strong_collision_Z,
-                strong_collision_index, &options);
-
-            //Check boundary conditions on leaving and stopping
-            material::boundary_condition_2D_planar(&mut particle_1, &material);
-
-            //Set particle index to topmost particle
-            particle_index = particles.len();
-        }
-
-        //Once particle finishes, begin data output
-        //Stream current particle output to files
-        //Incident particle, left material: reflected
-        if particle_1.incident & particle_1.left {
-            writeln!(
-                reflected_file_stream, "{},{},{},{},{},{},{},{},{},{}",
-                particle_1.m/mass_unit, particle_1.Z, particle_1.E/energy_unit,
-                particle_1.pos.x/length_unit, particle_1.pos.y/length_unit, particle_1.pos.z/length_unit,
-                particle_1.dir.x, particle_1.dir.y, particle_1.dir.z,
-                particle_1.number_collision_events
-            ).expect("Output error: could not write to reflected.output.");
-
-        }
-
-        //Incident particle, stopped in material: deposited
-        if particle_1.incident & particle_1.stopped {
-            writeln!(
-                deposited_file_stream, "{},{},{},{},{},{}",
-                particle_1.m/mass_unit, particle_1.Z,
-                particle_1.pos.x/length_unit, particle_1.pos.y/length_unit, particle_1.pos.z/length_unit,
-                particle_1.number_collision_events
-            ).expect("Output error: could not write to deposited.output.");
-        }
-
-        //Not an incident particle, left material: sputtered
-        if !particle_1.incident & particle_1.left {
-            writeln!(
-                sputtered_file_stream, "{},{},{},{},{},{},{},{},{},{},{},{},{}",
-                particle_1.m/mass_unit, particle_1.Z, particle_1.E/energy_unit,
-                particle_1.pos.x/length_unit, particle_1.pos.y/length_unit, particle_1.pos.z/length_unit,
-                particle_1.dir.x, particle_1.dir.y, particle_1.dir.z,
-                particle_1.number_collision_events,
-                particle_1.pos_origin.x/length_unit, particle_1.pos_origin.y/length_unit, particle_1.pos_origin.z/length_unit
-            ).expect("Output error: could not write to sputtered.output.");
-        }
-
-        //Trajectory output
-        if particle_1.track_trajectories {
-            writeln!(trajectory_data_stream, "{}", particle_1.trajectory.len())
-                .expect("Output error: could not write trajectory length data.");
-
-            for pos in particle_1.trajectory {
+            //Incident particle, stopped in material: deposited
+            if particle.incident & particle.stopped {
                 writeln!(
-                    trajectory_file_stream, "{},{},{},{},{},{}",
-                    particle_1.m/mass_unit, particle_1.Z, pos.E/energy_unit,
-                    pos.x/length_unit, pos.y/length_unit, pos.z/length_unit,
-                ).expect("Output error: could not write to trajectories.output.");
+                    deposited_file_stream, "{},{},{},{},{},{}",
+                    particle.m/mass_unit, particle.Z,
+                    particle.pos.x/length_unit, particle.pos.y/length_unit, particle.pos.z/length_unit,
+                    particle.number_collision_events
+                ).expect("Output error: could not write to deposited.output.");
+            }
+
+            //Not an incident particle, left material: sputtered
+            if !particle.incident & particle.left {
+                writeln!(
+                    sputtered_file_stream, "{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                    particle.m/mass_unit, particle.Z, particle.E/energy_unit,
+                    particle.pos.x/length_unit, particle.pos.y/length_unit, particle.pos.z/length_unit,
+                    particle.dir.x, particle.dir.y, particle.dir.z,
+                    particle.number_collision_events,
+                    particle.pos_origin.x/length_unit, particle.pos_origin.y/length_unit, particle.pos_origin.z/length_unit
+                ).expect("Output error: could not write to sputtered.output.");
+            }
+
+            //Trajectory output
+            if particle.track_trajectories {
+                writeln!(trajectory_data_stream, "{}", particle.trajectory.len())
+                    .expect("Output error: could not write trajectory length data.");
+
+                for pos in particle.trajectory {
+                    writeln!(
+                        trajectory_file_stream, "{},{},{},{},{},{}",
+                        particle.m/mass_unit, particle.Z, pos.E/energy_unit,
+                        pos.x/length_unit, pos.y/length_unit, pos.z/length_unit,
+                    ).expect("Output error: could not write to trajectories.output.");
+                }
             }
         }
     }
+
     //Flush all file streams before dropping to ensure all data is written
     reflected_file_stream.flush().unwrap();
     deposited_file_stream.flush().unwrap();
     sputtered_file_stream.flush().unwrap();
     trajectory_data_stream.flush().unwrap();
     trajectory_file_stream.flush().unwrap();
+
+    println!("Finished!");
 }

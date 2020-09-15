@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Jon Drobny <drobny2@illinois.edu>"]
 edition = "2018"
 
+[[bin]]
+name="rustBCA"
+
 [dependencies]
 rand = "0.7"
 geo = "0.12.2"
@@ -11,10 +14,20 @@ serde = { version = "1", features = ["derive"] }
 toml = "0.5"
 float-cmp = "0.5.2"
 anyhow = "1.0"
+hdf5 = {version = "0.6.1", optional = true}
+rayon = "1.3.1"
+rcpr = { git = "https://github.com/drobnyjt/rcpr", branch= "master", optional = true}
+#rcpr = { path = "../rcpr"}#, branch= "master"}
+indicatif = {version="*", features=["rayon"]}
+itertools = ""
 
 [profile.release]
 lto = "fat"
 codegen-units = 1
 target-cpu = "native"
 opt-level = 3
-debug = 2
+debug = true
+
+[features]
+hdf5_input = ["hdf5"]
+cpr_rootfinder = ["rcpr"]

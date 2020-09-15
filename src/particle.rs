@@ -2,6 +2,7 @@ use super::*;
 
 #[derive(Deserialize)]
 pub struct ParticleParameters {
+    pub particle_input_filename: String,
     pub length_unit: String,
     pub energy_unit: String,
     pub mass_unit: String,
@@ -15,6 +16,24 @@ pub struct ParticleParameters {
     pub dir: Vec<(f64, f64, f64)>,
 }
 
+#[derive(Clone, PartialEq, Debug, Copy)]
+#[cfg_attr(feature = "hdf5_input", derive(hdf5::H5Type))]
+#[repr(C)]
+pub struct ParticleInput {
+    pub m: f64,
+    pub Z: f64,
+    pub E: f64,
+    pub Ec: f64,
+    pub Es: f64,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub ux: f64,
+    pub uy: f64,
+    pub uz: f64
+}
+
+#[derive(Clone)]
 pub struct Particle {
     pub m: f64,
     pub Z: f64,
@@ -37,15 +56,45 @@ pub struct Particle {
     pub backreflected: bool,
 }
 impl Particle {
+    pub fn from_input(input: ParticleInput, options: &Options) -> Particle {
+        let dirx = input.ux;
+        let diry = input.uy;
+        let dirz = input.uz;
+
+        let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
+
+        Particle {
+            m: input.m,
+            Z: input.Z,
+            E: input.E,
+            Ec: input.Ec,
+            Es: input.Es,
+            pos: Vector::new(input.x, input.y, input.z),
+            dir: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
+            pos_old: Vector::new(input.x, input.y, input.z),
+            dir_old: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
+            pos_origin: Vector::new(input.x, input.y, input.z),
+            asympototic_deflection: 0.,
+            stopped: false,
+            left: false,
+            incident: true,
+            first_step: true,
+            trajectory: vec![Vector4::new(input.E, input.x, input.y, input.z)],
+            track_trajectories: options.track_trajectories,
+            number_collision_events: 0,
+            backreflected: false
+        }
+    }
+
     pub fn new(m: f64, Z: f64, E: f64, Ec: f64, Es: f64, x: f64, y: f64, z: f64, dirx: f64, diry: f64, dirz: f64, incident: bool, track_trajectories: bool) -> Particle {
         let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
 
         Particle {
-            m: m,
-            Z: Z,
-            E: E,
-            Ec: Ec,
-            Es: Es,
+            m,
+            Z,
+            E,
+            Ec,
+            Es,
             pos: Vector::new(x, y, z),
             dir: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
             pos_old: Vector::new(x, y, z),
@@ -54,10 +103,10 @@ impl Particle {
             asympototic_deflection: 0.,
             stopped: false,
             left: false,
-            incident: incident,
+            incident,
             first_step: incident,
             trajectory: vec![Vector4::new(E, x, y, z)],
-            track_trajectories: track_trajectories,
+            track_trajectories,
             number_collision_events: 0,
             backreflected: false
         }
