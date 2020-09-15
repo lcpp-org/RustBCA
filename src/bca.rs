@@ -265,11 +265,26 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, binary_collision_geometry.impact_parameter, options.interaction_potential)};
 
     let x0 = match root_finder {
+        POLYNOMIAL => {
+
+            let coefficients = interactions::polynomial_coefficients(relative_energy, binary_collision_geometry.impact_parameter, options.interaction_potential);
+            let roots = real_polynomial_roots(coefficients, options.polynom_complex_threshold);
+            let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
+
+            if roots.is_empty() || max_root.is_nan() {
+                return Err(anyhow!("Numerical error: polynomial rootfinder failed to find root, {}. E: {}; x, y, z: ({},{},{}); x0: {}",
+                    options.max_iterations, E0/EV,
+                    particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM,
+                    max_root));
+            } else {
+                return Ok(max_root);
+            }
+        },
         CPR => {
 
-            let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, binary_collision_geometry.impact_parameter, options.interaction_potential)*interactions::scaling_function(r, a, options.interaction_potential)};
+            let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, binary_collision_geometry.impact_parameter, options.interaction_potential)*interactions::scaling_function(r, binary_collision_geometry.impact_parameter, options.interaction_potential)};
 
-            let upper_bound = f64::max(10.*a*beta, 10.*a);
+            let upper_bound = f64::max(options.cpr_upper_bound_const*a*beta, options.cpr_upper_bound_const*a);
 
             let roots = find_roots_with_newton_polishing(&g, &f, &df, 0., upper_bound,
                 options.cpr_n0, options.cpr_epsilon, options.cpr_nmax, options.cpr_complex,
@@ -311,7 +326,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
                 particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM,
                 x0, err, options.tolerance));
         },
-        _ => panic!("Input error: unimplemented root-finder. Choose 0: Newton 1: Adaptive Chebyshev Proxy Rootfinder with Subdivision")
+        _ => panic!("Input error: unimplemented root-finder. Choose 0: Newton 1: Adaptive Chebyshev Proxy Rootfinder with Subdivision 2: Frobenius Companion Matrix Polynomial")
     };
 }
 
@@ -358,36 +373,31 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
                 KR_C => vec![ 0.7887, 0.01166, 00.006913, 17.16, 10.79 ],
                 ZBL => vec![ 0.99229, 0.011615, 0.0071222, 9.3066, 14.813 ],
                 TRIDYN => vec![1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
-                _ => panic!("Input error: unimplemented interaction potential {} for MAGIC algorithm.",  options.interaction_potential)
+                _ => panic!("Input error: unimplemented interaction potential {} for MAGIC algorithm. Use a screened Coulomb potential.",  options.interaction_potential)
             };
 
-            let c = vec![ 0.190945, 0.473674, 0.335381, 0.0 ];
-            let d = vec![ -0.278544, -0.637174, -1.919249, 0.0 ];
-
+            let beta: f64 = binary_collision_geometry.impact_parameter/a;
             let V0 = Za*Zb*Q*Q/4.0/PI/EPS0/a;
-            let E_c = E0*Mb/(Ma + Mb);
-            let E_r = E0/V0;
-            let b = binary_collision_geometry.impact_parameter/a;
-            let SQE = E_r.sqrt();
-            let R = a*x0;
-            //let sum = c[0]*(d[0]*x0).exp() + c[1]*(d[1]*x0).exp() + c[2]*(d[2]*x0).exp();
+            let relative_energy = E0*Mb/(Ma + Mb);
+            let reduced_energy = E0/V0;
+            let SQE = reduced_energy.sqrt();
+            let r0 = a*x0;
             let sum = interactions::phi(x0, options.interaction_potential);
-            let V = V0*a/R*sum;
-            //let sum = d[0]*c[0]*(d[0]*x0).exp() + d[1]*c[1]*(d[1]*x0).exp() + d[2]*c[2]*(d[2]*x0).exp();
+            let V = V0*a/r0*sum;
             let sum = interactions::dphi(x0, options.interaction_potential);
-            let dV = -V/R + V0/R*sum; //1174
-            let rho = -2.0*(E_c - V)/dV; //1176
-            let D = 2.0*(1.0 + C_[0]/SQE)*E_r*b.powf((C_[1] + SQE)/(C_[2] + SQE)); //1179
-            let G = (C_[4] + E_r)/(C_[3] + E_r)*((1. + D*D).sqrt() - D); //F-TRIDYN line 1180
-            let delta =  D*G/(1.0 + G)*(x0 - b);
-            let ctheta2 = (b + rho/a + delta)/(x0 + rho/a);
-            2.*((b + rho/a + delta)/(x0 + rho/a)).acos()
+            let dV = -V/r0 + V0/r0*sum;
+            let rho = -2.0*(relative_energy - V)/dV;
+            let D = 2.0*(1.0 + C_[0]/SQE)*reduced_energy*beta.powf((C_[1] + SQE)/(C_[2] + SQE));
+            let G = (C_[4] + reduced_energy)/(C_[3] + reduced_energy)*((1. + D*D).sqrt() - D);
+            let delta =  D*G/(1.0 + G)*(x0 - beta);
+            let ctheta2 = (beta + rho/a + delta)/(x0 + rho/a);
+            2.*((beta + rho/a + delta)/(x0 + rho/a)).acos()
         },
-        _ => panic!("Input error: unimplemented scattering integral: {}. Use 0: Mendenhall-Weller Quadrature 1: MAGIC Algorithm",
+        _ => panic!("Input error: unimplemented scattering integral: {}. Use 0: Mendenhall-Weller Quadrature 1: MAGIC Algorithm 2: Gauss-Mehler 3: Gauss-Legendre",
             options.scattering_integral)
     };
 
-    assert!(!theta.is_nan());
+    assert!(!theta.is_nan(), "CoM deflection angle theta is NaN. Check parameters.");
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
     let asympototic_deflection = x0*a*(theta/2.).sin();

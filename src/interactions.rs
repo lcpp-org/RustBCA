@@ -1,6 +1,6 @@
 use super::*;
 
-const LENNARD_JONES_EPSILON: f64 = 0.343*EV;
+const LENNARD_JONES_EPSILON: f64 = 0.0343*EV;
 pub const LENNARD_JONES_SIGMA: f64 = 1.*ANGSTROM;
 
 pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: i32) -> f64 {
@@ -89,8 +89,8 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: i32) -> f64 {
             1./(1. + (r/a).powf(2.))
         },
         LENNARD_JONES_12_6 => {
-            let n = 12.;
-            1./(1. + (r/a).powf(n))
+            let n = 11.;
+            1./(1. + (r/LENNARD_JONES_SIGMA).powf(n))
         },
         _ => panic!("Input error: unimplemented interaction potential: {}, Use 0: MOLIERE 1: KR_C 2: ZBL 3: LENZ_JENSEN 4: LENNARD_JONES_12_6", interaction_potential)
     }
@@ -170,16 +170,28 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: i32) -> f64 {
 }
 
 
+pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, interaction_potential: i32) -> Vec<f64> {
+    match interaction_potential {
+
+        LENNARD_JONES_12_6 => {
+            let epsilon = LENNARD_JONES_EPSILON;
+            let sigma = LENNARD_JONES_SIGMA;
+            vec![1., 0., -impact_parameter.powf(2.), 0., 0., 0., 4.*epsilon*sigma.powf(6.)/relative_energy, 0., 0., 0., 0., 0., -4.*epsilon*sigma.powf(12.)/relative_energy]
+        },
+        _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder.")
+    }
+}
+
 pub fn lennard_jones(r: f64, sigma: f64, epsilon: f64) -> f64 {
     4.*epsilon*((sigma/r).powf(12.) - (sigma/r).powf(6.))
 }
 
 pub fn doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
-    r.powf(12.) - 4.*epsilon/relative_energy*(sigma.powf(12.) - sigma.powf(6.)*r.powf(6.)) - p*p*r.powf(10.)
+    (r/sigma).powf(12.) - 4.*epsilon/relative_energy*(1. - (r/sigma).powf(6.)) - p.powf(2.)*r.powf(10.)/sigma.powf(12.)
 }
 
 pub fn diff_doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
-    12.*r.powf(11.) + 4.*epsilon*sigma.powf(6.)*6.*r.powf(5.) - p*p*10.*r.powf(9.)
+    12.*(r/sigma).powf(11.)/sigma + 4.*epsilon/relative_energy*6.*(r/sigma).powf(5.)/sigma - 10.*p.powf(2.)*r.powf(9.)/sigma.powf(12.)
 }
 
 fn moliere(xi: f64) -> f64 {

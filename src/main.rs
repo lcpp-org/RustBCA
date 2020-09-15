@@ -2,8 +2,8 @@
 #![allow(non_snake_case)]
 
 //extern crate openblas_src;
-
-use indicatif::ParallelProgressIterator;
+//Progress bar crate - works wiht rayon
+use indicatif::{ParallelProgressIterator, ProgressIterator, ProgressBar, ProgressStyle};
 
 //Error handling crate
 //use anyhow::Result;
@@ -87,6 +87,7 @@ const GAUSS_LEGENDRE: i32 = 3;
 //Distance of closest approach determination
 const NEWTON: i32 = 0;
 const CPR: i32 = 1;
+const POLYNOMIAL: i32 = 2;
 
 #[derive(Clone)]
 pub struct Vector {
@@ -105,14 +106,11 @@ impl Vector {
     fn magnitude(&self) -> f64 {
         return (self.x*self.x + self.y*self.y + self.z*self.z).sqrt();
     }
+
     fn assign(&mut self, other: &Vector) {
         self.x = other.x;
         self.y = other.y;
         self.z = other.z;
-    }
-
-    fn dot(&self, other: &Vector) -> f64 {
-        return self.x*other.x + self.y*other.y + self.z*other.z;
     }
 
     fn normalize(&mut self) {
@@ -120,14 +118,6 @@ impl Vector {
         self.x /= magnitude;
         self.y /= magnitude;
         self.z /= magnitude;
-    }
-
-    fn add(&self, other: &Vector) -> Vector {
-        Vector::new(
-            self.x + other.x,
-            self.y + other.y,
-            self.z + other.z,
-        )
     }
 }
 
@@ -185,7 +175,9 @@ pub struct Options {
     cpr_complex: f64,
     cpr_truncation: f64,
     cpr_far_from_zero: f64,
-    cpr_interval_limit: f64
+    cpr_interval_limit: f64,
+    cpr_upper_bound_const: f64,
+    polynom_complex_threshold: f64
 }
 
 fn main() {
@@ -325,29 +317,31 @@ fn main() {
         }
     };
 
-
-
     println!("Processing {} ions...", particle_input_array.len());
 
     //Main loop
     let mut finished_particles: Vec<particle::Particle> = Vec::new();
     let total_count: u64 = particle_input_array.len() as u64;
 
-    let parallel = true;
-    if parallel {
+    let bar = ProgressBar::new(total_count);
+    bar.set_style(ProgressStyle::default_bar()
+        .template("{spinnter:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] [{pos}/{len} ions]")
+        .progress_chars("#>-"));
+
+    if options.num_threads > 1 {
         //Initialize threads with rayon
         println!("Initializing with {} threads...", options.num_threads);
         let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global().unwrap();
 
         println!("Simulation progress: ");
         finished_particles.par_extend(
-            particle_input_array.into_par_iter().progress_count(total_count)
+            particle_input_array.into_par_iter().progress_with(bar)
             .map(|particle_input| bca::single_ion_bca(particle::Particle::from_input(particle_input, &options), &material, &options))
                 .flatten()
         );
     } else {
         finished_particles.extend(
-            particle_input_array.into_iter()
+            particle_input_array.into_iter().progress_with(bar)
             .map(|particle_input| bca::single_ion_bca(particle::Particle::from_input(particle_input, &options), &material, &options))
                 .flatten()
         );
