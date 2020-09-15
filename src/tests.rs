@@ -225,8 +225,8 @@ fn test_momentum_conservation() {
         let material_1 = material::Material::new(material_parameters, mesh_2d_input);
 
         for high_energy_free_flight_paths in vec![true, false] {
-            for potential in vec![KR_C, MOLIERE, ZBL, LENZ_JENSEN, LENNARD_JONES_12_6] {
-                for scattering_integral in vec![GAUSS_MEHLER, GAUSS_LEGENDRE] {
+            for potential in vec![KR_C, MOLIERE, ZBL, LENZ_JENSEN] {
+                for scattering_integral in vec![MENDENHALL_WELLER, GAUSS_MEHLER, GAUSS_LEGENDRE] {
                     for root_finder in vec![CPR, NEWTON] {
 
                         println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
@@ -252,8 +252,9 @@ fn test_momentum_conservation() {
                             tolerance: 1E-12,
                             max_iterations: 100,
                             num_threads: 1,
+                            num_chunks: 1,
                             use_hdf5: false,
-                            root_finder: 1,
+                            root_finder: 0,
                             cpr_n0: 10,
                             cpr_nmax: 500,
                             cpr_epsilon: 1E-16,
@@ -261,6 +262,8 @@ fn test_momentum_conservation() {
                             cpr_truncation: 1E-18,
                             cpr_far_from_zero: 1E6,
                             cpr_interval_limit: 1E-18,
+                            cpr_upper_bound_const: 10.,
+                            polynom_complex_threshold: 1E-18,
                         };
 
                         let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);

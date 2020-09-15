@@ -16,7 +16,8 @@ pub struct ParticleParameters {
     pub dir: Vec<(f64, f64, f64)>,
 }
 
-#[derive(hdf5::H5Type, Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Copy)]
+#[cfg_attr(feature = "hdf5_input", derive(hdf5::H5Type))]
 #[repr(C)]
 pub struct ParticleInput {
     pub m: f64,

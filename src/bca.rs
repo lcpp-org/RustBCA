@@ -1,4 +1,6 @@
 use super::*;
+
+#[cfg(feature = "cpr_rootfinder")]
 use rcpr::chebyshev::*;
 
 pub struct BinaryCollisionGeometry {
@@ -264,6 +266,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     let f = |r: f64| -> f64 {interactions::distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, binary_collision_geometry.impact_parameter, options.interaction_potential)};
     let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, binary_collision_geometry.impact_parameter, options.interaction_potential)};
 
+    #[cfg(feature = "cpr_rootfinder")]
     let x0 = match root_finder {
         POLYNOMIAL => {
 
@@ -328,7 +331,34 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         },
         _ => panic!("Input error: unimplemented root-finder. Choose 0: Newton 1: Adaptive Chebyshev Proxy Rootfinder with Subdivision 2: Frobenius Companion Matrix Polynomial")
     };
-}
+
+    #[cfg(not(feature = "cpr_rootfinder"))]
+    let x0 = {
+        //Guess for large reduced energy from Mendenhall and Weller 1991
+        //For small energies, use pure Newton-Raphson with arbitrary guess of 1
+        let mut x0 = beta;
+        let mut xn: f64;
+        if reduced_energy > 5. {
+            let inv_er_2 = 0.5/reduced_energy;
+            x0 = inv_er_2 + (inv_er_2*inv_er_2 + beta*beta).sqrt();
+        }
+
+        //Newton-Raphson to determine distance of closest approach
+        let mut err: f64 = options.tolerance + 1.;
+        for k in 0..options.max_iterations {
+            xn = x0 - f(x0*a)/df(x0*a);
+            err = (xn - x0)*(xn - x0);
+            x0 = xn;
+            if err < options.tolerance {
+                return Ok(x0);
+            }
+        }
+        return Err(anyhow!("Numerical error: exceeded maximum number of Newton-Raphson iterations, {}. E: {}; x, y, z: ({},{},{}); x0: {}; Error: {}; Tolerance: {}",
+            options.max_iterations, E0,
+            particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM,
+            x0, err, options.tolerance));
+        };
+    }
 
 pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &particle::Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> BinaryCollisionResult {
     let Za: f64 = particle_1.Z;

@@ -1,6 +1,6 @@
 use super::*;
 
-const LENNARD_JONES_EPSILON: f64 = 0.0343*EV;
+const LENNARD_JONES_EPSILON: f64 = 0.343*EV;
 pub const LENNARD_JONES_SIGMA: f64 = 1.*ANGSTROM;
 
 pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: i32) -> f64 {
@@ -168,7 +168,6 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: i32) -> f64 {
         _ => panic!("Input error: unimplemented screened coulomb potential: {}, Use 0: MOLIERE 1: KR_C 2: ZBL 3: LENZ_JENSEN", interaction_potential)
     }
 }
-
 
 pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, interaction_potential: i32) -> Vec<f64> {
     match interaction_potential {
