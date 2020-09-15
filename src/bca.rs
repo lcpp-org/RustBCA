@@ -271,7 +271,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         POLYNOMIAL => {
 
             let coefficients = interactions::polynomial_coefficients(relative_energy, binary_collision_geometry.impact_parameter, options.interaction_potential);
-            let roots = real_polynomial_roots(coefficients, options.polynom_complex_threshold);
+            let roots = real_polynomial_roots(coefficients, options.polynom_complex_threshold).unwrap();
             let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
 
             if roots.is_empty() || max_root.is_nan() {
@@ -291,7 +291,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
 
             let roots = find_roots_with_newton_polishing(&g, &f, &df, 0., upper_bound,
                 options.cpr_n0, options.cpr_epsilon, options.cpr_nmax, options.cpr_complex,
-                options.cpr_truncation, options.cpr_interval_limit, options.cpr_far_from_zero);
+                options.cpr_truncation, options.cpr_interval_limit, options.cpr_far_from_zero).unwrap();
 
             let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
 
