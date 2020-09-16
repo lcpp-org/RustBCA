@@ -360,6 +360,63 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         };
     }
 
+fn gauss_mehler(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: i32) -> f64 {
+    let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+    let r0 = x0*a;
+    let V = |r| {interactions::interaction_potential(r, a, Za, Zb, interaction_potential)};
+    let relative_energy = E0*Mb/(Ma + Mb);
+    scattering_integral_gauss_mehler(impact_parameter, relative_energy, r0, &V, 10)
+}
+
+fn gauss_legendre(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: i32) -> f64 {
+    let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+    let r0 = x0*a;
+    let V = |r| {interactions::interaction_potential(r, a, Za, Zb, interaction_potential)};
+    let relative_energy = E0*Mb/(Ma + Mb);
+    scattering_integral_gauss_legendre(impact_parameter, relative_energy, r0, &V)
+}
+
+fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: i32) -> f64 {
+    //MAGIC algorithm
+    //Since this is legacy code I don't think I will clean this up
+    let C_ = match  interaction_potential {
+        MOLIERE => vec![ 0.6743, 0.009611, 0.005175, 6.314, 10.0 ],
+        KR_C => vec![ 0.7887, 0.01166, 00.006913, 17.16, 10.79 ],
+        ZBL => vec![ 0.99229, 0.011615, 0.0071222, 9.3066, 14.813 ],
+        TRIDYN => vec![1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
+        _ => panic!("Input error: unimplemented interaction potential {} for MAGIC algorithm. Use a screened Coulomb potential.",  interaction_potential)
+    };
+    let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+    let beta: f64 = impact_parameter/a;
+    let V0 = Za*Zb*Q*Q/4.0/PI/EPS0/a;
+    let relative_energy = E0*Mb/(Ma + Mb);
+    let reduced_energy = E0/V0;
+    let SQE = reduced_energy.sqrt();
+    let r0 = a*x0;
+    let sum = interactions::phi(x0, interaction_potential);
+    let V = V0*a/r0*sum;
+    let sum = interactions::dphi(x0, interaction_potential);
+    let dV = -V/r0 + V0/r0*sum;
+    let rho = -2.0*(relative_energy - V)/dV;
+    let D = 2.0*(1.0 + C_[0]/SQE)*reduced_energy*beta.powf((C_[1] + SQE)/(C_[2] + SQE));
+    let G = (C_[4] + reduced_energy)/(C_[3] + reduced_energy)*((1. + D*D).sqrt() - D);
+    let delta =  D*G/(1.0 + G)*(x0 - beta);
+    let ctheta2 = (beta + rho/a + delta)/(x0 + rho/a);
+    2.*((beta + rho/a + delta)/(x0 + rho/a)).acos()
+}
+
+fn mendenhall_weller(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: i32) -> f64 {
+    //Lindhard screening length and reduced energy
+    let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+    let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
+    let beta: f64 = impact_parameter/a;
+
+    //Scattering integral quadrature from Mendenhall and Weller 2005
+    let lambda0 = (0.5 + beta*beta/x0/x0/2. - interactions::dphi(x0,  interaction_potential)/2./reduced_energy).powf(-1./2.);
+    let alpha = 1./12.*(1. + lambda0 + 5.*(0.4206*scattering_integral_mw(x0/0.9072, beta, reduced_energy,  interaction_potential) + 0.9072*scattering_integral_mw(x0/0.4206, beta, reduced_energy,  interaction_potential)));
+    PI*(1. - beta*alpha/x0)
+}
+
 pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &particle::Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> BinaryCollisionResult {
     let Za: f64 = particle_1.Z;
     let Zb: f64 = particle_2.Z;
@@ -370,64 +427,17 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
 
     let a: f64 = interactions::screening_length(Za, Zb, options.interaction_potential);
     let x0 = distance_of_closest_approach(particle_1, particle_2, binary_collision_geometry, options).unwrap();
-    let r0 = x0*a;
 
-    let theta = match  options.scattering_integral {
-        MENDENHALL_WELLER => {
-            //Lindhard screening length and reduced energy
-            let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
-            let beta: f64 = binary_collision_geometry.impact_parameter/a;
-
-            //Scattering integral quadrature from Mendenhall and Weller 2005
-            let lambda0 = (0.5 + beta*beta/x0/x0/2. - interactions::dphi(x0,  options.interaction_potential)/2./reduced_energy).powf(-1./2.);
-            let alpha = 1./12.*(1. + lambda0 + 5.*(0.4206*scattering_integral_mw(x0/0.9072, beta, reduced_energy,  options.interaction_potential) + 0.9072*scattering_integral_mw(x0/0.4206, beta, reduced_energy,  options.interaction_potential)));
-            PI*(1. - beta*alpha/x0)
-        },
-        GAUSS_MEHLER => {
-            let V = |r| {interactions::interaction_potential(r, a, Za, Zb, options.interaction_potential)};
-            let relative_energy = E0*Mb/(Ma + Mb);
-            let impact_parameter = binary_collision_geometry.impact_parameter;
-            scattering_integral_gauss_mehler(impact_parameter, relative_energy, r0, &V, 10)
-        },
-        GAUSS_LEGENDRE => {
-            let V = |r| {interactions::interaction_potential(r, a, Za, Zb, options.interaction_potential)};
-            let relative_energy = E0*Mb/(Ma + Mb);
-            let impact_parameter = binary_collision_geometry.impact_parameter;
-            scattering_integral_gauss_legendre(impact_parameter, relative_energy, r0, &V)
-        },
-        MAGIC => {
-            //MAGIC algorithm
-            //Since this is legacy code I don't think I will clean this up
-            let C_ = match  options.interaction_potential {
-                MOLIERE => vec![ 0.6743, 0.009611, 0.005175, 6.314, 10.0 ],
-                KR_C => vec![ 0.7887, 0.01166, 00.006913, 17.16, 10.79 ],
-                ZBL => vec![ 0.99229, 0.011615, 0.0071222, 9.3066, 14.813 ],
-                TRIDYN => vec![1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
-                _ => panic!("Input error: unimplemented interaction potential {} for MAGIC algorithm. Use a screened Coulomb potential.",  options.interaction_potential)
-            };
-
-            let beta: f64 = binary_collision_geometry.impact_parameter/a;
-            let V0 = Za*Zb*Q*Q/4.0/PI/EPS0/a;
-            let relative_energy = E0*Mb/(Ma + Mb);
-            let reduced_energy = E0/V0;
-            let SQE = reduced_energy.sqrt();
-            let r0 = a*x0;
-            let sum = interactions::phi(x0, options.interaction_potential);
-            let V = V0*a/r0*sum;
-            let sum = interactions::dphi(x0, options.interaction_potential);
-            let dV = -V/r0 + V0/r0*sum;
-            let rho = -2.0*(relative_energy - V)/dV;
-            let D = 2.0*(1.0 + C_[0]/SQE)*reduced_energy*beta.powf((C_[1] + SQE)/(C_[2] + SQE));
-            let G = (C_[4] + reduced_energy)/(C_[3] + reduced_energy)*((1. + D*D).sqrt() - D);
-            let delta =  D*G/(1.0 + G)*(x0 - beta);
-            let ctheta2 = (beta + rho/a + delta)/(x0 + rho/a);
-            2.*((beta + rho/a + delta)/(x0 + rho/a)).acos()
-        },
+    let theta: f64 = match  options.scattering_integral {
+        MENDENHALL_WELLER => mendenhall_weller(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, options.interaction_potential),
+        GAUSS_MEHLER => gauss_mehler(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, options.interaction_potential),
+        GAUSS_LEGENDRE => gauss_legendre(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, options.interaction_potential),
+        MAGIC => magic(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, options.interaction_potential),
         _ => panic!("Input error: unimplemented scattering integral: {}. Use 0: Mendenhall-Weller Quadrature 1: MAGIC Algorithm 2: Gauss-Mehler 3: Gauss-Legendre",
             options.scattering_integral)
     };
 
-    assert!(!theta.is_nan(), "CoM deflection angle theta is NaN. Check parameters.");
+    assert!(!theta.is_nan(), "Numerical error: CoM deflection angle theta is NaN. Check parameters.");
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
     let asympototic_deflection = x0*a*(theta/2.).sin();
@@ -439,7 +449,7 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
 }
 
 pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &material::Material, distance_traveled: f64,
-    recoil_energy: f64, xi: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) {
+    recoil_energy: f64, x0: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) {
 
     //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
     particle_1.E -= recoil_energy;
@@ -450,7 +460,6 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let ck = material.electronic_stopping_correction_factor;
-
     if material.inside(x, y) {
 
         let electronic_stopping_powers = material.electronic_stopping_cross_sections(particle_1, options.electronic_stopping_mode);
@@ -459,28 +468,10 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
         let delta_energy = match options.electronic_stopping_mode {
             INTERPOLATED => electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled*ck,
             LOW_ENERGY_NONLOCAL => electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled*ck,
-            LOW_ENERGY_LOCAL => {
-                let Za: f64  = particle_1.Z;
-                let Zb: f64 = strong_collision_Z;
-
-                //Oen-Robinson local electronic stopping power
-                let a = interactions::screening_length(Za, Zb, options.interaction_potential);
-
-                //d1 is the first (smallest) interior constant of the screening function
-                let d1 = interactions::first_screening_radius(options.interaction_potential);
-
-                d1*d1/2./PI*electronic_stopping_powers[strong_collision_index]*(-d1*xi).exp()/a/a*ck
-                },
+            LOW_ENERGY_LOCAL => oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, ck, options.interaction_potential),
             LOW_ENERGY_EQUIPARTITION => {
-                let Za: f64  = particle_1.Z;
-                let Zb: f64 = strong_collision_Z;
 
-                //Oen-Robinson local electronic stopping power
-                let a = interactions::screening_length(Za, Zb, options.interaction_potential);
-
-                //d1 is the first (smallest) interior constant of the screening function
-                let d1 = interactions::first_screening_radius(options.interaction_potential);
-                let delta_energy_local = d1*d1/2./PI*electronic_stopping_powers[strong_collision_index]*(-d1*xi).exp()/a/a;
+                let delta_energy_local = oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, ck, options.interaction_potential);
                 let delta_energy_nonlocal = electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled*ck;
 
                 (0.5*delta_energy_local + 0.5*delta_energy_nonlocal)*ck
@@ -490,12 +481,20 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
         };
 
         particle_1.E += -delta_energy;
+        //Make sure particle energy doesn't become negative again
+        if particle_1.E < 0. {
+            particle_1.E = 0.;
+        }
     }
+}
 
-    //Make sure particle energy doesn't become negative again
-    if particle_1.E < 0. {
-        particle_1.E = 0.;
-    }
+fn oen_robinson_loss(Za: f64, Zb: f64, Se: f64, x0: f64, ck: f64, interaction_potential: i32) -> f64 {
+    //Oen-Robinson local electronic stopping power
+    let a = interactions::screening_length(Za, Zb, interaction_potential);
+
+    //d1 is the first (smallest) interior constant of the screening function
+    let d1 = interactions::first_screening_radius(interaction_potential);
+    d1*d1/2./PI*Se*(-d1*x0).exp()/a/a
 }
 
 pub fn single_ion_bca(particle: particle::Particle, material: &material::Material, options: &Options) -> Vec<particle::Particle> {
@@ -519,7 +518,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
             let mut total_energy_loss = 0.;
             let mut total_asymptotic_deflection = 0.;
-            let mut distance_of_closest_approach = 0.;
+            let mut normalized_distance_of_closest_approach = 0.;
             let mut strong_collision_Z = 0.;
             let mut strong_collision_index: usize = 0;
 
@@ -537,7 +536,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
                     //Only use 0th order collision for local electronic stopping
                     if k == 0 {
-                        distance_of_closest_approach = binary_collision_result.normalized_distance_of_closest_approach;
+                        normalized_distance_of_closest_approach = binary_collision_result.normalized_distance_of_closest_approach;
                         strong_collision_Z = particle_2.Z;
                         strong_collision_index = species_index;
                     }
@@ -603,7 +602,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
             //Subtract total energy from all simultaneous collisions and electronic stopping
             bca::update_particle_energy(&mut particle_1, &material, distance_traveled,
-                total_energy_loss, distance_of_closest_approach, strong_collision_Z,
+                total_energy_loss, normalized_distance_of_closest_approach, strong_collision_Z,
                 strong_collision_index, &options);
 
             //Check boundary conditions on leaving and stopping

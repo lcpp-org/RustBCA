@@ -227,7 +227,7 @@ fn test_momentum_conservation() {
         for high_energy_free_flight_paths in vec![true, false] {
             for potential in vec![KR_C, MOLIERE, ZBL, LENZ_JENSEN] {
                 for scattering_integral in vec![MENDENHALL_WELLER, GAUSS_MEHLER, GAUSS_LEGENDRE] {
-                    for root_finder in vec![CPR, NEWTON] {
+                    for root_finder in vec![NEWTON] {
 
                         println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
 
@@ -254,7 +254,7 @@ fn test_momentum_conservation() {
                             num_threads: 1,
                             num_chunks: 1,
                             use_hdf5: false,
-                            root_finder: 0,
+                            root_finder: root_finder,
                             cpr_n0: 10,
                             cpr_nmax: 500,
                             cpr_epsilon: 1E-16,
