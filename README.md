@@ -64,6 +64,20 @@ interaction_potential = 2 #0: Moliere 1: Krypton-Carbon 2: ZBL 3: Lenz-Jensen
 scattering_integral = 0 #0: Mendenhall-Weller Quadrature 1: MAGIC algorithm
 tolerance = 0.001 #Tolerance for Newton-Raphson distance of closest approach algorithm
 max_iterations = 100 #Max iterations for Newton-Raphson distance of closest approach algorithm
+#Options below refer to optional HDF5, Chebyshev Proxy Rootfinder, and Polynomial Rootfinder options
+use_hdf5 = false
+root_finder = 0
+num_threads = 4
+num_chunks = 10
+cpr_n0 = 0
+cpr_nmax = 0
+cpr_epsilon = 0
+cpr_complex = 0
+cpr_truncation = 0
+cpr_far_from_zero = 0
+cpr_interval_limit = 0
+cpr_upper_bound_const = 0
+polynom_complex_threshold = 0
 
 [material_parameters]
 energy_unit = "EV" #energy unit, one of: EV, J, KEV, MEV
