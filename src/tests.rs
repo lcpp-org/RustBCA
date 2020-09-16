@@ -394,3 +394,29 @@ fn test_particle_advance() {
     assert_eq!(particle.pos.z, 0.);
     assert_eq!(distance_traveled, mfp - asymptotic_deflection);
 }
+
+#[test]
+fn test_quadrature() {
+    let Za = 1.;
+    let Zb = 13.;
+    let Ma = 1.008;
+    let Mb = 26.9815385;
+    let E0 = 10.*EV;
+    let p = 1.*ANGSTROM;
+    let r0 = 5.*ANGSTROM;
+    let interaction_potential = 0;
+    let a = interactions::screening_length(Za, Zb, interaction_potential);
+    let x0 = r0/a;
+
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0, interaction_potential);
+    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0, interaction_potential);
+    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0, interaction_potential);
+
+    //Gauss-Mehler and Gauss-Legendre should be very close to each other
+    assert!(approx_eq!(f64, theta_gm, theta_gl, epsilon=0.01));
+    assert!(approx_eq!(f64, theta_gm, theta_mw, epsilon=0.1));
+    //Mendenhall-Weller should be a little off, because it's only 4th order
+
+    println!("Gauss-Mehler: {} Gauss-Legendre: {} Mendenhall-Weller: {}",
+        theta_gm, theta_gl, theta_mw);
+}
