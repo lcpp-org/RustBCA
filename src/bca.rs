@@ -360,7 +360,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         };
     }
 
-fn gauss_mehler(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: i32) -> f64 {
+pub fn gauss_mehler(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: i32) -> f64 {
     let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
     let r0 = x0*a;
     let V = |r| {interactions::interaction_potential(r, a, Za, Zb, interaction_potential)};
@@ -368,7 +368,7 @@ fn gauss_mehler(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f
     scattering_integral_gauss_mehler(impact_parameter, relative_energy, r0, &V, 10)
 }
 
-fn gauss_legendre(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: i32) -> f64 {
+pub fn gauss_legendre(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: i32) -> f64 {
     let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
     let r0 = x0*a;
     let V = |r| {interactions::interaction_potential(r, a, Za, Zb, interaction_potential)};
@@ -376,7 +376,7 @@ fn gauss_legendre(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter:
     scattering_integral_gauss_legendre(impact_parameter, relative_energy, r0, &V)
 }
 
-fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: i32) -> f64 {
+pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: i32) -> f64 {
     //MAGIC algorithm
     //Since this is legacy code I don't think I will clean this up
     let C_ = match  interaction_potential {
@@ -405,7 +405,7 @@ fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0:
     2.*((beta + rho/a + delta)/(x0 + rho/a)).acos()
 }
 
-fn mendenhall_weller(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: i32) -> f64 {
+pub fn mendenhall_weller(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: i32) -> f64 {
     //Lindhard screening length and reduced energy
     let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
     let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
