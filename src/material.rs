@@ -1,4 +1,7 @@
 use super::*;
+use geo::algorithm::contains::Contains;
+use geo::algorithm::closest_point::ClosestPoint;
+use geo::{point, Closest};
 
 #[derive(Deserialize)]
 pub struct MaterialParameters {

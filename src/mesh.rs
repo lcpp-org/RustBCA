@@ -1,4 +1,7 @@
 use super::*;
+use geo::algorithm::contains::Contains;
+use geo::{Polygon, LineString, Point};
+
 
 #[derive(Deserialize)]
 pub struct Mesh2DInput {
@@ -224,7 +227,7 @@ impl Triangle2D {
                 distance_to = distance;
             }
         }
-        return distance_to;
+        distance_to
     }
 
     pub fn distance_to_center(&self, x: f64, y: f64) -> f64 {
