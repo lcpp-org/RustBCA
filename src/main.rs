@@ -1,23 +1,15 @@
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
 
-use itertools::Itertools;
 use std::{env, fmt};
 
 //extern crate openblas_src;
 //Progress bar crate - works wiht rayon
-use indicatif::{ParallelProgressIterator, ProgressIterator, ProgressBar, ProgressStyle};
+use indicatif::{ProgressIterator, ProgressBar, ProgressStyle};
 
 //Error handling crate
-//use anyhow::Result;
 use anyhow::Result;
 use anyhow::*;
-
-//Geometry crate
-use geo::algorithm::contains::Contains;
-//use geo::algorithm::convexhull::ConvexHull;
-use geo::algorithm::closest_point::ClosestPoint;
-use geo::{point, Polygon, LineString, Closest, Point};// MultiPoint, Point};
 
 //Serializing/Deserializing crate
 use serde::*;
@@ -484,7 +476,7 @@ fn main() {
     let bar: ProgressBar = ProgressBar::new(options.num_chunks);
 
     bar.set_style(ProgressStyle::default_bar()
-        .template("{spinnter:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {percent}%")
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {percent}%")
         .progress_chars("#>-"));
 
     for (chunk_index, particle_input_chunk) in particle_input_array.chunks((total_count/options.num_chunks) as usize).progress_with(bar).enumerate() {
@@ -499,7 +491,7 @@ fn main() {
             );
         } else {
             finished_particles.extend(
-                particle_input_chunk.into_iter()
+                particle_input_chunk.iter()
                 .map(|particle_input| bca::single_ion_bca(particle::Particle::from_input(*particle_input, &options), &material, &options))
                     .flatten()
             );

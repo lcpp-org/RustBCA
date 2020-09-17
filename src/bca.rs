@@ -1,4 +1,5 @@
 use super::*;
+use geo::{Closest};
 
 #[cfg(feature = "cpr_rootfinder")]
 use rcpr::chebyshev::*;
@@ -12,9 +13,9 @@ pub struct BinaryCollisionGeometry {
 impl BinaryCollisionGeometry {
     pub fn new(phi_azimuthal: f64, impact_parameter: f64, mfp: f64) -> BinaryCollisionGeometry {
         BinaryCollisionGeometry {
-            phi_azimuthal: phi_azimuthal,
-            impact_parameter: impact_parameter,
-            mfp: mfp
+            phi_azimuthal,
+            impact_parameter,
+            mfp
         }
     }
 }
@@ -68,17 +69,17 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
             let mut strong_collision_Z = 0.;
             let mut strong_collision_index: usize = 0;
 
-            'collision_loop: for k in 0..options.weak_collision_order + 1 {
+            'collision_loop: for (k, binary_collision_geometry) in binary_collision_geometries.iter().enumerate().take(options.weak_collision_order + 1) {
 
                 let (species_index, mut particle_2) = bca::choose_collision_partner(&particle_1, &material,
-                    &binary_collision_geometries[k], &options);
+                    &binary_collision_geometry, &options);
 
                 //If recoil location is inside, proceed with binary collision loop
                 if material.inside(particle_2.pos.x, particle_2.pos.y) & material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) {
 
                     //Determine scattering angle from binary collision
                     let binary_collision_result = bca::calculate_binary_collision(&particle_1,
-                        &particle_2, &binary_collision_geometries[k], &options).unwrap();
+                        &particle_2, &binary_collision_geometry, &options).unwrap();
 
                     //Only use 0th order collision for local electronic stopping
                     if k == 0 {
@@ -98,10 +99,10 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
                     //Rotate particle 1, 2 by lab frame scattering angles
                     particle::rotate_particle(&mut particle_1, binary_collision_result.psi,
-                        binary_collision_geometries[k].phi_azimuthal);
+                        binary_collision_geometry.phi_azimuthal);
 
                     particle::rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
-                        binary_collision_geometries[k].phi_azimuthal);
+                        binary_collision_geometry.phi_azimuthal);
                     particle_2.dir_old.x = particle_2.dir.x;
                     particle_2.dir_old.y = particle_2.dir.y;
                     particle_2.dir_old.z = particle_2.dir.z;
@@ -206,7 +207,7 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
         //If losing too much energy, scale free-flight-path down
         //5 percent limit set in original TRIM paper, Biersack and Haggmark 1980
         if delta_energy_electronic > 0.05*E {
-            ffp = 0.05*E/delta_energy_electronic*ffp;
+            ffp *= 0.05*E/delta_energy_electronic;
             pmax = (1./(material.total_number_density(x, y)*PI*ffp)).sqrt()
         }
 
@@ -334,7 +335,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     let relative_energy = E0*Mb/(Ma + Mb);
     let p = binary_collision_geometry.impact_parameter;
 
-    let root_finder = if (relative_energy < interactions::energy_threshold_single_root(options.interaction_potential)) {options.root_finder} else {Rootfinder::NEWTON};
+    let root_finder = if relative_energy < interactions::energy_threshold_single_root(options.interaction_potential) {options.root_finder} else {Rootfinder::NEWTON};
 
     #[cfg(feature = "cpr_rootfinder")]
     match root_finder {
@@ -486,7 +487,7 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     let relative_energy = E0*Mb/(Ma + Mb);
     let p = impact_parameter;
 
-    let root_finder = if (relative_energy < interactions::energy_threshold_single_root(options.interaction_potential)) {options.root_finder} else {Rootfinder::NEWTON};
+    let root_finder = if relative_energy < interactions::energy_threshold_single_root(options.interaction_potential) {options.root_finder} else {Rootfinder::NEWTON};
 
     let f = |r: f64| -> f64 {interactions::distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, options.interaction_potential)};
     let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, options.interaction_potential)};

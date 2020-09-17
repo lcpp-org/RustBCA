@@ -1,5 +1,6 @@
 #[cfg(test)]
 use super::*;
+#[cfg(test)]
 use float_cmp::*;
 
 #[test]
