@@ -2,6 +2,7 @@
 #![allow(non_snake_case)]
 
 use itertools::Itertools;
+use std::env;
 
 //extern crate openblas_src;
 //Progress bar crate - works wiht rayon
@@ -53,7 +54,6 @@ const NM: f64 = 1E-9;
 const CM: f64 = 1E-2;
 const EPS0: f64 = 8.85418781E-12;
 const A0: f64 = 5.29177211E-11;
-//const K: f64 = 1.11265E-10;
 const ME: f64 =  9.109383632E-31;
 const SQRTPI: f64 = 1.772453850906;
 const SQRT2PI: f64 = 2.506628274631;
@@ -73,13 +73,12 @@ const LIQUID: i32 = 0;
 const GASEOUS: i32 = 1;
 
 //Interaction potentials
+const TRIDYN: i32 = -1;
 const MOLIERE: i32 = 0;
 const KR_C: i32 = 1;
 const ZBL: i32 = 2;
 const LENZ_JENSEN: i32 = 3;
 const LENNARD_JONES_12_6: i32 = 4;
-const TRIDYN: i32 = -1;
-const BUCKINGHAM: i32 = 5;
 
 //Scattering integral forms
 const MENDENHALL_WELLER: i32 = 0;
@@ -160,10 +159,7 @@ pub struct Options {
     track_trajectories: bool,
     track_recoils: bool,
     track_recoil_trajectories: bool,
-    write_files: bool,
     stream_size: usize,
-    print: bool,
-    print_num: usize,
     weak_collision_order: usize,
     suppress_deep_recoils: bool,
     high_energy_free_flight_paths: bool,
@@ -190,13 +186,21 @@ pub struct Options {
 
 fn main() {
 
+    let args: Vec<String> = env::args().collect();
+
+    let input_file = match args.len() {
+        1 => "input.toml".to_string(),
+        2 => args[1].clone(),
+        _ => panic!("Too many command line arguments. RustBCA accepts 0 or 1 (input file name).")
+    };
+
     //Read input file, convert to string, and open with toml
     let mut input_toml = String::new();
     let mut file = OpenOptions::new()
         .read(true)
         .write(false)
         .create(false)
-        .open("input.toml")
+        .open(input_file)
         .expect("Input errror: could not open input file, input.toml.");
     file.read_to_string(&mut input_toml).unwrap();
     let input: Input = toml::from_str(&input_toml).unwrap();
