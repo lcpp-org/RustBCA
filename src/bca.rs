@@ -52,7 +52,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
     let mut particle_index = particles.len();
 
     'particle_loop: while particle_index > 0 {
-        
+
         //Remove particle from top of vector as particle_1
         let mut particle_1 = particles.pop().unwrap();
 
@@ -78,7 +78,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
                     //Determine scattering angle from binary collision
                     let binary_collision_result = bca::calculate_binary_collision(&particle_1,
-                        &particle_2, &binary_collision_geometries[k], &options);
+                        &particle_2, &binary_collision_geometries[k], &options).unwrap();
 
                     //Only use 0th order collision for local electronic stopping
                     if k == 0 {
@@ -391,7 +391,7 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
     }
 }
 
-pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &particle::Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> BinaryCollisionResult {
+pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &particle::Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> Result<BinaryCollisionResult, anyhow::Error> {
     let Za: f64 = particle_1.Z;
     let Zb: f64 = particle_2.Z;
     let Ma: f64 = particle_1.m;
@@ -411,7 +411,9 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
             options.scattering_integral)
     };
 
-    assert!(!theta.is_nan(), "Numerical error: CoM deflection angle theta is NaN. Check parameters.");
+    if theta.is_nan() {
+        return Err(anyhow!("Numerical error: CoM deflection angle is NaN. Check input parameters."));
+    }
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
     let asympototic_deflection = x0*a*(theta/2.).sin();
@@ -419,7 +421,7 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     let psi_recoil = (theta.sin().atan2(1. - theta.cos())).abs();
     let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*(theta/2.).sin().powf(2.);
 
-    BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asympototic_deflection, x0)
+    Ok(BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asympototic_deflection, x0))
 }
 
 fn scattering_integral_mw(x: f64, beta: f64, reduced_energy: f64, interaction_potential: i32) -> f64 {

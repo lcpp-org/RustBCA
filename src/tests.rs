@@ -278,7 +278,7 @@ fn test_momentum_conservation() {
                         let initial_momentum = mom1_0.add(&mom2_0);
 
                         let binary_collision_result = bca::calculate_binary_collision(&particle_1,
-                            &particle_2, &binary_collision_geometries[0], &options);
+                            &particle_2, &binary_collision_geometries[0], &options).unwrap();
 
                         println!("E_recoil: {} eV Psi: {} rad Psi_recoil: {} rad", binary_collision_result.recoil_energy/EV,
                             binary_collision_result.psi,
