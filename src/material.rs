@@ -200,7 +200,7 @@ impl Material {
         panic!("Input error: method choose() operation failed to choose a valid species. Check densities.");
     }
 
-    pub fn electronic_stopping_cross_sections(&self, particle_1: &super::particle::Particle, electronic_stopping_mode: i32) -> Vec<f64> {
+    pub fn electronic_stopping_cross_sections(&self, particle_1: &super::particle::Particle, electronic_stopping_mode: ElectronicStoppingMode) -> Vec<f64> {
 
         let E = particle_1.E;
         let Ma = particle_1.m;
@@ -239,15 +239,13 @@ impl Material {
 
             let stopping_power = match electronic_stopping_mode {
                 //Biersack-Varelas Interpolation
-                INTERPOLATED => 1./(1./S_high + 1./S_low),
+                ElectronicStoppingMode::INTERPOLATED => 1./(1./S_high + 1./S_low),
                 //Oen-Robinson
-                LOW_ENERGY_LOCAL => S_low,
+                ElectronicStoppingMode::LOW_ENERGY_LOCAL => S_low,
                 //Lindhard-Scharff
-                LOW_ENERGY_NONLOCAL => S_low,
+                ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => S_low,
                 //Lindhard-Scharff and Oen-Robinson, using Lindhard Equipartition
-                LOW_ENERGY_EQUIPARTITION => S_low,
-                //Panic at unimplemented electronic stopping mode
-                _ => panic!("Input error: unimplemented electronic stopping mode. Use 0: Biersack-Varelas 1: Lindhard-Scharff 2: Oen-Robinson 3: Equipartition")
+                ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => S_low,
             };
 
             stopping_powers.push(stopping_power);

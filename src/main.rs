@@ -2,7 +2,7 @@
 #![allow(non_snake_case)]
 
 use itertools::Itertools;
-use std::env;
+use std::{env, fmt};
 
 //extern crate openblas_src;
 //Progress bar crate - works wiht rayon
@@ -62,34 +62,99 @@ const BETHE_BLOCH_PREFACTOR: f64 = 4.*PI*(Q*Q/(4.*PI*EPS0))*(Q*Q/(4.*PI*EPS0))/M
 const LINDHARD_SCHARFF_PREFACTOR: f64 = 1.212*ANGSTROM*ANGSTROM*Q;
 const LINDHARD_REDUCED_ENERGY_PREFACTOR: f64 = 4.*PI*EPS0/Q/Q;
 
-//Electronic stopping models
-const INTERPOLATED: i32 = 0;
-const LOW_ENERGY_NONLOCAL: i32 = 1;
-const LOW_ENERGY_LOCAL: i32 = 2;
-const LOW_ENERGY_EQUIPARTITION: i32 = 3;
+#[derive(Deserialize, PartialEq, Clone, Copy)]
+pub enum ElectronicStoppingMode {
+    INTERPOLATED,
+    LOW_ENERGY_LOCAL,
+    LOW_ENERGY_NONLOCAL,
+    LOW_ENERGY_EQUIPARTITION,
+}
 
-//Mean free path models
-const LIQUID: i32 = 0;
-const GASEOUS: i32 = 1;
+impl fmt::Display for ElectronicStoppingMode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ElectronicStoppingMode::INTERPOLATED => write!(f, "Biersack-Varelas"),
+            ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => write!(f, "Lindhard-Scharff"),
+            ElectronicStoppingMode::LOW_ENERGY_LOCAL => write!(f, "Oen-Robinson"),
+            ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => write!(f, "Equipartition with Lindhard-Scharff and Oen-Robinson"),
+        }
+    }
+}
 
-//Interaction potentials
-const TRIDYN: i32 = -1;
-const MOLIERE: i32 = 0;
-const KR_C: i32 = 1;
-const ZBL: i32 = 2;
-const LENZ_JENSEN: i32 = 3;
-const LENNARD_JONES_12_6: i32 = 4;
 
-//Scattering integral forms
-const MENDENHALL_WELLER: i32 = 0;
-const MAGIC: i32 = 1;
-const GAUSS_MEHLER: i32 = 2;
-const GAUSS_LEGENDRE: i32 = 3;
+#[derive(Deserialize, PartialEq, Clone, Copy)]
+pub enum MeanFreePathModel {
+    LIQUID,
+    GASEOUS,
+}
 
-//Distance of closest approach determination
-const NEWTON: i32 = 0;
-const CPR: i32 = 1;
-const POLYNOMIAL: i32 = 2;
+impl fmt::Display for MeanFreePathModel {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            MeanFreePathModel::LIQUID => write!(f, "Amorphous Solid/Liquid Model"),
+            MeanFreePathModel::GASEOUS => write!(f, "Gaseous Model"),
+        }
+    }
+}
+
+#[derive(Deserialize, PartialEq, Clone, Copy)]
+pub enum InteractionPotential {
+    TRIDYN,
+    MOLIERE,
+    KR_C,
+    ZBL,
+    LENZ_JENSEN,
+    LENNARD_JONES_12_6,
+}
+
+impl fmt::Display for InteractionPotential {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            InteractionPotential::TRIDYN => write!(f, "TRIDYN-style Kr-C (Different MAGIC constants)"),
+            InteractionPotential::MOLIERE => write!(f, "Moliere Potential"),
+            InteractionPotential::KR_C => write!(f, "Kr-C Potential"),
+            InteractionPotential::ZBL => write!(f, "ZBL Potential"),
+            InteractionPotential::LENZ_JENSEN => write!(f, "Lenz-Jensen Potential"),
+            InteractionPotential::LENNARD_JONES_12_6 => write!(f, "Lennard-Jones 12-6 Potential"),
+        }
+    }
+}
+
+#[derive(Deserialize, PartialEq, Clone, Copy)]
+pub enum ScatteringIntegral {
+    MENDENHALL_WELLER,
+    MAGIC,
+    GAUSS_MEHLER,
+    GAUSS_LEGENDRE
+}
+
+impl fmt::Display for ScatteringIntegral {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            ScatteringIntegral::MENDENHALL_WELLER => write!(f, "Mendenhall-Weller 4-Point Lobatto Quadrature"),
+            ScatteringIntegral::MAGIC => write!(f, "MAGIC Algorithm"),
+            ScatteringIntegral::GAUSS_MEHLER => write!(f, "Gauss-Mehler 10-point Quadrature"),
+            ScatteringIntegral::GAUSS_LEGENDRE => write!(f, "Gauss-Legendre 5-point Quadrature"),
+        }
+    }
+}
+
+#[derive(Deserialize, PartialEq, Clone, Copy)]
+pub enum Rootfinder {
+    NEWTON,
+    CPR,
+    POLYNOMIAL,
+}
+
+impl fmt::Display for Rootfinder {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Rootfinder::NEWTON => write!(f, "Newton-Raphson Rootfinder"),
+            Rootfinder::CPR => write!(f, "Chebyshev-Proxy Rootfinder"),
+            Rootfinder::POLYNOMIAL => write!(f, "Frobenius Companion Matrix Polynomial Rootfinder"),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Vector {
@@ -163,16 +228,16 @@ pub struct Options {
     weak_collision_order: usize,
     suppress_deep_recoils: bool,
     high_energy_free_flight_paths: bool,
-    electronic_stopping_mode: i32,
-    mean_free_path_model: i32,
-    interaction_potential: i32,
-    scattering_integral: i32,
+    electronic_stopping_mode: ElectronicStoppingMode,
+    mean_free_path_model: MeanFreePathModel,
+    interaction_potential: InteractionPotential,
+    scattering_integral: ScatteringIntegral,
     tolerance: f64,
     max_iterations: usize,
     num_threads: usize,
     num_chunks: u64,
     use_hdf5: bool,
-    root_finder: i32,
+    root_finder: Rootfinder,
     cpr_n0: usize,
     cpr_nmax: usize,
     cpr_epsilon: f64,
@@ -191,7 +256,7 @@ fn main() {
     let input_file = match args.len() {
         1 => "input.toml".to_string(),
         2 => args[1].clone(),
-        _ => panic!("Too many command line arguments. RustBCA accepts 0 or 1 (input file name).")
+        _ => panic!("Too many command line arguments. RustBCA accepts 0 (use 'input.toml') or 1 (input file name).")
     };
 
     //Read input file, convert to string, and open with toml
@@ -217,34 +282,34 @@ fn main() {
 
     //Check that incompatible options are not on simultaneously
     if options.high_energy_free_flight_paths {
-        assert!(options.electronic_stopping_mode == INTERPOLATED,
+        assert!(options.electronic_stopping_mode == ElectronicStoppingMode::INTERPOLATED,
             "Input error: High energy free flight paths used with low energy stoppping power.");
     }
 
-    if options.electronic_stopping_mode == INTERPOLATED {
+    if options.electronic_stopping_mode == ElectronicStoppingMode::INTERPOLATED {
         assert!(options.weak_collision_order == 0,
             "Input error: Cannot use weak collisions with free flight paths. Set weak_collision_order = 0.");
     }
 
-    if options.mean_free_path_model == GASEOUS {
+    if options.mean_free_path_model == MeanFreePathModel::GASEOUS {
         assert!(options.weak_collision_order == 0,
             "Input error: Cannot use weak collisions with gaseous mean free path model. Set weak_collision_order = 0.");
     }
 
-    if options.interaction_potential == LENNARD_JONES_12_6 {
-        assert!((options.scattering_integral == GAUSS_MEHLER) | (options.scattering_integral == GAUSS_LEGENDRE),
-        "Input error: Cannot use scattering integral {} with interaction potential {}. Use scattering integral 2: Gauss-Mehler or 3: Gauss-Legendre.",
+    if options.interaction_potential ==InteractionPotential:: LENNARD_JONES_12_6 {
+        assert!((options.scattering_integral == ScatteringIntegral::GAUSS_MEHLER) | (options.scattering_integral == ScatteringIntegral::GAUSS_LEGENDRE),
+        "Input error: Cannot use scattering integral {} with interaction potential {}. Use Gauss-Mehler or Gauss-Legendre.",
         options.scattering_integral, options.interaction_potential);
 
-        assert!((options.root_finder == CPR) | (options.root_finder == POLYNOMIAL),
-        "Input error: Cannot use Newton root-finder with attractive-repulsive potentials. Use 1: Chebyshev-Proxy Rootfinder. or 2: Polynomial (if interatomic potential has only power-of-r terms.)");
+        assert!((options.root_finder == Rootfinder::CPR) | (options.root_finder == Rootfinder::POLYNOMIAL),
+        "Input error: Cannot use Newton root-finder with attractive-repulsive potentials. Use Chebyshev-Proxy Rootfinder. or Polynomial Rootfinder (if interatomic potential has only power-of-r terms.)");
     }
 
-    if (options.scattering_integral == MENDENHALL_WELLER) | (options.scattering_integral == MAGIC) {
+    if (options.scattering_integral == ScatteringIntegral::MENDENHALL_WELLER) | (options.scattering_integral == ScatteringIntegral::MAGIC) {
         assert!(match options.interaction_potential {
-            MOLIERE | ZBL | KR_C | LENZ_JENSEN | TRIDYN => true,
+            InteractionPotential::MOLIERE | InteractionPotential::ZBL | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN => true,
             _ => false
-        }, "Input error: Mendenhall-Weller quadrature and Magic formula can only be used with screened Coulomb potentials. Use scattering integral 2: Gauss-Mehler or 3: Gauss-Legendre.")
+        }, "Input error: Mendenhall-Weller quadrature and Magic formula can only be used with screened Coulomb potentials. Use Gauss-Mehler or Gauss-Legendre.")
     }
 
     //Check that particle arrays are equal length

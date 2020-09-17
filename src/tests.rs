@@ -225,9 +225,9 @@ fn test_momentum_conservation() {
         let material_1 = material::Material::new(material_parameters, mesh_2d_input);
 
         for high_energy_free_flight_paths in vec![true, false] {
-            for potential in vec![KR_C, MOLIERE, ZBL, LENZ_JENSEN] {
-                for scattering_integral in vec![MENDENHALL_WELLER, GAUSS_MEHLER, GAUSS_LEGENDRE] {
-                    for root_finder in vec![NEWTON] {
+            for potential in vec![InteractionPotential::KR_C, InteractionPotential::MOLIERE, InteractionPotential::ZBL, InteractionPotential::LENZ_JENSEN] {
+                for scattering_integral in vec![ScatteringIntegral::MENDENHALL_WELLER, ScatteringIntegral::GAUSS_MEHLER, ScatteringIntegral::GAUSS_LEGENDRE] {
+                    for root_finder in vec![Rootfinder::NEWTON] {
 
                         println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
 
@@ -242,8 +242,8 @@ fn test_momentum_conservation() {
                             weak_collision_order: 0,
                             suppress_deep_recoils: false,
                             high_energy_free_flight_paths: high_energy_free_flight_paths,
-                            electronic_stopping_mode: INTERPOLATED,
-                            mean_free_path_model: LIQUID,
+                            electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
+                            mean_free_path_model: MeanFreePathModel::LIQUID,
                             interaction_potential: potential,
                             scattering_integral: scattering_integral,
                             tolerance: 1E-12,
@@ -400,9 +400,7 @@ fn test_quadrature() {
     let Mb = 26.9815385;
     let E0 = 10.*EV;
     let p = 1.*ANGSTROM;
-    let r0 = 5.*ANGSTROM;
-    let interaction_potential = 0;
-    let a = interactions::screening_length(Za, Zb, interaction_potential);
+    let a = interactions::screening_length(Za, Zb, InteractionPotential::KR_C);
 
     let options = Options {
         name: "test".to_string(),
@@ -413,16 +411,16 @@ fn test_quadrature() {
         weak_collision_order: 0,
         suppress_deep_recoils: false,
         high_energy_free_flight_paths: false,
-        electronic_stopping_mode: INTERPOLATED,
-        mean_free_path_model: LIQUID,
-        interaction_potential: interaction_potential,
-        scattering_integral: 0,
+        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
+        mean_free_path_model: MeanFreePathModel::LIQUID,
+        interaction_potential: InteractionPotential::KR_C,
+        scattering_integral: ScatteringIntegral::MENDENHALL_WELLER,
         tolerance: 1E-12,
         max_iterations: 100,
         num_threads: 1,
         num_chunks: 1,
         use_hdf5: false,
-        root_finder: 0,
+        root_finder: Rootfinder::NEWTON,
         cpr_n0: 2,
         cpr_nmax: 500,
         cpr_epsilon: 1E-10,
@@ -436,16 +434,18 @@ fn test_quadrature() {
 
     let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, &options).unwrap();
 
+    //If cpr_rootfinder is enabled, compare Newton to CPR - they should be nearly identical
     #[cfg(feature = "cpr_rootfinder")]
     if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, &options) {
         assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-9));
         println!("CPR: {} Newton: {}", x0_cpr, x0_newton);
     };
 
-    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, interaction_potential);
-    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, interaction_potential);
-    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, interaction_potential);
-    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, interaction_potential);
+    //Compute center of mass deflection angle with each algorithm
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
 
     //Gauss-Mehler and Gauss-Legendre should be very close to each other
     assert!(approx_eq!(f64, theta_gm, theta_gl, epsilon=0.001));

@@ -17,16 +17,14 @@ anyhow = "1.0"
 hdf5 = {version = "0.6.1", optional = true}
 rayon = "1.3.1"
 rcpr = { git = "https://github.com/drobnyjt/rcpr", branch= "master", optional = true}
-#rcpr = { path = "../rcpr"}#, branch= "master"}
 indicatif = {version="*", features=["rayon"]}
 itertools = ""
 
 [profile.release]
 lto = "fat"
 codegen-units = 1
-target-cpu = "native"
 opt-level = 3
-debug = true
+debug = false
 
 [features]
 hdf5_input = ["hdf5"]
