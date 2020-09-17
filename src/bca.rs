@@ -576,10 +576,8 @@ pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     let reduced_energy = E0/V0;
     let SQE = reduced_energy.sqrt();
     let r0 = a*x0;
-    let sum = interactions::phi(x0, interaction_potential);
-    let V = V0*a/r0*sum;
-    let sum = interactions::dphi(x0, interaction_potential);
-    let dV = -V/r0 + V0/r0*sum;
+    let V = V0*a/r0*interactions::phi(x0, interaction_potential);
+    let dV = -V/r0 + V0/r0*interactions::dphi(x0, interaction_potential);
     let rho = -2.0*(relative_energy - V)/dV;
     let D = 2.0*(1.0 + C_[0]/SQE)*reduced_energy*beta.powf((C_[1] + SQE)/(C_[2] + SQE));
     let G = (C_[4] + reduced_energy)/(C_[3] + reduced_energy)*((1. + D*D).sqrt() - D);
