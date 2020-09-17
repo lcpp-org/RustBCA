@@ -238,10 +238,7 @@ fn test_momentum_conservation() {
                             track_trajectories: false,
                             track_recoils: true,
                             track_recoil_trajectories: false,
-                            write_files: true,
                             stream_size: 8000,
-                            print: true,
-                            print_num: 100,
                             weak_collision_order: 0,
                             suppress_deep_recoils: false,
                             high_energy_free_flight_paths: high_energy_free_flight_paths,
@@ -406,17 +403,55 @@ fn test_quadrature() {
     let r0 = 5.*ANGSTROM;
     let interaction_potential = 0;
     let a = interactions::screening_length(Za, Zb, interaction_potential);
-    let x0 = r0/a;
 
-    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0, interaction_potential);
-    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0, interaction_potential);
-    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0, interaction_potential);
+    let options = Options {
+        name: "test".to_string(),
+        track_trajectories: false,
+        track_recoils: true,
+        track_recoil_trajectories: false,
+        stream_size: 8000,
+        weak_collision_order: 0,
+        suppress_deep_recoils: false,
+        high_energy_free_flight_paths: false,
+        electronic_stopping_mode: INTERPOLATED,
+        mean_free_path_model: LIQUID,
+        interaction_potential: interaction_potential,
+        scattering_integral: 0,
+        tolerance: 1E-12,
+        max_iterations: 100,
+        num_threads: 1,
+        num_chunks: 1,
+        use_hdf5: false,
+        root_finder: 0,
+        cpr_n0: 2,
+        cpr_nmax: 500,
+        cpr_epsilon: 1E-10,
+        cpr_complex: 1E-16,
+        cpr_truncation: 1E-18,
+        cpr_far_from_zero: 1E6,
+        cpr_interval_limit: 1E-18,
+        cpr_upper_bound_const: 10.,
+        polynom_complex_threshold: 1E-18,
+    };
+
+    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, &options).unwrap();
+
+    #[cfg(feature = "cpr_rootfinder")]
+    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, &options) {
+        assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-9));
+        println!("CPR: {} Newton: {}", x0_cpr, x0_newton);
+    };
+
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, interaction_potential);
+    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, interaction_potential);
+    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, interaction_potential);
+    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, interaction_potential);
 
     //Gauss-Mehler and Gauss-Legendre should be very close to each other
-    assert!(approx_eq!(f64, theta_gm, theta_gl, epsilon=0.01));
-    assert!(approx_eq!(f64, theta_gm, theta_mw, epsilon=0.1));
-    //Mendenhall-Weller should be a little off, because it's only 4th order
+    assert!(approx_eq!(f64, theta_gm, theta_gl, epsilon=0.001));
+    assert!(approx_eq!(f64, theta_gm, theta_mw, epsilon=0.001));
+    assert!(approx_eq!(f64, theta_gm, theta_magic, epsilon=0.15));
 
-    println!("Gauss-Mehler: {} Gauss-Legendre: {} Mendenhall-Weller: {}",
-        theta_gm, theta_gl, theta_mw);
+    println!("Gauss-Mehler: {} Gauss-Legendre: {} Mendenhall-Weller: {} MAGIC: {}",
+        theta_gm, theta_gl, theta_mw, theta_magic);
 }
