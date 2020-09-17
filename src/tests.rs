@@ -227,8 +227,8 @@ fn test_momentum_conservation() {
 
         for high_energy_free_flight_paths in vec![true, false] {
             for potential in vec![InteractionPotential::KR_C, InteractionPotential::MOLIERE, InteractionPotential::ZBL, InteractionPotential::LENZ_JENSEN] {
-                for scattering_integral in vec![ScatteringIntegral::MENDENHALL_WELLER, ScatteringIntegral::GAUSS_MEHLER, ScatteringIntegral::GAUSS_LEGENDRE] {
-                    for root_finder in vec![Rootfinder::NEWTON] {
+                for scattering_integral in vec![ScatteringIntegral::MENDENHALL_WELLER, ScatteringIntegral::GAUSS_MEHLER{n_points: 10}, ScatteringIntegral::GAUSS_LEGENDRE] {
+                    for root_finder in vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}] {
 
                         println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
 
@@ -247,21 +247,10 @@ fn test_momentum_conservation() {
                             mean_free_path_model: MeanFreePathModel::LIQUID,
                             interaction_potential: potential,
                             scattering_integral: scattering_integral,
-                            tolerance: 1E-12,
-                            max_iterations: 100,
                             num_threads: 1,
                             num_chunks: 1,
                             use_hdf5: false,
                             root_finder: root_finder,
-                            cpr_n0: 10,
-                            cpr_nmax: 500,
-                            cpr_epsilon: 1E-16,
-                            cpr_complex: 1E-16,
-                            cpr_truncation: 1E-18,
-                            cpr_far_from_zero: 1E6,
-                            cpr_interval_limit: 1E-18,
-                            cpr_upper_bound_const: 10.,
-                            polynom_complex_threshold: 1E-18,
                         };
 
                         let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
@@ -416,34 +405,23 @@ fn test_quadrature() {
         mean_free_path_model: MeanFreePathModel::LIQUID,
         interaction_potential: InteractionPotential::KR_C,
         scattering_integral: ScatteringIntegral::MENDENHALL_WELLER,
-        tolerance: 1E-12,
-        max_iterations: 100,
         num_threads: 1,
         num_chunks: 1,
         use_hdf5: false,
-        root_finder: Rootfinder::NEWTON,
-        cpr_n0: 2,
-        cpr_nmax: 500,
-        cpr_epsilon: 1E-10,
-        cpr_complex: 1E-16,
-        cpr_truncation: 1E-18,
-        cpr_far_from_zero: 1E6,
-        cpr_interval_limit: 1E-18,
-        cpr_upper_bound_const: 10.,
-        polynom_complex_threshold: 1E-18,
+        root_finder: Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14},
     };
 
-    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, &options).unwrap();
+    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 100, 1E-3).unwrap();
 
     //If cpr_rootfinder is enabled, compare Newton to CPR - they should be nearly identical
     #[cfg(feature = "cpr_rootfinder")]
-    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, &options) {
-        assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-9));
+    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 2, 500, 1E-12, 1E-16, 1E-18, 1E6, 1E-18, 10.) {
         println!("CPR: {} Newton: {}", x0_cpr, x0_newton);
+        assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-3));
     };
 
     //Compute center of mass deflection angle with each algorithm
-    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C, 10);
     let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
     let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
     let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);

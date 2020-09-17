@@ -1,16 +1,11 @@
 use super::*;
 
-const LENNARD_JONES_EPSILON: f64 = 0.343*EV;
-pub const LENNARD_JONES_SIGMA: f64 = 1.*ANGSTROM;
-
 pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
             screened_coulomb(r, a, Za, Zb, interaction_potential)
         },
-        InteractionPotential::LENNARD_JONES_12_6 => {
-            let epsilon = LENNARD_JONES_EPSILON;
-            let sigma = LENNARD_JONES_SIGMA;
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
             lennard_jones(r, sigma, epsilon)
         },
     }
@@ -18,7 +13,7 @@ pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_poten
 
 pub fn energy_threshold_single_root(interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential{
-        InteractionPotential::LENNARD_JONES_12_6 => 4./5.*LENNARD_JONES_EPSILON*1E9,
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => 4./5.*epsilon*1E9,
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => 0.,
     }
 }
@@ -52,9 +47,7 @@ pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, r
             doca_function(r/a, beta, reduced_energy, interaction_potential)
 
         },
-        InteractionPotential::LENNARD_JONES_12_6 => {
-            let epsilon = LENNARD_JONES_EPSILON;
-            let sigma = LENNARD_JONES_SIGMA;
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
             doca_lennard_jones(r, impact_parameter, relative_energy, sigma, epsilon)
         },
     }
@@ -71,9 +64,7 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
             let beta: f64 = impact_parameter/a;
             doca_function_transformed(r/a, beta, reduced_energy, interaction_potential)
         },
-        InteractionPotential::LENNARD_JONES_12_6 => {
-            let epsilon = LENNARD_JONES_EPSILON;
-            let sigma = LENNARD_JONES_SIGMA;
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
             doca_lennard_jones(r, impact_parameter, relative_energy, sigma, epsilon)
         },
     }
@@ -84,9 +75,9 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
             1./(1. + (r/a).powf(2.))
         },
-        InteractionPotential::LENNARD_JONES_12_6 => {
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
             let n = 11.;
-            1./(1. + (r/LENNARD_JONES_SIGMA).powf(n))
+            1./(1. + (r/sigma).powf(n))
         },
     }
 }
@@ -100,9 +91,7 @@ pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f
             let beta: f64 = impact_parameter/a;
             diff_doca_function(r/a, beta, reduced_energy, interaction_potential)
         },
-        InteractionPotential::LENNARD_JONES_12_6 => {
-            let epsilon = LENNARD_JONES_EPSILON;
-            let sigma = LENNARD_JONES_SIGMA;
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
             diff_doca_lennard_jones(r, impact_parameter, relative_energy, sigma, epsilon)
         },
     }
@@ -117,9 +106,7 @@ pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f6
             let beta: f64 = impact_parameter/a;
             diff_doca_function_transformed(r/a, beta, reduced_energy, interaction_potential)
         },
-        InteractionPotential::LENNARD_JONES_12_6 => {
-            let epsilon = LENNARD_JONES_EPSILON;
-            let sigma = LENNARD_JONES_SIGMA;
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
             diff_doca_lennard_jones(r, impact_parameter, relative_energy, sigma, epsilon)
         },
     }
@@ -157,15 +144,13 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
         InteractionPotential::ZBL => 0.88534*A0/(Za.powf(0.23) + Zb.powf(0.23)),
         //Lindhard/Firsov screening length, Eckstein (4.1.5)
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
-        InteractionPotential::LENNARD_JONES_12_6 => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
     }
 }
 
 pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> Vec<f64> {
     match interaction_potential {
-        InteractionPotential::LENNARD_JONES_12_6 => {
-            let epsilon = LENNARD_JONES_EPSILON;
-            let sigma = LENNARD_JONES_SIGMA;
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
             vec![1., 0., -impact_parameter.powf(2.), 0., 0., 0., 4.*epsilon*sigma.powf(6.)/relative_energy, 0., 0., 0., 0., 0., -4.*epsilon*sigma.powf(12.)/relative_energy]
         },
         _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder.")
@@ -223,6 +208,6 @@ pub fn first_screening_radius(interaction_potential: InteractionPotential) -> f6
         InteractionPotential::ZBL => 0.20162,
         InteractionPotential::LENZ_JENSEN => 0.206,
         InteractionPotential::TRIDYN => 0.278544,
-        InteractionPotential::LENNARD_JONES_12_6 => 1.,
+        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => 1.,
     }
 }

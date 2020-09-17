@@ -2,6 +2,7 @@
 #![allow(non_snake_case)]
 
 use std::{env, fmt};
+use std::mem::discriminant;
 
 //extern crate openblas_src;
 //Progress bar crate - works wiht rayon
@@ -96,7 +97,7 @@ pub enum InteractionPotential {
     KR_C,
     ZBL,
     LENZ_JENSEN,
-    LENNARD_JONES_12_6,
+    LENNARD_JONES_12_6 {sigma: f64, epsilon: f64},
 }
 
 impl fmt::Display for InteractionPotential {
@@ -107,7 +108,7 @@ impl fmt::Display for InteractionPotential {
             InteractionPotential::KR_C => write!(f, "Kr-C Potential"),
             InteractionPotential::ZBL => write!(f, "ZBL Potential"),
             InteractionPotential::LENZ_JENSEN => write!(f, "Lenz-Jensen Potential"),
-            InteractionPotential::LENNARD_JONES_12_6 => write!(f, "Lennard-Jones 12-6 Potential"),
+            InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => write!(f, "Lennard-Jones 12-6 Potential with sigma = {}, epsilon = {}", sigma, epsilon),
         }
     }
 }
@@ -116,7 +117,7 @@ impl fmt::Display for InteractionPotential {
 pub enum ScatteringIntegral {
     MENDENHALL_WELLER,
     MAGIC,
-    GAUSS_MEHLER,
+    GAUSS_MEHLER{n_points: usize},
     GAUSS_LEGENDRE
 }
 
@@ -125,25 +126,38 @@ impl fmt::Display for ScatteringIntegral {
         match *self {
             ScatteringIntegral::MENDENHALL_WELLER => write!(f, "Mendenhall-Weller 4-Point Lobatto Quadrature"),
             ScatteringIntegral::MAGIC => write!(f, "MAGIC Algorithm"),
-            ScatteringIntegral::GAUSS_MEHLER => write!(f, "Gauss-Mehler 10-point Quadrature"),
+            ScatteringIntegral::GAUSS_MEHLER{n_points} => write!(f, "Gauss-Mehler {}-point Quadrature", n_points),
             ScatteringIntegral::GAUSS_LEGENDRE => write!(f, "Gauss-Legendre 5-point Quadrature"),
         }
     }
 }
 
+#[derive(Deserialize, Clone, Copy)]
+pub struct CPROptions {
+    n0: usize,
+    nmax: usize,
+    epsilon: f64,
+    complex_threshold: f64,
+    truncation_threshold: f64,
+    far_from_zero: f64,
+    interval_limit: f64,
+    upper_bound_const: f64
+}
+
 #[derive(Deserialize, PartialEq, Clone, Copy)]
 pub enum Rootfinder {
-    NEWTON,
-    CPR,
-    POLYNOMIAL,
+    NEWTON{max_iterations: usize, tolerance: f64},
+    CPR{n0: usize, nmax: usize, epsilon: f64, complex_threshold: f64, truncation_threshold: f64,
+        far_from_zero: f64, interval_limit: f64, upper_bound_const: f64},
+    POLYNOMIAL{complex_threshold: f64},
 }
 
 impl fmt::Display for Rootfinder {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Rootfinder::NEWTON => write!(f, "Newton-Raphson Rootfinder"),
-            Rootfinder::CPR => write!(f, "Chebyshev-Proxy Rootfinder"),
-            Rootfinder::POLYNOMIAL => write!(f, "Frobenius Companion Matrix Polynomial Rootfinder"),
+            Rootfinder::NEWTON{max_iterations, tolerance} => write!(f, "Newton-Raphson Rootfinder"),
+            Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const} => write!(f, "Chebyshev-Proxy Rootfinder"),
+            Rootfinder::POLYNOMIAL{complex_threshold} => write!(f, "Frobenius Companion Matrix Polynomial Rootfinder"),
         }
     }
 }
@@ -224,21 +238,10 @@ pub struct Options {
     mean_free_path_model: MeanFreePathModel,
     interaction_potential: InteractionPotential,
     scattering_integral: ScatteringIntegral,
-    tolerance: f64,
-    max_iterations: usize,
     num_threads: usize,
     num_chunks: u64,
     use_hdf5: bool,
     root_finder: Rootfinder,
-    cpr_n0: usize,
-    cpr_nmax: usize,
-    cpr_epsilon: f64,
-    cpr_complex: f64,
-    cpr_truncation: f64,
-    cpr_far_from_zero: f64,
-    cpr_interval_limit: f64,
-    cpr_upper_bound_const: f64,
-    polynom_complex_threshold: f64
 }
 
 fn main() {
@@ -288,13 +291,14 @@ fn main() {
             "Input error: Cannot use weak collisions with gaseous mean free path model. Set weak_collision_order = 0.");
     }
 
-    if options.interaction_potential ==InteractionPotential:: LENNARD_JONES_12_6 {
-        assert!((options.scattering_integral == ScatteringIntegral::GAUSS_MEHLER) | (options.scattering_integral == ScatteringIntegral::GAUSS_LEGENDRE),
+    if let InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} = options.interaction_potential {
+        assert!((discriminant(&options.scattering_integral) == discriminant(&ScatteringIntegral::GAUSS_MEHLER{n_points: 10})) | (options.scattering_integral == ScatteringIntegral::GAUSS_LEGENDRE),
         "Input error: Cannot use scattering integral {} with interaction potential {}. Use Gauss-Mehler or Gauss-Legendre.",
         options.scattering_integral, options.interaction_potential);
 
-        assert!((options.root_finder == Rootfinder::CPR) | (options.root_finder == Rootfinder::POLYNOMIAL),
-        "Input error: Cannot use Newton root-finder with attractive-repulsive potentials. Use Chebyshev-Proxy Rootfinder. or Polynomial Rootfinder (if interatomic potential has only power-of-r terms.)");
+        if let Rootfinder::NEWTON{max_iterations, tolerance} = options.root_finder {
+            panic!("Input error: Cannot use Newton root-finder with attractive-repulsive potentials. Use Chebyshev-Proxy Rootfinder. or Polynomial Rootfinder (if interatomic potential has only power-of-r terms.)");
+        }
     }
 
     if (options.scattering_integral == ScatteringIntegral::MENDENHALL_WELLER) | (options.scattering_integral == ScatteringIntegral::MAGIC) {
