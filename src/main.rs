@@ -66,9 +66,9 @@ pub enum ElectronicStoppingMode {
 impl fmt::Display for ElectronicStoppingMode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ElectronicStoppingMode::INTERPOLATED => write!(f, "Biersack-Varelas"),
-            ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => write!(f, "Lindhard-Scharff"),
-            ElectronicStoppingMode::LOW_ENERGY_LOCAL => write!(f, "Oen-Robinson"),
+            ElectronicStoppingMode::INTERPOLATED => write!(f, "Biersack-Varelas electronic stopping"),
+            ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => write!(f, "Lindhard-Scharff electronic stopping"),
+            ElectronicStoppingMode::LOW_ENERGY_LOCAL => write!(f, "Oen-Robinson electronic stopping"),
             ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => write!(f, "Equipartition with Lindhard-Scharff and Oen-Robinson"),
         }
     }
@@ -90,7 +90,7 @@ impl fmt::Display for MeanFreePathModel {
     }
 }
 
-#[derive(Deserialize, PartialEq, Clone, Copy)]
+#[derive(Deserialize, Clone, Copy)]
 pub enum InteractionPotential {
     TRIDYN,
     MOLIERE,
@@ -98,6 +98,7 @@ pub enum InteractionPotential {
     ZBL,
     LENZ_JENSEN,
     LENNARD_JONES_12_6 {sigma: f64, epsilon: f64},
+    LENNARD_JONES_65_6 {sigma: f64, epsilon: f64}
 }
 
 impl fmt::Display for InteractionPotential {
@@ -109,11 +110,18 @@ impl fmt::Display for InteractionPotential {
             InteractionPotential::ZBL => write!(f, "ZBL Potential"),
             InteractionPotential::LENZ_JENSEN => write!(f, "Lenz-Jensen Potential"),
             InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => write!(f, "Lennard-Jones 12-6 Potential with sigma = {}, epsilon = {}", sigma, epsilon),
+            InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => write!(f, "Lennard-Jones 6.5-6 Potential with sigma = {}, epsilon = {}", sigma, epsilon),
         }
     }
 }
 
-#[derive(Deserialize, PartialEq, Clone, Copy)]
+impl PartialEq for InteractionPotential {
+    fn eq(&self, other: &Self) -> bool {
+        discriminant(self) == discriminant(other)
+    }
+}
+
+#[derive(Deserialize, Clone, Copy)]
 pub enum ScatteringIntegral {
     MENDENHALL_WELLER,
     MAGIC,
@@ -132,7 +140,13 @@ impl fmt::Display for ScatteringIntegral {
     }
 }
 
-#[derive(Deserialize, PartialEq, Clone, Copy)]
+impl PartialEq for ScatteringIntegral {
+    fn eq(&self, other: &Self) -> bool {
+        discriminant(self) == discriminant(other)
+    }
+}
+
+#[derive(Deserialize, Clone, Copy)]
 pub enum Rootfinder {
     NEWTON{max_iterations: usize, tolerance: f64},
     CPR{n0: usize, nmax: usize, epsilon: f64, complex_threshold: f64, truncation_threshold: f64,
@@ -143,10 +157,15 @@ pub enum Rootfinder {
 impl fmt::Display for Rootfinder {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Rootfinder::NEWTON{max_iterations, tolerance} => write!(f, "Newton-Raphson Rootfinder"),
+            Rootfinder::NEWTON{max_iterations, tolerance} => write!(f, "Newton-Raphson Rootfinder with maximum {} iterations and toleance = {}", max_iterations, tolerance),
             Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const} => write!(f, "Chebyshev-Proxy Rootfinder"),
-            Rootfinder::POLYNOMIAL{complex_threshold} => write!(f, "Frobenius Companion Matrix Polynomial Rootfinder"),
+            Rootfinder::POLYNOMIAL{complex_threshold} => write!(f, "Frobenius Companion Matrix Polynomial Real Rootfinder with a complex tolerance of {}", complex_threshold),
         }
+    }
+}
+impl PartialEq for Rootfinder {
+    fn eq(&self, other: &Self) -> bool {
+        discriminant(self) == discriminant(other)
     }
 }
 
@@ -226,10 +245,10 @@ pub struct Options {
     mean_free_path_model: MeanFreePathModel,
     interaction_potential: Vec<Vec<InteractionPotential>>,
     scattering_integral: Vec<Vec<ScatteringIntegral>>,
+    root_finder: Vec<Vec<Rootfinder>>,
     num_threads: usize,
     num_chunks: u64,
     use_hdf5: bool,
-    root_finder: Vec<Vec<Rootfinder>>,
 }
 
 fn main() {
@@ -292,10 +311,10 @@ fn main() {
         for ((interaction_potential, scattering_integral), root_finder) in interaction_potentials.iter().zip(scattering_integrals).zip(root_finders) {
 
             if let InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} = interaction_potential {
-                assert!((discriminant(&scattering_integral) == discriminant(&ScatteringIntegral::GAUSS_MEHLER{n_points: 10})) | (scattering_integral == ScatteringIntegral::GAUSS_LEGENDRE),
+                assert!((scattering_integral == ScatteringIntegral::GAUSS_MEHLER{n_points: 10}) | (scattering_integral == ScatteringIntegral::GAUSS_LEGENDRE),
                     "Input error: cannot use scattering integral {} with interaction potential {}. Use Gauss-Mehler or Gauss-Legendre.", scattering_integral, interaction_potential);
 
-                assert!( (discriminant(&root_finder) == discriminant(&Rootfinder::CPR{n0: 0, nmax: 0, epsilon: 0., complex_threshold: 0., truncation_threshold: 0., far_from_zero: 0., interval_limit: 0., upper_bound_const: 0.})) | (discriminant(&root_finder) == discriminant(&Rootfinder::POLYNOMIAL{complex_threshold: 0.})),
+                assert!( (root_finder == Rootfinder::CPR{n0: 0, nmax: 0, epsilon: 0., complex_threshold: 0., truncation_threshold: 0., far_from_zero: 0., interval_limit: 0., upper_bound_const: 0.}) | (root_finder == Rootfinder::POLYNOMIAL{complex_threshold: 0.}),
                     "Input error: cannot use root finder {} with interaction potential {}. Use CPR or Polynomial.", root_finder, interaction_potential);
 
                 if (scattering_integral == ScatteringIntegral::MENDENHALL_WELLER) | (scattering_integral == ScatteringIntegral::MAGIC) {

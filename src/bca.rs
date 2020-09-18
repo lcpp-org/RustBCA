@@ -52,13 +52,13 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
     let mut particle_index = particles.len();
 
-    'particle_loop: while particle_index > 0 {
+    while particle_index > 0 {
 
         //Remove particle from top of vector as particle_1
         let mut particle_1 = particles.pop().unwrap();
 
         //BCA loop
-        'trajectory_loop: while !particle_1.stopped & !particle_1.left {
+        while !particle_1.stopped & !particle_1.left {
 
             //Choose impact parameters and azimuthal angles for all collisions, and determine mean free path
             let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material, &options);
@@ -69,7 +69,8 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
             let mut strong_collision_Z = 0.;
             let mut strong_collision_index: usize = 0;
 
-            'collision_loop: for (k, binary_collision_geometry) in binary_collision_geometries.iter().enumerate().take(options.weak_collision_order + 1) {
+            //Collision loop
+            for (k, binary_collision_geometry) in binary_collision_geometries.iter().enumerate().take(options.weak_collision_order + 1) {
 
                 let (species_index, mut particle_2) = bca::choose_collision_partner(&particle_1, &material,
                     &binary_collision_geometry, &options);
@@ -136,6 +137,8 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
                             if (distance_to_surface < estimated_range_of_recoils) & (particle_2.E > particle_2.Ec) {
                                 particles.push(particle_2);
                             }
+                        } else {
+                            panic!("Numerical error: geometry algorithm failed to find distance from particle to surface.")
                         }
                     //If transferred energy > cutoff energy, add recoil to particle vector
                     } else if options.track_recoils & (particle_2.E > particle_2.Ec) {
@@ -307,13 +310,13 @@ pub fn choose_collision_partner(particle_1: &particle::Particle, material: &mate
     let cosx: f64 = particle_1.dir.x;
     let cosy: f64 = particle_1.dir.y;
     let cosz: f64 = particle_1.dir.z;
-    let sa: f64 = (1. - cosx*cosx).sqrt();
+    let sinx: f64 = (1. - cosx*cosx).sqrt();
     let cosphi: f64 = phi_azimuthal.cos();
 
     //Find recoil location
-    let x_recoil: f64 = x + mfp*cosx - impact_parameter*cosphi*sa;
-    let y_recoil: f64 = y + mfp*cosy - impact_parameter*(sinphi*cosz - cosphi*cosy*cosx)/sa;
-    let z_recoil: f64 = z + mfp*cosz + impact_parameter*(sinphi*cosy - cosphi*cosx*cosz)/sa;
+    let x_recoil: f64 = x + mfp*cosx - impact_parameter*cosphi*sinx;
+    let y_recoil: f64 = y + mfp*cosy - impact_parameter*(sinphi*cosz - cosphi*cosy*cosx)/sinx;
+    let z_recoil: f64 = z + mfp*cosz + impact_parameter*(sinphi*cosy - cosphi*cosx*cosz)/sinx;
 
     //Choose recoil Z, M
     let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, interaction_index) = material.choose(x_recoil, y_recoil);
@@ -338,7 +341,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     let p = binary_collision_geometry.impact_parameter;
 
     let interaction_potential = options.interaction_potential[particle_1.interaction_index][particle_2.interaction_index];
-    let root_finder = if relative_energy < interactions::energy_threshold_single_root(interaction_potential) {options.root_finder[particle_1.interaction_index][particle_2.interaction_index]} else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}};
+    let root_finder = if relative_energy < interactions::energy_threshold_single_root(interaction_potential) {options.root_finder[particle_1.interaction_index][particle_2.interaction_index]} else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-6}};
 
     #[cfg(feature = "cpr_rootfinder")]
     match root_finder {
@@ -479,12 +482,13 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
     let coefficients = interactions::polynomial_coefficients(relative_energy, impact_parameter, interaction_potential);
     let roots = real_polynomial_roots(coefficients.clone(), polynom_complex_threshold).unwrap();
     let max_root = roots.iter().cloned().fold(f64::NAN, f64::max);
+    let inverse_transformed_root = interactions::inverse_transform(max_root, interaction_potential);
 
-    if roots.is_empty() || max_root.is_nan() {
+    if roots.is_empty() || inverse_transformed_root.is_nan() {
         return Err(anyhow!("Numerical error: polynomial rootfinder failed to find root with coefficients {:?}",
             coefficients))
     } else {
-        return Ok(max_root/a)
+        return Ok(inverse_transformed_root/a)
     }
 }
 
