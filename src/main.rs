@@ -132,18 +132,6 @@ impl fmt::Display for ScatteringIntegral {
     }
 }
 
-#[derive(Deserialize, Clone, Copy)]
-pub struct CPROptions {
-    n0: usize,
-    nmax: usize,
-    epsilon: f64,
-    complex_threshold: f64,
-    truncation_threshold: f64,
-    far_from_zero: f64,
-    interval_limit: f64,
-    upper_bound_const: f64
-}
-
 #[derive(Deserialize, PartialEq, Clone, Copy)]
 pub enum Rootfinder {
     NEWTON{max_iterations: usize, tolerance: f64},
@@ -236,12 +224,12 @@ pub struct Options {
     high_energy_free_flight_paths: bool,
     electronic_stopping_mode: ElectronicStoppingMode,
     mean_free_path_model: MeanFreePathModel,
-    interaction_potential: InteractionPotential,
-    scattering_integral: ScatteringIntegral,
+    interaction_potential: Vec<Vec<InteractionPotential>>,
+    scattering_integral: Vec<Vec<ScatteringIntegral>>,
     num_threads: usize,
     num_chunks: u64,
     use_hdf5: bool,
-    root_finder: Rootfinder,
+    root_finder: Vec<Vec<Rootfinder>>,
 }
 
 fn main() {
@@ -271,6 +259,7 @@ fn main() {
     assert!(material.n.len() == material.Z.len(), "Input error: material input arrays of unequal length.");
     assert!(material.n.len() == material.Eb.len(), "Input error: material input arrays of unequal length.");
     assert!(material.n.len() == material.Es.len(), "Input error: material input arrays of unequal length.");
+    assert!(material.m.len() == material.interaction_index.len(), "Input error: material input arrays of unequal length.");
 
     let options = input.options;
     let particle_parameters = input.particle_parameters;
@@ -291,21 +280,32 @@ fn main() {
             "Input error: Cannot use weak collisions with gaseous mean free path model. Set weak_collision_order = 0.");
     }
 
-    if let InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} = options.interaction_potential {
-        assert!((discriminant(&options.scattering_integral) == discriminant(&ScatteringIntegral::GAUSS_MEHLER{n_points: 10})) | (options.scattering_integral == ScatteringIntegral::GAUSS_LEGENDRE),
-        "Input error: Cannot use scattering integral {} with interaction potential {}. Use Gauss-Mehler or Gauss-Legendre.",
-        options.scattering_integral, options.interaction_potential);
+    assert!(&options.interaction_potential.len() == &options.interaction_potential[0].len(),
+        "Input error: interaction matrix not square.");
+    assert!(&options.scattering_integral.len() == &options.scattering_integral[0].len(),
+        "Input error: scattering intergral matrix not square.");
+    assert!(&options.root_finder.len() == &options.root_finder[0].len(),
+        "Input error: rootfinder matrix not square.");
 
-        if let Rootfinder::NEWTON{max_iterations, tolerance} = options.root_finder {
-            panic!("Input error: Cannot use Newton root-finder with attractive-repulsive potentials. Use Chebyshev-Proxy Rootfinder. or Polynomial Rootfinder (if interatomic potential has only power-of-r terms.)");
+
+    for ((interaction_potentials, scattering_integrals), root_finders) in options.interaction_potential.clone().iter().zip(options.scattering_integral.clone()).zip(options.root_finder.clone()) {
+        for ((interaction_potential, scattering_integral), root_finder) in interaction_potentials.iter().zip(scattering_integrals).zip(root_finders) {
+
+            if let InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} = interaction_potential {
+                assert!((discriminant(&scattering_integral) == discriminant(&ScatteringIntegral::GAUSS_MEHLER{n_points: 10})) | (scattering_integral == ScatteringIntegral::GAUSS_LEGENDRE),
+                    "Input error: cannot use scattering integral {} with interaction potential {}. Use Gauss-Mehler or Gauss-Legendre.", scattering_integral, interaction_potential);
+
+                assert!( (discriminant(&root_finder) == discriminant(&Rootfinder::CPR{n0: 0, nmax: 0, epsilon: 0., complex_threshold: 0., truncation_threshold: 0., far_from_zero: 0., interval_limit: 0., upper_bound_const: 0.})) | (discriminant(&root_finder) == discriminant(&Rootfinder::POLYNOMIAL{complex_threshold: 0.})),
+                    "Input error: cannot use root finder {} with interaction potential {}. Use CPR or Polynomial.", root_finder, interaction_potential);
+
+                if (scattering_integral == ScatteringIntegral::MENDENHALL_WELLER) | (scattering_integral == ScatteringIntegral::MAGIC) {
+                    assert!(match interaction_potential {
+                        InteractionPotential::MOLIERE | InteractionPotential::ZBL | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN => true,
+                        _ => false
+                    }, "Input error: Mendenhall-Weller quadrature and Magic formula can only be used with screened Coulomb potentials. Use Gauss-Mehler or Gauss-Legendre.");
+                }
+            }
         }
-    }
-
-    if (options.scattering_integral == ScatteringIntegral::MENDENHALL_WELLER) | (options.scattering_integral == ScatteringIntegral::MAGIC) {
-        assert!(match options.interaction_potential {
-            InteractionPotential::MOLIERE | InteractionPotential::ZBL | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN => true,
-            _ => false
-        }, "Input error: Mendenhall-Weller quadrature and Magic formula can only be used with screened Coulomb potentials. Use Gauss-Mehler or Gauss-Legendre.")
     }
 
     //Check that particle arrays are equal length
@@ -317,6 +317,12 @@ fn main() {
         "Input error: particle input arrays of unequal length.");
     assert_eq!(particle_parameters.Z.len(), particle_parameters.dir.len(),
         "Input error: particle input arrays of unequal length.");
+
+    assert!(material.interaction_index.iter().max().unwrap() < &options.interaction_potential.len(),
+        "Input error: interaction matrix too small for material interaction indices.");
+    assert!(particle_parameters.interaction_index.iter().max().unwrap() < &options.interaction_potential.len(),
+        "Input error: interaction matrix too small for particle interaction indices.");
+
 
     let N = particle_parameters.Z.len();
 
@@ -367,6 +373,7 @@ fn main() {
                 let E = particle_parameters.E[particle_index];
                 let Ec = particle_parameters.Ec[particle_index];
                 let Es = particle_parameters.Es[particle_index];
+                let interaction_index = particle_parameters.interaction_index[particle_index];
                 let (x, y, z) = particle_parameters.pos[particle_index];
                 let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
                 for sub_particle_index in 0..N_ {
@@ -383,7 +390,8 @@ fn main() {
                             z: z*length_unit,
                             ux: cosx,
                             uy: cosy,
-                            uz: cosz
+                            uz: cosz,
+                            interaction_index: interaction_index
                         }
                     );
                 }
@@ -406,6 +414,7 @@ fn main() {
                 let E = particle_parameters.E[particle_index];
                 let Ec = particle_parameters.Ec[particle_index];
                 let Es = particle_parameters.Es[particle_index];
+                let interaction_index = particle_parameters.interaction_index[particle_index];
                 let (x, y, z) = particle_parameters.pos[particle_index];
                 let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
                 for sub_particle_index in 0..N_ {
@@ -423,7 +432,8 @@ fn main() {
                             z: z*length_unit,
                             ux: cosx,
                             uy: cosy,
-                            uz: cosz
+                            uz: cosz,
+                            interaction_index
                         }
                     );
                 }
