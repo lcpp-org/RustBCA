@@ -16,7 +16,7 @@ fn test_surface_binding_energy_barrier() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let material_parameters = material::MaterialParameters{
         energy_unit: "EV".to_string(),
@@ -27,6 +27,7 @@ fn test_surface_binding_energy_barrier() {
         n: vec![6E28, 6E28],
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
+        interaction_index: vec![0, 0],
         electronic_stopping_correction_factor: 0.0,
         energy_barrier_thickness: 10.
     };
@@ -119,7 +120,7 @@ fn test_surface_refraction() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     //Test particle entering material and gaining energy
 
@@ -209,6 +210,7 @@ fn test_momentum_conservation() {
             n: vec![6.026E28],
             Z: vec![Z2],
             m: vec![m2],
+            interaction_index: vec![0],
             electronic_stopping_correction_factor: 0.0,
             energy_barrier_thickness: 0.
         };
@@ -227,12 +229,12 @@ fn test_momentum_conservation() {
 
         for high_energy_free_flight_paths in vec![true, false] {
             for potential in vec![InteractionPotential::KR_C, InteractionPotential::MOLIERE, InteractionPotential::ZBL, InteractionPotential::LENZ_JENSEN] {
-                for scattering_integral in vec![ScatteringIntegral::MENDENHALL_WELLER, ScatteringIntegral::GAUSS_MEHLER, ScatteringIntegral::GAUSS_LEGENDRE] {
-                    for root_finder in vec![Rootfinder::NEWTON] {
+                for scattering_integral in vec![ScatteringIntegral::MENDENHALL_WELLER, ScatteringIntegral::GAUSS_MEHLER{n_points: 10}, ScatteringIntegral::GAUSS_LEGENDRE] {
+                    for root_finder in vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}] {
 
                         println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
 
-                        let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, x1, y1, z1, cosx, cosy, cosz, false, false);
+                        let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, x1, y1, z1, cosx, cosy, cosz, false, false, 0);
 
                         let options = Options {
                             name: "test".to_string(),
@@ -245,23 +247,12 @@ fn test_momentum_conservation() {
                             high_energy_free_flight_paths: high_energy_free_flight_paths,
                             electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
                             mean_free_path_model: MeanFreePathModel::LIQUID,
-                            interaction_potential: potential,
-                            scattering_integral: scattering_integral,
-                            tolerance: 1E-12,
-                            max_iterations: 100,
+                            interaction_potential: vec![vec![potential]],
+                            scattering_integral: vec![vec![scattering_integral]],
                             num_threads: 1,
                             num_chunks: 1,
                             use_hdf5: false,
-                            root_finder: root_finder,
-                            cpr_n0: 10,
-                            cpr_nmax: 500,
-                            cpr_epsilon: 1E-16,
-                            cpr_complex: 1E-16,
-                            cpr_truncation: 1E-18,
-                            cpr_far_from_zero: 1E6,
-                            cpr_interval_limit: 1E-18,
-                            cpr_upper_bound_const: 10.,
-                            polynom_complex_threshold: 1E-18,
+                            root_finder: vec![vec![root_finder]],
                         };
 
                         let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
@@ -344,7 +335,7 @@ fn test_rotate_particle() {
     let psi = -PI/4.;
     let phi = 0.;
 
-    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false);
+    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     //Check that rotation in 2D works
     particle::rotate_particle(&mut particle, psi, phi);
@@ -383,7 +374,7 @@ fn test_particle_advance() {
     let mfp = 1.;
     let asymptotic_deflection = 0.5;
 
-    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false);
+    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let distance_traveled = particle::particle_advance(&mut particle, mfp, asymptotic_deflection);
 
@@ -414,36 +405,25 @@ fn test_quadrature() {
         high_energy_free_flight_paths: false,
         electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
         mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: InteractionPotential::KR_C,
-        scattering_integral: ScatteringIntegral::MENDENHALL_WELLER,
-        tolerance: 1E-12,
-        max_iterations: 100,
+        interaction_potential:  vec![vec![InteractionPotential::KR_C]],
+        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
         num_threads: 1,
         num_chunks: 1,
         use_hdf5: false,
-        root_finder: Rootfinder::NEWTON,
-        cpr_n0: 2,
-        cpr_nmax: 500,
-        cpr_epsilon: 1E-10,
-        cpr_complex: 1E-16,
-        cpr_truncation: 1E-18,
-        cpr_far_from_zero: 1E6,
-        cpr_interval_limit: 1E-18,
-        cpr_upper_bound_const: 10.,
-        polynom_complex_threshold: 1E-18,
+        root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
     };
 
-    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, &options).unwrap();
+    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 100, 1E-3).unwrap();
 
     //If cpr_rootfinder is enabled, compare Newton to CPR - they should be nearly identical
     #[cfg(feature = "cpr_rootfinder")]
-    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, &options) {
-        assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-9));
+    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 2, 500, 1E-12, 1E-16, 1E-18, 1E6, 1E-18, 10.) {
         println!("CPR: {} Newton: {}", x0_cpr, x0_newton);
+        assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-3));
     };
 
     //Compute center of mass deflection angle with each algorithm
-    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C, 10);
     let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
     let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
     let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);

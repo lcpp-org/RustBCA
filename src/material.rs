@@ -13,6 +13,7 @@ pub struct MaterialParameters {
     pub n: Vec<f64>,
     pub Z: Vec<f64>,
     pub m: Vec<f64>,
+    pub interaction_index: Vec<usize>,
     pub electronic_stopping_correction_factor: f64,
     pub energy_barrier_thickness: f64
 }
@@ -24,6 +25,7 @@ pub struct Material {
     pub Eb: Vec<f64>,
     pub Es: Vec<f64>,
     pub Ec: Vec<f64>,
+    pub interaction_index: Vec<usize>,
     pub electronic_stopping_correction_factor: f64,
     pub mesh_2d: mesh::Mesh2D,
     pub energy_barrier_thickness: f64
@@ -66,6 +68,7 @@ impl Material {
             Eb: material_parameters.Eb.iter().map(|&i| i*energy_unit).collect(),
             Es: material_parameters.Es.iter().map(|&i| i*energy_unit).collect(),
             Ec: material_parameters.Ec.iter().map(|&i| i*energy_unit).collect(),
+            interaction_index: material_parameters.interaction_index,
             electronic_stopping_correction_factor: material_parameters.electronic_stopping_correction_factor,
             mesh_2d: mesh::Mesh2D::new(mesh_2d_input),
             energy_barrier_thickness: material_parameters.energy_barrier_thickness*length_unit
@@ -191,13 +194,13 @@ impl Material {
         return min_Ec;
     }
 
-    pub fn choose(&self, x: f64, y: f64) -> (usize, f64, f64, f64, f64) {
+    pub fn choose(&self, x: f64, y: f64) -> (usize, f64, f64, f64, f64, usize) {
         let random_number: f64 = rand::random::<f64>();
         let cumulative_concentrations = self.get_cumulative_concentrations(x, y);
 
         for (component_index, cumulative_concentration) in cumulative_concentrations.iter().enumerate() {
             if random_number < *cumulative_concentration {
-                return (component_index, self.Z[component_index], self.m[component_index], self.Ec[component_index], self.Es[component_index]);
+                return (component_index, self.Z[component_index], self.m[component_index], self.Ec[component_index], self.Es[component_index], self.interaction_index[component_index]);
             }
         }
         panic!("Input error: method choose() operation failed to choose a valid species. Check densities.");

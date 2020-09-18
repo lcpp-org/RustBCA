@@ -14,6 +14,7 @@ pub struct ParticleParameters {
     pub Es: Vec<f64>,
     pub pos: Vec<(f64, f64, f64)>,
     pub dir: Vec<(f64, f64, f64)>,
+    pub interaction_index: Vec<usize>
 }
 
 #[derive(Clone, PartialEq, Debug, Copy)]
@@ -30,7 +31,8 @@ pub struct ParticleInput {
     pub z: f64,
     pub ux: f64,
     pub uy: f64,
-    pub uz: f64
+    pub uz: f64,
+    pub interaction_index: usize,
 }
 
 #[derive(Clone)]
@@ -54,6 +56,7 @@ pub struct Particle {
     pub track_trajectories: bool,
     pub number_collision_events: usize,
     pub backreflected: bool,
+    pub interaction_index: usize,
 }
 impl Particle {
     pub fn from_input(input: ParticleInput, options: &Options) -> Particle {
@@ -82,11 +85,12 @@ impl Particle {
             trajectory: vec![Vector4::new(input.E, input.x, input.y, input.z)],
             track_trajectories: options.track_trajectories,
             number_collision_events: 0,
-            backreflected: false
+            backreflected: false,
+            interaction_index: input.interaction_index,
         }
     }
 
-    pub fn new(m: f64, Z: f64, E: f64, Ec: f64, Es: f64, x: f64, y: f64, z: f64, dirx: f64, diry: f64, dirz: f64, incident: bool, track_trajectories: bool) -> Particle {
+    pub fn new(m: f64, Z: f64, E: f64, Ec: f64, Es: f64, x: f64, y: f64, z: f64, dirx: f64, diry: f64, dirz: f64, incident: bool, track_trajectories: bool, interaction_index: usize) -> Particle {
         let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
 
         Particle {
@@ -108,7 +112,8 @@ impl Particle {
             trajectory: vec![Vector4::new(E, x, y, z)],
             track_trajectories,
             number_collision_events: 0,
-            backreflected: false
+            backreflected: false,
+            interaction_index,
         }
     }
     pub fn add_trajectory(&mut self) {
