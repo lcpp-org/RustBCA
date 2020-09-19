@@ -98,7 +98,8 @@ pub enum InteractionPotential {
     ZBL,
     LENZ_JENSEN,
     LENNARD_JONES_12_6 {sigma: f64, epsilon: f64},
-    LENNARD_JONES_65_6 {sigma: f64, epsilon: f64}
+    LENNARD_JONES_65_6 {sigma: f64, epsilon: f64},
+    MORSE{D: f64, alpha: f64, r0: f64}
 }
 
 impl fmt::Display for InteractionPotential {
@@ -111,6 +112,7 @@ impl fmt::Display for InteractionPotential {
             InteractionPotential::LENZ_JENSEN => write!(f, "Lenz-Jensen Potential"),
             InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => write!(f, "Lennard-Jones 12-6 Potential with sigma = {}, epsilon = {}", sigma, epsilon),
             InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => write!(f, "Lennard-Jones 6.5-6 Potential with sigma = {}, epsilon = {}", sigma, epsilon),
+            InteractionPotential::MORSE{D, alpha, r0} => write!(f, "Morse potential with D = {}, alpha = {}, and r0 = {}", D, alpha, r0)
         }
     }
 }

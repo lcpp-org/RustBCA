@@ -11,12 +11,16 @@ pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_poten
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             lennard_jones_65_6(r, sigma, epsilon)
         }
+        InteractionPotential::MORSE{D, alpha, r0} => {
+            morse(r, D, alpha, r0)
+        }
     }
 }
 
 pub fn energy_threshold_single_root(interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential{
         InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} | InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => f64::INFINITY,
+        InteractionPotential::MORSE{D, alpha, r0} => f64::INFINITY,
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => 0.,
     }
 }
@@ -55,6 +59,9 @@ pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, r
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             doca_lennard_jones_65_6(r, impact_parameter, relative_energy, sigma, epsilon)
+        },
+        InteractionPotential::MORSE{D, alpha, r0} => {
+            doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
         }
     }
 }
@@ -76,6 +83,9 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             doca_lennard_jones_65_6(r, impact_parameter, relative_energy, sigma, epsilon)
         },
+        InteractionPotential::MORSE{D, alpha, r0} => {
+            doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
+        }
     }
 }
 
@@ -92,6 +102,9 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
             let n = 6.;
             1./(1. + (r/sigma).powf(n))
         },
+        InteractionPotential::MORSE{D, alpha, r0} => {
+            1./(1. + (r*alpha).powf(2.))
+        }
     }
 }
 
@@ -110,6 +123,9 @@ pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             diff_doca_lennard_jones_65_6(r, impact_parameter, relative_energy, sigma, epsilon)
         },
+        InteractionPotential::MORSE{D, alpha, r0} => {
+            diff_doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
+        }
     }
 }
 
@@ -128,6 +144,9 @@ pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f6
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             diff_doca_lennard_jones_65_6(r, impact_parameter, relative_energy, sigma, epsilon)
         },
+        InteractionPotential::MORSE{D, alpha, r0} => {
+            diff_doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
+        }
     }
 }
 
@@ -164,6 +183,7 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
         //Lindhard/Firsov screening length, Eckstein (4.1.5)
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
         InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} | InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
+        InteractionPotential::MORSE{D, alpha, r0} => alpha,
     }
 }
 
@@ -197,6 +217,18 @@ pub fn lennard_jones(r: f64, sigma: f64, epsilon: f64) -> f64 {
 
 pub fn lennard_jones_65_6(r: f64, sigma: f64, epsilon: f64) -> f64 {
     4.*epsilon*((sigma/r).powf(6.5) - (sigma/r).powf(6.))
+}
+
+pub fn morse(r: f64, D: f64, alpha: f64, r0: f64) -> f64 {
+    D*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp())
+}
+
+pub fn doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, alpha: f64, r0: f64) -> f64 {
+    (r*alpha).powf(2.) - (r*alpha).powf(2.)*D/relative_energy*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp()) - (impact_parameter*alpha).powf(2.)
+}
+
+pub fn diff_doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, alpha: f64, r0: f64) -> f64 {
+    2.*alpha.powf(2.)*r - 2.*alpha.powf(2.)*D*r*(-2.*alpha*(r - r0) - 1.).exp()*(alpha*r*(alpha*(r - r0)).exp() - 2.*(alpha*(r - r0)).exp() - r*alpha + 1.)
 }
 
 pub fn doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
@@ -256,5 +288,6 @@ pub fn first_screening_radius(interaction_potential: InteractionPotential) -> f6
         InteractionPotential::TRIDYN => 0.278544,
         InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => 1.,
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => 1.,
+        InteractionPotential::MORSE{D, alpha, r0} => 1.,
     }
 }
