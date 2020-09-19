@@ -13,7 +13,7 @@ BCA codes are valid for incident ion energies between approximately 10 eV  throu
 * Low energy (<25 keV/nucleon) electronic stopping modes include local (Oen-Robinson), nonlocal (Lindhard-Scharff), and equipartition forms
 * Includes Biersack-Varelas interpolation to extend electronic stopping validity up to ~1 GeV/nucleon
 * High-energy free-flight paths to greatly speed up high-energy simulations
-* Includes Kr-C, ZBL, Lenz-Jensen, Moliere, Lennard-Jones 12-6, and Lennard-Jones 6.5-6 interaction potentials
+* Includes Kr-C, ZBL, Lenz-Jensen, Moliere, Lennard-Jones 12-6, Lennard-Jones 6.5-6, and Morse interaction potentials
 * Multiple interaction potentials can be used in a simulation - for example, the He-W interaction can be specified as a Lennard-Jones 12-6 while the W-W interaction can be specified as a Kr-C, for any number of potentials or species.
 * Includes Gauss-Mehler quadrature, Gauss-Legendre quadrature, Mendenall-Weller quadrature, and MAGIC algorithm to determine scattering integral
 * Full trajectory tracking of ions and target atoms
