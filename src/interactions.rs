@@ -89,7 +89,7 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
             1./(1. + (r/sigma).powf(n))
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
-            let n = 12.;
+            let n = 6.;
             1./(1. + (r/sigma).powf(n))
         },
     }
@@ -200,7 +200,7 @@ pub fn lennard_jones_65_6(r: f64, sigma: f64, epsilon: f64) -> f64 {
 }
 
 pub fn doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
-    (r/sigma).powf(6.5) - 4.*epsilon/relative_energy*(1. - (r/sigma).powf(6.)) - p.powf(2.)*r.powf(4.5)/sigma.powf(6.5)
+    (r/sigma).powf(6.5) - 4.*epsilon/relative_energy*(1. - (r/sigma).powf(0.5)) - (p/sigma).powf(2.)*(r/sigma).powf(4.5)
 }
 
 pub fn doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
@@ -212,7 +212,7 @@ pub fn diff_doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64,
 }
 
 pub fn diff_doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
-    6.5*(r/sigma).powf(5.5)/sigma + 4.*epsilon/relative_energy*6.*(r/sigma).powf(5.)/sigma - 4.5*p.powf(2.)*r.powf(3.5)/sigma.powf(6.5)
+    6.5*(r/sigma).powf(5.5)/sigma + 4.*epsilon/relative_energy*0.5*(sigma*r).powf(-0.5) - (p/sigma).powf(2.)*4.5*(r/sigma).powf(3.5)/sigma
 }
 
 fn moliere(xi: f64) -> f64 {
