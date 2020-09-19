@@ -1,0 +1,61 @@
+[options]
+name = "2000.0eV_0.0001deg_He_TiO2_Al_Si"
+track_trajectories = true
+track_recoils = true
+track_recoil_trajectories = true
+stream_size = 8000
+weak_collision_order = 0
+suppress_deep_recoils = false
+high_energy_free_flight_paths = false
+electronic_stopping_mode = "LOW_ENERGY_NONLOCAL"
+mean_free_path_model = "LIQUID"
+interaction_potential = [
+  ["KR_C", {"LENNARD_JONES_65_6"={sigma = 0.8E-10, epsilon = 9E-20}}],
+  [{"LENNARD_JONES_65_6"={sigma = 0.8E-10, epsilon = 9E-20}}, "KR_C"]
+]
+scattering_integral = [
+  ["MENDENHALL_WELLER", {"GAUSS_MEHLER"={n_points = 100}}],
+  [{"GAUSS_MEHLER"={n_points = 100}}, "MENDENHALL_WELLER"]
+]
+root_finder = [
+  [{"NEWTON"={max_iterations=100, tolerance=1E-6}}, {"POLYNOMIAL"={complex_threshold=1E-12}}],
+  [{"POLYNOMIAL"={complex_threshold=1E-12}}, {"NEWTON"={max_iterations=100, tolerance=1E-6}}]
+]
+use_hdf5 = false
+num_threads = 4
+num_chunks = 10
+
+[particle_parameters]
+length_unit = "MICRON"
+energy_unit = "EV"
+mass_unit = "AMU"
+N = [ 10, 10]
+m = [ 4.002602, 1.008]
+Z = [ 2, 1]
+E = [ 2000.0, 2000.0]
+Ec = [ 0.1, 0.1]
+Es = [ 0.0, 1.0]
+interaction_index = [0, 1]
+pos = [ [ -1.7453292519934434e-8, 0.0, 0.0,], [ -1.7453292519934434e-8, 0.0, 0.0,],]
+dir = [ [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,], [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,],]
+particle_input_filename = ""
+
+[mesh_2d_input]
+length_unit = "MICRON"
+coordinate_sets = [ [ 0.0, 0.01, 0.0, 0.5, 0.5, -0.5,], [ 0.0, 0.01, 0.01, -0.5, 0.5, -0.5,], [ 0.01, 0.01, 0.04, -0.5, 0.5, -0.5,], [ 0.01, 0.04, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5, 0.5, -0.5, 0.5, -0.5,],]
+densities = [ [ 3.0e+28, 6.0e+28, 0.0, 0.0,], [ 3.0e+28, 6.0e+28, 0.0, 0.0,], [ 0.0, 0.0, 6.026e+28, 0.0,], [ 0.0, 0.0, 6.026e+28, 0.0,], [ 0.0, 0.0, 0.0, 4.996e+28,], [ 0.0, 0.0, 0.0, 4.996e+28,],]
+boundary_points = [ [ 0.0, 0.5,], [ 0.5, 0.5,], [ 0.5, -0.5,], [ 0.0, -0.5,],]
+simulation_boundary_points = [ [ 0.6, -0.6,], [ -0.1, -0.6,], [ -0.1, 0.6,], [ 0.6, 0.6,], [ 0.6, -0.6,],]
+
+[material_parameters]
+energy_unit = "EV"
+mass_unit = "AMU"
+Eb = [ 3.0, 2.58, 3.0, 0.0,]
+Es = [ 4.84, 2.58, 3.39, 4.72,]
+Ec = [ 3.5, 2.0, 3.0, 1.5,]
+n = [ 5.67e+28, 4.291e+28, 6.026e+28, 4.996e+28,]
+Z = [ 22, 8, 13, 14,]
+m = [ 47.867, 15.9994, 26.98, 28.08553,]
+interaction_index = [0, 0, 0, 0]
+electronic_stopping_correction_factor = 1.0
+energy_barrier_thickness = 6.71e-5
