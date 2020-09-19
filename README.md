@@ -6,7 +6,7 @@ BCA codes are valid for incident ion energies between approximately 10 eV  throu
 
 # Features
 
-* Ion-solid interactions for all combinations of incident ion and target species
+* Ion-material interactions for all combinations of incident ion and target species
 * 2D geometry
 * Arbitrary, mesh-based inhomogeneous composition
 * Amorphous solid/liquid and gaseous targets
