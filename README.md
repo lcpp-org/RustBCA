@@ -50,6 +50,5 @@ Ubuntu 18.04 LTS:
 
 # Usage
 
-Modify input.toml to configure simulation; run ./rustBCA with input.toml in the same directory as rustBCA or run with a single input argument, the name of a .toml input file. See the rustBCA Wiki for example input files.
+Modify input.toml to configure simulation; run ./rustBCA with input.toml in the same directory as rustBCA or run with a single input argument, the name of a .toml input file. See [Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files) on the rustBCA wiki for usage instructions and see the examples on the wiki for example input files.
 
-Recommended usage: use run_rustbca.py to generate input files programmatically using toml
