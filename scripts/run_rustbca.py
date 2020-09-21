@@ -5,7 +5,7 @@ from shapely.geometry import Point, Polygon, box
 from itertools import chain
 import os
 import toml
-import generate_ftridyn_input as g
+#import generate_ftridyn_input as g
 import time
 from scipy.stats import gaussian_kde
 from scipy.interpolate import interp1d
@@ -29,22 +29,22 @@ SQRTPI = 1.77245385
 SQRT2PI = 2.506628274631
 C = 299792000.
 
-INTERPOLATED = 0
-LOW_ENERGY_NONLOCAL = 1
-LOW_ENERGY_LOCAL= 2
-LOW_ENERGY_EQUIPARTITION = 3
+INTERPOLATED = "INTERPOLATED"
+LOW_ENERGY_NONLOCAL = "LOW_ENERGY_NONLOCAL"
+LOW_ENERGY_LOCAL= "LOW_ENERGY_LOCAL"
+LOW_ENERGY_EQUIPARTITION = "LOW_ENERGY_EQUIPARTITION"
 
-LIQUID = 0
-GASEOUS = 1
+LIQUID = "LIQUID"
+GASEOUS = "GASEOUS"
 
-MOLIERE = 0
-KR_C = 1
-ZBL = 2
-LENZ_JENSEN = 3
-TRIDYN = -1
+MOLIERE = "MOLIERE"
+KR_C = "KR_C"
+ZBL = "ZBL"
+LENZ_JENSEN = "LENZ_JENSEN"
+TRIDYN = "TRIDYN"
 
-QUADRATURE = 0
-MAGIC = 1
+QUADRATURE = "MENDENHALL_WELLER"
+MAGIC = "MAGIC"
 
 titanium = {
     'symbol': 'Ti',
@@ -376,7 +376,7 @@ def main(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
     with open('input.toml', 'w') as file:
         toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
 
-    os.system('rustBCA.exe')
+    os.system('./rustBCA')
 
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
@@ -547,7 +547,7 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
     colors = {
         1: 'red',
         29: 'black',
-        2: 'red',
+        2: 'fuchsia',
         74: 'blue',
         4: 'black',
         5: 'blue',
@@ -556,7 +556,8 @@ def do_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
         54: 'red',
         8: 'purple',
         22: 'green',
-        13: 'black'
+        13: 'black',
+        82: 'black'
     }
 
     linewidths = {
@@ -1090,6 +1091,14 @@ def plot_distributions(name, ftridyn_name, beam, target, file_num=1, max_collisi
         labels.append('ftridyn cosz')
         ax = plt.gca()
 
+        if beam['symbol'] == 'Ar' and target['symbol'] == 'Si' and incident_energy==3000. and incident_angle==60.:
+            data = np.genfromtxt('comparison_data/ar_si_3kev.csv', delimiter=',')
+            normalized_energies = data[:, 0]/np.max(data[:, 0])
+            angles = -data[:, 1]*np.pi/180. + np.pi/2.
+            c3 = ax.plot(angles, normalized_energies, color='blue', marker='*', linestyle='')
+            plots.append(c3[0])
+            labels.append('Experiment+')
+
     if len(plots) > 0: plt.legend(plots, labels, fontsize='small', bbox_to_anchor=(0.0, 1.05), fancybox=True, shadow=True, loc='upper left')
     if ax:
         ax.set_thetamin(0.)
@@ -1163,6 +1172,303 @@ def plot_distributions(name, ftridyn_name, beam, target, file_num=1, max_collisi
     plt.savefig(name+'ref_ang.png')
     plt.close()
 
+def plot_distributions_rustbca(name, beam, target, file_num=1, max_collision_contours=4,
+    plot_2d_reflected_contours=True, collision_contour_significance_threshold=0.1, slice_angle=45,
+    incident_energy=1., incident_angle=0., plot_garrison_contours=True,
+    plot_reflected_energies_by_number_collisions=True,
+    plot_scattering_energy_curve=False):
+
+    file_num = str(file_num)
+    num_bins = 120
+
+    r = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
+    s = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
+    d = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
+
+    if np.size(r) > 0:
+        ux = r[:,6]
+        uy = r[:,7]
+        uz = r[:,8]
+        theta = -np.arctan2(ux, np.sqrt(uy**2 + uz**2))*180./np.pi
+        theta = 180. - np.arccos(ux)*180./np.pi
+        #theta = (np.arccos(r[:,7]) - np.pi/2.)*180./np.pi
+        number_collision_events = r[:, -1]
+
+        fig = plt.figure(num='polar_scatter')
+        ax = fig.add_subplot(111, projection='polar')
+        normalized_energies_rust = r[:,2]/incident_energy
+
+        c2 = ax.scatter(np.arccos(r[:,7]), normalized_energies_rust, s=1, c=number_collision_events)
+
+        plt.legend(['ftridyn'], loc='upper left')
+        ax.set_thetamax(180.)
+        ax.set_thetamin(0.)
+        ax.set_xlabel('E/E0')
+        ax.set_yticks([0., 0.5, 1.])
+        ax.set_xticks([0., np.pi/6., 2*np.pi/6., 3*np.pi/6., 4*np.pi/6., 5*np.pi/6., np.pi])
+        ax.set_xticklabels(['0', '30', '60', '90', '', '', ''])
+        plt.title(f'{beam["symbol"]} on {target["symbol"]} E0 = {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.savefig(name+'polar_scatter.png')
+        plt.close()
+
+        plt.figure(num='rustbca_r2d')
+        bin_energy = np.linspace(0., 1.2*np.max(r[:, 2]), num_bins)
+        bin_angle = np.linspace(0., 90., num_bins)
+
+        bins = (bin_angle, bin_energy)
+        heights, xedges, yedges, image = plt.hist2d(theta, r[:, 2], bins=bins)
+        np.savetxt(name+'refl_ead.dat', heights)
+        np.savetxt(name+'refl_energies.dat', yedges)
+        np.savetxt(name+'refl_angles.dat', xedges)
+
+        if plot_2d_reflected_contours:
+            n_max = min(int(np.max(number_collision_events)), max_collision_contours)
+            cmap = matplotlib.cm.get_cmap('Wistia')
+            colors = [cmap((n - 1)/n_max) for n in range(1, n_max + 1)]
+
+            for k in range(1, n_max + 1):
+                if k < n_max:
+                    mask = number_collision_events == k
+                else:
+                    mask = number_collision_events > k
+
+                heights, xedges, yedges = np.histogram2d(r[mask, 2], theta[mask], density=True, bins=num_bins//2)
+                x_centers = (xedges[1:] + xedges[:-1])/2.
+                y_centers = (yedges[1:] + yedges[:-1])/2.
+                plt.contour(x_centers, y_centers, heights.transpose()/np.max(heights), levels=np.linspace(collision_contour_significance_threshold, 1., 1), colors=[colors[k - 1]], linewidths=1, linestyles='--', alpha=0.75)
+
+            norm = mpl.colors.Normalize(vmin=1, vmax=n_max)
+            sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+            sm.set_array([])
+            cbar = plt.colorbar(sm, ticks=np.array(range(1, n_max + 1))-0.5, boundaries=np.array(range(0, n_max + 1)))
+            cbar.set_label('# of Collision Events')
+            cbar_labels = list(range(1, n_max + 1))
+            cbar_labels[-1] = '≥'+str(cbar_labels[-1])
+            cbar.ax.set_yticklabels(cbar_labels)
+
+        if plot_scattering_energy_curve:
+            for mass in [titanium['m'], oxygen['m']]:
+                energies = bins[0]
+                angles = bins[1]*np.pi/180.
+                scattering_angles = -angles + np.pi
+                final_energies = incident_energy*((np.cos(scattering_angles) + np.sqrt((mass/beam['m'])**2 - np.sin(scattering_angles)**2))/(1. + mass/beam['m']))**2.
+                handle = plt.plot(final_energies, angles*180./np.pi, linestyle='-', color='white', alpha=0.25, linewidth=7)
+                plt.legend(handle, ['Single-Collision Scattering'], loc='lower right', fontsize='x-small')
+
+        plt.ylabel('E [eV]')
+        plt.xlabel('angle [deg]')
+        plt.title(f'Reflected EAD {beam["symbol"]} on {target["symbol"]}' , fontsize='small')
+        plt.savefig(name+'rustbca_r_ead.png')
+        plt.close()
+
+    if np.size(s) > 0:
+        plt.figure(num='rustbca_s2d')
+
+        bin_energy = np.linspace(0., 1.2*np.max(s[:, 2]), num_bins//2)
+        bin_angle = np.linspace(0., 90., num_bins//2)
+        bins = (bin_angle, bin_energy)
+        ux = s[:,6]
+        uy = s[:,7]
+        uz = s[:,8]
+        #theta = -np.arctan2(ux, np.sqrt(uy**2 + uz**2))
+        theta = 180. - np.arccos(ux)*180./np.pi
+
+        if abs(incident_angle) < 1 or plot_garrison_contours:
+            garrison = np.zeros((num_bins//2, num_bins//2))
+            for i, energy in enumerate(bin_energy):
+                for j, angle in enumerate(bin_angle*np.pi/180.):
+                    garrison[j, i] = energy*np.cos(angle)/(energy + target['Es'])**4*(energy*np.cos(angle)**2 + target['Es'])
+
+            plt.figure(num='garrison_2d')
+            plt.pcolormesh(bin_energy, bin_angle, garrison)
+            plt.xlabel('E [eV]')
+            plt.ylabel('beta [deg]')
+            plt.title(f'Sputtered EAD B. Garrison (1989) {beam["symbol"]} on {target["symbol"]} E0 = {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+            plt.savefig(name+'garrison_s_ead.png')
+            plt.close()
+
+        heights, xedges, yedges, image = plt.hist2d(theta, s[:, 2], bins=bins)
+        np.savetxt(name+'sput_ead.dat', heights)
+        np.savetxt(name+'sput_energies.dat', yedges)
+        np.savetxt(name+'sput_angles.dat', xedges)
+
+        if abs(incident_angle) < 1 or plot_garrison_contours: plt.contour(bin_energy, bin_angle, garrison, levels = 5, cmap = matplotlib.cm.get_cmap('Wistia'), alpha=0.5)
+        plt.ylabel('E [eV]')
+        plt.xlabel('angle [deg]')
+        plt.title(f'Sputtered EAD {beam["symbol"]} on {target["symbol"]}' , fontsize='small')
+        plt.savefig(name+'rustbca_s_ead.png')
+        plt.close()
+
+    #Deposited ion depth distributions
+    plt.figure(num='d')
+    plots = []
+    labels = []
+
+    if np.size(d) > 0:
+        heights, bins, rust = plt.hist(d[d[:,2]>0., 2], histtype='step', bins=num_bins, density=True, color='black')
+        np.savetxt(name+'depo_dist.dat', heights)
+        np.savetxt(name+'depo_depths.dat', bins)
+        plots.append(rust[0])
+        labels.append('rustbca')
+
+    if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='upper right')
+    plt.title(f'Depth Distributions {beam["symbol"]} on {target["symbol"]} E0 = {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+    plt.xlabel('x [um]')
+    plt.ylabel('f(x)')
+    #axis = plt.gca()
+    #axis.set_yscale('log')
+    plt.savefig(name+'dep.png')
+    plt.close()
+
+    #Reflected ion energy distributions
+    plt.figure(num='re')
+    plots = []
+    labels = []
+    #bins = np.linspace(0.0, 1000.0, num_bins)
+    if np.size(r) > 0:
+        heights, bins, rust = plt.hist(r[:, 2]/incident_energy, histtype='step',  bins=num_bins, density=True, color='black')
+        number_collision_events = r[:, -1]
+
+        n_max = min(int(np.max(number_collision_events)), max_collision_contours)
+        cmap = matplotlib.cm.get_cmap('brg')
+        colors = [cmap((n - 1)/n_max) for n in range(1, n_max + 1)]
+
+        if plot_reflected_energies_by_number_collisions:
+            for k in range(1, n_max + 1):
+                if k < n_max:
+                    mask = number_collision_events == k
+                else:
+                    mask = number_collision_events > k
+
+                plt.hist(r[mask, 2]/incident_energy, histtype='step', bins = np.linspace(0.0, 1.0, num_bins), density=True, color=colors[k - 1])
+            norm = mpl.colors.Normalize(vmin=1, vmax=n_max)
+            sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+            sm.set_array([])
+            cbar = plt.colorbar(sm, ticks=np.array(range(1, n_max + 1))-0.5, boundaries=np.array(range(0, n_max + 1)))
+            cbar.set_label('# of Collision Events')
+            cbar_labels = list(range(1, n_max + 1))
+            cbar_labels[-1] = '≥'+str(cbar_labels[-1])
+            cbar.ax.set_yticklabels(cbar_labels)
+
+        plots.append(rust[0])
+        labels.append('rustbca')
+
+    if np.size(r) > 0:
+        if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='upper left')
+        plt.title(f'Refl. Energies {beam["symbol"]} on {target["symbol"]} E0 = {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.xlabel('E/E0')
+        plt.ylabel('f(E)')
+        plt.gca().set_xlim(0., 1.)
+        plt.gca().set_ylim(bottom=0)
+
+        plt.savefig(name+'ref_e.png')
+        plt.close()
+
+    #Sputtered atom energy distributions
+    plt.figure(num='se')
+    plots = []
+    labels = []
+    #bins=np.linspace(0.0, 100.0, num_bins)
+    if np.size(s) > 0:
+        _, _, rust = plt.hist(s[:,2], histtype='step', bins=num_bins, density=True, color='black')
+        plots.append(rust[0])
+        labels.append('rustbca')
+
+    if np.size(s) > 0:
+        energies = np.linspace(0., np.max(s[:,2]), num_bins*10)
+        de = energies[1] - energies[0]
+        thompson = energies/(energies + target['Es'])**(3)
+        thompson /= (np.sum(thompson)*de)
+        thompson = plt.plot(energies, thompson, linestyle='-.')
+        plots.append(thompson[0])
+        labels.append('Thompson (n=2)')
+
+        if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='upper right')
+        plt.title(f'Sputtered Energies {beam["symbol"]} on {target["symbol"]} E0 = {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.xlabel('E [eV]')
+        plt.ylabel('f(E)')
+        plt.savefig(name+'spt_e.png')
+        plt.close()
+
+    if np.size(s) > 0:
+        plt.figure(num='so')
+        depth_origin = s[:, 10]
+        plt.hist(depth_origin, bins=num_bins)
+        plt.title('Depth of origin of sputtered particles')
+        plt.xlabel('x [um]')
+        plt.ylabel('f(x)')
+        plt.savefig(name+'spt_o.png')
+        plt.close()
+
+    #Sputtered atom angular distributions
+    plt.figure(num='sa')
+    plots = []
+    labels = []
+    ax = None
+    bins = np.linspace(0, np.pi, num_bins)
+
+    if np.size(s) > 0:
+
+        hist, bins = np.histogram(np.arccos(s[:,7]), bins=bins, density=True)
+        rust2 = plt.polar(bins[:-1], hist/np.max(hist))
+        plots.append(rust2[0])
+        labels.append('rustbca cosy')
+        ax = plt.gca()
+
+        hist, bins = np.histogram(np.arccos(s[:,8]), bins=bins, density=True)
+        rust3 = plt.polar(bins[:-1], hist/np.max(hist))
+        plots.append(rust3[0])
+        labels.append('rustbca cosz')
+        ax = plt.gca()
+
+    if len(plots) > 0: plt.legend(plots, labels, fontsize='small', bbox_to_anchor=(0.0, 1.05), fancybox=True, shadow=True, loc='upper left')
+    if ax:
+        ax.set_thetamin(0.)
+        ax.set_thetamax(180.)
+        ax.set_yticks([0., 0.5, 1.])
+        ax.set_xticks([0., np.pi/6., 2*np.pi/6., 3*np.pi/6., 4*np.pi/6., 5*np.pi/6., np.pi])
+        ax.set_xticklabels(['0', '30', '60', '90', '', '', ''])
+    plt.title(f'Sputtered Angles {beam["symbol"]} on {target["symbol"]} E0 = {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+    plt.savefig(name+'spt_ang.png')
+    plt.close()
+
+    #Reflected atom angular distributions
+    plt.figure(num='ra')
+    plots = []
+    labels = []
+    ax = None
+    bins = np.linspace(0, np.pi, num_bins)
+
+    if np.size(r) > 0:
+        hist, bins = np.histogram(np.arccos(-r[:,6]), bins=bins, density=True)
+        rust1 = plt.polar(bins[:-1], hist/np.max(hist))
+        plots.append(rust1[0])
+        labels.append('rustbca cosx')
+
+        hist, bins = np.histogram(np.arccos(r[:,7]), bins=bins, density=True)
+        rust2 = plt.polar(bins[:-1], hist/np.max(hist))
+        plots.append(rust2[0])
+        labels.append('rustbca cosy')
+        ax = plt.gca()
+
+        hist, bins = np.histogram(np.arccos(r[:,8]), bins=bins, density=True)
+        rust3 = plt.polar(bins[:-1], hist/np.max(hist))
+        plots.append(rust3[0])
+        labels.append('rustbca cosz')
+        ax = plt.gca()
+
+    if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, bbox_to_anchor=(-0.25, 0.5), loc='upper left')
+    if ax:
+        ax.set_thetamin(0.)
+        ax.set_thetamax(180.)
+        ax.set_yticks([0., 0.5, 1.])
+        ax.set_xticks([0., np.pi/6., 2*np.pi/6., 3*np.pi/6., 4*np.pi/6., 5*np.pi/6., np.pi])
+        ax.set_xticklabels(['0', '30', '60', '90', '', '', ''])
+    plt.title(f'Refl. Angles {beam["symbol"]} on {target["symbol"]} E0 = {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+    plt.savefig(name+'ref_ang.png')
+    plt.close()
+
+
 def starshot():
     beam_species = [helium]
     beam_linestyles = {
@@ -1179,9 +1485,9 @@ def starshot():
     velocities = np.arange(0.025, 0.51, 0.01)
     #velocities = [0.05]
 
-    os.system('rm rustBCA.exe')
+    os.system('rm rustBCA')
     os.system('cargo build --release')
-    os.system('mv target/release/rustBCA.exe .')
+    os.system('mv target/release/rustBCA .')
 
     os.system('rm *.output')
 
@@ -1285,9 +1591,9 @@ def benchmark_srim():
     ffp = True
 
     os.system('rm *.output')
-    os.system('rm rustBCA.exe')
+    os.system('rm rustBCA')
     os.system('cargo build --release')
-    os.system('mv target/release/rustBCA.exe .')
+    os.system('mv target/release/rustBCA .')
 
     ranges = []
     straggles = []
@@ -1329,9 +1635,9 @@ def test_rustbca():
 
     #os.system('rm *.png')
     os.system('rm *.output')
-    os.system('rm rustBCA.exe')
+    os.system('rm rustBCA')
     os.system('cargo build --release')
-    os.system('mv target/release/rustBCA.exe .')
+    os.system('mv target/release/rustBCA .')
 
     fig1, ax1 = plt.subplots(1, 1, num='yields', figsize=(16, 14))
     fig2, ax2 = plt.subplots(1, 1, num='ranges', figsize=(16, 14))
@@ -1424,25 +1730,25 @@ def test_rustbca():
 
 def benchmark():
     beam_species = [helium]#, argon, boron]#, hydrogn]#, helium]#, beryllium, boron, neon, silicon, argon, copper, tungsten]
-    target_species = [tungsten]#, tungsten]#, tungsten]#, nickel]#, silicon, copper]#, copper]#, copper]#, boron, silicon, copper]
+    target_species = [silicon]#, tungsten]#, tungsten]#, nickel]#, silicon, copper]#, copper]#, copper]#, boron, silicon, copper]
 
     N = 1
-    N_ = 100000
-    angles = np.array([0.0001])
+    N_ = 1
+    angles = np.array([60.])
     thickness = 1.
-    depth = 500*NM/MICRON
-    #energies = np.round(np.logspace(1., 4.3, 10), 1)
-    energies = [2000.]
+    depth = 300*NM/MICRON
+    #energies = np.round(np.logspace(1., 5, 25), 1)
+    energies = [30000.]
 
     tr = True
-    trt = False
-    tt = False
+    trt = True
+    tt = True
     ffp = True
     esmode = INTERPOLATED
     ck = 1.
     weak_collision_order = 0
     mfp_model = LIQUID
-    do_trajectory_plot = False
+    do_trajectory_plot = True
     run_magic = False
     interaction_potential = KR_C
     scattering_integral = QUADRATURE
@@ -1450,9 +1756,9 @@ def benchmark():
     collision_number_breakdown = False
 
     x1 = 0.
-    x2 = 10.*NM/MICRON
-    x3 = 40.*NM/MICRON
-    x4 = 500.*NM/MICRON
+    x2 = 100.*NM/MICRON
+    x3 = 200.*NM/MICRON
+    x4 = 300.*NM/MICRON
 
     #mesh geometry
     triangle_list = [
@@ -1464,12 +1770,13 @@ def benchmark():
         [x3, x4, x4, -thickness/2., thickness/2., -thickness/2.],
     ]
 
-    n1 = 9.0E28;
+    n1 = target_species[0]['n'];
+    n1 = 9E28;
     n2 = aluminum['n']
     n3 = silicon['n']
     density_list = [
-        [n1/3., 2.*n1/3., 0., 0.],
-        [n1/3., 2.*n1/3., 0., 0.],
+        [n1*2/3., n1/3., 0., 0.],
+        [n1*2/3., n1/3., 0., 0.],
         [0., 0., n2, 0.],
         [0., 0., n2, 0.],
         [0., 0., 0., n3],
@@ -1482,9 +1789,9 @@ def benchmark():
     os.system('rm *.IN')
     os.system('rm *.OUT')
 
-    os.system('rm rustBCA.exe')
+    os.system('rm rustBCA')
     os.system('cargo build --release')
-    os.system('mv target/release/rustBCA.exe .')
+    os.system('mv target/release/rustBCA .')
 
     for theta in angles:
 
@@ -1605,14 +1912,14 @@ def benchmark():
                     rustbca_range.append(rustbca_range_)
                     rustbca_straggle.append(rustbca_straggle_)
 
-                    #ftridyn_name = beam['symbol'].ljust(2, '_') + target['symbol'].ljust(2, '_')
-                    ftridyn_name = 'TOAS'
+                    ftridyn_name = beam['symbol'].ljust(2, '_') + target['symbol'].ljust(2, '_')
+                    #ftridyn_name = 'TOAS'
                     interface = g.tridyn_interface(beam['symbol'], target['symbol'])
                     #os.system('rm *.DAT')
                     #os.system('rm *.OUT')
                     start = time.time()
-                    #ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
-                    ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = g.titanium_oxide_aluminum_silicon(np.max((N_, 100)), energy, theta, 5000)
+                    ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = interface.run_tridyn_simulations_from_iead([energy], [theta], np.array([[1.]]), number_histories=np.max([100, N_]), depth=depth*MICRON/ANGSTROM)
+                    #ftridyn_yield_, ftridyn_reflection_, ftridyn_range_ = g.titanium_oxide_aluminum_silicon(np.max((N_, 100)), energy, theta, 5000)
                     stop = time.time()
                     ftridyn_time += stop - start
                     computational_time_ftridyn.append(stop - start)
@@ -1649,11 +1956,11 @@ def benchmark():
                     #breakpoint()
                     #os.system('rm *.output')
 
-                handle = ax1.semilogx(energies, rustbca_yield, '-*')
-                if run_magic: ax1.semilogx(energies, rustbca_yield_MAGIC, '-+')
-                ax1.semilogx(energies, ftridyn_yield, '--o', color=handle[0].get_color())
-                ax1.semilogx(energies, yamamura_yield, '-', color=handle[0].get_color())
-                if Ma/Mb[0] < 0.5: ax1.semilogx(energies, bohdansky_yield, '-s', color=handle[0].get_color())
+                handle = ax1.loglog(energies, rustbca_yield, '-*')
+                if run_magic: ax1.loglog(energies, rustbca_yield_MAGIC, '-+')
+                ax1.loglog(energies, ftridyn_yield, '--o', color=handle[0].get_color())
+                ax1.loglog(energies, yamamura_yield, '-', color=handle[0].get_color())
+                if Ma/Mb[0] < 0.5: ax1.loglog(energies, bohdansky_yield, '-s', color=handle[0].get_color())
 
                 #if beam['symbol'] == 'D' and target['symbol'] == 'Be' and abs(theta) < 1:
                 #    data = np.genfromtxt('sdtrimsp_d_be')
@@ -1761,5 +2068,267 @@ def benchmark():
 
     print(f'time rustBCA: {rustbca_time} time F-TRIDYN: {ftridyn_time}')
 
+def west():
+    run_sim = True
+    do_plots = False
+
+    for radscale in ['2', '5p5']:
+        # Get SOLPS input data
+        solps = np.genfromtxt(f'hPIC_WEST_noOxygen/hpic_output_from_solps_radscale{radscale}/solpsTarg_{radscale}.txt',delimiter='  ',skip_header=1)
+        LLsep   = solps[:,0]
+        R_m     = solps[:,1]
+        Z_m     = solps[:,2]
+        Te_eV   = solps[:,3]
+        Ti_eV   = solps[:,4]
+        FluxHe2 = solps[:,5]
+        FluxHe1 = solps[:,6]
+        nHe2    = solps[:,7]
+        nHe1    = solps[:,8]
+        Btot    = solps[:,9]
+        Bangle  = solps[:,10]
+
+        # Number of Points along the surface
+        Npoints = np.size(LLsep,0)
+        num_resamples = 1
+
+        total_impurity_flux  = np.zeros(Npoints)
+        # Species sp0 (He+) sp1 (He++)
+
+        for species in [0, 1]:
+            yields = []
+            reflection_coefficient = []
+
+            for i in range(0, 38):
+
+                name = 'he'+str(species)+'+_west'+str(i).zfill(3)+radscale
+                helium_energies = []
+                helium_angles = []
+
+                folder = f'hPIC_WEST_noOxygen/hpic_output_from_solps_radscale{radscale}/IEAD'
+
+                filename = 'west00'+str(i)+'_IEAD_sp'+str(species)+'.dat'
+                path = folder+'/'+filename
+                IEAD = np.genfromtxt(path, delimiter=' ')
+                energies = np.linspace(0.0,24.0*Te_eV[i],240)
+                angles = np.linspace(0,90,90)
+
+                delta_energy = energies[1] - energies[0]
+                delta_angle = angles[1] - angles[0]
+
+                for energy_index, energy in enumerate(energies[:-1]):
+                    for angle_index, angle in enumerate(angles):
+
+                        weight = float(IEAD[energy_index, angle_index])
+
+                        helium_energies.extend(np.random.uniform(energy, energy + delta_energy,
+                            int(np.floor(weight*num_resamples))))
+
+                        helium_angles.extend(np.random.uniform(angle, angle + delta_angle,
+                            int(np.floor(weight*num_resamples))))
+
+                N = len(helium_energies)
+                N_ = 10
+
+                target = tungsten
+
+                if run_sim:
+                    options = {
+                        'name': name,
+                        'track_trajectories': False,
+                        'track_recoils': True,
+                        'track_recoil_trajectories': False,
+                        'write_files': True,
+                        'stream_size': 8000,
+                        'print': True,
+                        'print_num': np.min((10, int(N_*N))),
+                        'weak_collision_order': 0,
+                        'suppress_deep_recoils': False,
+                        'high_energy_free_flight_paths': True,
+                        'electronic_stopping_mode': INTERPOLATED,
+                        'mean_free_path_model': LIQUID,
+                        'interaction_potential': KR_C,
+                        'scattering_integral': QUADRATURE,
+                        'tolerance': 1E-3,
+                        'max_iterations': 100,
+                        'num_threads': 4,
+                        'use_hdf5': False,
+                    }
+
+                    dx = 20.*ANGSTROM/MICRON
+
+                    material_parameters = {
+                        'energy_unit': 'EV',
+                        'mass_unit': 'AMU',
+                        'Eb': [tungsten['Eb']],
+                        'Es': [tungsten['Es']],
+                        'Ec': [tungsten['Es']],
+                        'n': [tungsten['n']],
+                        'Z': [tungsten['Z']],
+                        'm': [tungsten['m']],
+                        'electronic_stopping_correction_factor': 1.,
+                        'energy_barrier_thickness': tungsten['n']**(-1./3.)/np.sqrt(2.*np.pi)/MICRON
+                    }
+
+                    depth = 10000.*NM/MICRON
+                    x1 = 0.
+                    x2 = depth
+                    thickness = 10000.*NM/MICRON
+
+                    #mesh geometry
+                    triangle_list = [
+                        [x1, x2, x1, thickness/2., thickness/2., -thickness/2.],
+                        [x1, x2, x2, -thickness/2., thickness/2., -thickness/2.],
+                    ]
+
+                    n1 = tungsten['n'];
+                    density_list = [
+                        [n1],
+                        [n1],
+                    ]
+
+                    dx = 10.*ANGSTROM/MICRON
+
+                    minx, miny, maxx, maxy = 0.0, -thickness/2., depth, thickness/2.
+                    surface = box(minx, miny, maxx, maxy)
+                    simulation_surface = surface.buffer(10.*dx, cap_style=2, join_style=2)
+                    mesh_2d_input = {
+                        'length_unit': 'MICRON',
+                        'coordinate_sets': triangle_list,
+                        'densities': density_list,
+                        'boundary_points': [[0., thickness/2.], [depth, thickness/2.], [depth, -thickness/2.], [0., -thickness/2.]],
+                        'simulation_boundary_points':  list(simulation_surface.exterior.coords)
+                    }
+
+                    cosx = np.cos(np.array(helium_angles)*np.pi/180.)
+                    sinx = np.sin(np.array(helium_angles)*np.pi/180.)
+
+                    particle_parameters = {
+                        'length_unit': 'MICRON',
+                        'energy_unit': 'EV',
+                        'mass_unit': 'AMU',
+                        'N': [N_ for _ in range(N)],
+                        'm': [helium['m'] for _ in range(N)],
+                        'Z': [helium['Z'] for _ in range(N)],
+                        'E': helium_energies,
+                        'Ec': [1. for _ in range(N)],
+                        'Es': [helium['Es'] for _ in range(N)],
+                        'pos': [(-dx, 0., 0.) for _ in range(N)],
+                        'dir': [[dirx, diry, 0] for dirx, diry in zip(cosx, sinx)],
+                        'particle_input_filename': '',
+                    }
+
+                    input_file = {
+                        'options': options,
+                        'material_parameters': material_parameters,
+                        'particle_parameters': particle_parameters,
+                        'mesh_2d_input': mesh_2d_input
+                    }
+
+                #Write input file
+                with open('input.toml', 'w') as file:
+                    if run_sim: toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
+
+                #run rustbca
+                if run_sim:
+                    start = time.time()
+                    os.system('./rustBCA')
+                    stop = time.time()
+                    print('Time per Ion: '+str((stop - start)/(N*N_)))
+
+                reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
+                sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
+                deposited = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
+                #trajectories = np.atleast_2d(np.genfromtxt(name+'trajectories.output', delimiter=','))
+                #trajectory_data = np.atleast_1d(np.genfromtxt(name+'trajectory_data.output', delimiter=',').transpose().astype(int))
+
+                if np.size(sputtered) > 0:
+                    Y = len(sputtered[:,0])/N/N_
+                else:
+                    Y = 0
+
+                if np.size(reflected) > 0:
+                    R = len(reflected[:,0])/N/N_
+                else:
+                    R = 0
+
+                if np.size(deposited) > 0:
+                    deposited_below_surface = deposited[:, 2] > 0.
+                    ion_range = np.mean(deposited[deposited_below_surface, 2])
+                    ion_straggle = np.std(deposited[deposited_below_surface,2])
+                else:
+                    ion_range = 0
+                    ion_straggle = 0
+
+                if do_plots:
+                    plot_distributions_rustbca(name, helium, tungsten, file_num=1, max_collision_contours=4,
+                        plot_2d_reflected_contours=False, collision_contour_significance_threshold=0.1, slice_angle=45,
+                        incident_energy=np.mean(helium_energies), incident_angle=np.mean(helium_angles),
+                        plot_garrison_contours=False,
+                        plot_reflected_energies_by_number_collisions=True,
+                        plot_scattering_energy_curve=False)
+                    plt.close('all')
+
+                yields.append(Y)
+                reflection_coefficient.append(R)
+
+                print(f'Radscale: {radscale} Index: {i} Charge: {species+1} Te: {Te_eV[i]} Y: {Y} R: {R}')
+                os.system('rm *.output')
+
+            print(yields)
+            print(reflection_coefficient)
+            print(np.mean(FluxHe1))
+            print(np.mean(yields))
+
+            plt.figure(1)
+            plt.plot(LLsep, yields)
+            np.savetxt(name+'yields.dat', yields)
+
+            plt.figure(2)
+            plt.plot(LLsep, reflection_coefficient)
+            np.savetxt(name+'refl_coeff.dat', reflection_coefficient)
+
+            plt.figure(3)
+            if species == 0:
+                impurity_flux = np.array(yields)*FluxHe1
+                total_impurity_flux += impurity_flux
+            else:
+                impurity_flux = np.array(yields)*FluxHe2
+                total_impurity_flux += impurity_flux
+            plt.plot(LLsep, impurity_flux)
+
+        plt.figure(1)
+        plt.legend(['He+', 'He++'])
+        plt.xlabel('L - Lsep [m]')
+        plt.ylabel('Y [at/ion]')
+        plt.title('He on W Sputtering Yield')
+        plt.savefig(f'{name}_yields.png')
+        plt.clf()
+
+        plt.figure(2)
+        plt.legend(['He+', 'He++'])
+        plt.xlabel('L - Lsep [m]')
+        plt.ylabel('R')
+        plt.title('He on W Reflection Coefficient')
+        plt.savefig(f'{name}_refl.png')
+        plt.clf()
+
+        plt.figure(3)
+        plt.legend(['He+', 'He++'])
+        plt.xlabel('L - Lsep [m]')
+        plt.ylabel('Sputtered W Flux [1/m^2/s]')
+        plt.title('Impurity Flux')
+        plt.savefig(f'{name}_impurity_by_charge.png')
+        plt.clf()
+
+        plt.figure(4)
+        plt.plot(LLsep, total_impurity_flux)
+        plt.xlabel('L - Lsep [m]')
+        plt.ylabel('Sputtered W Flux [1/m^2/s]')
+        plt.title('Impurity Flux')
+        integrated_flux = np.trapz(total_impurity_flux, LLsep)
+        np.savetxt('impurity_fluxes.dat', total_impurity_flux)
+        plt.savefig(f'{name}_impurity.png')
+        plt.clf()
+
 if __name__ == '__main__':
-    benchmark()
+    west()
