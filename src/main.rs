@@ -320,9 +320,9 @@ fn main() {
     for ((interaction_potentials, scattering_integrals), root_finders) in options.interaction_potential.clone().iter().zip(options.scattering_integral.clone()).zip(options.root_finder.clone()) {
         for ((interaction_potential, scattering_integral), root_finder) in interaction_potentials.iter().zip(scattering_integrals).zip(root_finders) {
 
-            assert_eq!(cfg!(feature="cpr_rootfinder"), match root_finder {
-                Rootfinder::POLYNOMIAL{..} => true,
-                Rootfinder::CPR{..} => true,
+            assert_eq!(cfg!(not(feature="cpr_rootfinder")), match root_finder {
+                Rootfinder::POLYNOMIAL{..} => false,
+                Rootfinder::CPR{..} => false,
                 _ => true,
             }, "Input error: CPR rootfinder not enabled. Build with --features cpr_rootfinder");
 
@@ -339,7 +339,7 @@ fn main() {
                     (_, Rootfinder::POLYNOMIAL{..}) => false,
                     (_, _) => true,
                 },
-            "Input error: cannot use {} with {}. Try CPR or POLYNOMIAL if applicable.", interaction_potential, root_finder);
+            "Input error: cannot use {} with {}. Try switching to a different rootfinder.", interaction_potential, root_finder);
         }
     }
 
