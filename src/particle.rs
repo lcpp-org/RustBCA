@@ -167,6 +167,7 @@ pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asympotot
     //In order to keep average denisty constant, must add back previous asymptotic deflection
     let distance_traveled = mfp + particle_1.asympototic_deflection - asympototic_deflection;
 
+    //dir has been updated, so use previous direction to advance in space
     particle_1.pos.x += particle_1.dir_old.x*distance_traveled;
     particle_1.pos.y += particle_1.dir_old.y*distance_traveled;
     particle_1.pos.z += particle_1.dir_old.z*distance_traveled;

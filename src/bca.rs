@@ -20,6 +20,13 @@ impl BinaryCollisionGeometry {
     }
 }
 
+impl fmt::Display for BinaryCollisionGeometry {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Binary collision geometry. \n phi_azimuthal = {} \n p = {} \n mfp = {} \n",
+            self.phi_azimuthal, self.impact_parameter, self.mfp)
+    }
+}
+
 pub struct BinaryCollisionResult {
     pub theta: f64,
     pub psi: f64,
@@ -40,6 +47,13 @@ impl BinaryCollisionResult {
             asymptotic_deflection,
             normalized_distance_of_closest_approach
         }
+    }
+}
+
+impl fmt::Display for BinaryCollisionResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Binary collision result. \n theta = {} \n psi = {} \n psi_r = {} \n E_recoil = {} \n tau = {} \n x0 = {} \n",
+            self.theta, self.psi, self.psi_recoil, self.recoil_energy, self.asymptotic_deflection, self.normalized_distance_of_closest_approach)
     }
 }
 
@@ -80,7 +94,10 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
                     //Determine scattering angle from binary collision
                     let binary_collision_result = bca::calculate_binary_collision(&particle_1,
-                        &particle_2, &binary_collision_geometry, &options).unwrap();
+                        &particle_2, &binary_collision_geometry, &options)
+                        .with_context(|| format!("Numerical error: binary collision calculation failed at x = {} y = {} with {}",
+                            particle_1.pos.x, particle_2.pos.x, &binary_collision_geometry))
+                        .unwrap();
 
                     //Only use 0th order collision for local electronic stopping
                     if k == 0 {
@@ -345,14 +362,22 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
 
     #[cfg(feature = "cpr_rootfinder")]
     match root_finder {
-        Rootfinder::POLYNOMIAL{complex_threshold} => polynomial_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, complex_threshold).unwrap(),
-        Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const} => cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const).unwrap(),
-        Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance).unwrap(),
+        Rootfinder::POLYNOMIAL{complex_threshold} => polynomial_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, complex_threshold)
+            .with_context(|| "Numerical error: polynomial rootfinder failed.")
+            .unwrap(),
+        Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const} => cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const)
+            .with_context(|| "Numerical error: CPR rootfinder failed.")
+            .unwrap(),
+        Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
+            .with_context(|| "Numerical error: Newton-Raphson rootfinder failed.")
+            .unwrap(),
     }
 
     #[cfg(not(feature = "cpr_rootfinder"))]
     match root_finder {
-        Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance).unwrap(),
+        Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
+            .with_context(|| "Numerical error: Newton-Raphson rootfinder failed.")
+            .unwrap(),
         _ => panic!("Input error: unimplemented root-finder. Choose NEWTON or build with cpr_rootfinder to enable CPR and POLYNOMIAL")
     }
 }
@@ -418,7 +443,7 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     };
 
     if theta.is_nan() {
-        return Err(anyhow!("Numerical error: CoM deflection angle is NaN. Check input parameters."));
+        return Err(anyhow!("Numerical error: CoM deflection angle is NaN for {}. Check input parameters.", binary_collision_geometry));
     }
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
@@ -450,7 +475,7 @@ fn scattering_function_gm(u: f64, impact_parameter: f64, r0: f64, relative_energ
     let result = impact_parameter/r0/(1. - interaction_potential(r0/u)/relative_energy - (impact_parameter*u/r0).powf(2.)).sqrt();
 
     if result.is_nan() {
-        Err(anyhow!("Numerical error: Gauss-Mehler scattering integrand complex. Likely incorrect distance of closest approach Er = {}, r0 = {} A, p = {} A - check root-finder.",
+        Err(anyhow!("Numerical error: Gauss-Mehler scattering integrand complex. Likely incorrect distance of closest approach Er = {} eV r0 = {} A, p = {} A - check root-finder.",
             relative_energy/EV, r0/ANGSTROM, impact_parameter/ANGSTROM))
     } else {
         Ok(result)
@@ -461,14 +486,20 @@ fn scattering_integral_gauss_mehler(impact_parameter: f64, relative_energy: f64,
     let x: Vec<f64> = (1..=n_points).map(|i| ((2.*i as f64 - 1.)/4./n_points as f64*PI).cos()).collect();
     let w: Vec<f64> = (1..=n_points).map(|i| PI/n_points as f64*((2.*i as f64 - 1.)/4./n_points as f64*PI).sin()).collect();
 
-    PI - x.iter().zip(w).map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential).unwrap()).sum::<f64>()
+    PI - x.iter().zip(w)
+        .map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential)
+        .with_context(|| format!("Numerical error: NaN in scatteirng integral at x = {}", x))
+        .unwrap()).sum::<f64>()
 }
 
 fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
     let x: Vec<f64> = vec![0., -0.538469, 0.538469, -0.90618, 0.90618].iter().map(|x| x/2. + 1./2.).collect();
     let w: Vec<f64> = vec![0.568889, 0.478629, 0.478629, 0.236927, 0.236927].iter().map(|w| w/2.).collect();
 
-    PI - x.iter().zip(w).map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential).unwrap()).sum::<f64>()
+    PI - x.iter().zip(w)
+        .map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential)
+        .with_context(|| format!("Numerical error: NaN in scatteirng integral at x = {}", x))
+        .unwrap()).sum::<f64>()
 }
 
 #[cfg(feature = "cpr_rootfinder")]
@@ -512,7 +543,10 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
 
     let roots = find_roots_with_newton_polishing(&g, &f, &df, 0., upper_bound,
         n0, epsilon, nmax, complex_threshold,
-        truncation_threshold, interval_limit, far_from_zero).unwrap();
+        truncation_threshold, interval_limit, far_from_zero)
+            .with_context(|| format!("Numerical error: CPR Rootfinder failed to converge when calculating distance of closest approach for Er = {} eV p = {} A using {}.",
+                relative_energy/EV, impact_parameter/ANGSTROM, interaction_potential))
+            .unwrap();
 
     let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
 

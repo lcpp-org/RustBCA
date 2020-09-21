@@ -111,9 +111,9 @@ impl fmt::Display for InteractionPotential {
             InteractionPotential::KR_C => write!(f, "Kr-C Potential"),
             InteractionPotential::ZBL => write!(f, "ZBL Potential"),
             InteractionPotential::LENZ_JENSEN => write!(f, "Lenz-Jensen Potential"),
-            InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => write!(f, "Lennard-Jones 12-6 Potential with sigma = {}, epsilon = {}", sigma, epsilon),
-            InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => write!(f, "Lennard-Jones 6.5-6 Potential with sigma = {}, epsilon = {}", sigma, epsilon),
-            InteractionPotential::MORSE{D, alpha, r0} => write!(f, "Morse potential with D = {}, alpha = {}, and r0 = {}", D, alpha, r0)
+            InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => write!(f, "Lennard-Jones 12-6 Potential with sigma = {} A, epsilon = {} eV", sigma/ANGSTROM, epsilon/EV),
+            InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => write!(f, "Lennard-Jones 6.5-6 Potential with sigma = {} A, epsilon = {} eV", sigma/ANGSTROM, epsilon/EV),
+            InteractionPotential::MORSE{D, alpha, r0} => write!(f, "Morse potential with D = {} eV, alpha = {} 1/A, and r0 = {} A", D/EV, alpha*ANGSTROM, r0/ANGSTROM)
         }
     }
 }
@@ -273,7 +273,7 @@ fn main() {
         .create(false)
         .open(&input_file)
         .expect(format!("Input errror: could not open input file {}.", &input_file).as_str());
-    file.read_to_string(&mut input_toml).unwrap();
+    file.read_to_string(&mut input_toml).context("Could not convert TOML file to string.").unwrap();
     let input: Input = toml::from_str(&input_toml)
         .expect("Input error: failed to parse TOML file. Check that all floats have terminal 0s and that there are no missing/extra delimiters.");
 
@@ -397,8 +397,11 @@ fn main() {
             let particle_input_filename = particle_parameters.particle_input_filename.as_str();
             let _e = hdf5::silence_errors();
             let particle_input_file = hdf5::File::open(particle_input_filename)
-                .expect("Input error: cannot open HDF5 file.");
-            let particle_input = particle_input_file.dataset("particles").unwrap();
+                .context("Input error: cannot open HDF5 file.")
+                .unwrap();
+            let particle_input = particle_input_file.dataset("particles")
+                .context("Input error: cannot read from HDF5 file.")
+                .unwrap();
             particle_input.read_raw::<particle::ParticleInput>().unwrap()
 
         } else {
@@ -486,6 +489,7 @@ fn main() {
         .create(true)
         .truncate(true)
         .open(format!("{}{}", options.name, "reflected.output"))
+        .context("Could not open output file.")
         .unwrap();
     let mut reflected_file_stream = BufWriter::with_capacity(options.stream_size, reflected_file);
 
@@ -494,6 +498,7 @@ fn main() {
         .create(true)
         .truncate(true)
         .open(format!("{}{}", options.name, "sputtered.output"))
+        .context("Could not open output file.")
         .unwrap();
     let mut sputtered_file_stream = BufWriter::with_capacity(options.stream_size, sputtered_file);
 
@@ -502,6 +507,7 @@ fn main() {
         .create(true)
         .truncate(true)
         .open(format!("{}{}", options.name, "deposited.output"))
+        .context("Could not open output file.")
         .unwrap();
     let mut deposited_file_stream = BufWriter::with_capacity(options.stream_size, deposited_file);
 
@@ -510,6 +516,7 @@ fn main() {
         .create(true)
         .truncate(true)
         .open(format!("{}{}", options.name, "trajectories.output"))
+        .context("Could not open output file.")
         .unwrap();
     let mut trajectory_file_stream = BufWriter::with_capacity(options.stream_size, trajectory_file);
 
@@ -518,6 +525,7 @@ fn main() {
         .create(true)
         .truncate(true)
         .open(format!("{}{}", options.name, "trajectory_data.output"))
+        .context("Could not open output file.")
         .unwrap();
     let mut trajectory_data_stream = BufWriter::with_capacity(options.stream_size, trajectory_data);
 
