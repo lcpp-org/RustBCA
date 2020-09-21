@@ -215,6 +215,7 @@ pub struct Vector4 {
     y: f64,
     z: f64,
 }
+
 impl Vector4 {
     fn new(E: f64, x: f64, y: f64, z: f64) -> Vector4 {
         Vector4 {
@@ -270,27 +271,29 @@ fn main() {
         .read(true)
         .write(false)
         .create(false)
-        .open(input_file)
-        .expect("Input errror: could not open input file.");
+        .open(&input_file)
+        .expect(format!("Input errror: could not open input file {}.", &input_file).as_str());
     file.read_to_string(&mut input_toml).unwrap();
-    let input: Input = toml::from_str(&input_toml).unwrap();
+    let input: Input = toml::from_str(&input_toml)
+        .expect("Input error: failed to parse TOML file. Check that all floats have terminal 0s and that there are no missing/extra delimiters.");
 
     //Unpack toml information into structs
     let material = material::Material::new(input.material_parameters, input.mesh_2d_input);
+    let options = input.options;
+    let particle_parameters = input.particle_parameters;
+
+    //Check that all material arrays are of equal length.
     assert!(material.n.len() == material.m.len(), "Input error: material input arrays of unequal length.");
     assert!(material.n.len() == material.Z.len(), "Input error: material input arrays of unequal length.");
     assert!(material.n.len() == material.Eb.len(), "Input error: material input arrays of unequal length.");
     assert!(material.n.len() == material.Es.len(), "Input error: material input arrays of unequal length.");
-    assert!(material.m.len() == material.interaction_index.len(), "Input error: material input arrays of unequal length.");
-
-    let options = input.options;
-    let particle_parameters = input.particle_parameters;
+    assert!(material.n.len() == material.interaction_index.len(), "Input error: material input arrays of unequal length.");
 
     //Check that incompatible options are not on simultaneously
 
     if options.high_energy_free_flight_paths {
         assert!(options.electronic_stopping_mode == ElectronicStoppingMode::INTERPOLATED,
-            "Input error: High energy free flight paths used with low energy stoppping power.");
+            "Input error: High energy free flight paths used with low energy stoppping power. Change to INTERPOLATED.");
     }
 
     if options.electronic_stopping_mode == ElectronicStoppingMode::INTERPOLATED {
@@ -336,7 +339,7 @@ fn main() {
                     (_, Rootfinder::POLYNOMIAL{..}) => false,
                     (_, _) => true,
                 },
-            "Input error: cannot use {} with {}.", interaction_potential, root_finder);
+            "Input error: cannot use {} with {}. Try CPR or POLYNOMIAL if applicable.", interaction_potential, root_finder);
         }
     }
 
@@ -357,7 +360,7 @@ fn main() {
         "Input error: interaction matrix too small for particle interaction indices.");
 
 
-    //N is the number of particles.
+    //N is the number of distinct particles.
     let N = particle_parameters.Z.len();
 
     //Determine the length, energy, and mass units for particle input
@@ -393,7 +396,8 @@ fn main() {
         if options.use_hdf5 {
             let particle_input_filename = particle_parameters.particle_input_filename.as_str();
             let _e = hdf5::silence_errors();
-            let particle_input_file = hdf5::File::open(particle_input_filename).expect("Input error: cannot open HDF5 file.");
+            let particle_input_file = hdf5::File::open(particle_input_filename)
+                .expect("Input error: cannot open HDF5 file.");
             let particle_input = particle_input_file.dataset("particles").unwrap();
             particle_input.read_raw::<particle::ParticleInput>().unwrap()
 
@@ -519,7 +523,6 @@ fn main() {
 
     println!("Processing {} ions...", particle_input_array.len());
 
-    //Main loop
     let total_count: u64 = particle_input_array.len() as u64;
 
     //Initialize threads with rayon
@@ -534,6 +537,7 @@ fn main() {
 
     assert!(total_count/options.num_chunks > 0, "Input error: chunk size == 0 - reduce num_chunks or increase particle count.");
 
+    //Main loop
     for (chunk_index, particle_input_chunk) in particle_input_array.chunks((total_count/options.num_chunks) as usize).progress_with(bar).enumerate() {
 
         let mut finished_particles: Vec<particle::Particle> = Vec::new();
@@ -560,7 +564,7 @@ fn main() {
                     particle.pos.x/length_unit, particle.pos.y/length_unit, particle.pos.z/length_unit,
                     particle.dir.x, particle.dir.y, particle.dir.z,
                     particle.number_collision_events
-                ).expect("Output error: could not write to reflected.output.");
+                ).expect(format!("Output error: could not write to {}reflected.output.", options.name).as_str());
             }
 
             //Incident particle, stopped in material: deposited
@@ -570,7 +574,7 @@ fn main() {
                     particle.m/mass_unit, particle.Z,
                     particle.pos.x/length_unit, particle.pos.y/length_unit, particle.pos.z/length_unit,
                     particle.number_collision_events
-                ).expect("Output error: could not write to deposited.output.");
+                ).expect(format!("Output error: could not write to {}deposited.output.", options.name).as_str());
             }
 
             //Not an incident particle, left material: sputtered
@@ -582,20 +586,20 @@ fn main() {
                     particle.dir.x, particle.dir.y, particle.dir.z,
                     particle.number_collision_events,
                     particle.pos_origin.x/length_unit, particle.pos_origin.y/length_unit, particle.pos_origin.z/length_unit
-                ).expect("Output error: could not write to sputtered.output.");
+                ).expect(format!("Output error: could not write to {}sputtered.output.", options.name).as_str());
             }
 
             //Trajectory output
             if particle.track_trajectories {
                 writeln!(trajectory_data_stream, "{}", particle.trajectory.len())
-                    .expect("Output error: could not write trajectory length data.");
+                    .expect(format!("Output error: could not write to {}trajectory_data.output.", options.name).as_str());
 
                 for pos in particle.trajectory {
                     writeln!(
                         trajectory_file_stream, "{},{},{},{},{},{}",
                         particle.m/mass_unit, particle.Z, pos.E/energy_unit,
                         pos.x/length_unit, pos.y/length_unit, pos.z/length_unit,
-                    ).expect("Output error: could not write to trajectories.output.");
+                    ).expect(format!("Output error: could not write to {}trajectories.output.", options.name).as_str());
                 }
             }
         }
