@@ -24,29 +24,40 @@ BCA codes are valid for incident ion energies between approximately 10 eV  throu
 
 # Installation
 
-Dependences:
+Without optional features, rustBCA should compile with cargo on Windows, MacOS, and Linux systems. HDF5 has been tested on Windows, but HDF5 1.10.6 must be used. `rcpr`, the Adaptive Chebyshev Proxy Rootfinder with Automatic Subdivision and Polynomial Rootfinder package, has not yet been successfully compiled on Windows. However, it can be compiled on Windows Subsystem for Linux (WSL) and likely on Ubuntu for Windows or Cygwin.
+
+Manual Dependences:
+* `rustup`, the Rust toolchain
+
+Automatic Dependencies:
+* see [Cargo.toml](https://github.com/lcpp-org/RustBCA/blob/master/Cargo.toml) for a complete list
+
+Optional Dependencies:
+* HDF5 libraries
+* `rcpr`: https://github.com/drobnyjt/rcpr (will be automatically installed when built with `--features cpr_rootfinder`)
 * Python 3.6+
 * Numpy, Matplotlib, toml, Shapely, scipy
-* rustup
 
 Ubuntu 18.04 LTS:
-1. Make sure you have Python 3.6+ (this comes natively in Ubuntu 18.04)
+1. Optional: install Python 3.6+ (this comes natively in Ubuntu 18.04)
 2. Install curl, `apt-get install curl`
 3. Install rustup, the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/
-4. Install pip for Python-3, `apt-get install python3-pip`
-5. Install Python librarires, `python3.# -m pip install numpy matplotlib shapely scipy`
-6. Install Python toml library from source:
-- git clone https://github.com/uiri/toml.git
-- cd toml
-- python3.# setup.py install
+4. Optional: Install pip for Python-3, `apt-get install python3-pip`
+5. Optional: Install Python libraries for making input files, `python3 -m pip install numpy matplotlib shapely scipy`
+6. Optional: Install Python toml library from source:
+- `git clone https://github.com/uiri/toml.git`
+- `cd toml`
+- `python3 setup.py install`
 7. Install Cargo, `apt install cargo`
 8. Build RustBCA
-- git clone https://github.com/lcpp-org/rustBCA
-- cd rustBCA
-- cargo build --release
-9. input.toml is the input file -- example included below
-10. cargo run --relase
-11. Output files are .output
+- `git clone https://github.com/lcpp-org/rustBCA`
+- `cd rustBCA`
+- `cargo build --release`
+9. Optional: Build RustBCA with optional dependencies, rcpr & hdf5
+ - `cargo build --release --features cpr_rootfinder,hdf5_input`
+10. input.toml is the input file -- see [Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files) for more information
+11. `cargo test` will run all required tests
+12. Optional: `cargo test --features cpr_rootfinder` will run all required and optional tests
 
 # Usage
 
