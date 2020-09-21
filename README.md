@@ -3,21 +3,20 @@
 A Binary Collision Approximation (BCA) code for ion-material interactions, written in Rust!
 
 BCA codes are valid for incident ion energies between approximately 10 eV  through GeV. By discretizing the collision cascade into a sequence of binary collisions, BCA codes can accurately and efficiently model reflection, implantation, sputtering, transmission, and displacement damage.
-
 # Features
 
-* Ion-material interactions for all combinations of incident ion and target species
-* 2D geometry
-* Arbitrary, mesh-based inhomogeneous composition
+* Ion-solid interactions for all combinations of incident ion and target species
+* 2D geometry with triangular-mesh-based inhomogeneous composition
 * Amorphous solid/liquid and gaseous targets
-* Low energy (<25 keV/nucleon) electronic stopping modes include local (Oen-Robinson), nonlocal (Lindhard-Scharff), and equipartition forms
-* Includes Biersack-Varelas interpolation to extend electronic stopping validity up to ~1 GeV/nucleon
-* High-energy free-flight paths to greatly speed up high-energy simulations
-* Includes Kr-C, ZBL, Lenz-Jensen, Moliere, Lennard-Jones 12-6, Lennard-Jones 6.5-6, and Morse interaction potentials
-* Multiple interaction potentials can be used in a simulation - for example, the He-W interaction can be specified as a Lennard-Jones 12-6 while the W-W interaction can be specified as a Kr-C, for any number of potentials or species.
-* Includes Gauss-Mehler quadrature, Gauss-Legendre quadrature, Mendenall-Weller quadrature, and MAGIC algorithm to determine scattering integral
+* Low energy (<25 keV/nucleon) electronic stopping modes include local (Oen-Robinson), nonlocal (Lindhard-Scharff), and equipartition forms; Includes Biersack-Varelas interpolation to extend electronic stopping validity up to ~1 GeV/nucleon
+* Biersack-Haggmark high-energy free-flight paths to greatly speed up high-energy simulations by neglecting very small angle scattering
+* Includes Kr-C, ZBL, Lenz-Jensen, and Moliere screened-Coulomb potentials; Includes Lennard-Jones 12-6, Lennard-Jones 6.5-6, and Morse attractive-repulsive interaction potentials
+* Includes Newton-Raphson for simple root-finding and optionally includes Adaptive Chebyshev Proxy Rootfinder with Automatic Subdivision and Polynomial root-finding algorithms through the [rcpr](https://github.com/drobnyjt/rcpr) crate for solving the distance-of-closest-approach problem
+* Multiple interaction potentials can be used in a single simulation - for example, the He-W interaction can be specified as a Lennard-Jones 12-6 while the W-W interaction can be specified as a Kr-C, for any number of potentials or species
+* Includes Gauss-Mehler quadrature, Gauss-Legendre quadrature, Mendenall-Weller quadrature, and the MAGIC algorithm to calculate the scattering integral
 * Full trajectory tracking of ions and target atoms
 * Human-readable input file using the TOML format
+* User-friendly error messages pinpoint the cause of errors and suggest fixes to the user
 * Output of energies and directions of emitted particles (reflected ions and sputtered atoms)
 * Output of final positions of implanted ions
 * Output of full trajectory tracking for incident ions and target atoms
