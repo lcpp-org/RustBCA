@@ -320,11 +320,14 @@ fn main() {
     for ((interaction_potentials, scattering_integrals), root_finders) in options.interaction_potential.clone().iter().zip(options.scattering_integral.clone()).zip(options.root_finder.clone()) {
         for ((interaction_potential, scattering_integral), root_finder) in interaction_potentials.iter().zip(scattering_integrals).zip(root_finders) {
 
-            assert_eq!(cfg!(not(feature="cpr_rootfinder")), match root_finder {
-                Rootfinder::POLYNOMIAL{..} => false,
-                Rootfinder::CPR{..} => false,
-                _ => true,
-            }, "Input error: CPR rootfinder not enabled. Build with --features cpr_rootfinder");
+            if cfg!(not(feature="cpr_rootfinder")) {
+                assert!( match root_finder {
+                    Rootfinder::POLYNOMIAL{..} => false,
+                    Rootfinder::CPR{..} => false,
+                    _ => true,
+                },
+                "Input error: CPR rootfinder not enabled. Build with --features cpr_rootfinder");
+            }
 
             assert!(
                 match (interaction_potential, root_finder) {
