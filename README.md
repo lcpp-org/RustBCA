@@ -2,6 +2,8 @@
 
 A Binary Collision Approximation (BCA) code for ion-material interactions, written in Rust!
 
+Check out the [rustBCA wiki](https://github.com/lcpp-org/RustBCA/wiki) for detailed information, installation instructions, usage instructions, examples, and more.
+
 BCA codes are valid for incident ion energies between approximately 10 eV  through GeV. By discretizing the collision cascade into a sequence of binary collisions, BCA codes can accurately and efficiently model reflection, implantation, sputtering, transmission, and displacement damage.
 # Features
 
