@@ -1,5 +1,6 @@
 #![allow(unused_variables)]
 #![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
 
 use std::{env, fmt};
 use std::mem::discriminant;
@@ -270,7 +271,7 @@ fn main() {
         .write(false)
         .create(false)
         .open(input_file)
-        .expect("Input errror: could not open input file, input.toml.");
+        .expect("Input errror: could not open input file.");
     file.read_to_string(&mut input_toml).unwrap();
     let input: Input = toml::from_str(&input_toml).unwrap();
 
@@ -286,6 +287,7 @@ fn main() {
     let particle_parameters = input.particle_parameters;
 
     //Check that incompatible options are not on simultaneously
+
     if options.high_energy_free_flight_paths {
         assert!(options.electronic_stopping_mode == ElectronicStoppingMode::INTERPOLATED,
             "Input error: High energy free flight paths used with low energy stoppping power.");
@@ -301,31 +303,40 @@ fn main() {
             "Input error: Cannot use weak collisions with gaseous mean free path model. Set weak_collision_order = 0.");
     }
 
-    assert!(&options.interaction_potential.len() == &options.interaction_potential[0].len(),
-        "Input error: interaction matrix not square.");
-    assert!(&options.scattering_integral.len() == &options.scattering_integral[0].len(),
-        "Input error: scattering intergral matrix not square.");
-    assert!(&options.root_finder.len() == &options.root_finder[0].len(),
-        "Input error: rootfinder matrix not square.");
+    for i in 0..options.interaction_potential.len() {
+        assert!(&options.interaction_potential.len() == &options.interaction_potential[i].len(),
+            "Input error: interaction matrix not square.");
 
+        assert!(&options.scattering_integral.len() == &options.scattering_integral[i].len(),
+            "Input error: scattering intergral matrix not square.");
+
+        assert!(&options.root_finder.len() == &options.root_finder[i].len(),
+            "Input error: rootfinder matrix not square.");
+    }
 
     for ((interaction_potentials, scattering_integrals), root_finders) in options.interaction_potential.clone().iter().zip(options.scattering_integral.clone()).zip(options.root_finder.clone()) {
         for ((interaction_potential, scattering_integral), root_finder) in interaction_potentials.iter().zip(scattering_integrals).zip(root_finders) {
 
-            if let InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} = interaction_potential {
-                assert!((scattering_integral == ScatteringIntegral::GAUSS_MEHLER{n_points: 10}) | (scattering_integral == ScatteringIntegral::GAUSS_LEGENDRE),
-                    "Input error: cannot use scattering integral {} with interaction potential {}. Use Gauss-Mehler or Gauss-Legendre.", scattering_integral, interaction_potential);
+            assert_eq!(cfg!(feature="cpr_rootfinder"), match root_finder {
+                Rootfinder::POLYNOMIAL{..} => true,
+                Rootfinder::CPR{..} => true,
+                _ => true,
+            }, "Input error: CPR rootfinder not enabled. Build with --features cpr_rootfinder");
 
-                assert!( (root_finder == Rootfinder::CPR{n0: 0, nmax: 0, epsilon: 0., complex_threshold: 0., truncation_threshold: 0., far_from_zero: 0., interval_limit: 0., upper_bound_const: 0.}) | (root_finder == Rootfinder::POLYNOMIAL{complex_threshold: 0.}),
-                    "Input error: cannot use root finder {} with interaction potential {}. Use CPR or Polynomial.", root_finder, interaction_potential);
-
-                if (scattering_integral == ScatteringIntegral::MENDENHALL_WELLER) | (scattering_integral == ScatteringIntegral::MAGIC) {
-                    assert!(match interaction_potential {
-                        InteractionPotential::MOLIERE | InteractionPotential::ZBL | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN => true,
-                        _ => false
-                    }, "Input error: Mendenhall-Weller quadrature and Magic formula can only be used with screened Coulomb potentials. Use Gauss-Mehler or Gauss-Legendre.");
-                }
-            }
+            assert!(
+                match (interaction_potential, root_finder) {
+                    (InteractionPotential::LENNARD_JONES_12_6{..}, Rootfinder::CPR{..}) => true,
+                    (InteractionPotential::LENNARD_JONES_12_6{..}, Rootfinder::POLYNOMIAL{..}) => true,
+                    (InteractionPotential::LENNARD_JONES_12_6{..}, _) => false,
+                    (InteractionPotential::LENNARD_JONES_65_6{..}, Rootfinder::CPR{..}) => true,
+                    (InteractionPotential::LENNARD_JONES_65_6{..}, Rootfinder::POLYNOMIAL{..}) => true,
+                    (InteractionPotential::LENNARD_JONES_65_6{..}, _) => false,
+                    (InteractionPotential::MORSE{..}, Rootfinder::CPR{..}) => true,
+                    (InteractionPotential::MORSE{..}, _) => false,
+                    (_, Rootfinder::POLYNOMIAL{..}) => false,
+                    (_, _) => true,
+                },
+            "Input error: cannot use {} with {}.", interaction_potential, root_finder);
         }
     }
 
@@ -339,12 +350,14 @@ fn main() {
     assert_eq!(particle_parameters.Z.len(), particle_parameters.dir.len(),
         "Input error: particle input arrays of unequal length.");
 
+    //Check that interaction indices are all within interaction matrices
     assert!(material.interaction_index.iter().max().unwrap() < &options.interaction_potential.len(),
         "Input error: interaction matrix too small for material interaction indices.");
     assert!(particle_parameters.interaction_index.iter().max().unwrap() < &options.interaction_potential.len(),
         "Input error: interaction matrix too small for particle interaction indices.");
 
 
+    //N is the number of particles.
     let N = particle_parameters.Z.len();
 
     //Determine the length, energy, and mass units for particle input
@@ -465,15 +478,17 @@ fn main() {
 
     //Open output files for streaming output
     let reflected_file = OpenOptions::new()
-        .write(true).
-        create(true).
-        open(format!("{}{}", options.name, "reflected.output")).
-        unwrap();
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(format!("{}{}", options.name, "reflected.output"))
+        .unwrap();
     let mut reflected_file_stream = BufWriter::with_capacity(options.stream_size, reflected_file);
 
     let sputtered_file = OpenOptions::new()
         .write(true)
         .create(true)
+        .truncate(true)
         .open(format!("{}{}", options.name, "sputtered.output"))
         .unwrap();
     let mut sputtered_file_stream = BufWriter::with_capacity(options.stream_size, sputtered_file);
@@ -481,6 +496,7 @@ fn main() {
     let deposited_file = OpenOptions::new()
         .write(true)
         .create(true)
+        .truncate(true)
         .open(format!("{}{}", options.name, "deposited.output"))
         .unwrap();
     let mut deposited_file_stream = BufWriter::with_capacity(options.stream_size, deposited_file);
@@ -488,6 +504,7 @@ fn main() {
     let trajectory_file = OpenOptions::new()
         .write(true)
         .create(true)
+        .truncate(true)
         .open(format!("{}{}", options.name, "trajectories.output"))
         .unwrap();
     let mut trajectory_file_stream = BufWriter::with_capacity(options.stream_size, trajectory_file);
@@ -495,6 +512,7 @@ fn main() {
     let trajectory_data = OpenOptions::new()
         .write(true)
         .create(true)
+        .truncate(true)
         .open(format!("{}{}", options.name, "trajectory_data.output"))
         .unwrap();
     let mut trajectory_data_stream = BufWriter::with_capacity(options.stream_size, trajectory_data);
@@ -511,8 +529,10 @@ fn main() {
     let bar: ProgressBar = ProgressBar::new(options.num_chunks);
 
     bar.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {percent}%")
+        .template("[{elapsed_precise}] [{bar:40.cyan/blue}] {percent}%")
         .progress_chars("#>-"));
+
+    assert!(total_count/options.num_chunks > 0, "Input error: chunk size == 0 - reduce num_chunks or increase particle count.");
 
     for (chunk_index, particle_input_chunk) in particle_input_array.chunks((total_count/options.num_chunks) as usize).progress_with(bar).enumerate() {
 

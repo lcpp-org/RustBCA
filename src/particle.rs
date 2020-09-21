@@ -140,7 +140,7 @@ pub fn rotate_particle(particle_1: &mut particle::Particle, psi: f64, phi: f64) 
     let sphi: f64 = phi.sin();
     let sa = (1. - cosx*cosx).sqrt();
 
-    //Particle direction update formulas from TRIDYN, see Moeller and Eckstein 1988
+    //Particle direction update formulas from original TRIDYN paper, see Moeller and Eckstein 1988
     let cpsi: f64 = psi.cos();
     let spsi: f64 = psi.sin();
     let cosx_new: f64 = cpsi*cosx + spsi*cphi*sa;

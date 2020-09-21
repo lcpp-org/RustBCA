@@ -19,8 +19,8 @@ pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_poten
 
 pub fn energy_threshold_single_root(interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential{
-        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} | InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => f64::INFINITY,
-        InteractionPotential::MORSE{D, alpha, r0} => f64::INFINITY,
+        InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => f64::INFINITY,
+        InteractionPotential::MORSE{..} => f64::INFINITY,
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => 0.,
     }
 }
@@ -94,11 +94,11 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
             1./(1. + (r/a).powf(2.))
         },
-        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
+        InteractionPotential::LENNARD_JONES_12_6{sigma, ..} => {
             let n = 11.;
             1./(1. + (r/sigma).powf(n))
         },
-        InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
+        InteractionPotential::LENNARD_JONES_65_6{sigma, ..} => {
             let n = 6.;
             1./(1. + (r/sigma).powf(n))
         },
@@ -182,7 +182,7 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
         InteractionPotential::ZBL => 0.88534*A0/(Za.powf(0.23) + Zb.powf(0.23)),
         //Lindhard/Firsov screening length, Eckstein (4.1.5)
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
-        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} | InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
+        InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
         InteractionPotential::MORSE{D, alpha, r0} => alpha,
     }
 }
@@ -201,10 +201,10 @@ pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, inte
 
 pub fn inverse_transform(x: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
-        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
+        InteractionPotential::LENNARD_JONES_12_6{..} => {
             x
         },
-        InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
+        InteractionPotential::LENNARD_JONES_65_6{..} => {
             x*x
         },
         _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder transformation.")
@@ -286,8 +286,8 @@ pub fn first_screening_radius(interaction_potential: InteractionPotential) -> f6
         InteractionPotential::ZBL => 0.20162,
         InteractionPotential::LENZ_JENSEN => 0.206,
         InteractionPotential::TRIDYN => 0.278544,
-        InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => 1.,
-        InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => 1.,
-        InteractionPotential::MORSE{D, alpha, r0} => 1.,
+        InteractionPotential::LENNARD_JONES_12_6{..} => 1.,
+        InteractionPotential::LENNARD_JONES_65_6{..} => 1.,
+        InteractionPotential::MORSE{..} => 1.,
     }
 }
