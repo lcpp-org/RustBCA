@@ -1,7 +1,7 @@
 use super::*;
 use geo::{Closest};
 
-#[cfg(feature = "cpr_rootfinder")]
+    #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
 use rcpr::chebyshev::*;
 
 pub struct BinaryCollisionGeometry {
@@ -360,7 +360,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     let interaction_potential = options.interaction_potential[particle_1.interaction_index][particle_2.interaction_index];
     let root_finder = if relative_energy < interactions::energy_threshold_single_root(interaction_potential) {options.root_finder[particle_1.interaction_index][particle_2.interaction_index]} else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-6}};
 
-    #[cfg(feature = "cpr_rootfinder")]
+    #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
     match root_finder {
         Rootfinder::POLYNOMIAL{complex_threshold} => polynomial_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, complex_threshold)
             .with_context(|| "Numerical error: polynomial rootfinder failed.")
@@ -373,7 +373,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
             .unwrap(),
     }
 
-    #[cfg(not(feature = "cpr_rootfinder"))]
+    #[cfg(not(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl")))]
     match root_finder {
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
             .with_context(|| "Numerical error: Newton-Raphson rootfinder failed.")
@@ -502,7 +502,7 @@ fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f6
         .unwrap()).sum::<f64>()
 }
 
-#[cfg(feature = "cpr_rootfinder")]
+    #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
 pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     interaction_potential: InteractionPotential, polynom_complex_threshold: f64) -> Result<f64, anyhow::Error> {
 
@@ -523,7 +523,7 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
     }
 }
 
-#[cfg(feature = "cpr_rootfinder")]
+    #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
 pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     interaction_potential: InteractionPotential, n0: usize, nmax: usize, epsilon: f64,
     complex_threshold: f64, truncation_threshold: f64, far_from_zero: f64,
