@@ -2,6 +2,9 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
+//extern crate blas;
+extern crate openblas_src;
+
 use std::{env, fmt};
 use std::mem::discriminant;
 
