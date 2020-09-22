@@ -40,7 +40,7 @@ jobs:
         sudo apt install libhdf5-dev
     - name: Build RustBCA
       run: |
-        cargo build --release
+        cargo build --release --features cpr_rootfinder_netlib,hdf5_input
     - name: Test RustBCA
       run: |
         cargo test
