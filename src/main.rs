@@ -2,6 +2,14 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
+#[cfg(feature = "cpr_rootfinder_openblas")]
+extern crate openblas_src;
+#[cfg(feature = "cpr_rootfinder_netlib")]
+extern crate netlib_src;
+#[cfg(feature = "cpr_rootfinder_intel_mkl")]
+extern crate intel_mkl_src;
+
+
 use std::{env, fmt};
 use std::mem::discriminant;
 
@@ -320,7 +328,7 @@ fn main() {
     for ((interaction_potentials, scattering_integrals), root_finders) in options.interaction_potential.clone().iter().zip(options.scattering_integral.clone()).zip(options.root_finder.clone()) {
         for ((interaction_potential, scattering_integral), root_finder) in interaction_potentials.iter().zip(scattering_integrals).zip(root_finders) {
 
-            if cfg!(not(feature="cpr_rootfinder")) {
+            if cfg!(not(any(feature="cpr_rootfinder_openblas", feature="cpr_rootfinder_netlib", feature="cpr_rootfinder_intel_mkl",))) {
                 assert!( match root_finder {
                     Rootfinder::POLYNOMIAL{..} => false,
                     Rootfinder::CPR{..} => false,
