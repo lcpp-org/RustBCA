@@ -63,8 +63,10 @@ Ubuntu 18.04 LTS:
 - `git clone https://github.com/lcpp-org/rustBCA`
 - `cd rustBCA`
 - `cargo build --release`
-9. Optional: Build RustBCA with optional dependencies, rcpr and/or hdf5
- - `cargo build --release --features cpr_rootfinder,hdf5_input`
+9. Optional: Build RustBCA with optional dependencies, hdf5 and/or rcpr (with your choice of backed: openblas, netlib, or intel-mkl):
+ - `cargo build --release --features cpr_rootfinder_netlib,hdf5_input`
+ - `cargo build --release --features cpr_rootfinder_openblas,hdf5_input`
+ - `cargo build --release --features cpr_rootfinder_intel_mkl,hdf5_input`
 10. input.toml is the input file -- see [Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files) for more information
 11. `cargo test` will run all required tests
 12. Optional: `cargo test --features cpr_rootfinder` will run all required and optional tests
