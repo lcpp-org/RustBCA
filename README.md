@@ -25,7 +25,7 @@ BCA codes are valid for incident ion energies between approximately 10 eV  throu
 
 # Installation
 
-Without optional features, rustBCA should compile with cargo on Windows, MacOS, and Linux systems. HDF5 has been tested on Windows, but HDF5 1.10.6 must be used. `rcpr`, the Adaptive Chebyshev Proxy Rootfinder with Automatic Subdivision and Polynomial Rootfinder package, has not yet been successfully compiled on Windows. However, it can be compiled on Windows Subsystem for Linux (WSL) and likely on Ubuntu for Windows or Cygwin.
+Without optional features, rustBCA should compile with cargo on Windows, MacOS, and Linux systems. HDF5 has been tested on Windows, but HDF5 1.10.6 must be used. [rcpr](https://github.com/drobnyjt/rcpr), the Rust adaptive Chebyshev Proxy Rootfinder with automatic subdivision and polynomial rootfinder package, has not yet been successfully compiled on Windows. However, it can be compiled on Windows Subsystem for Linux (WSL) and likely on Ubuntu for Windows or Cygwin.
 
 Manual Dependences:
 * `rustup`, the Rust toolchain
@@ -36,6 +36,7 @@ Automatic Dependencies:
 Optional Dependencies:
 * HDF5 libraries
 * `rcpr`: https://github.com/drobnyjt/rcpr (will be automatically installed when built with `--features cpr_rootfinder`)
+* If building with rcpr, cmake _must_ be installed to build the LAPACK/BLAS backend of ndarray-linalg
 * Python 3.6+
 * Numpy, Matplotlib, toml, Shapely, scipy
 
