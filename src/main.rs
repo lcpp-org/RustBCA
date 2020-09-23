@@ -540,6 +540,15 @@ fn main() {
         .unwrap();
     let mut trajectory_data_stream = BufWriter::with_capacity(options.stream_size, trajectory_data);
 
+    let displacements_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(format!("{}{}", options.name, "displacements.output"))
+        .context("Could not open output file.")
+        .unwrap();
+    let mut displacements_file_stream = BufWriter::with_capacity(options.stream_size, displacements_file);
+
     println!("Processing {} ions...", particle_input_array.len());
 
     let total_count: u64 = particle_input_array.len() as u64;
@@ -576,6 +585,15 @@ fn main() {
         }
 
         for particle in finished_particles {
+            //
+            if !particle.incident {
+                    writeln!(
+                        displacements_file_stream, "{},{},{},{},{},{}",
+                        particle.m/mass_unit, particle.Z, particle.energy_origin/energy_unit,
+                        particle.pos_origin.x/length_unit, particle.pos_origin.y/length_unit, particle.pos_origin.z/length_unit,
+                    ).expect(format!("Output error: could not write to {}displacements.output.", options.name).as_str());
+            }
+
             if particle.incident & particle.left {
                 writeln!(
                     reflected_file_stream, "{},{},{},{},{},{},{},{},{},{}",

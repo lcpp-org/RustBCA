@@ -108,6 +108,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
                     //Energy transfer to recoil
                     particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y);
+                    particle_2.energy_origin = particle_2.E;
 
                     //Accumulate asymptotic deflections for primary particle
                     total_energy_loss += binary_collision_result.recoil_energy;
