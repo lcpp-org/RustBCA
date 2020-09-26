@@ -359,14 +359,18 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     let p = binary_collision_geometry.impact_parameter;
 
     let interaction_potential = options.interaction_potential[particle_1.interaction_index][particle_2.interaction_index];
-    let root_finder = if relative_energy < interactions::energy_threshold_single_root(interaction_potential) {options.root_finder[particle_1.interaction_index][particle_2.interaction_index]} else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-6}};
+    
+    let root_finder = if relative_energy < interactions::energy_threshold_single_root(interaction_potential) {
+            options.root_finder[particle_1.interaction_index][particle_2.interaction_index]
+        } else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-6}};
 
     #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
     match root_finder {
         Rootfinder::POLYNOMIAL{complex_threshold} => polynomial_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, complex_threshold)
             .with_context(|| "Numerical error: polynomial rootfinder failed.")
             .unwrap(),
-        Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const} => cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const)
+        Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const, derivative_free} =>
+            cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const, derivative_free)
             .with_context(|| "Numerical error: CPR rootfinder failed.")
             .unwrap(),
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
@@ -503,7 +507,7 @@ fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f6
         .unwrap()).sum::<f64>()
 }
 
-    #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+#[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
 pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     interaction_potential: InteractionPotential, polynom_complex_threshold: f64) -> Result<f64, anyhow::Error> {
 
@@ -524,11 +528,11 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
     }
 }
 
-    #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+#[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
 pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     interaction_potential: InteractionPotential, n0: usize, nmax: usize, epsilon: f64,
     complex_threshold: f64, truncation_threshold: f64, far_from_zero: f64,
-    interval_limit: f64, upper_bound_const: f64) -> Result <f64, anyhow::Error> {
+    interval_limit: f64, upper_bound_const: f64, derivative_free: bool) -> Result <f64, anyhow::Error> {
 
     //Lindhard screening length and reduced energy
     let a = interactions::screening_length(Za, Zb, interaction_potential);
@@ -537,17 +541,26 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     let p = impact_parameter;
 
     let f = |r: f64| -> f64 {interactions::distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
-    let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
-    let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*interactions::scaling_function(r, impact_parameter, interaction_potential)};
+    let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
+        interactions::scaling_function(r, impact_parameter, interaction_potential)};
 
+    //Using upper bound const, ~10, construct upper bound as a plateau near 0 and linear increase away from that
     let upper_bound = f64::max(upper_bound_const*p, upper_bound_const*a);
 
-    let roots = find_roots_with_newton_polishing(&g, &f, &df, 0., upper_bound,
-        n0, epsilon, nmax, complex_threshold,
-        truncation_threshold, interval_limit, far_from_zero)
-            .with_context(|| format!("Numerical error: CPR Rootfinder failed to converge when calculating distance of closest approach for Er = {} eV p = {} A using {}.",
-                relative_energy/EV, impact_parameter/ANGSTROM, interaction_potential))
-            .unwrap();
+    let roots = match derivative_free {
+        true => find_roots_with_secant_polishing(&g, &f, 0., upper_bound,
+            n0, epsilon, nmax, complex_threshold,
+            truncation_threshold, interval_limit, far_from_zero),
+
+        false => {
+            let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
+            find_roots_with_newton_polishing(&g, &f, &df, 0., upper_bound,
+            n0, epsilon, nmax, complex_threshold,
+            truncation_threshold, interval_limit, far_from_zero)
+        }
+    }.with_context(|| format!("Numerical error: CPR Rootfinder failed to converge when calculating distance of closest approach for Er = {} eV p = {} A using {}.",
+        relative_energy/EV, impact_parameter/ANGSTROM, interaction_potential))
+    .unwrap();
 
     let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
 

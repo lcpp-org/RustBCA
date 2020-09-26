@@ -108,7 +108,8 @@ pub enum InteractionPotential {
     LENZ_JENSEN,
     LENNARD_JONES_12_6 {sigma: f64, epsilon: f64},
     LENNARD_JONES_65_6 {sigma: f64, epsilon: f64},
-    MORSE{D: f64, alpha: f64, r0: f64}
+    MORSE{D: f64, alpha: f64, r0: f64},
+    WW
 }
 
 impl fmt::Display for InteractionPotential {
@@ -121,7 +122,8 @@ impl fmt::Display for InteractionPotential {
             InteractionPotential::LENZ_JENSEN => write!(f, "Lenz-Jensen Potential"),
             InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => write!(f, "Lennard-Jones 12-6 Potential with sigma = {} A, epsilon = {} eV", sigma/ANGSTROM, epsilon/EV),
             InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => write!(f, "Lennard-Jones 6.5-6 Potential with sigma = {} A, epsilon = {} eV", sigma/ANGSTROM, epsilon/EV),
-            InteractionPotential::MORSE{D, alpha, r0} => write!(f, "Morse potential with D = {} eV, alpha = {} 1/A, and r0 = {} A", D/EV, alpha*ANGSTROM, r0/ANGSTROM)
+            InteractionPotential::MORSE{D, alpha, r0} => write!(f, "Morse potential with D = {} eV, alpha = {} 1/A, and r0 = {} A", D/EV, alpha*ANGSTROM, r0/ANGSTROM),
+            InteractionPotential::WW => write!(f, "W-W cubic spline interaction potential.")
         }
     }
 }
@@ -161,7 +163,7 @@ impl PartialEq for ScatteringIntegral {
 pub enum Rootfinder {
     NEWTON{max_iterations: usize, tolerance: f64},
     CPR{n0: usize, nmax: usize, epsilon: f64, complex_threshold: f64, truncation_threshold: f64,
-        far_from_zero: f64, interval_limit: f64, upper_bound_const: f64},
+        far_from_zero: f64, interval_limit: f64, upper_bound_const: f64, derivative_free: bool},
     POLYNOMIAL{complex_threshold: f64},
 }
 
@@ -169,7 +171,8 @@ impl fmt::Display for Rootfinder {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Rootfinder::NEWTON{max_iterations, tolerance} => write!(f, "Newton-Raphson Rootfinder with maximum {} iterations and toleance = {}", max_iterations, tolerance),
-            Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const} => write!(f, "Chebyshev-Proxy Rootfinder"),
+            Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const, derivative_free} =>
+                write!(f, "Chebyshev-Proxy Rootfinder with {}-polishing", match derivative_free { true => "Secant", false => "Newton"}),
             Rootfinder::POLYNOMIAL{complex_threshold} => write!(f, "Frobenius Companion Matrix Polynomial Real Rootfinder with a complex tolerance of {}", complex_threshold),
         }
     }
@@ -302,9 +305,6 @@ fn main() {
     if options.high_energy_free_flight_paths {
         assert!(options.electronic_stopping_mode == ElectronicStoppingMode::INTERPOLATED,
             "Input error: High energy free flight paths used with low energy stoppping power. Change to INTERPOLATED.");
-    }
-
-    if options.electronic_stopping_mode == ElectronicStoppingMode::INTERPOLATED {
         assert!(options.weak_collision_order == 0,
             "Input error: Cannot use weak collisions with free flight paths. Set weak_collision_order = 0.");
     }

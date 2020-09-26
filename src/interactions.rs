@@ -14,6 +14,9 @@ pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_poten
         InteractionPotential::MORSE{D, alpha, r0} => {
             morse(r, D, alpha, r0)
         }
+        InteractionPotential::WW => {
+            tungsten_tungsten_cubic_spline(r)
+        }
     }
 }
 
@@ -21,6 +24,7 @@ pub fn energy_threshold_single_root(interaction_potential: InteractionPotential)
     match interaction_potential{
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => f64::INFINITY,
         InteractionPotential::MORSE{..} => f64::INFINITY,
+        InteractionPotential::WW => f64::INFINITY,
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => 0.,
     }
 }
@@ -62,6 +66,9 @@ pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, r
         },
         InteractionPotential::MORSE{D, alpha, r0} => {
             doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
+        },
+        InteractionPotential::WW => {
+            doca_tungsten_tungsten_cubic_spline(r, impact_parameter, relative_energy)
         }
     }
 }
@@ -85,6 +92,9 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
         },
         InteractionPotential::MORSE{D, alpha, r0} => {
             doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
+        },
+        InteractionPotential::WW => {
+            doca_tungsten_tungsten_cubic_spline(r, impact_parameter, relative_energy)
         }
     }
 }
@@ -104,6 +114,9 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
         },
         InteractionPotential::MORSE{D, alpha, r0} => {
             1./(1. + (r*alpha).powf(2.))
+        }
+        InteractionPotential::WW => {
+            1.
         }
     }
 }
@@ -125,7 +138,8 @@ pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f
         },
         InteractionPotential::MORSE{D, alpha, r0} => {
             diff_doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
-        }
+        },
+        _ => panic!("Input error: {} does not have an implemented derivative. Try using the derivative free CPR-rootfinder.")
     }
 }
 
@@ -146,7 +160,8 @@ pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f6
         },
         InteractionPotential::MORSE{D, alpha, r0} => {
             diff_doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
-        }
+        },
+        _ => panic!("Input error: {} does not have an implemented derivative. Try using the derivative free CPR-rootfinder.")
     }
 }
 
@@ -181,7 +196,7 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
         //ZBL screening length, Eckstein (4.1.8)
         InteractionPotential::ZBL => 0.88534*A0/(Za.powf(0.23) + Zb.powf(0.23)),
         //Lindhard/Firsov screening length, Eckstein (4.1.5)
-        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
+        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN | InteractionPotential::WW => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
         InteractionPotential::MORSE{D, alpha, r0} => alpha,
     }
@@ -247,6 +262,60 @@ pub fn diff_doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma:
     6.5*(r/sigma).powf(5.5)/sigma + 4.*epsilon/relative_energy*0.5*(sigma*r).powf(-0.5) - (p/sigma).powf(2.)*4.5*(r/sigma).powf(3.5)/sigma
 }
 
+pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
+    let x = r/ANGSTROM;
+
+    let a = vec![
+        0.960851701343041E2,
+        -0.184410923895214E3,
+        0.935784079613550E2,
+        -0.798358265041677E1,
+        0.747034092936229E1,
+        -0.152756043708453E1,
+        0.125205932634393E1,
+        0.163082162159425E1,
+        -0.141854775352260E1,
+        -0.819936046256149E0,
+        0.198013514305908E1,
+        -0.696430179520267E0,
+        0.304546909722160E-1,
+        -0.163131143161660E1,
+        0.138409896486177E1
+    ];
+
+    let delta = vec![
+        2.564897500000000,
+        2.629795000000000,
+        2.694692500000000,
+        2.866317500000000,
+        2.973045000000000,
+        3.079772500000000,
+        3.516472500000000,
+        3.846445000000000,
+        4.176417500000000,
+        4.700845000000000,
+        4.895300000000000,
+        5.089755000000000,
+        5.342952500000000,
+        5.401695000000000,
+        5.460437500000000
+    ];
+
+    a.iter().zip(delta).map(|(&a_i, delta_i)| EV*a_i*(delta_i - x).powf(3.)*heaviside(delta_i - x)).sum::<f64>()
+}
+
+pub fn doca_tungsten_tungsten_cubic_spline(r: f64, p: f64, relative_energy: f64) -> f64 {
+    (r/ANGSTROM).powf(2.) - (r/ANGSTROM).powf(2.)*tungsten_tungsten_cubic_spline(r)/relative_energy - p.powf(2.)/ANGSTROM.powf(2.)
+}
+
+fn heaviside(x: f64) -> f64 {
+    if x >= 0. {
+        1.
+    } else {
+        0.
+    }
+}
+
 fn moliere(xi: f64) -> f64 {
     0.35*(-0.3*xi).exp() + 0.55*(-1.2*xi).exp() + 0.10*(-6.0*xi).exp()
 }
@@ -289,5 +358,6 @@ pub fn first_screening_radius(interaction_potential: InteractionPotential) -> f6
         InteractionPotential::LENNARD_JONES_12_6{..} => 1.,
         InteractionPotential::LENNARD_JONES_65_6{..} => 1.,
         InteractionPotential::MORSE{..} => 1.,
+        InteractionPotential::WW => 1.,
     }
 }
