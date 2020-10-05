@@ -8,6 +8,8 @@ import time
 from scipy.interpolate import interp1d
 from matplotlib import rcParams
 import matplotlib as mpl
+import matplotlib.colors as colors
+from matplotlib import cm
 from enum import Enum
 from collections import namedtuple
 rcParams.update({'figure.autolayout': True})
@@ -399,7 +401,7 @@ def yamamura(ion, target, energy_eV):
 
     return 0.42*a_star*Q*K*sn/Us/(1. + 0.35*Us*se)*(1. - np.sqrt(Eth/energy_eV))**2.8
 
-def do_trajectory_plots(name, file_num='', symmetric=False, thickness=None, depth=None):
+def do_trajectory_plot(name, file_num='', symmetric=False, thickness=None, depth=None):
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
     deposited = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
@@ -412,46 +414,12 @@ def do_trajectory_plots(name, file_num='', symmetric=False, thickness=None, dept
         if np.size(deposited)>0: deposited[:, 3] = abs(deposited[:, 3])
         if np.size(trajectories)>0: trajectories[:, 4] = abs(trajectories[:, 4])
 
-    colors = {
-        1: 'red',
-        29: 'black',
-        2: 'fuchsia',
-        74: 'blue',
-        4: 'black',
-        5: 'blue',
-        18: 'red',
-        14: 'blue',
-        54: 'red',
-        8: 'purple',
-        22: 'green',
-        13: 'black',
-        82: 'black'
-    }
-
-    linewidths = {
-        1: 1,
-        29: 1,
-        2: 1,
-        74: 1,
-        14: 1,
-        54: 1,
-    }
-
-    #minx, miny, maxx, maxy = simulation_surface.bounds
-    #minx = np.min(deposited[:, 2])
-    #maxx = np.max(deposited[:, 2])
-    #miny = np.min(deposited[:, 3])
-    #maxy = np.max(deposited[:, 3])
+    colormap = cm.ScalarMappable(norm=colors.PowerNorm(gamma=0.1,vmin=1,vmax=74), cmap='viridis')
 
     fig1, axis1 = plt.subplots()
-    #plt.plot(*surface.exterior.xy, color='dimgray')
-    #plt.plot(*energy_surface.exterior.xy, '--', color='dimgray')
-    #plt.plot(*simulation_surface.exterior.xy, '--', color='dimgray')
 
     index = 0
     x_max = 0
-
-    first_atom = []
 
     if np.size(trajectories) > 0:
         for trajectory_length in trajectory_data:
@@ -467,23 +435,20 @@ def do_trajectory_plots(name, file_num='', symmetric=False, thickness=None, dept
                 x_max = np.max(x)
 
             #plt.scatter(x[0], y[0], color = colors[Z], marker='o', s=5)
-            plt.plot(x, y, color = colors[Z], linewidth = 1)
-
-            if Z > 10:
-                first_atom.append(x[0])
+            plt.plot(x, y, color = colormap.to_rgba(Z), linewidth = 1)
 
             index += trajectory_length
 
         if np.size(sputtered) > 0:
-            sputtered_colors = [colors[Z] for Z in sputtered[:,1]]
+            sputtered_colors = [colormap.to_rgba(Z) for Z in sputtered[:,1]]
             plt.scatter(sputtered[:,3], sputtered[:,4], s=50, color=sputtered_colors, marker='*')
 
         if np.size(reflected) > 0:
-            reflected_colors = [colors[Z] for Z in reflected[:,1]]
+            reflected_colors = [colormap.to_rgba(Z) for Z in reflected[:,1]]
             plt.scatter(reflected[:,3], reflected[:,4], s=50, color=reflected_colors, marker='x')
 
         if np.size(deposited) > 0:
-            deposited_colors = [colors[Z] for Z in deposited[:,1]]
+            deposited_colors = [colormap.to_rgba(Z) for Z in deposited[:,1]]
             plt.scatter(deposited[:,2], deposited[:,3], s=50, color=deposited_colors, marker='^')
 
         if thickness and depth:
