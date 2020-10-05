@@ -627,11 +627,11 @@ def plot_distributions_rustbca(name, beam, target, file_num=1, max_collision_con
 
         if plot_scattering_energy_curve:
             for mass in [titanium['m'], oxygen['m']]:
-                energies = bins[0]
-                angles = bins[1]*np.pi/180.
+                energies = bins[1]
+                angles = bins[0]*np.pi/180.
                 scattering_angles = -angles + np.pi
                 final_energies = incident_energy*((np.cos(scattering_angles) + np.sqrt((mass/beam['m'])**2 - np.sin(scattering_angles)**2))/(1. + mass/beam['m']))**2.
-                handle = plt.plot(final_energies, angles*180./np.pi, linestyle='-', color='white', alpha=0.25, linewidth=7)
+                handle = plt.plot(angles*180./np.pi, final_energies,  linestyle='-', color='white', alpha=0.25, linewidth=7)
                 plt.legend(handle, ['Single-Collision Scattering'], loc='lower right', fontsize='x-small')
 
         plt.ylabel('E [eV]')
@@ -757,7 +757,7 @@ def plot_distributions_rustbca(name, beam, target, file_num=1, max_collision_con
     if np.size(s) > 0:
         plt.figure(num='so')
         depth_origin = s[:, 10]
-        plt.hist(depth_origin, bins=num_bins)
+        plt.hist(depth_origin, bins=num_bins, histtype='step', color='black')
         plt.title('Depth of origin of sputtered particles')
         plt.xlabel('x [um]')
         plt.ylabel('f(x)')
