@@ -414,7 +414,11 @@ def do_trajectory_plot(name, file_num='', symmetric=False, thickness=None, depth
         if np.size(deposited)>0: deposited[:, 3] = abs(deposited[:, 3])
         if np.size(trajectories)>0: trajectories[:, 4] = abs(trajectories[:, 4])
 
-    colormap = cm.ScalarMappable(norm=colors.PowerNorm(gamma=0.1,vmin=1,vmax=74), cmap='viridis')
+
+    if np.size(trajectories) > 0:
+        min_Z = np.min(trajectories[:, 1])
+        max_Z = np.max(trajectories[:, 1])
+        colormap = cm.ScalarMappable(norm=colors.Normalize(vmin=min_Z, vmax=max_Z), cmap='brg')
 
     fig1, axis1 = plt.subplots()
 
@@ -460,6 +464,7 @@ def do_trajectory_plot(name, file_num='', symmetric=False, thickness=None, depth
         plt.ylabel('y [um]')
         plt.title(name+' Trajectories')
         plt.axis('square')
+        plt.show()
         plt.savefig(name+'trajectories_'+file_num+'.png')
         plt.close()
 
