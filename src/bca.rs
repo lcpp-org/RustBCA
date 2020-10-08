@@ -457,7 +457,10 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     }
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
-    let asympototic_deflection = x0*a*(theta/2.).sin();
+    let asympototic_deflection = match interaction_potential {
+        InteractionPotential::COULOMB{..} => 0.,
+        _ => x0*a*(theta/2.).sin()
+    };
     let psi = (theta.sin().atan2(Ma/Mb + theta.cos())).abs();
     let psi_recoil = (theta.sin().atan2(1. - theta.cos())).abs();
     let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*(theta/2.).sin().powf(2.);
