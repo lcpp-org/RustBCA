@@ -109,7 +109,8 @@ pub enum InteractionPotential {
     LENNARD_JONES_12_6 {sigma: f64, epsilon: f64},
     LENNARD_JONES_65_6 {sigma: f64, epsilon: f64},
     MORSE{D: f64, alpha: f64, r0: f64},
-    WW
+    WW,
+    COULOMB{Za: f64, Zb: f64}
 }
 
 impl fmt::Display for InteractionPotential {
@@ -123,7 +124,8 @@ impl fmt::Display for InteractionPotential {
             InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => write!(f, "Lennard-Jones 12-6 Potential with sigma = {} A, epsilon = {} eV", sigma/ANGSTROM, epsilon/EV),
             InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => write!(f, "Lennard-Jones 6.5-6 Potential with sigma = {} A, epsilon = {} eV", sigma/ANGSTROM, epsilon/EV),
             InteractionPotential::MORSE{D, alpha, r0} => write!(f, "Morse potential with D = {} eV, alpha = {} 1/A, and r0 = {} A", D/EV, alpha*ANGSTROM, r0/ANGSTROM),
-            InteractionPotential::WW => write!(f, "W-W cubic spline interaction potential.")
+            InteractionPotential::WW => write!(f, "W-W cubic spline interaction potential."),
+            InteractionPotential::COULOMB{Za, Zb} => write!(f, "Coulombic interaction with Za = {} and Zb = {}", Za, Zb)
         }
     }
 }
