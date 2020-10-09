@@ -109,7 +109,8 @@ pub enum InteractionPotential {
     LENNARD_JONES_12_6 {sigma: f64, epsilon: f64},
     LENNARD_JONES_65_6 {sigma: f64, epsilon: f64},
     MORSE{D: f64, alpha: f64, r0: f64},
-    WW
+    WW,
+    COULOMB{Za: f64, Zb: f64}
 }
 
 impl fmt::Display for InteractionPotential {
@@ -123,7 +124,8 @@ impl fmt::Display for InteractionPotential {
             InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => write!(f, "Lennard-Jones 12-6 Potential with sigma = {} A, epsilon = {} eV", sigma/ANGSTROM, epsilon/EV),
             InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => write!(f, "Lennard-Jones 6.5-6 Potential with sigma = {} A, epsilon = {} eV", sigma/ANGSTROM, epsilon/EV),
             InteractionPotential::MORSE{D, alpha, r0} => write!(f, "Morse potential with D = {} eV, alpha = {} 1/A, and r0 = {} A", D/EV, alpha*ANGSTROM, r0/ANGSTROM),
-            InteractionPotential::WW => write!(f, "W-W cubic spline interaction potential.")
+            InteractionPotential::WW => write!(f, "W-W cubic spline interaction potential."),
+            InteractionPotential::COULOMB{Za, Zb} => write!(f, "Coulombic interaction with Za = {} and Zb = {}", Za, Zb)
         }
     }
 }
@@ -231,6 +233,27 @@ impl Vector4 {
     fn new(E: f64, x: f64, y: f64, z: f64) -> Vector4 {
         Vector4 {
             E,
+            x,
+            y,
+            z
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct EnergyLoss {
+    En: f64,
+    Ee: f64,
+    x: f64,
+    y: f64,
+    z: f64,
+}
+
+impl EnergyLoss {
+    fn new(Ee: f64, En: f64, x: f64, y: f64, z: f64) -> EnergyLoss {
+        EnergyLoss {
+            En,
+            Ee,
             x,
             y,
             z
@@ -549,6 +572,15 @@ fn main() {
         .unwrap();
     let mut displacements_file_stream = BufWriter::with_capacity(options.stream_size, displacements_file);
 
+    let energy_loss_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(format!("{}{}", options.name, "energy_loss.output"))
+        .context("Could not open output file.")
+        .unwrap();
+    let mut energy_loss_file_stream = BufWriter::with_capacity(options.stream_size, energy_loss_file);
+
     println!("Processing {} ions...", particle_input_array.len());
 
     let total_count: u64 = particle_input_array.len() as u64;
@@ -637,6 +669,17 @@ fn main() {
                         particle.m/mass_unit, particle.Z, pos.E/energy_unit,
                         pos.x/length_unit, pos.y/length_unit, pos.z/length_unit,
                     ).expect(format!("Output error: could not write to {}trajectories.output.", options.name).as_str());
+                }
+
+                if particle.incident {
+                    for energy_loss in particle.energies {
+                        writeln!(
+                            energy_loss_file_stream, "{},{},{},{},{},{},{}",
+                            particle.m/mass_unit, particle.Z,
+                            energy_loss.En/energy_unit, energy_loss.Ee/energy_unit,
+                            energy_loss.x/length_unit, energy_loss.y/length_unit, energy_loss.z/length_unit,
+                        ).expect(format!("Output error: could not write to {}energy_loss.output.", options.name).as_str());
+                    }
                 }
             }
         }
