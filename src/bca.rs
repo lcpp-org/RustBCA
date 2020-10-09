@@ -401,9 +401,12 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
         particle_1.E = 0.;
     }
 
+
+
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let ck = material.electronic_stopping_correction_factor;
+
     if material.inside(x, y) {
 
         let interaction_potential = options.interaction_potential[particle_1.interaction_index][material.interaction_index[strong_collision_index]];
@@ -428,6 +431,10 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
         if particle_1.E < 0. {
             particle_1.E = 0.;
         }
+
+        particle_1.energy_loss(recoil_energy, delta_energy);
+    } else if recoil_energy > 0. {
+        particle_1.energy_loss(recoil_energy, 0.);
     }
 }
 
