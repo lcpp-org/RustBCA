@@ -671,13 +671,15 @@ fn main() {
                     ).expect(format!("Output error: could not write to {}trajectories.output.", options.name).as_str());
                 }
 
-                for energy_loss in particle.energies {
-                    writeln!(
-                        energy_loss_file_stream, "{},{},{},{},{},{},{}",
-                        particle.m/mass_unit, particle.Z,
-                        energy_loss.En/energy_unit, energy_loss.Ee/energy_unit,
-                        energy_loss.x/length_unit, energy_loss.y/length_unit, energy_loss.z/length_unit,
-                    ).expect(format!("Output error: could not write to {}energy_loss.output.", options.name).as_str());
+                if particle.incident {
+                    for energy_loss in particle.energies {
+                        writeln!(
+                            energy_loss_file_stream, "{},{},{},{},{},{},{}",
+                            particle.m/mass_unit, particle.Z,
+                            energy_loss.En/energy_unit, energy_loss.Ee/energy_unit,
+                            energy_loss.x/length_unit, energy_loss.y/length_unit, energy_loss.z/length_unit,
+                        ).expect(format!("Output error: could not write to {}energy_loss.output.", options.name).as_str());
+                    }
                 }
             }
         }
