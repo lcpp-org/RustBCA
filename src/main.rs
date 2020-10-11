@@ -83,6 +83,26 @@ impl fmt::Display for ElectronicStoppingMode {
     }
 }
 
+#[derive(Deserialize, PartialEq, Clone, Copy)]
+pub enum SurfaceBindingModel {
+    INDIVIDUAL,
+    TARGET,
+    AVERAGE,
+}
+
+impl fmt::Display for SurfaceBindingModel {
+    fn fmt (&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            SurfaceBindingModel::INDIVIDUAL => write!(f,
+                "Individual surface binding energies."),
+            SurfaceBindingModel::TARGET => write!(f,
+                "Concentration-dependent linear combinaion of target binding energies."),
+            SurfaceBindingModel::AVERAGE => write!(f,
+                "Average between particle and concentration-dependent linear combination of target binding energies."),
+        }
+    }
+}
+
 
 #[derive(Deserialize, PartialEq, Clone, Copy)]
 pub enum MeanFreePathModel {
