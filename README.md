@@ -35,7 +35,7 @@ Automatic Dependencies:
 
 Optional Dependencies:
 * HDF5 libraries
-* `rcpr`: https://github.com/drobnyjt/rcpr the CPR and polynomial rootfinder, required for using attractive-repulsive interaction potentials such as Lennard-Jones or Morse, requires the following to be installed:
+* `rcpr`: https://github.com/drobnyjt/rcpr the CPR and polynomial rootfinder, required for using attractive-repulsive interaction potentials such as Lennard-Jones or Morse, may require the following to be installed depending on the system:
   * gcc
   * build-essential
   * cmake
