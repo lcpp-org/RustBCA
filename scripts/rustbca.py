@@ -485,7 +485,7 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         'suppress_deep_recoils': False,
         'high_energy_free_flight_paths': True,
         'num_threads': 8,
-        'num_chunks': 100,
+        'num_chunks': 10,
         'use_hdf5': False,
         'electronic_stopping_mode': "INTERPOLATED",
         'mean_free_path_model': LIQUID,
@@ -506,7 +506,8 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         'm': Mb,
         'interaction_index': np.zeros(len(n), dtype=int),
         'electronic_stopping_correction_factor': ck,
-        'energy_barrier_thickness': sum(n)**(-1./3.)/np.sqrt(2.*np.pi)/MICRON
+        'energy_barrier_thickness': sum(n)**(-1./3.)/np.sqrt(2.*np.pi)/MICRON,
+        'surface_binding_model': "AVERAGE"
     }
 
     dx = 5.*ANGSTROM/MICRON
@@ -550,10 +551,10 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         'options': options,
     }
 
-    with open('input.toml', 'w') as file:
+    with open(f'{name}.toml', 'w') as file:
         toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
 
-    with open('input.toml', 'a') as file:
+    with open(f'{name}.toml', 'a') as file:
         file.write(r'root_finder = [[{"NEWTON"={max_iterations = 100, tolerance=1E-3}}]]')
 
 def plot_distributions_rustbca(name, beam, target, file_num=1, max_collision_contours=4,
@@ -842,16 +843,16 @@ def main():
     Mb = [10.811]
     n = [1.309E29]
     Esb = [5.76] #Surface binding energy
-    Ecb = [1.0] #Cutoff energy
+    Ecb = [2.0] #Cutoff energy
     Eb = [0.0] #Bulk binding energy
     Za = 1
     Ma = 1.008
     Esa = 1.0
-    Eca = 0.1
-    E0 = 1000.
+    Eca = 1.0
+    E0 = 100.
     N = 1
-    N_ = 1000000
-    theta = 0.001
+    N_ = 100000
+    theta = 60.0
     thickness = 0.1
     depth = 0.1
 
@@ -859,14 +860,14 @@ def main():
 
     track_trajectories = False
 
-    generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
-        thickness, depth, name=name, track_trajectories=track_trajectories,
+    generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
+        theta, thickness, depth, name=name, track_trajectories=track_trajectories,
         track_recoil_trajectories=track_trajectories)
 
     run_sim = True
-    if run_sim: os.system('cargo run --release')
+    if run_sim: os.system(f'cargo run --release {name}.toml')
 
-    if track_trajectories: do_trajectory_plots(name, thickness=thickness, depth=depth)
+    if track_trajectories: do_trajectory_plot(name, thickness=thickness, depth=depth)
 
     plot_distributions_rustbca(name, hydrogen, boron, incident_angle=theta, incident_energy=E0)
 

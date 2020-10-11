@@ -3,6 +3,7 @@ use geo::algorithm::contains::Contains;
 use geo::algorithm::closest_point::ClosestPoint;
 use geo::{point, Closest};
 
+
 #[derive(Deserialize)]
 pub struct MaterialParameters {
     pub energy_unit: String,
@@ -15,7 +16,8 @@ pub struct MaterialParameters {
     pub m: Vec<f64>,
     pub interaction_index: Vec<usize>,
     pub electronic_stopping_correction_factor: f64,
-    pub energy_barrier_thickness: f64
+    pub energy_barrier_thickness: f64,
+    pub surface_binding_model: SurfaceBindingModel
 }
 
 pub struct Material {
@@ -28,7 +30,8 @@ pub struct Material {
     pub interaction_index: Vec<usize>,
     pub electronic_stopping_correction_factor: f64,
     pub mesh_2d: mesh::Mesh2D,
-    pub energy_barrier_thickness: f64
+    pub energy_barrier_thickness: f64,
+    pub surface_binding_model: SurfaceBindingModel
 
 }
 impl Material {
@@ -71,7 +74,8 @@ impl Material {
             interaction_index: material_parameters.interaction_index,
             electronic_stopping_correction_factor: material_parameters.electronic_stopping_correction_factor,
             mesh_2d: mesh::Mesh2D::new(mesh_2d_input),
-            energy_barrier_thickness: material_parameters.energy_barrier_thickness*length_unit
+            energy_barrier_thickness: material_parameters.energy_barrier_thickness*length_unit,
+            surface_binding_model: material_parameters.surface_binding_model,
         }
     }
 
@@ -179,9 +183,29 @@ impl Material {
         //return self.Eb.iter().sum::<f64>()/self.Eb.len() as f64;
     }
 
-    pub fn actual_surface_binding_energy(&self, x: f64, y: f64) -> f64 {
+    pub fn actual_surface_binding_energy(&self, particle: &particle::Particle, x: f64, y: f64) -> f64 {
         let concentrations = self.mesh_2d.get_concentrations(x, y);
-        return self.Es.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum();
+
+        match self.surface_binding_model {
+            SurfaceBindingModel::INDIVIDUAL => particle.Es,
+
+            SurfaceBindingModel::TARGET => {
+                if particle.Es == 0. {
+                    0.
+                } else {
+                    self.Es.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum()
+                }
+            },
+
+            SurfaceBindingModel::AVERAGE => {
+                if (particle.Es == 0.) | (self.Es.iter().sum::<f64>() == 0.) {
+                    0.
+                } else {
+                    0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>())
+                }
+            },
+
+        }
     }
 
     pub fn minimum_cutoff_energy(&self) -> f64 {
@@ -271,7 +295,7 @@ pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &ma
     let E = particle_1.E;
 
     //Actual surface binding energies
-    let Es = if particle_1.incident {particle_1.Es} else {material.actual_surface_binding_energy(x_old, y_old)};
+    let Es = material.actual_surface_binding_energy(particle_1, x_old, y_old);
     let Ec = particle_1.Ec;
 
     let inside_now = material.inside_energy_barrier(x, y);

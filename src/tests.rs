@@ -29,7 +29,8 @@ fn test_surface_binding_energy_barrier() {
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
         electronic_stopping_correction_factor: 0.0,
-        energy_barrier_thickness: 10.
+        energy_barrier_thickness: 10.,
+        surface_binding_model: SurfaceBindingModel::TARGET
     };
 
     let thickness: f64 = 1000.;
@@ -58,7 +59,7 @@ fn test_surface_binding_energy_barrier() {
     assert!(!inside_old);
 
     //Test concentration-dependent surface binding energy
-    let surface_binding_energy = material_1.actual_surface_binding_energy(particle_1.pos.x, particle_1.pos.y);
+    let surface_binding_energy = material_1.actual_surface_binding_energy(&particle_1, particle_1.pos.x, particle_1.pos.y);
     assert!(approx_eq!(f64, surface_binding_energy/EV, (2. + 4.)/2., epsilon=1E-12));
     //println!("sbv: {}", surface_binding_energy/EV);
 
@@ -212,7 +213,8 @@ fn test_momentum_conservation() {
             m: vec![m2],
             interaction_index: vec![0],
             electronic_stopping_correction_factor: 0.0,
-            energy_barrier_thickness: 0.
+            energy_barrier_thickness: 0.,
+            surface_binding_model: SurfaceBindingModel::TARGET
         };
 
         let thickness: f64 = 1000.;
@@ -253,6 +255,8 @@ fn test_momentum_conservation() {
                             num_chunks: 1,
                             use_hdf5: false,
                             root_finder: vec![vec![root_finder]],
+                            track_displacements: false,
+                            track_energy_losses: false,
                         };
 
                         let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
@@ -411,6 +415,8 @@ fn test_quadrature() {
         num_chunks: 1,
         use_hdf5: false,
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
+        track_displacements: false,
+        track_energy_losses: false,
     };
 
     let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 100, 1E-12).unwrap();
