@@ -491,6 +491,8 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         'mean_free_path_model': LIQUID,
         'interaction_potential': [[interaction_potential]],
         'scattering_integral': [["MENDENHALL_WELLER"]],
+        'track_displacements': True,
+        'track_energy_losses': True,
     }
 
     dx = 20.*ANGSTROM/MICRON
