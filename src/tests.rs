@@ -255,6 +255,8 @@ fn test_momentum_conservation() {
                             num_chunks: 1,
                             use_hdf5: false,
                             root_finder: vec![vec![root_finder]],
+                            track_displacements: false,
+                            track_energy_losses: false,
                         };
 
                         let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
@@ -413,6 +415,8 @@ fn test_quadrature() {
         num_chunks: 1,
         use_hdf5: false,
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
+        track_displacements: false,
+        track_energy_losses: false,
     };
 
     let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 100, 1E-12).unwrap();

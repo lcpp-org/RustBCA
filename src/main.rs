@@ -307,6 +307,8 @@ pub struct Options {
     num_threads: usize,
     num_chunks: u64,
     use_hdf5: bool,
+    track_displacements: bool,
+    track_energy_losses: bool,
 }
 
 fn main() {
@@ -638,7 +640,7 @@ fn main() {
 
         for particle in finished_particles {
             //
-            if !particle.incident {
+            if !particle.incident & options.track_displacements {
                     writeln!(
                         displacements_file_stream, "{},{},{},{},{},{}",
                         particle.m/mass_unit, particle.Z, particle.energy_origin/energy_unit,
@@ -690,16 +692,16 @@ fn main() {
                         pos.x/length_unit, pos.y/length_unit, pos.z/length_unit,
                     ).expect(format!("Output error: could not write to {}trajectories.output.", options.name).as_str());
                 }
+            }
 
-                if particle.incident {
-                    for energy_loss in particle.energies {
-                        writeln!(
-                            energy_loss_file_stream, "{},{},{},{},{},{},{}",
-                            particle.m/mass_unit, particle.Z,
-                            energy_loss.En/energy_unit, energy_loss.Ee/energy_unit,
-                            energy_loss.x/length_unit, energy_loss.y/length_unit, energy_loss.z/length_unit,
-                        ).expect(format!("Output error: could not write to {}energy_loss.output.", options.name).as_str());
-                    }
+            if particle.incident & options.track_energy_losses {
+                for energy_loss in particle.energies {
+                    writeln!(
+                        energy_loss_file_stream, "{},{},{},{},{},{},{}",
+                        particle.m/mass_unit, particle.Z,
+                        energy_loss.En/energy_unit, energy_loss.Ee/energy_unit,
+                        energy_loss.x/length_unit, energy_loss.y/length_unit, energy_loss.z/length_unit,
+                    ).expect(format!("Output error: could not write to {}energy_loss.output.", options.name).as_str());
                 }
             }
         }
