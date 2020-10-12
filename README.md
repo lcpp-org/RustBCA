@@ -7,7 +7,7 @@ Check out the [rustBCA wiki](https://github.com/lcpp-org/RustBCA/wiki) for detai
 BCA codes are valid for incident ion energies between approximately 10 eV  through GeV. By discretizing the collision cascade into a sequence of binary collisions, BCA codes can accurately and efficiently model reflection, implantation, sputtering, transmission, and displacement damage.
 # Features
 
-* Ion-solid interactions for all combinations of incident ion and target species
+* Ion-material interactions for all combinations of incident ion and target species
 * 2D geometry with triangular-mesh-based inhomogeneous composition
 * Amorphous solid/liquid and gaseous targets
 * Low energy (<25 keV/nucleon) electronic stopping modes include local (Oen-Robinson), nonlocal (Lindhard-Scharff), and equipartition forms; Includes Biersack-Varelas interpolation to extend electronic stopping validity up to ~1 GeV/nucleon
