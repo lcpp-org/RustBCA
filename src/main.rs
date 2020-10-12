@@ -473,6 +473,8 @@ fn main() {
                 let interaction_index = particle_parameters.interaction_index[particle_index];
                 let (x, y, z) = particle_parameters.pos[particle_index];
                 let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
+                assert!(cosx < 1.,
+                    "Input error: particle x-direction cannot be exactly equal to 1 to avoid numerical gimbal lock.");
                 for sub_particle_index in 0..N_ {
                     //Add new particle to particle vector
                     particle_input.push(
@@ -514,6 +516,8 @@ fn main() {
                 let interaction_index = particle_parameters.interaction_index[particle_index];
                 let (x, y, z) = particle_parameters.pos[particle_index];
                 let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
+                assert!(cosx < 1.,
+                    "Input error: particle x-direction cannot be exactly equal to 1 to avoid numerical gimbal lock.");
                 for sub_particle_index in 0..N_ {
 
                     //Add new particle to particle vector

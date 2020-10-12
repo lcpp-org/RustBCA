@@ -401,7 +401,7 @@ def yamamura(ion, target, energy_eV):
 
     return 0.42*a_star*Q*K*sn/Us/(1. + 0.35*Us*se)*(1. - np.sqrt(Eth/energy_eV))**2.8
 
-def do_trajectory_plot(name, file_num='', symmetric=False, thickness=None, depth=None):
+def do_trajectory_plot(name, file_num='', symmetric=False, thickness=None, depth=None, num_trajectories=-2, plot_final_positions=True):
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
     deposited = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
@@ -425,8 +425,9 @@ def do_trajectory_plot(name, file_num='', symmetric=False, thickness=None, depth
     index = 0
     x_max = 0
 
+    n = min(num_trajectories + 1, len(trajectory_data) + 1)
     if np.size(trajectories) > 0:
-        for trajectory_length in trajectory_data:
+        for trajectory_length in trajectory_data[:n]:
 
             M = trajectories[index, 0]
             Z = trajectories[index, 1]
@@ -443,17 +444,18 @@ def do_trajectory_plot(name, file_num='', symmetric=False, thickness=None, depth
 
             index += trajectory_length
 
-        if np.size(sputtered) > 0:
-            sputtered_colors = [colormap.to_rgba(Z) for Z in sputtered[:,1]]
-            plt.scatter(sputtered[:,3], sputtered[:,4], s=50, color=sputtered_colors, marker='*')
+        if plot_final_positions:
+            if np.size(sputtered) > 0:
+                sputtered_colors = [colormap.to_rgba(Z) for Z in sputtered[:,1]]
+                plt.scatter(sputtered[:,3], sputtered[:,4], s=50, color=sputtered_colors, marker='*')
 
-        if np.size(reflected) > 0:
-            reflected_colors = [colormap.to_rgba(Z) for Z in reflected[:,1]]
-            plt.scatter(reflected[:,3], reflected[:,4], s=50, color=reflected_colors, marker='x')
+            if np.size(reflected) > 0:
+                reflected_colors = [colormap.to_rgba(Z) for Z in reflected[:,1]]
+                plt.scatter(reflected[:,3], reflected[:,4], s=50, color=reflected_colors, marker='x')
 
-        if np.size(deposited) > 0:
-            deposited_colors = [colormap.to_rgba(Z) for Z in deposited[:,1]]
-            plt.scatter(deposited[:,2], deposited[:,3], s=50, color=deposited_colors, marker='^')
+            if np.size(deposited) > 0:
+                deposited_colors = [colormap.to_rgba(Z) for Z in deposited[:,1]]
+                plt.scatter(deposited[:,2], deposited[:,3], s=50, color=deposited_colors, marker='^')
 
         if thickness and depth:
             x_box = [0., 0., depth, depth, 0.]
@@ -471,6 +473,7 @@ def do_trajectory_plot(name, file_num='', symmetric=False, thickness=None, depth
 def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
     thickness, depth, track_trajectories=True, track_recoils=True,
     track_recoil_trajectories=True, name='test_',
+    track_displacements=True, track_energy_losses=True,
     electronic_stopping_mode=LOW_ENERGY_NONLOCAL,
     weak_collision_order=3, ck=1., mean_free_path_model=LIQUID,
     interaction_potential=KR_C):
@@ -491,8 +494,8 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         'mean_free_path_model': LIQUID,
         'interaction_potential': [[interaction_potential]],
         'scattering_integral': [["MENDENHALL_WELLER"]],
-        'track_displacements': True,
-        'track_energy_losses': True,
+        'track_displacements': track_displacements,
+        'track_energy_losses': track_energy_losses,
     }
 
     dx = 20.*ANGSTROM/MICRON
@@ -840,38 +843,146 @@ def plot_distributions_rustbca(name, beam, target, file_num=1, max_collision_con
     plt.savefig(name+'ref_ang.png')
     plt.close()
 
+def plot_displacements(name, displacement_energy, N, num_bins=100):
+    displacements = np.genfromtxt(f'{name}displacements.output', delimiter=',')
+    M = displacements[:,0]
+    Z = displacements[:,1]
+    Er = displacements[:,2]
+    x = displacements[Er>displacement_energy,3]
+    y = displacements[Er>displacement_energy,4]
+
+    plt.figure(1)
+    plt.hist(x, bins=num_bins, histtype='step', color='black', density=True)
+    plt.xlabel('x [um]')
+    plt.ylabel('f(x)')
+    plt.title(f'Frenkel Pair Production Distribution {name}')
+    plt.savefig(name+'displacements.png')
+    plt.close()
+
+    plt.figure(2)
+    plt.hist2d(x, y, bins=num_bins)
+    plt.xlabel('x [um]')
+    plt.ylabel('y [um]')
+    plt.title(f'Frenkel Pair Production {name}')
+    plt.savefig(name+'displacements2D.png')
+    plt.close()
+
+def plot_energy_loss(name, N, num_bins=100):
+
+    energy_loss = np.genfromtxt(f'{name}energy_loss.output', delimiter=',')
+    M = energy_loss[:,0]
+    Z = energy_loss[:,1]
+    En = energy_loss[:,2]
+    Ee = energy_loss[:,3]
+    x = energy_loss[:,4]
+    y = energy_loss[:,5]
+
+    plt.figure(1)
+    plt.hist(x, weights=En/N, bins=num_bins, histtype='step', color='black')
+    plt.hist(x, weights=Ee/N, bins=num_bins, histtype='step', color='red')
+
+    plt.xlabel('x [um]')
+    plt.ylabel('E [eV/ion]')
+    plt.legend(['Nuclear', 'Electronic'])
+    plt.title(f'Energy Losses {name}')
+    plt.savefig(name+'energy_loss.png')
+    plt.close()
+
+    plt.figure(2)
+    plt.xlabel('x [um]')
+    plt.ylabel('y [um]')
+    plt.title(f'Nuclear Energy Loss {name}')
+    plt.hist2d(x, y, weights=En/N, bins=num_bins, norm=colors.SymLogNorm(0.1))
+    plt.savefig(name+'nuclear_energy_loss.png')
+    plt.close()
+
+    plt.figure(3)
+    plt.xlabel('x [um]')
+    plt.ylabel('y [um]')
+    plt.title(f'Electronic Energy Loss {name}')
+    plt.hist2d(x, y, weights=Ee/N, bins=num_bins, norm=colors.SymLogNorm(0.1))
+    plt.savefig(name+'electronic_energy_loss.png')
+    plt.close()
+
+def all_depth_distributions(name, displacement_energy, N, num_bins=100):
+
+    energy_loss = np.genfromtxt(f'{name}energy_loss.output', delimiter=',')
+    M = energy_loss[:,0]
+    Z = energy_loss[:,1]
+    En = energy_loss[:,2]
+    Ee = energy_loss[:,3]
+    x = energy_loss[:,4]
+    y = energy_loss[:,5]
+
+    plt.figure(1)
+    plt.hist(x, weights=En/N, bins=num_bins, histtype='step', color='black', density=True, linewidth=2, linestyle='--')
+    plt.hist(x, weights=Ee/N, bins=num_bins, histtype='step', color='red', density=True, linewidth=2, linestyle='--')
+    plt.hist(x, weights=(Ee + En)/N, bins=num_bins, histtype='step', color='green', density=True, linewidth=2)
+
+    displacements = np.genfromtxt(f'{name}displacements.output', delimiter=',')
+    M = displacements[:,0]
+    Z = displacements[:,1]
+    Er = displacements[:,2]
+    x = displacements[Er>displacement_energy,3]
+    y = displacements[Er>displacement_energy,4]
+    plt.hist(x, bins=num_bins, histtype='step', color='blue', density=True, linewidth=2)
+
+    deposited = np.genfromtxt(f'{name}deposited.output', delimiter=',')
+    x = deposited[:, 2]
+    plt.hist(x, bins=num_bins, histtype='step', color='purple', density=True, linewidth=2)
+
+    plt.legend(['ΔE Nuclear', 'ΔE Electronic', 'ΔE Total', f'Damage Ed = {displacement_energy}', 'Deposited'])
+    plt.xlabel('x [um]')
+    plt.ylabel('f(x)')
+    plt.title(f'Depth Distributions {name}')
+    plt.savefig(name+'all_depth_distributions.png')
+    plt.close()
+
 def main():
+
     Zb = [5]
     Mb = [10.811]
     n = [1.309E29]
     Esb = [5.76] #Surface binding energy
     Ecb = [2.0] #Cutoff energy
     Eb = [0.0] #Bulk binding energy
+
     Za = 1
     Ma = 1.008
     Esa = 1.0
     Eca = 1.0
-    E0 = 100.
+    E0 = 1000.
     N = 1
     N_ = 100000
-    theta = 60.0
-    thickness = 0.1
-    depth = 0.1
+    theta = 60.
+    thickness = 1.0
+    depth = 10.0
 
-    name = 'test'
+    name = 'H_on_B_1keV'
 
     track_trajectories = False
+    plot_trajectories = True
+    track_energy_losses = True
+    track_displacements = True
+    run_sim = True
 
     generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         theta, thickness, depth, name=name, track_trajectories=track_trajectories,
-        track_recoil_trajectories=track_trajectories)
+        track_recoil_trajectories=track_trajectories, track_energy_losses=track_energy_losses,
+        track_displacements=track_displacements)
 
-    run_sim = True
     if run_sim: os.system(f'cargo run --release {name}.toml')
 
-    if track_trajectories: do_trajectory_plot(name, thickness=thickness, depth=depth)
+    all_depth_distributions(name, 20., N_*N, num_bins=50)
+
+    if track_trajectories and plot_trajectories:
+        do_trajectory_plot(name, thickness=thickness, depth=depth, num_trajectories=100, plot_final_positions=False)
 
     plot_distributions_rustbca(name, hydrogen, boron, incident_angle=theta, incident_energy=E0)
+
+    if track_energy_losses: plot_energy_loss(name, N*N_)
+
+    if track_displacements: plot_displacements(name, 20., N*N_)
 
 if __name__ == '__main__':
     main()

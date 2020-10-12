@@ -128,8 +128,8 @@ impl Particle {
         }
     }
 
-    pub fn energy_loss(&mut self, En: f64, Ee: f64) {
-        if self.track_trajectories {
+    pub fn energy_loss(&mut self, options: &Options, En: f64, Ee: f64) {
+        if self.incident & options.track_energy_losses {
             self.energies.push(EnergyLoss {Ee, En, x: self.pos.x, y: self.pos.y, z: self.pos.z});
         }
     }

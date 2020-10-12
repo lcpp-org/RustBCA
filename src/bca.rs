@@ -432,9 +432,9 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
             particle_1.E = 0.;
         }
 
-        particle_1.energy_loss(recoil_energy, delta_energy);
+        particle_1.energy_loss(&options, recoil_energy, delta_energy);
     } else if recoil_energy > 0. {
-        particle_1.energy_loss(recoil_energy, 0.);
+        particle_1.energy_loss(&options, recoil_energy, 0.);
     }
 }
 
