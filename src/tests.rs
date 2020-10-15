@@ -24,7 +24,6 @@ fn test_surface_binding_energy_barrier() {
         Eb: vec![0.0, 0.0],
         Es: vec![2.0, 4.0],
         Ec: vec![1.0, 1.0],
-        n: vec![6E28, 6E28],
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
@@ -38,7 +37,7 @@ fn test_surface_binding_energy_barrier() {
     let mesh_2d_input = mesh::Mesh2DInput {
         length_unit: "ANGSTROM".to_string(),
         coordinate_sets: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
-        densities: vec![vec![3E28, 3E28], vec![3E28, 3E28]],
+        densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
         boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
         simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)]
     };
@@ -208,7 +207,6 @@ fn test_momentum_conservation() {
             Eb: vec![0.0],
             Es: vec![Es2],
             Ec: vec![Ec2],
-            n: vec![6.026E28],
             Z: vec![Z2],
             m: vec![m2],
             interaction_index: vec![0],
@@ -222,7 +220,7 @@ fn test_momentum_conservation() {
         let mesh_2d_input = mesh::Mesh2DInput {
             length_unit: "ANGSTROM".to_string(),
             coordinate_sets: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
-            densities: vec![vec![6.026E28], vec![6.026E28]],
+            densities: vec![vec![0.06306], vec![0.06306]],
             boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
             simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)]
         };

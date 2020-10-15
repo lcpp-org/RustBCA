@@ -397,10 +397,10 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
 
     //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
     particle_1.E -= recoil_energy;
+    assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following collision.");
     if particle_1.E < 0. {
         particle_1.E = 0.;
     }
-
 
 
     let x = particle_1.pos.x;
@@ -426,8 +426,10 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
             },
         };
 
+
         particle_1.E += -delta_energy;
         //Make sure particle energy doesn't become negative again
+        assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following electronic stopping.");
         if particle_1.E < 0. {
             particle_1.E = 0.;
         }

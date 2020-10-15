@@ -23,9 +23,7 @@ impl Mesh2D {
         let coordinate_sets = mesh_2d_input.coordinate_sets;
         let boundary_points = mesh_2d_input.boundary_points;
         let simulation_boundary_points = mesh_2d_input.simulation_boundary_points;
-        let densities = mesh_2d_input.densities;
 
-        assert_eq!(coordinate_sets.len(), densities.len(), "Input error: coordinates and data of unequal length.");
         let n = coordinate_sets.len();
 
         let mut cells: Vec<Cell2D> =  Vec::with_capacity(n);
@@ -40,6 +38,11 @@ impl Mesh2D {
             _ => panic!("Input error: incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
                 mesh_2d_input.length_unit.as_str())
         };
+
+        let densities: Vec<Vec<f64>> = mesh_2d_input.densities
+            .iter()
+            .map( |row| row.iter().map(|element| element/(length_unit).powf(3.)).collect() ).collect();
+        assert_eq!(coordinate_sets.len(), densities.len(), "Input error: coordinates and data of unequal length.");
 
         for (coordinate_set, densities) in coordinate_sets.iter().zip(densities) {
             let coordinate_set_converted = (

@@ -11,7 +11,6 @@ pub struct MaterialParameters {
     pub Eb: Vec<f64>,
     pub Es: Vec<f64>,
     pub Ec: Vec<f64>,
-    pub n: Vec<f64>,
     pub Z: Vec<f64>,
     pub m: Vec<f64>,
     pub interaction_index: Vec<usize>,
@@ -21,7 +20,6 @@ pub struct MaterialParameters {
 }
 
 pub struct Material {
-    pub n: Vec<f64>,
     pub m: Vec<f64>,
     pub Z: Vec<f64>,
     pub Eb: Vec<f64>,
@@ -65,7 +63,6 @@ impl Material {
         };
 
         Material {
-            n: material_parameters.n,
             m: material_parameters.m.iter().map(|&i| i*mass_unit).collect(),
             Z: material_parameters.Z,
             Eb: material_parameters.Eb.iter().map(|&i| i*energy_unit).collect(),
@@ -236,11 +233,15 @@ impl Material {
         let Ma = particle_1.m;
         let Za = particle_1.Z;
 
-        let mut stopping_powers = Vec::with_capacity(self.n.len());
+        let mut stopping_powers = Vec::with_capacity(self.Z.len());
 
         //Bragg's rule: total stopping power is sum of stopping powers of individual atoms
         //Therefore, compute each stopping power separately, and add them up
-        for (n, Zb) in self.n.iter().zip(&self.Z) {
+
+        let x = particle_1.pos.x;
+        let y = particle_1.pos.y;
+
+        for (n, Zb) in self.number_densities(x, y).iter().zip(&self.Z) {
             //let n = self.number_density(particle_1.pos.x, particle_1.pos.y);
             //let Zb = self.Z_eff(particle_1.pos.x, particle_1.pos.y);
 

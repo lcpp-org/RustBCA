@@ -465,12 +465,106 @@ def do_trajectory_plot(name, file_num='', symmetric=False, thickness=None, depth
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
         plt.title(name+' Trajectories')
-        plt.axis('square')
+
         plt.show()
         plt.savefig(name+'trajectories_'+file_num+'.png')
         plt.close()
 
 def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
+    thickness, depth, track_trajectories=True, track_recoils=True,
+    track_recoil_trajectories=True, name='test_',
+    track_displacements=True, track_energy_losses=True,
+    electronic_stopping_mode=LOW_ENERGY_NONLOCAL,
+    weak_collision_order=3, ck=1., mean_free_path_model=LIQUID,
+    interaction_potential=KR_C):
+
+    options = {
+        'name': name,
+        'track_trajectories': track_trajectories,
+        'track_recoils': track_recoils,
+        'track_recoil_trajectories': track_recoil_trajectories,
+        'stream_size': 8000,
+        'weak_collision_order': 0,
+        'suppress_deep_recoils': False,
+        'high_energy_free_flight_paths': True,
+        'num_threads': 8,
+        'num_chunks': 10,
+        'use_hdf5': False,
+        'electronic_stopping_mode': "INTERPOLATED",
+        'mean_free_path_model': LIQUID,
+        'interaction_potential': [[interaction_potential]],
+        'scattering_integral': [["MENDENHALL_WELLER"]],
+        'track_displacements': track_displacements,
+        'track_energy_losses': track_energy_losses,
+    }
+
+    dx = 100.*ANGSTROM/MICRON
+
+    material_parameters = {
+        'energy_unit': 'EV',
+        'mass_unit': 'AMU',
+        'Eb': Eb,
+        'Es': Esb,
+        'Ec': Ecb,
+        'n': n,
+        'Z': Zb,
+        'm': Mb,
+        'interaction_index': np.zeros(len(n), dtype=int),
+        'electronic_stopping_correction_factor': ck,
+        'energy_barrier_thickness': sum(n)**(-1./3.)/np.sqrt(2.*np.pi)/MICRON,
+        'surface_binding_model': "AVERAGE"
+    }
+
+    dx = 5.*ANGSTROM/MICRON
+
+    minx, miny, maxx, maxy = 0.0, -thickness/2., depth, thickness/2.
+    surface = box(minx, miny, maxx, maxy)
+
+    simulation_surface = surface.buffer(10.*dx, cap_style=2, join_style=2)
+    mesh_2d_input = {
+        'length_unit': 'MICRON',
+        'coordinate_sets': [[0., depth, 0., thickness/2., -thickness/2., -thickness/2.], [0., depth, depth, thickness/2., thickness/2., -thickness/2.]],
+        'densities': [n, n],
+        'boundary_points': [[0., thickness/2.], [depth, thickness/2.], [depth, -thickness/2.], [0., -thickness/2.]],
+        'simulation_boundary_points':  list(simulation_surface.exterior.coords)
+    }
+
+    cosx = np.cos(theta*np.pi/180.)
+    sinx = np.sin(theta*np.pi/180.)
+    positions = [(-dx*np.sin(theta*np.pi/180.), 0., 0.) for _ in range(N)]
+
+    particle_parameters = {
+        'length_unit': 'MICRON',
+        'energy_unit': 'EV',
+        'mass_unit': 'AMU',
+        'N': [N_ for _ in range(N)],
+        'm': [Ma for _ in range(N)],
+        'Z': [Za for _ in range(N)],
+        'E': [E0 for _ in range(N)],
+        'Ec': [Eca for _ in range(N)],
+        'Es': [Esa for _ in range(N)],
+        'interaction_index': np.zeros(N, dtype=int),
+        'pos': positions,
+        'dir': [(cosx, sinx, 0.) for _ in range(N)],
+        'particle_input_filename': ''
+    }
+
+    input_file = {
+        'material_parameters': material_parameters,
+        'particle_parameters': particle_parameters,
+        'mesh_2d_input': mesh_2d_input,
+        'options': options,
+    }
+
+    with open(f'{name}.toml', 'w') as file:
+        toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
+
+    with open(f'{name}.toml', 'a') as file:
+        file.write(r'root_finder = [[{"NEWTON"={max_iterations = 100, tolerance=1E-3}}]]')
+
+
+def generate_rustbca_input_hdf5(
+    Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, kTeV, N, N_, theta,
     thickness, depth, track_trajectories=True, track_recoils=True,
     track_recoil_trajectories=True, name='test_',
     track_displacements=True, track_energy_losses=True,
@@ -533,6 +627,7 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
     sinx = np.sin(theta*np.pi/180.)
     positions = [(-dx*np.sin(theta*np.pi/180.), 0., 0.) for _ in range(N)]
 
+    stdev = np.sqrt(kTeV)
     particle_parameters = {
         'length_unit': 'MICRON',
         'energy_unit': 'EV',
@@ -540,7 +635,7 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         'N': [N_ for _ in range(N)],
         'm': [Ma for _ in range(N)],
         'Z': [Za for _ in range(N)],
-        'E': [E0 for _ in range(N)],
+        'E': np.random.normal(0.0, stdev, N)**2*(Ma)/2.,
         'Ec': [Eca for _ in range(N)],
         'Es': [Esa for _ in range(N)],
         'interaction_index': np.zeros(N, dtype=int),
@@ -864,6 +959,7 @@ def plot_displacements(name, displacement_energy, N, num_bins=100):
     plt.xlabel('x [um]')
     plt.ylabel('y [um]')
     plt.title(f'Frenkel Pair Production {name}')
+
     plt.savefig(name+'displacements2D.png')
     plt.close()
 
@@ -893,6 +989,7 @@ def plot_energy_loss(name, N, num_bins=100):
     plt.ylabel('y [um]')
     plt.title(f'Nuclear Energy Loss {name}')
     plt.hist2d(x, y, weights=En/N, bins=num_bins, norm=colors.SymLogNorm(0.1))
+
     plt.savefig(name+'nuclear_energy_loss.png')
     plt.close()
 
@@ -901,6 +998,7 @@ def plot_energy_loss(name, N, num_bins=100):
     plt.ylabel('y [um]')
     plt.title(f'Electronic Energy Loss {name}')
     plt.hist2d(x, y, weights=Ee/N, bins=num_bins, norm=colors.SymLogNorm(0.1))
+
     plt.savefig(name+'electronic_energy_loss.png')
     plt.close()
 
@@ -940,25 +1038,25 @@ def all_depth_distributions(name, displacement_energy, N, num_bins=100):
 
 def main():
 
-    Zb = [5]
-    Mb = [10.811]
-    n = [1.309E29]
-    Esb = [5.76] #Surface binding energy
-    Ecb = [2.0] #Cutoff energy
-    Eb = [0.0] #Bulk binding energy
+    Zb = [74]
+    Mb = [183.84]
+    n = [6.306E28]
+    Esb = [11.75] #Surface binding energy
+    Ecb = [11.75] #Cutoff energy
+    Eb = [3.0] #Bulk binding energy
 
     Za = 1
     Ma = 1.008
-    Esa = 1.0
-    Eca = 1.0
-    E0 = 1000.
+    Esa = 3.0
+    Eca = 0.1
+    E0 = 20E6
     N = 1
-    N_ = 100000
-    theta = 60.
-    thickness = 1.0
-    depth = 10.0
+    N_ = 10000
+    theta = 0.01
+    thickness = 100000
+    depth = 10000
 
-    name = 'H_on_B_1keV'
+    name = 'H_on_W_20MeV'
 
     track_trajectories = False
     plot_trajectories = True
@@ -969,20 +1067,21 @@ def main():
     generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         theta, thickness, depth, name=name, track_trajectories=track_trajectories,
         track_recoil_trajectories=track_trajectories, track_energy_losses=track_energy_losses,
-        track_displacements=track_displacements)
+        track_displacements=track_displacements, track_recoils=True)
 
     if run_sim: os.system(f'cargo run --release {name}.toml')
 
-    all_depth_distributions(name, 20., N_*N, num_bins=50)
+    if track_energy_losses: plot_energy_loss(name, N*N_, num_bins=200)
+
+    all_depth_distributions(name, 38., N_*N, num_bins=200)
 
     if track_trajectories and plot_trajectories:
         do_trajectory_plot(name, thickness=thickness, depth=depth, num_trajectories=100, plot_final_positions=False)
 
     plot_distributions_rustbca(name, hydrogen, boron, incident_angle=theta, incident_energy=E0)
 
-    if track_energy_losses: plot_energy_loss(name, N*N_)
 
-    if track_displacements: plot_displacements(name, 20., N*N_)
+    if track_displacements: plot_displacements(name, 20., N*N_, num_bins=200)
 
 if __name__ == '__main__':
     main()
