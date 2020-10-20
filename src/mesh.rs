@@ -10,12 +10,14 @@ pub struct Mesh2DInput {
     pub boundary_points: Vec<(f64, f64)>,
     pub simulation_boundary_points: Vec<(f64, f64)>,
     pub densities: Vec<Vec<f64>>,
+    pub energy_barrier_thickness: f64,
 }
 
 pub struct Mesh2D {
     mesh: Vec<Cell2D>,
     pub boundary: Polygon<f64>,
-    pub simulation_boundary: Polygon<f64>
+    pub simulation_boundary: Polygon<f64>,
+    pub energy_barrier_thickness: f64
 }
 impl Mesh2D {
     pub fn new(mesh_2d_input: Mesh2DInput) -> Mesh2D {
@@ -72,10 +74,13 @@ impl Mesh2D {
         }
         let simulation_boundary: Polygon<f64> = Polygon::new(LineString::from(simulation_boundary_points_converted), vec![]);
 
+        let energy_barrier_thickness = mesh_2d_input.energy_barrier_thickness*length_unit;
+
         Mesh2D {
             mesh: cells,
             boundary: boundary,
-            simulation_boundary: simulation_boundary
+            simulation_boundary: simulation_boundary,
+            energy_barrier_thickness: energy_barrier_thickness,
         }
     }
 

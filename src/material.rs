@@ -15,7 +15,6 @@ pub struct MaterialParameters {
     pub m: Vec<f64>,
     pub interaction_index: Vec<usize>,
     pub electronic_stopping_correction_factor: f64,
-    pub energy_barrier_thickness: f64,
     pub surface_binding_model: SurfaceBindingModel
 }
 
@@ -28,7 +27,6 @@ pub struct Material {
     pub interaction_index: Vec<usize>,
     pub electronic_stopping_correction_factor: f64,
     pub mesh_2d: mesh::Mesh2D,
-    pub energy_barrier_thickness: f64,
     pub surface_binding_model: SurfaceBindingModel
 
 }
@@ -71,7 +69,6 @@ impl Material {
             interaction_index: material_parameters.interaction_index,
             electronic_stopping_correction_factor: material_parameters.electronic_stopping_correction_factor,
             mesh_2d: mesh::Mesh2D::new(mesh_2d_input),
-            energy_barrier_thickness: material_parameters.energy_barrier_thickness*length_unit,
             surface_binding_model: material_parameters.surface_binding_model,
         }
     }
@@ -133,7 +130,7 @@ impl Material {
         } else {
             let nearest_cell = self.mesh_2d.nearest_cell_to(x, y);
             let distance = nearest_cell.distance_to(x, y);
-            distance < self.energy_barrier_thickness
+            distance < self.mesh_2d.energy_barrier_thickness
         }
         //let p = point!(x: x, y: y);
         //return self.energy_surface.contains(&p);
