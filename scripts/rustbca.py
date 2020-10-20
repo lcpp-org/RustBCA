@@ -14,7 +14,6 @@ from enum import Enum
 from collections import namedtuple
 rcParams.update({'figure.autolayout': True})
 
-#from generate_ftridyn_input import *
 
 Q = 1.602E-19
 PI = 3.14159
@@ -478,7 +477,7 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
     track_displacements=True, track_energy_losses=True,
     electronic_stopping_mode=LOW_ENERGY_NONLOCAL,
     weak_collision_order=3, ck=1., mean_free_path_model=LIQUID,
-    interaction_potential=KR_C, high_energy=False, energy_barrier_thickness=(6.306E28)**(-1/3.),
+    interaction_potential=KR_C, high_energy=False, energy_barrier_thickness=(6.306E10)**(-1/3.),
     initial_particle_position = -1*ANGSTROM, integral="MENDENHALL_WELLER"):
 
     options = {
@@ -943,9 +942,133 @@ def all_depth_distributions(name, displacement_energy, N, num_bins=100):
     plt.savefig(name+'all_depth_distributions.png')
     plt.close()
 
-def main():
+def run_iead(ions, target, energies, angles, iead, name="default_", N=1):
+    import itertools
 
+    energy_angle_pairs = list(itertools.product(energies, angles))
 
+    E0 = np.array([pair[0] for pair in energy_angle_pairs])
+    theta = np.array([pair[1] for pair in energy_angle_pairs])
+
+    #skip last row of hPIC input because it's usually garbage
+    N_ = np.array([iead[i, j]*N for i in range(len(energies)) for j in range(len(angles))], dtype=int)
+
+    E0 = E0[N_>0]
+    theta = theta[N_>0]
+    N_ = N_[N_>0]
+
+    Zb = [target['Z']]
+    Mb = [target['m']]
+    n = [target['n']*(MICRON)**3]
+    Esb = [target['Es']] #Surface binding energy
+    Ecb = [target['Ec']] #Cutoff energy
+    Eb = [target['Eb']] #Bulk binding energy
+
+    Za = ions['Z']
+    Ma = ions['m']
+    Esa = ions['Es']
+    Eca = ions['Ec']
+
+    thickness = 100
+    depth = 100
+
+    print(f'Generating input file {name}.toml')
+
+    options = {
+        'name': name,
+        'track_trajectories': False,
+        'track_recoils': True,
+        'track_recoil_trajectories': False,
+        'stream_size': 8000,
+        'weak_collision_order': 3,
+        'suppress_deep_recoils': False,
+        'high_energy_free_flight_paths': False,
+        'num_threads': 8,
+        'num_chunks': 100,
+        'use_hdf5': False,
+        'electronic_stopping_mode': LOW_ENERGY_LOCAL,
+        'mean_free_path_model': LIQUID,
+        'interaction_potential': [["KR_C"]],
+        'scattering_integral': [["MENDENHALL_WELLER"]],
+        'track_displacements': True,
+        'track_energy_losses': False,
+    }
+
+    material_parameters = {
+        'energy_unit': 'EV',
+        'mass_unit': 'AMU',
+        'Eb': Eb,
+        'Es': Esb,
+        'Ec': Ecb,
+        'Z': Zb,
+        'm': Mb,
+        'interaction_index': np.zeros(len(n), dtype=int),
+        'electronic_stopping_correction_factor': 1.0,
+        'surface_binding_model': "AVERAGE"
+    }
+
+    dx = 5.*ANGSTROM/MICRON
+
+    minx, miny, maxx, maxy = 0.0, -thickness/2., depth, thickness/2.
+    surface = box(minx, miny, maxx, maxy)
+
+    simulation_surface = surface.buffer(10.*dx, cap_style=2, join_style=2)
+    mesh_2d_input = {
+        'length_unit': 'MICRON',
+        'energy_barrier_thickness': sum(n)**(-1./3.)/np.sqrt(2.*np.pi),
+        'coordinate_sets': [[0., depth, 0., thickness/2., -thickness/2., -thickness/2.], [0., depth, depth, thickness/2., thickness/2., -thickness/2.]],
+        'densities': [n, n],
+        'boundary_points': [[0., thickness/2.], [depth, thickness/2.], [depth, -thickness/2.], [0., -thickness/2.]],
+        'simulation_boundary_points':  list(simulation_surface.exterior.coords)
+    }
+
+    cosx = np.cos(theta*np.pi/180.)
+    sinx = np.sin(theta*np.pi/180.)
+    positions = [(-dx, 0., 0.) for _ in range(len(N_))]
+
+    particle_parameters = {
+        'length_unit': 'MICRON',
+        'energy_unit': 'EV',
+        'mass_unit': 'AMU',
+        'N': N_,
+        'm': [Ma for _ in range(len(N_))],
+        'Z': [Za for _ in range(len(N_))],
+        'E': E0,
+        'Ec': [Eca for _ in range(len(N_))],
+        'Es': [Esa for _ in range(len(N_))],
+        'interaction_index': np.zeros(len(N_), dtype=int),
+        'pos': positions,
+        'dir': [(cx, sx, 0.) for cx, sx in zip(cosx, sinx)],
+        'particle_input_filename': ''
+    }
+
+    input_file = {
+        'material_parameters': material_parameters,
+        'particle_parameters': particle_parameters,
+        'mesh_2d_input': mesh_2d_input,
+        'options': options,
+    }
+
+    with open(f'{name}.toml', 'w') as file:
+        toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
+    with open(f'{name}.toml', 'a') as file:
+        file.write(r'root_finder = [[{"NEWTON"={max_iterations = 100, tolerance=1E-3}}]]')
+    os.system(f'rustBCA.exe {name}.toml')
+
+    plot_distributions_rustbca(name, ions, target, incident_energy=np.max(energies))
+
+    s = np.atleast_2d(np.genfromtxt(f'{name}sputtered.output', delimiter=','))
+    r = np.atleast_2d(np.genfromtxt(f'{name}reflected.output', delimiter=','))
+    d = np.atleast_2d(np.genfromtxt(f'{name}deposited.output', delimiter=','))
+
+    if np.size(s) > 0:
+        Y = np.shape(s)[0]/np.sum(N_)
+    if np.size(r) > 0:
+        R = np.shape(r)[0]/np.sum(N_)
+
+    return Y, R
+
+def sputtering():
 
     Zb = [74]
     Mb = [183.84]
@@ -959,7 +1082,7 @@ def main():
     Esa = 0.0
     Eca = 1.0
     N = 1
-    N_ = 100000
+    N_ = 1000
 
     thickness = 100000
     depth = 1000000
@@ -978,9 +1101,6 @@ def main():
     energies = np.logspace(np.log(100)/np.log(10), np.log(2000)/np.log(10), 100)
     angle = 0.0001
     emode = LOW_ENERGY_NONLOCAL
-
-    #ftridyn = tridyn_interface('He', 'W')
-    #run_ftridyn = True
 
     for integral_index, integral in enumerate(integrals):
         s = []
@@ -1012,25 +1132,6 @@ def main():
             if track_displacements: plot_displacements(name+str(index)+'_'+str(integral_index), 20., N*N_, num_bins=200)
 
         plt.plot(energies, s)
-    
-    '''
-    sf = []
-    for index, energy in enumerate(energies):
-        if run_ftridyn:
-            _, _, _ = ftridyn.run_tridyn_simulations_from_iead([energy], [angle], [[N_]], number_histories=1, depth=depth)
-            os.system(f'cp HeW_SPLST.DAT HeW_sputtered_{str(index)}.DAT')
-        sarray = np.atleast_2d(np.genfromtxt(f'HeW_sputtered_{str(index)}.DAT'))
-
-        if np.size(sarray) > 0:
-            num_sputtered = np.shape(sarray)[0]
-        else:
-            num_sputtered = 0
-
-        ftridyn_yield = num_sputtered/N_
-        sf.append(ftridyn_yield)
-
-    plt.plot(energies, sf)
-    '''
 
     sy = []
     sb = []
@@ -1043,6 +1144,11 @@ def main():
     plt.legend(integrals+['Yamamura', 'Bohdansky'])
     plt.show()
 
+def main():
+    Te_eV = 10.
+    iead = np.genfromtxt('RIE_2w_IEAD_sp0.dat')
+    print(np.shape(iead))
+    run_iead(hydrogen, boron, np.linspace(0.01, 24.0*Te_eV, 240), np.linspace(0.01, 89.9, 90), iead, name='moutaz', N=10)
 
 if __name__ == '__main__':
     main()
