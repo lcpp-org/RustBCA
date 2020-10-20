@@ -339,11 +339,10 @@ fn main() {
     let particle_parameters = input.particle_parameters;
 
     //Check that all material arrays are of equal length.
-    assert!(material.n.len() == material.m.len(), "Input error: material input arrays of unequal length.");
-    assert!(material.n.len() == material.Z.len(), "Input error: material input arrays of unequal length.");
-    assert!(material.n.len() == material.Eb.len(), "Input error: material input arrays of unequal length.");
-    assert!(material.n.len() == material.Es.len(), "Input error: material input arrays of unequal length.");
-    assert!(material.n.len() == material.interaction_index.len(), "Input error: material input arrays of unequal length.");
+    assert!(material.m.len() == material.Z.len(), "Input error: material input arrays of unequal length.");
+    assert!(material.m.len() == material.Eb.len(), "Input error: material input arrays of unequal length.");
+    assert!(material.m.len() == material.Es.len(), "Input error: material input arrays of unequal length.");
+    assert!(material.m.len() == material.interaction_index.len(), "Input error: material input arrays of unequal length.");
 
     //Check that incompatible options are not on simultaneously
 

@@ -11,17 +11,14 @@ pub struct MaterialParameters {
     pub Eb: Vec<f64>,
     pub Es: Vec<f64>,
     pub Ec: Vec<f64>,
-    pub n: Vec<f64>,
     pub Z: Vec<f64>,
     pub m: Vec<f64>,
     pub interaction_index: Vec<usize>,
     pub electronic_stopping_correction_factor: f64,
-    pub energy_barrier_thickness: f64,
     pub surface_binding_model: SurfaceBindingModel
 }
 
 pub struct Material {
-    pub n: Vec<f64>,
     pub m: Vec<f64>,
     pub Z: Vec<f64>,
     pub Eb: Vec<f64>,
@@ -30,7 +27,6 @@ pub struct Material {
     pub interaction_index: Vec<usize>,
     pub electronic_stopping_correction_factor: f64,
     pub mesh_2d: mesh::Mesh2D,
-    pub energy_barrier_thickness: f64,
     pub surface_binding_model: SurfaceBindingModel
 
 }
@@ -65,7 +61,6 @@ impl Material {
         };
 
         Material {
-            n: material_parameters.n,
             m: material_parameters.m.iter().map(|&i| i*mass_unit).collect(),
             Z: material_parameters.Z,
             Eb: material_parameters.Eb.iter().map(|&i| i*energy_unit).collect(),
@@ -74,7 +69,6 @@ impl Material {
             interaction_index: material_parameters.interaction_index,
             electronic_stopping_correction_factor: material_parameters.electronic_stopping_correction_factor,
             mesh_2d: mesh::Mesh2D::new(mesh_2d_input),
-            energy_barrier_thickness: material_parameters.energy_barrier_thickness*length_unit,
             surface_binding_model: material_parameters.surface_binding_model,
         }
     }
@@ -136,7 +130,7 @@ impl Material {
         } else {
             let nearest_cell = self.mesh_2d.nearest_cell_to(x, y);
             let distance = nearest_cell.distance_to(x, y);
-            distance < self.energy_barrier_thickness
+            distance < self.mesh_2d.energy_barrier_thickness
         }
         //let p = point!(x: x, y: y);
         //return self.energy_surface.contains(&p);
@@ -236,11 +230,15 @@ impl Material {
         let Ma = particle_1.m;
         let Za = particle_1.Z;
 
-        let mut stopping_powers = Vec::with_capacity(self.n.len());
+        let mut stopping_powers = Vec::with_capacity(self.Z.len());
 
         //Bragg's rule: total stopping power is sum of stopping powers of individual atoms
         //Therefore, compute each stopping power separately, and add them up
-        for (n, Zb) in self.n.iter().zip(&self.Z) {
+
+        let x = particle_1.pos.x;
+        let y = particle_1.pos.y;
+
+        for (n, Zb) in self.number_densities(x, y).iter().zip(&self.Z) {
             //let n = self.number_density(particle_1.pos.x, particle_1.pos.y);
             //let Zb = self.Z_eff(particle_1.pos.x, particle_1.pos.y);
 
