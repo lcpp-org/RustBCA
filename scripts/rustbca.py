@@ -14,7 +14,7 @@ from enum import Enum
 from collections import namedtuple
 rcParams.update({'figure.autolayout': True})
 
-from generate_ftridyn_input import *
+#from generate_ftridyn_input import *
 
 Q = 1.602E-19
 PI = 3.14159
@@ -979,8 +979,8 @@ def main():
     angle = 0.0001
     emode = LOW_ENERGY_NONLOCAL
 
-    ftridyn = tridyn_interface('He', 'W')
-    run_ftridyn = True
+    #ftridyn = tridyn_interface('He', 'W')
+    #run_ftridyn = True
 
     for integral_index, integral in enumerate(integrals):
         s = []
@@ -1012,7 +1012,8 @@ def main():
             if track_displacements: plot_displacements(name+str(index)+'_'+str(integral_index), 20., N*N_, num_bins=200)
 
         plt.plot(energies, s)
-
+    
+    '''
     sf = []
     for index, energy in enumerate(energies):
         if run_ftridyn:
@@ -1029,6 +1030,7 @@ def main():
         sf.append(ftridyn_yield)
 
     plt.plot(energies, sf)
+    '''
 
     sy = []
     sb = []
@@ -1038,7 +1040,7 @@ def main():
 
     plt.plot(energies, sy)
     plt.plot(energies, sb)
-    plt.legend(integrals+['F-TRIDYN', 'Yamamura', 'Bohdansky'])
+    plt.legend(integrals+['Yamamura', 'Bohdansky'])
     plt.show()
 
 
