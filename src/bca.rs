@@ -359,7 +359,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     let p = binary_collision_geometry.impact_parameter;
 
     let interaction_potential = options.interaction_potential[particle_1.interaction_index][particle_2.interaction_index];
-    
+
     let root_finder = if relative_energy < interactions::energy_threshold_single_root(interaction_potential) {
             options.root_finder[particle_1.interaction_index][particle_2.interaction_index]
         } else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-6}};
@@ -367,21 +367,21 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
     match root_finder {
         Rootfinder::POLYNOMIAL{complex_threshold} => polynomial_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, complex_threshold)
-            .with_context(|| "Numerical error: polynomial rootfinder failed.")
+            .with_context(|| format!("Numerical error: CPR rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
-        Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const, derivative_free} =>
-            cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const, derivative_free)
-            .with_context(|| "Numerical error: CPR rootfinder failed.")
+        Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, derivative_free} =>
+            cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, derivative_free)
+            .with_context(|| format!("Numerical error: CPR rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
-            .with_context(|| "Numerical error: Newton-Raphson rootfinder failed.")
+            .with_context(|| format!("Numerical error: CPR rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
     }
 
     #[cfg(not(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl")))]
     match root_finder {
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
-            .with_context(|| "Numerical error: Newton-Raphson rootfinder failed.")
+            .with_context(|| format!("Numerical error: CPR rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
         _ => panic!("Input error: unimplemented root-finder. Choose NEWTON or build with cpr_rootfinder to enable CPR and POLYNOMIAL")
     }
@@ -493,7 +493,7 @@ fn scattering_integral_gauss_mehler(impact_parameter: f64, relative_energy: f64,
 
     PI - x.iter().zip(w)
         .map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential)
-        .with_context(|| format!("Numerical error: NaN in scatteirng integral at x = {}", x))
+        .with_context(|| format!("Numerical error: NaN in Gauss-Mehler scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy, impact_parameter))
         .unwrap()).sum::<f64>()
 }
 
@@ -503,7 +503,7 @@ fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f6
 
     PI - x.iter().zip(w)
         .map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential)
-        .with_context(|| format!("Numerical error: NaN in scatteirng integral at x = {}", x))
+        .with_context(|| format!("Numerical error: NaN in Gauss-Legendre scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy, impact_parameter))
         .unwrap()).sum::<f64>()
 }
 
@@ -532,7 +532,7 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
 pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     interaction_potential: InteractionPotential, n0: usize, nmax: usize, epsilon: f64,
     complex_threshold: f64, truncation_threshold: f64, far_from_zero: f64,
-    interval_limit: f64, upper_bound_const: f64, derivative_free: bool) -> Result <f64, anyhow::Error> {
+    interval_limit: f64, derivative_free: bool) -> Result <f64, anyhow::Error> {
 
     //Lindhard screening length and reduced energy
     let a = interactions::screening_length(Za, Zb, interaction_potential);
@@ -545,7 +545,8 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
         interactions::scaling_function(r, impact_parameter, interaction_potential)};
 
     //Using upper bound const, ~10, construct upper bound as a plateau near 0 and linear increase away from that
-    let upper_bound = f64::max(upper_bound_const*p, upper_bound_const*a);
+    //let upper_bound = f64::max(upper_bound_const*p, upper_bound_const*a);
+    let upper_bound = impact_parameter + interactions::crossing_point_doca(interaction_potential);
 
     let roots = match derivative_free {
         true => find_roots_with_secant_polishing(&g, &f, 0., upper_bound,
