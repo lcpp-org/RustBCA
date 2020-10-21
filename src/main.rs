@@ -185,7 +185,7 @@ impl PartialEq for ScatteringIntegral {
 pub enum Rootfinder {
     NEWTON{max_iterations: usize, tolerance: f64},
     CPR{n0: usize, nmax: usize, epsilon: f64, complex_threshold: f64, truncation_threshold: f64,
-        far_from_zero: f64, interval_limit: f64, upper_bound_const: f64, derivative_free: bool},
+        far_from_zero: f64, interval_limit: f64, derivative_free: bool},
     POLYNOMIAL{complex_threshold: f64},
 }
 
@@ -193,7 +193,7 @@ impl fmt::Display for Rootfinder {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Rootfinder::NEWTON{max_iterations, tolerance} => write!(f, "Newton-Raphson Rootfinder with maximum {} iterations and toleance = {}", max_iterations, tolerance),
-            Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, upper_bound_const, derivative_free} =>
+            Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, derivative_free} =>
                 write!(f, "Chebyshev-Proxy Rootfinder with {}-polishing", match derivative_free { true => "Secant", false => "Newton"}),
             Rootfinder::POLYNOMIAL{complex_threshold} => write!(f, "Frobenius Companion Matrix Polynomial Real Rootfinder with a complex tolerance of {}", complex_threshold),
         }

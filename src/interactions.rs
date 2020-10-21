@@ -1,5 +1,17 @@
 use super::*;
 
+pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
+
+    match interaction_potential {
+        InteractionPotential::LENNARD_JONES_12_6{sigma, ..} | InteractionPotential::LENNARD_JONES_65_6{sigma, ..} => sigma,
+        InteractionPotential::MORSE{D, alpha, r0} => (alpha*r0 - (2.0_f64).ln())/alpha,
+        InteractionPotential::WW => 50.*ANGSTROM,
+        _ => 10.*ANGSTROM,
+        //_ => panic!("Input error: potential never crosses zero for r > 0. Consider using the Newton rootfinder.")
+    }
+
+}
+
 pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
@@ -275,49 +287,71 @@ pub fn diff_doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma:
 }
 
 pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
+
     let x = r/ANGSTROM;
+    let x1 = 1.10002200044;
+    let x2 = 2.10004200084;
 
-    let a = vec![
-        0.960851701343041E2,
-        -0.184410923895214E3,
-        0.935784079613550E2,
-        -0.798358265041677E1,
-        0.747034092936229E1,
-        -0.152756043708453E1,
-        0.125205932634393E1,
-        0.163082162159425E1,
-        -0.141854775352260E1,
-        -0.819936046256149E0,
-        0.198013514305908E1,
-        -0.696430179520267E0,
-        0.304546909722160E-1,
-        -0.163131143161660E1,
-        0.138409896486177E1
-    ];
+    if x <= x1 {
 
-    let delta = vec![
-        2.564897500000000,
-        2.629795000000000,
-        2.694692500000000,
-        2.866317500000000,
-        2.973045000000000,
-        3.079772500000000,
-        3.516472500000000,
-        3.846445000000000,
-        4.176417500000000,
-        4.700845000000000,
-        4.895300000000000,
-        5.089755000000000,
-        5.342952500000000,
-        5.401695000000000,
-        5.460437500000000
-    ];
+        let a = screening_length(74., 74., InteractionPotential::ZBL);
+        screened_coulomb(r, a, 74., 74., InteractionPotential::ZBL)
 
-    a.iter().zip(delta).map(|(&a_i, delta_i)| EV*a_i*(delta_i - x).powf(3.)*heaviside(delta_i - x)).sum::<f64>()
+    } else if x <= x2 {
+
+        let a = vec![
+            1.389653276380862E4,
+            -3.596912431628216E4,
+            3.739206756369099E4,
+            -1.933748081656593E4,
+            0.495516793802426E4,
+            -0.050264585985867E4
+        ];
+
+        (a[0] + a[1]*x + a[2]*x.powf(2.) + a[3]*x.powf(3.) + a[4]*x.powf(4.) + a[5]*x.powf(5.))*EV
+
+    } else {
+
+        let a = vec![
+            -0.1036435865158945,
+            -0.2912948318493851,
+            -2.096765499656263,
+            19.16045452701010,
+            -41.01619862085917,
+            46.05205617244703,
+            26.42203930654883,
+            15.35211507804088,
+            14.12806259323987,
+        ];
+
+        let delta = vec![
+            4.268900000000000,
+            3.985680000000000,
+            3.702460000000000,
+            3.419240000000000,
+            3.136020000000000,
+            2.852800000000000,
+            2.741100000000000,
+            2.604045000000000,
+            2.466990000000000,
+        ];
+
+        a.iter().zip(delta).map(|(&a_i, delta_i)| EV*a_i*(delta_i - x).powf(3.)*heaviside(delta_i - x)).sum::<f64>()
+    }
 }
 
 pub fn doca_tungsten_tungsten_cubic_spline(r: f64, p: f64, relative_energy: f64) -> f64 {
-    (r/ANGSTROM).powf(2.) - (r/ANGSTROM).powf(2.)*tungsten_tungsten_cubic_spline(r)/relative_energy - p.powf(2.)/ANGSTROM.powf(2.)
+
+    let x = r/ANGSTROM;
+    let x1 = 1.10002200044;
+    let x2 = 2.10004200084;
+
+    if x <= x1 {
+        let a = screening_length(74., 74., InteractionPotential::ZBL);
+        distance_of_closest_approach_function_singularity_free(r, a, 74., 74., relative_energy, p, InteractionPotential::ZBL)
+    } else {
+        (r/ANGSTROM).powf(2.) - (r/ANGSTROM).powf(2.)*tungsten_tungsten_cubic_spline(r)/relative_energy - p.powf(2.)/ANGSTROM.powf(2.)
+    }
 }
 
 fn heaviside(x: f64) -> f64 {

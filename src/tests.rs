@@ -421,7 +421,7 @@ fn test_quadrature() {
 
     //If cpr_rootfinder is enabled, compare Newton to CPR - they should be nearly identical
     #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
-    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 2, 1000, 1E-13, 1E-16, 1E-18, 1E6, 1E-18, 10., false) {
+    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 2, 1000, 1E-13, 1E-16, 1E-18, 1E6, 1E-18, false) {
         println!("CPR: {} Newton: {}", x0_cpr, x0_newton);
         assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-3));
     };
