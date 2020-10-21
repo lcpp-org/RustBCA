@@ -185,7 +185,7 @@ impl PartialEq for ScatteringIntegral {
 pub enum Rootfinder {
     NEWTON{max_iterations: usize, tolerance: f64},
     CPR{n0: usize, nmax: usize, epsilon: f64, complex_threshold: f64, truncation_threshold: f64,
-        far_from_zero: f64, interval_limit: f64, upper_bound_const: f64, derivative_free: bool},
+        far_from_zero: f64, interval_limit: f64, derivative_free: bool},
     POLYNOMIAL{complex_threshold: f64},
 }
 
