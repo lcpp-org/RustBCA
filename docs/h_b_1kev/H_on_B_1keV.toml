@@ -27,7 +27,7 @@ particle_input_filename = ""
 
 [mesh_2d_input]
 length_unit = "MICRON"
-energy_barrier_thickness = 2.2E-4
+energy_barrier_thickness = 2.0E-4
 coordinate_sets = [ [ 0.0, 10.0, 0.0, 0.5, -0.5, -0.5,], [ 0.0, 10.0, 10.0, 0.5, 0.5, -0.5,],]
 densities = [ [ 1.309e+11,], [ 1.309e+11,],]
 boundary_points = [ [ 0.0, 0.5,], [ 10.0, 0.5,], [ 10.0, -0.5,], [ 0.0, -0.5,],]
