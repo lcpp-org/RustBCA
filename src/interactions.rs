@@ -28,6 +28,9 @@ pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_poten
         InteractionPotential::WW => {
             tungsten_tungsten_cubic_spline(r)
         }
+        InteractionPotential::COULOMB{Za, Zb} => {
+            coulomb(r, Za, Zb)
+        }
     }
 }
 
@@ -36,6 +39,7 @@ pub fn energy_threshold_single_root(interaction_potential: InteractionPotential)
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => f64::INFINITY,
         InteractionPotential::MORSE{..} => f64::INFINITY,
         InteractionPotential::WW => f64::INFINITY,
+        InteractionPotential::COULOMB{..} => f64::INFINITY,
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => 0.,
     }
 }
@@ -80,7 +84,8 @@ pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, r
         },
         InteractionPotential::WW => {
             doca_tungsten_tungsten_cubic_spline(r, impact_parameter, relative_energy)
-        }
+        },
+        InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
     }
 }
 
@@ -106,7 +111,8 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
         },
         InteractionPotential::WW => {
             doca_tungsten_tungsten_cubic_spline(r, impact_parameter, relative_energy)
-        }
+        },
+        InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
     }
 }
 
@@ -128,7 +134,8 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
         }
         InteractionPotential::WW => {
             1.
-        }
+        },
+        InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
     }
 }
 
@@ -180,6 +187,10 @@ pub fn screened_coulomb(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential:
     Za*Zb*Q*Q/4./PI/EPS0/r*phi(r/a, interaction_potential)
 }
 
+pub fn coulomb(r: f64, Za: f64, Zb: f64) -> f64 {
+    return Za*Zb*Q*Q/4./PI/EPS0/r;
+}
+
 pub fn phi(xi: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE => moliere(xi),
@@ -210,6 +221,7 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN | InteractionPotential::WW => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
         InteractionPotential::MORSE{D, alpha, r0} => alpha,
+        InteractionPotential::COULOMB{Za: Z1, Zb: Z2} => 0.88534*A0/(Z1.powf(0.23) + Z2.powf(0.23)),
     }
 }
 
@@ -392,5 +404,6 @@ pub fn first_screening_radius(interaction_potential: InteractionPotential) -> f6
         InteractionPotential::LENNARD_JONES_65_6{..} => 1.,
         InteractionPotential::MORSE{..} => 1.,
         InteractionPotential::WW => 1.,
+        InteractionPotential::COULOMB{..} => 0.3,
     }
 }

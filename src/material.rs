@@ -3,6 +3,7 @@ use geo::algorithm::contains::Contains;
 use geo::algorithm::closest_point::ClosestPoint;
 use geo::{point, Closest};
 
+
 #[derive(Deserialize)]
 pub struct MaterialParameters {
     pub energy_unit: String,
@@ -10,16 +11,14 @@ pub struct MaterialParameters {
     pub Eb: Vec<f64>,
     pub Es: Vec<f64>,
     pub Ec: Vec<f64>,
-    pub n: Vec<f64>,
     pub Z: Vec<f64>,
     pub m: Vec<f64>,
     pub interaction_index: Vec<usize>,
     pub electronic_stopping_correction_factor: f64,
-    pub energy_barrier_thickness: f64
+    pub surface_binding_model: SurfaceBindingModel
 }
 
 pub struct Material {
-    pub n: Vec<f64>,
     pub m: Vec<f64>,
     pub Z: Vec<f64>,
     pub Eb: Vec<f64>,
@@ -28,7 +27,7 @@ pub struct Material {
     pub interaction_index: Vec<usize>,
     pub electronic_stopping_correction_factor: f64,
     pub mesh_2d: mesh::Mesh2D,
-    pub energy_barrier_thickness: f64
+    pub surface_binding_model: SurfaceBindingModel
 
 }
 impl Material {
@@ -62,7 +61,6 @@ impl Material {
         };
 
         Material {
-            n: material_parameters.n,
             m: material_parameters.m.iter().map(|&i| i*mass_unit).collect(),
             Z: material_parameters.Z,
             Eb: material_parameters.Eb.iter().map(|&i| i*energy_unit).collect(),
@@ -71,7 +69,7 @@ impl Material {
             interaction_index: material_parameters.interaction_index,
             electronic_stopping_correction_factor: material_parameters.electronic_stopping_correction_factor,
             mesh_2d: mesh::Mesh2D::new(mesh_2d_input),
-            energy_barrier_thickness: material_parameters.energy_barrier_thickness*length_unit
+            surface_binding_model: material_parameters.surface_binding_model,
         }
     }
 
@@ -132,7 +130,7 @@ impl Material {
         } else {
             let nearest_cell = self.mesh_2d.nearest_cell_to(x, y);
             let distance = nearest_cell.distance_to(x, y);
-            distance < self.energy_barrier_thickness
+            distance < self.mesh_2d.energy_barrier_thickness
         }
         //let p = point!(x: x, y: y);
         //return self.energy_surface.contains(&p);
@@ -179,9 +177,29 @@ impl Material {
         //return self.Eb.iter().sum::<f64>()/self.Eb.len() as f64;
     }
 
-    pub fn actual_surface_binding_energy(&self, x: f64, y: f64) -> f64 {
+    pub fn actual_surface_binding_energy(&self, particle: &particle::Particle, x: f64, y: f64) -> f64 {
         let concentrations = self.mesh_2d.get_concentrations(x, y);
-        return self.Es.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum();
+
+        match self.surface_binding_model {
+            SurfaceBindingModel::INDIVIDUAL => particle.Es,
+
+            SurfaceBindingModel::TARGET => {
+                if particle.Es == 0. {
+                    0.
+                } else {
+                    self.Es.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum()
+                }
+            },
+
+            SurfaceBindingModel::AVERAGE => {
+                if (particle.Es == 0.) | (self.Es.iter().sum::<f64>() == 0.) {
+                    0.
+                } else {
+                    0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>())
+                }
+            },
+
+        }
     }
 
     pub fn minimum_cutoff_energy(&self) -> f64 {
@@ -212,11 +230,15 @@ impl Material {
         let Ma = particle_1.m;
         let Za = particle_1.Z;
 
-        let mut stopping_powers = Vec::with_capacity(self.n.len());
+        let mut stopping_powers = Vec::with_capacity(self.Z.len());
 
         //Bragg's rule: total stopping power is sum of stopping powers of individual atoms
         //Therefore, compute each stopping power separately, and add them up
-        for (n, Zb) in self.n.iter().zip(&self.Z) {
+
+        let x = particle_1.pos.x;
+        let y = particle_1.pos.y;
+
+        for (n, Zb) in self.number_densities(x, y).iter().zip(&self.Z) {
             //let n = self.number_density(particle_1.pos.x, particle_1.pos.y);
             //let Zb = self.Z_eff(particle_1.pos.x, particle_1.pos.y);
 
@@ -271,7 +293,7 @@ pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &ma
     let E = particle_1.E;
 
     //Actual surface binding energies
-    let Es = if particle_1.incident {particle_1.Es} else {material.actual_surface_binding_energy(x_old, y_old)};
+    let Es = material.actual_surface_binding_energy(particle_1, x_old, y_old);
     let Ec = particle_1.Ec;
 
     let inside_now = material.inside_energy_barrier(x, y);

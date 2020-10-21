@@ -54,6 +54,7 @@ pub struct Particle {
     pub incident: bool,
     pub first_step: bool,
     pub trajectory: Vec<Vector4>,
+    pub energies: Vec<EnergyLoss>,
     pub track_trajectories: bool,
     pub number_collision_events: usize,
     pub backreflected: bool,
@@ -85,6 +86,7 @@ impl Particle {
             incident: true,
             first_step: true,
             trajectory: vec![Vector4::new(input.E, input.x, input.y, input.z)],
+            energies: vec![],
             track_trajectories: options.track_trajectories,
             number_collision_events: 0,
             backreflected: false,
@@ -113,6 +115,7 @@ impl Particle {
             incident,
             first_step: incident,
             trajectory: vec![Vector4::new(E, x, y, z)],
+            energies: vec![EnergyLoss::new(0., 0., x, y, z)],
             track_trajectories,
             number_collision_events: 0,
             backreflected: false,
@@ -122,6 +125,12 @@ impl Particle {
     pub fn add_trajectory(&mut self) {
         if self.track_trajectories {
             self.trajectory.push(Vector4 {E: self.E, x: self.pos.x, y: self.pos.y, z: self.pos.z});
+        }
+    }
+
+    pub fn energy_loss(&mut self, options: &Options, En: f64, Ee: f64) {
+        if self.incident & options.track_energy_losses {
+            self.energies.push(EnergyLoss {Ee, En, x: self.pos.x, y: self.pos.y, z: self.pos.z});
         }
     }
 

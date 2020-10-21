@@ -1,0 +1,54 @@
+[material_parameters]
+energy_unit = "EV"
+mass_unit = "AMU"
+Eb = [ 0.0,]
+Es = [ 5.76,]
+Ec = [ 2.0,]
+Z = [ 5,]
+m = [ 10.811,]
+interaction_index = [ 0,]
+electronic_stopping_correction_factor = 1.0
+surface_binding_model = "AVERAGE"
+
+[particle_parameters]
+length_unit = "MICRON"
+energy_unit = "EV"
+mass_unit = "AMU"
+N = [ 100000,]
+m = [ 1.008,]
+Z = [ 1,]
+E = [ 1000.0,]
+Ec = [ 1.0,]
+Es = [ 1.0,]
+interaction_index = [ 0,]
+pos = [ [ -0.0004330127018922193, 0.0, 0.0,],]
+dir = [ [ 0.5000000000000001, 0.8660254037844386, 0.0,],]
+particle_input_filename = ""
+
+[mesh_2d_input]
+length_unit = "MICRON"
+energy_barrier_thickness = 2.0E-4
+coordinate_sets = [ [ 0.0, 10.0, 0.0, 0.5, -0.5, -0.5,], [ 0.0, 10.0, 10.0, 0.5, 0.5, -0.5,],]
+densities = [ [ 1.309e+11,], [ 1.309e+11,],]
+boundary_points = [ [ 0.0, 0.5,], [ 10.0, 0.5,], [ 10.0, -0.5,], [ 0.0, -0.5,],]
+simulation_boundary_points = [ [ 10.005, -0.505,], [ -0.005, -0.505,], [ -0.005, 0.505,], [ 10.005, 0.505,], [ 10.005, -0.505,],]
+
+[options]
+name = "H_on_B_1keV"
+track_trajectories = false
+track_recoils = true
+track_recoil_trajectories = false
+stream_size = 8000
+weak_collision_order = 0
+suppress_deep_recoils = false
+high_energy_free_flight_paths = true
+num_threads = 8
+num_chunks = 10
+use_hdf5 = false
+electronic_stopping_mode = "INTERPOLATED"
+mean_free_path_model = "LIQUID"
+interaction_potential = [ [ "KR_C",],]
+scattering_integral = [ [ "MENDENHALL_WELLER",],]
+track_displacements = true
+track_energy_losses = true
+root_finder = [[{"NEWTON"={max_iterations = 100, tolerance=1E-3}}]]

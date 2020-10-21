@@ -229,8 +229,8 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
 
         //If losing too much energy, scale free-flight-path down
         //5 percent limit set in original TRIM paper, Biersack and Haggmark 1980
-        if delta_energy_electronic > 0.05*E {
-            ffp *= 0.05*E/delta_energy_electronic;
+        if delta_energy_electronic > 0.01*E {
+            ffp *= 0.01*E/delta_energy_electronic;
             pmax = (1./(material.total_number_density(x, y)*PI*ffp)).sqrt()
         }
 
@@ -360,6 +360,11 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
 
     let interaction_potential = options.interaction_potential[particle_1.interaction_index][particle_2.interaction_index];
 
+    if let InteractionPotential::COULOMB{Za: Z1, Zb: Z2} = interaction_potential {
+        let doca = Z1*Z2*Q*Q/relative_energy/PI/EPS0/8. + (64.*(relative_energy*PI*p*EPS0).powf(2.) + (Z1*Z2*Q*Q).powf(2.)).sqrt()/relative_energy/PI/EPS0/8.;
+        return doca/interactions::screening_length(Z1, Z2, interaction_potential);
+    }
+  
     let root_finder = if relative_energy < interactions::energy_threshold_single_root(interaction_potential) {
             options.root_finder[particle_1.interaction_index][particle_2.interaction_index]
         } else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-6}};
@@ -392,13 +397,16 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
 
     //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
     particle_1.E -= recoil_energy;
+    assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following collision.");
     if particle_1.E < 0. {
         particle_1.E = 0.;
     }
 
+
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let ck = material.electronic_stopping_correction_factor;
+
     if material.inside(x, y) {
 
         let interaction_potential = options.interaction_potential[particle_1.interaction_index][material.interaction_index[strong_collision_index]];
@@ -418,11 +426,17 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
             },
         };
 
+
         particle_1.E += -delta_energy;
         //Make sure particle energy doesn't become negative again
+        assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following electronic stopping.");
         if particle_1.E < 0. {
             particle_1.E = 0.;
         }
+
+        particle_1.energy_loss(&options, recoil_energy, delta_energy);
+    } else if recoil_energy > 0. {
+        particle_1.energy_loss(&options, recoil_energy, 0.);
     }
 }
 
@@ -452,7 +466,10 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     }
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
-    let asympototic_deflection = x0*a*(theta/2.).sin();
+    let asympototic_deflection = match interaction_potential {
+        InteractionPotential::COULOMB{..} => 0.,
+        _ => x0*a*(theta/2.).sin()
+    };
     let psi = (theta.sin().atan2(Ma/Mb + theta.cos())).abs();
     let psi_recoil = (theta.sin().atan2(1. - theta.cos())).abs();
     let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*(theta/2.).sin().powf(2.);
@@ -469,7 +486,7 @@ fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energ
     let result = 4.*impact_parameter*u/(r0*(1. - interaction_potential(r0/(1. - u*u))/relative_energy - impact_parameter*impact_parameter*(1. - u*u).powf(2.)/r0/r0).sqrt());
 
     if result.is_nan() {
-        Err(anyhow!("Numerical error: Gauss-Mehler scattering integrand complex. Likely incorrect distance of closest approach Er = {}, r0 = {} A, p = {} A - check root-finder.",
+        Err(anyhow!("Numerical error: Gauss-Legendre scattering integrand complex. Likely incorrect distance of closest approach Er = {}, r0 = {} A, p = {} A - check root-finder.",
             relative_energy/EV, r0/ANGSTROM, impact_parameter/ANGSTROM))
     } else {
         Ok(result)
