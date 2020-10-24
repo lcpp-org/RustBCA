@@ -70,7 +70,7 @@ deuterium = {
     'name': 'deuterium',
     'Z': 1,
     'm': 2,
-    'Ec': 0.95,
+    'Ec': 0.1,
     'Es': 1.5,
 }
 
@@ -209,7 +209,7 @@ tungsten = {
     'm': 183.84,
     'n': 6.306E28,
     'Es': 8.79,
-    'Eb': 0.,
+    'Eb': 3.,
     'Ec': 6.,
     'Q': 0.72,
     'W': 2.14,
@@ -476,9 +476,11 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
     track_recoil_trajectories=True, name='test_',
     track_displacements=True, track_energy_losses=True,
     electronic_stopping_mode=LOW_ENERGY_NONLOCAL,
-    weak_collision_order=3, ck=1., mean_free_path_model=LIQUID,
-    interaction_potential=KR_C, high_energy=False, energy_barrier_thickness=(6.306E10)**(-1/3.),
-    initial_particle_position = -1*ANGSTROM, integral="MENDENHALL_WELLER"):
+    weak_collision_order=0, ck=1., mean_free_path_model=LIQUID,
+    interaction_potential='"KR_C"', high_energy=False, energy_barrier_thickness=(6.306E10)**(-1/3.),
+    initial_particle_position = -1*ANGSTROM/MICRON, integral='"MENDENHALL_WELLER"',
+    root_finder = '{"NEWTON"={max_iterations=100, tolerance=1e-3}}',
+    delta_x_angstrom=5.):
 
     options = {
         'name': name,
@@ -486,7 +488,7 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         'track_recoils': track_recoils,
         'track_recoil_trajectories': track_recoil_trajectories,
         'stream_size': 8000,
-        'weak_collision_order': 3,
+        'weak_collision_order': weak_collision_order,
         'suppress_deep_recoils': False,
         'high_energy_free_flight_paths': high_energy,
         'num_threads': 4,
@@ -494,13 +496,9 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         'use_hdf5': False,
         'electronic_stopping_mode': electronic_stopping_mode,
         'mean_free_path_model': LIQUID,
-        'interaction_potential': [[interaction_potential]],
-        'scattering_integral': [[integral]],
         'track_displacements': track_displacements,
         'track_energy_losses': track_energy_losses,
     }
-
-    dx = 100.*ANGSTROM/MICRON
 
     material_parameters = {
         'energy_unit': 'EV',
@@ -515,12 +513,12 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         'surface_binding_model': "AVERAGE"
     }
 
-    dx = 5.*ANGSTROM/MICRON
+    dx = delta_x_angstrom*ANGSTROM/MICRON
 
     minx, miny, maxx, maxy = 0.0, -thickness/2., depth, thickness/2.
     surface = box(minx, miny, maxx, maxy)
 
-    simulation_surface = surface.buffer(10.*dx, cap_style=2, join_style=2)
+    simulation_surface = surface.buffer(dx, cap_style=2, join_style=2)
     mesh_2d_input = {
         'length_unit': 'MICRON',
         'coordinate_sets': [[0., depth, 0., thickness/2., -thickness/2., -thickness/2.], [0., depth, depth, thickness/2., thickness/2., -thickness/2.]],
@@ -561,15 +559,15 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
 
     with open(f'{name}.toml', 'a') as file:
-        file.write(r'root_finder = [[{"NEWTON"={max_iterations = 100, tolerance=1E-3}}]]')
+        file.write(f'root_finder = [[{root_finder}]]\n')
+        file.write(f'interaction_potential = [[{interaction_potential}]]\n')
+        file.write(f'scattering_integral =  [[{integral}]]\n')
 
-def plot_distributions_rustbca(name, beam, target, file_num=1, max_collision_contours=4,
+def plot_distributions_rustbca(name, beam, target, max_collision_contours=4,
     plot_2d_reflected_contours=False, collision_contour_significance_threshold=0.1, slice_angle=45,
     incident_energy=1., incident_angle=0., plot_garrison_contours=False,
     plot_reflected_energies_by_number_collisions=False,
     plot_scattering_energy_curve=False):
-
-    file_num = str(file_num)
     num_bins = 120
 
     r = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
@@ -770,7 +768,7 @@ def plot_distributions_rustbca(name, beam, target, file_num=1, max_collision_con
         plt.figure(num='so')
         depth_origin = s[:, 10]
         plt.hist(depth_origin, bins=num_bins, histtype='step', color='black')
-        plt.title('Depth of origin of sputtered particles')
+        plt.title('Depth of Origin of Sputtered Particles')
         plt.xlabel('x [um]')
         plt.ylabel('f(x)')
         plt.savefig(name+'spt_o.png')
@@ -784,6 +782,11 @@ def plot_distributions_rustbca(name, beam, target, file_num=1, max_collision_con
     bins = np.linspace(0, np.pi, num_bins)
 
     if np.size(s) > 0:
+        hist, bins = np.histogram(np.arccos(s[:,6]), bins=bins, density=True)
+        rust1 = plt.polar(bins[:-1], hist/np.max(hist))
+        plots.append(rust1[0])
+        labels.append('rustbca cosx')
+        ax = plt.gca()
 
         hist, bins = np.histogram(np.arccos(s[:,7]), bins=bins, density=True)
         rust2 = plt.polar(bins[:-1], hist/np.max(hist))
@@ -908,7 +911,7 @@ def plot_energy_loss(name, N, num_bins=100):
     plt.savefig(name+'electronic_energy_loss.png')
     plt.close()
 
-def all_depth_distributions(name, displacement_energy, N, num_bins=100):
+def plot_all_depth_distributions(name, displacement_energy, N, num_bins=100):
 
     energy_loss = np.genfromtxt(f'{name}energy_loss.output', delimiter=',')
     M = energy_loss[:,0]
@@ -939,7 +942,7 @@ def all_depth_distributions(name, displacement_energy, N, num_bins=100):
     plt.xlabel('x [um]')
     plt.ylabel('f(x)')
     plt.title(f'Depth Distributions {name}')
-    plt.savefig(name+'all_depth_distributions.png')
+    plt.savefig(name+'plot_all_depth_distributions.png')
     plt.close()
 
 def run_iead(ions, target, energies, angles, iead, name="default_", N=1):
@@ -1068,26 +1071,91 @@ def run_iead(ions, target, energies, angles, iead, name="default_", N=1):
 
     return Y, R
 
-def sputtering():
+def beam_target(ions, target, energy, angle, N_=10000, run_sim=True,
+    high_energy=False, integral='"MENDENHALL_WELLER"',
+    interaction_potential='"KR_C"',
+    root_finder='{"NEWTON"={max_iterations=100, tolerance=1e-3}}', tag="",
+    track_trajectories = False,
+    plot_trajectories = False,
+    plot_distributions = True,
+    track_energy_losses = False,
+    track_displacements = False,
+    plot_depth_distributions = False,
+    track_recoils = True,
+    do_plots = True,
+    thickness=100,
+    depth=100, delta_x_angstrom=5.):
 
-    Zb = [74]
-    Mb = [183.84]
-    n = [6.306E28]
-    Esb = [11.75] #Surface binding energy
-    Ecb = [11.75] #Cutoff energy
-    Eb = [3.0] #Bulk binding energy
+    Zb = [target['Z']]
+    Mb = [target['m']]
+    n = [target['n']]
+    Esb = [target['Es']] #Surface binding energy
+    Ecb = [target['Ec']] #Cutoff energy
+    Eb = [target['Eb']] #Bulk binding energy
 
-    Za = 2
-    Ma = 4
-    Esa = 0.0
-    Eca = 1.0
+    Za = ions['Z']
+    Ma = ions['m']
+    Esa = ions['Es']
+    Eca = ions['Ec']
+
     N = 1
-    N_ = 1000
 
-    thickness = 100000
-    depth = 1000000
+    name = ions['name']+'_'+target['name']+'_'
+    if tag != '':
+        name += tag+'_'
 
-    name = 'He_on_W_'
+    generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_,
+        angle, thickness, depth, name=name, track_trajectories=track_trajectories,
+        track_recoil_trajectories=track_trajectories, track_energy_losses=track_energy_losses,
+        track_displacements=track_displacements, track_recoils=track_recoils,
+        electronic_stopping_mode="INTERPOLATED", high_energy=high_energy,
+        interaction_potential=interaction_potential, integral=integral,
+        root_finder=root_finder, delta_x_angstrom=delta_x_angstrom)
+
+    if run_sim: os.system(f'rustBCA.exe {name}.toml')
+
+    if do_plots:
+        if track_energy_losses: plot_energy_loss(name, N*N_, num_bins=200)
+
+        if plot_depth_distributions and track_displacements and track_recoils: plot_all_depth_distributions(name, 38., N_*N, num_bins=200)
+
+        if plot_distributions: plot_distributions_rustbca(name, ions, target, incident_angle=angle, incident_energy=energy)
+
+        if track_displacements and track_recoils: plot_displacements(name, 20., N*N_, num_bins=200)
+
+        if track_trajectories and plot_trajectories:
+            do_trajectory_plot(name, thickness=thickness, depth=depth, plot_final_positions=False)
+
+    if track_recoils:
+        s = np.atleast_2d(np.genfromtxt(f'{name}sputtered.output', delimiter=','))
+    else:
+        s = np.array([[]])
+
+    r = np.atleast_2d(np.genfromtxt(f'{name}reflected.output', delimiter=','))
+    d = np.atleast_2d(np.genfromtxt(f'{name}deposited.output', delimiter=','))
+
+    return s, r, d
+
+def sputtering(ions, target, energies, angle, N_=10000, run_sim=True):
+
+    Zb = [target['Z']]
+    Mb = [target['m']]
+    n = [target['n']]
+    Esb = [target['Es']] #Surface binding energy
+    Ecb = [target['Ec']] #Cutoff energy
+    Eb = [target['Eb']] #Bulk binding energy
+
+    Za = ions['Z']
+    Ma = ions['m']
+    Esa = ions['Es']
+    Eca = ions['Ec']
+
+    N = 1
+
+    thickness = 1000
+    depth = 1000
+
+    name = ions['name']+'_'+target['name']+'_'
 
     track_trajectories = False
     plot_trajectories = False
@@ -1095,60 +1163,154 @@ def sputtering():
     track_energy_losses = False
     track_displacements = False
     plot_depth_distributions = False
-    run_sim = True
 
-    integrals = ["MENDENHALL_WELLER", "MAGIC", "GAUSS_LEGENDRE"]
-    energies = np.logspace(np.log(100)/np.log(10), np.log(2000)/np.log(10), 100)
-    angle = 0.0001
-    emode = LOW_ENERGY_NONLOCAL
+    integral = "MENDENHALL_WELLER"
+    options = ["LOW_ENERGY_LOCAL", "LOW_ENERGY_NONLOCAL", "LOW_ENERGY_EQUIPARTITION", "INTERPOLATED"]
 
-    for integral_index, integral in enumerate(integrals):
+
+    for option_index, option in enumerate(options):
         s = []
         for index, energy in enumerate(energies):
 
             generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, energy, N, N_,
-                angle, thickness, depth, name=name+str(index)+'_'+str(integral_index), track_trajectories=track_trajectories,
+                angle, thickness, depth, name=name+str(index)+'_'+str(option_index), track_trajectories=track_trajectories,
                 track_recoil_trajectories=track_trajectories, track_energy_losses=track_energy_losses,
                 track_displacements=track_displacements, track_recoils=True,
-                electronic_stopping_mode=emode, integral=integral)
+                electronic_stopping_mode=option, integral=integral)
 
-            if run_sim: os.system(f'rustBCA.exe {name+str(index)+"_"+str(integral_index)}.toml')
-            sputtered = np.atleast_2d(np.genfromtxt(name+str(index)+'_'+str(integral_index)+'sputtered.output', delimiter=','))
+            if run_sim: os.system(f'rustBCA.exe {name+str(index)+"_"+str(option_index)}.toml')
+            sputtered = np.atleast_2d(np.genfromtxt(name+str(index)+'_'+str(option_index)+'sputtered.output', delimiter=','))
 
             if np.size(sputtered) > 0:
                 s.append(np.shape(sputtered)[0]/(N_*N))
             else:
                 s.append(0.0)
 
-            if track_energy_losses: plot_energy_loss(name+str(index)+'_'+str(integral_index), N*N_, num_bins=200)
+            if track_energy_losses: plot_energy_loss(name+str(index)+'_'+str(option_index), N*N_, num_bins=200)
 
-            if plot_depth_distributions: all_depth_distributions(name+'_'+str(index)+str(integral_index), 38., N_*N, num_bins=200)
+            if plot_depth_distributions: plot_all_depth_distributions(name+'_'+str(index)+str(option_index), 38., N_*N, num_bins=200)
 
             if track_trajectories and plot_trajectories:
                 do_trajectory_plot(name, thickness=thickness, depth=depth, num_trajectories=100, plot_final_positions=False)
 
-            if plot_distributions: plot_distributions_rustbca(name+str(index)+'_'+str(integral_index), hydrogen, boron, incident_angle=angle, incident_energy=energy)
+            if plot_distributions: plot_distributions_rustbca(name+str(index)+'_'+str(option_index), hydrogen, boron, incident_angle=angle, incident_energy=energy)
 
-            if track_displacements: plot_displacements(name+str(index)+'_'+str(integral_index), 20., N*N_, num_bins=200)
+            if track_displacements: plot_displacements(name+str(index)+'_'+str(option_index), 20., N*N_, num_bins=200)
 
-        plt.plot(energies, s)
+        plt.loglog(energies, s)
 
     sy = []
     sb = []
     for energy in energies:
-        sy.append(yamamura(helium, tungsten, energy))
-        sb.append(bohdansky_light_ion(helium, tungsten, energy))
+        sy.append(yamamura(ions, target, energy))
+        sb.append(bohdansky_light_ion(ions, target, energy))
 
-    plt.plot(energies, sy)
-    plt.plot(energies, sb)
-    plt.legend(integrals+['Yamamura', 'Bohdansky'])
+    plt.loglog(energies, sy)
+    plt.loglog(energies, sb)
+    plt.legend(options+['Yamamura', 'Bohdansky'])
     plt.show()
 
+def different_depths():
+    EV = 1.602E-19
+    alpha = 2.366/ANGSTROM
+    r0 = 2.359*ANGSTROM
+    D = 0.057*EV
+    root_finder = r'{"CPR"={n0=5, nmax=100, epsilon=0.1, complex_threshold=1E-12, truncation_threshold=1E-12, far_from_zero=1E20, interval_limit=1E-20, derivative_free=false}}'
+    integral = r'"GAUSS_LEGENDRE"'
+
+    energy = 400.0
+    N = 10000
+    depths = [D, D/2, 2*D]
+    angles = np.linspace(0.01, 89.9, 20)
+
+    for i, D in enumerate(depths):
+        reflection = []
+        for j, angle in enumerate(angles):
+
+            interaction_potential = f'{{"MORSE"={{alpha={alpha}, r0={r0}, D={D}}}}}'
+
+            s, r, d = beam_target(deuterium, tungsten, energy, angle, N_=N, run_sim=False, high_energy=False,
+                integral=integral, root_finder=root_finder, interaction_potential=interaction_potential,
+                tag=f'{i}_{j}')
+
+            if np.size(r) > 0:
+                reflection.append(np.shape(r)[0]/N)
+            else:
+                reflection.append(0.0)
+
+        plt.plot(90 - angles, reflection)
+
+    krc_reflection = []
+    for j, angle in enumerate(angles):
+
+        s, r, d = beam_target(deuterium, tungsten, energy, angle, N_=N*10, run_sim=True, high_energy=False,
+            tag='krc_'+str(j))
+
+        if np.size(r) > 0:
+            krc_reflection.append(np.shape(r)[0]/(N*10))
+        else:
+            krc_reflection.append(0.)
+
+    plt.plot(90 - angles, krc_reflection)
+
+    plt.title('D on W 400 eV (Morse Potential)')
+    plt.ylabel('R')
+    plt.xlabel('Angles [deg]')
+    plt.legend([f'D = {np.round(depth/EV, 4)} eV' for depth in depths]+['Kr-C'])
+    plt.axis([0, 90, 0, 1])
+    plt.savefig('refl_morse.png')
+
+def plot_3d_distributions(ions, target, name):
+
+    from mayavi import mlab
+
+    r = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
+    s = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
+    d = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
+
+    #sputtered distribution
+    s_v = np.sqrt(s[:, 2])
+
+    s_ux = -s[:, 6]*s_v/np.max(s_v)
+    s_uy = s[:, 7]*s_v/np.max(s_v)
+    s_uz = s[:, 8]*s_v/np.max(s_v)
+
+    num_bins = 25
+    s_dist, _ = np.histogramdd(np.array([s_ux, s_uy, s_uz]).transpose(), bins=num_bins, normed=False)
+    s_dist /= np.max(s_dist)
+
+    s_field = mlab.pipeline.scalar_field(s_dist)
+    mlab.pipeline.iso_surface(s_field, contours=[0.3, 0.7], opacity=0.2)
+
+    mlab.axes()
+    mlab.show()
+
+    #reflected_distribution
+    r_v = np.sqrt(r[:,2])
+
+    r_ux = -r[:, 6]*r_v/np.max(r_v)
+    r_uy = r[:, 7]*r_v/np.max(r_v)
+    r_uz = r[:, 8]*r_v/np.max(r_v)
+
+    r_dist, _ = np.histogramdd(np.array([r_ux, r_uy, r_uz]).transpose(), bins=num_bins, normed=False)
+    r_dist /= np.max(r_dist)
+
+    r_field = mlab.pipeline.scalar_field(r_dist)
+    mlab.pipeline.iso_surface(r_field, contours=[0.3, 0.7], opacity=0.2)
+
+    mlab.axes()
+    mlab.show()
+
+
 def main():
-    Te_eV = 10.
-    iead = np.genfromtxt('RIE_2w_IEAD_sp0.dat')
-    print(np.shape(iead))
-    run_iead(hydrogen, boron, np.linspace(0.01, 24.0*Te_eV, 240), np.linspace(0.01, 89.9, 90), iead, name='moutaz', N=10)
+
+    energy = 1000.
+    angle = 0.001
+
+    beam_target(helium, copper, energy, angle, N_ = 10, do_plots=True, run_sim=True,
+        plot_trajectories = True, track_trajectories=True)
+
+    name = name = helium['name']+'_'+copper['name']+'_'
 
 if __name__ == '__main__':
     main()
