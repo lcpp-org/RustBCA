@@ -50,7 +50,7 @@ Optional Dependencies:
 # Detailed Instructions for Ubuntu 18.04 LTS:
 1. Optional: install Python 3.6+ (this comes natively in Ubuntu 18.04)
 2. Install curl, `apt-get install curl`
-3. Install rustup, the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/
+3. Install rustup, the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/ by running the following command and following on-screen instructions: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 4. Optional: Install pip for Python-3, `apt-get install python3-pip`
 5. Optional: Install Python libraries for making input files, `python3 -m pip install numpy matplotlib shapely scipy`
 6. Optional: Install Python toml library from source:
