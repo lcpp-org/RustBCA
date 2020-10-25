@@ -25,7 +25,7 @@ BCA codes are valid for incident ion energies between approximately 10 eV  throu
 
 # Installation
 
-Without optional features, rustBCA should compile with cargo on Windows, MacOS, and Linux systems. HDF5 has been tested on Windows, but HDF5 1.10.6 must be used. [rcpr](https://github.com/drobnyjt/rcpr), the Rust adaptive Chebyshev Proxy Rootfinder with automatic subdivision and polynomial rootfinder package, has not yet been successfully compiled on Windows. However, it can be compiled on Windows Subsystem for Linux (WSL) and likely on Ubuntu for Windows or Cygwin.
+Without optional features, rustBCA should compile with cargo alone on Windows, MacOS, and Linux systems. HDF5 has been tested on Windows, but HDF5 1.10.6 must be used. [rcpr](https://github.com/drobnyjt/rcpr), the Rust adaptive Chebyshev Proxy Rootfinder with automatic subdivision and polynomial rootfinder package, has not yet been successfully compiled on Windows. However, it can be compiled on Windows Subsystem for Linux (WSL) and likely on Ubuntu for Windows or Cygwin.
 
 Manual Dependences:
 * [rustup](https://rustup.rs), the Rust toolchain (includes cargo, the Rust package manager, rustc, the Rust compiler, and more).
@@ -43,13 +43,14 @@ Optional Dependencies:
   * liblapack-dev
   * libblas-dev
   * liblapacke-dev
-* Python 3.6+
-* Numpy, Matplotlib, toml, Shapely, scipy
+* For manipulating input files and running associated scripts, the following are required:
+  * Python 3.6+
+  * Python libraries: numpy, matplotlib, toml (must build from source),  Shapely, scipy
 
-Ubuntu 18.04 LTS:
+# Detailed Instructions for Ubuntu 18.04 LTS:
 1. Optional: install Python 3.6+ (this comes natively in Ubuntu 18.04)
 2. Install curl, `apt-get install curl`
-3. Install rustup, the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/
+3. Install rustup, the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/ by running the following command and following on-screen instructions: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 4. Optional: Install pip for Python-3, `apt-get install python3-pip`
 5. Optional: Install Python libraries for making input files, `python3 -m pip install numpy matplotlib shapely scipy`
 6. Optional: Install Python toml library from source:
@@ -61,13 +62,14 @@ Ubuntu 18.04 LTS:
 - `git clone https://github.com/lcpp-org/rustBCA`
 - `cd rustBCA`
 - `cargo build --release`
-9. Optional: Build RustBCA with optional dependencies, hdf5 and/or rcpr (with your choice of backed: openblas, netlib, or intel-mkl):
+9. Optional: Build RustBCA with optional dependencies, hdf5 and/or rcpr (with your choice of backend: openblas, netlib, or intel-mkl):
  - `cargo build --release --features cpr_rootfinder_netlib,hdf5_input`
  - `cargo build --release --features cpr_rootfinder_openblas,hdf5_input`
  - `cargo build --release --features cpr_rootfinder_intel_mkl,hdf5_input`
 10. input.toml is the input file -- see [Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files) for more information
 11. `cargo test` will run all required tests
 12. Optional: `cargo test --features cpr_rootfinder_*` will run all required and optional tests for desired backend *
+
 # Usage
 
 Modify input.toml to configure simulation; run ./rustBCA with input.toml in the same directory as rustBCA or run with a single input argument, the name of a .toml input file. See [Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files) on the rustBCA wiki for usage instructions and see the examples on the wiki for example input files.
