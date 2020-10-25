@@ -44,3 +44,7 @@ jobs:
     - name: Test RustBCA
       run: |
         cargo test --features cpr_rootfinder_netlib,hdf5_input
+    - name: Run Examples
+      run: |
+        cargo run --release examples/boron_nitride.toml
+        cargo run --release examples/layered_geometry.toml
