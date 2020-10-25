@@ -1,9 +1,10 @@
 use super::*;
 use geo::{Closest};
 
-    #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+#[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
 use rcpr::chebyshev::*;
 
+/// Geometrical quantities of binary collision.
 pub struct BinaryCollisionGeometry {
     pub phi_azimuthal: f64,
     pub impact_parameter: f64,
@@ -11,6 +12,7 @@ pub struct BinaryCollisionGeometry {
 }
 
 impl BinaryCollisionGeometry {
+    /// Constructs a new binary collision geometry object.
     pub fn new(phi_azimuthal: f64, impact_parameter: f64, mfp: f64) -> BinaryCollisionGeometry {
         BinaryCollisionGeometry {
             phi_azimuthal,
@@ -27,6 +29,7 @@ impl fmt::Display for BinaryCollisionGeometry {
     }
 }
 
+/// Resultant quantities of a binary collision.
 pub struct BinaryCollisionResult {
     pub theta: f64,
     pub psi: f64,
@@ -37,6 +40,8 @@ pub struct BinaryCollisionResult {
 }
 
 impl BinaryCollisionResult {
+
+    /// Constructs a new binary collision result object.
     pub fn new(theta: f64, psi: f64, psi_recoil: f64, recoil_energy: f64,
         asymptotic_deflection: f64, normalized_distance_of_closest_approach: f64) -> BinaryCollisionResult {
         BinaryCollisionResult {
@@ -57,6 +62,7 @@ impl fmt::Display for BinaryCollisionResult {
     }
 }
 
+/// This function takes a single particle, a material, and an options object and runs a binary-collision-approximation trajectory for that particle in that material, producing a final particle list that consists of the original ion and any material particles displaced thereby.
 pub fn single_ion_bca(particle: particle::Particle, material: &material::Material, options: &Options) -> Vec<particle::Particle> {
 
     let mut particles: Vec<particle::Particle> = Vec::new();
@@ -185,6 +191,8 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
     particle_output
 }
 
+/// For a particle in a material, determine the mean free path and choose the azimuthal angle and impact parameter.
+/// The mean free path can be exponentially distributed (gaseous) or constant (amorphous solid/liquid). Azimuthal angles are chosen uniformly. Impact parameters are chosen for collision partners distributed uniformly on a disk of density-dependent radius.
 pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, material: &material::Material, options: &Options) -> Vec<BinaryCollisionGeometry> {
 
     let x = particle_1.pos.x;
@@ -314,6 +322,7 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
     }
 }
 
+/// For a particle in a material, and for a particular binary collision geometry, choose a species for the collision partner.
 pub fn choose_collision_partner(particle_1: &particle::Particle, material: &material::Material, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> (usize, particle::Particle) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
@@ -349,6 +358,7 @@ pub fn choose_collision_partner(particle_1: &particle::Particle, material: &mate
     )
 }
 
+/// Calculate the distance of closest approach of two particles given a particular binary collision geometry.
 fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &particle::Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> f64 {
     let Za: f64 = particle_1.Z;
     let Zb: f64 = particle_2.Z;
@@ -364,7 +374,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         let doca = Z1*Z2*Q*Q/relative_energy/PI/EPS0/8. + (64.*(relative_energy*PI*p*EPS0).powf(2.) + (Z1*Z2*Q*Q).powf(2.)).sqrt()/relative_energy/PI/EPS0/8.;
         return doca/interactions::screening_length(Z1, Z2, interaction_potential);
     }
-  
+
     let root_finder = if relative_energy < interactions::energy_threshold_single_root(interaction_potential) {
             options.root_finder[particle_1.interaction_index][particle_2.interaction_index]
         } else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-6}};
@@ -392,6 +402,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     }
 }
 
+/// Update a particle's energy following nuclear and electronic interactions of a single BCA step.
 pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &material::Material, distance_traveled: f64,
     recoil_energy: f64, x0: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) {
 
@@ -440,6 +451,7 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
     }
 }
 
+/// Calculate the binary collision result of two particles for a given binary collision geometry. If the calculation fails, return an Error.
 pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &particle::Particle, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> Result<BinaryCollisionResult, anyhow::Error> {
     let Za: f64 = particle_1.Z;
     let Zb: f64 = particle_2.Z;
@@ -477,11 +489,14 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     Ok(BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asympototic_deflection, x0))
 }
 
+
+/// Mendenhall-Weller scattering integrand.
 fn scattering_integral_mw(x: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
     //Function for scattering integral - see Mendenhall and Weller, 1991 & 2005
     return (1. - interactions::phi(x, interaction_potential)/x/reduced_energy - beta*beta/x/x).powf(-0.5);
 }
 
+/// Gauss-Legendre scattering integrand.
 fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> Result<f64, anyhow::Error> {
     let result = 4.*impact_parameter*u/(r0*(1. - interaction_potential(r0/(1. - u*u))/relative_energy - impact_parameter*impact_parameter*(1. - u*u).powf(2.)/r0/r0).sqrt());
 
@@ -493,6 +508,7 @@ fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energ
     }
 }
 
+/// Gauss-Mehler scattering integrand.
 fn scattering_function_gm(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> Result<f64, anyhow::Error> {
     let result = impact_parameter/r0/(1. - interaction_potential(r0/u)/relative_energy - (impact_parameter*u/r0).powf(2.)).sqrt();
 
@@ -504,6 +520,7 @@ fn scattering_function_gm(u: f64, impact_parameter: f64, r0: f64, relative_energ
     }
 }
 
+/// Compute the scattering integral for a given relative energy, distance of closest approach `r0`,  and interaction potential using a Gauss-Mehler, n-point quadrature.
 fn scattering_integral_gauss_mehler(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: &dyn Fn(f64) -> f64, n_points: usize) -> f64 {
     let x: Vec<f64> = (1..=n_points).map(|i| ((2.*i as f64 - 1.)/4./n_points as f64*PI).cos()).collect();
     let w: Vec<f64> = (1..=n_points).map(|i| PI/n_points as f64*((2.*i as f64 - 1.)/4./n_points as f64*PI).sin()).collect();
@@ -514,6 +531,7 @@ fn scattering_integral_gauss_mehler(impact_parameter: f64, relative_energy: f64,
         .unwrap()).sum::<f64>()
 }
 
+/// Compute the scattering integral for a given relative energy, distance of closest approach `r0`,  and interaction potential using a Gauss-Legendre, 5-point quadrature.
 fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
     let x: Vec<f64> = vec![0., -0.538469, 0.538469, -0.90618, 0.90618].iter().map(|x| x/2. + 1./2.).collect();
     let w: Vec<f64> = vec![0.568889, 0.478629, 0.478629, 0.236927, 0.236927].iter().map(|w| w/2.).collect();
@@ -525,6 +543,8 @@ fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f6
 }
 
 #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+/// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an inverse-polynomial interaction potential (e.g., Lennard-Jones) for a given impact parameter and incident energy `E0`.
+/// Slightly complex roots with an imaginary part smaller than `polynom_complex_threshold` are considered real roots.
 pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     interaction_potential: InteractionPotential, polynom_complex_threshold: f64) -> Result<f64, anyhow::Error> {
 
@@ -546,6 +566,25 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
 }
 
 #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+/// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an arbitrary interaction potential (e.g., Morse) for a given impact parameter and incident energy `E0` using the Chebyshev-Proxy Root-Finder method.
+///
+/// # Args:
+///
+/// `Za`, `Zb`, `Ma`, `Mb`: atomic numbers and masses of the two particles
+/// `E0`: incident energy of particle a in the lab frame.
+/// `impact_parameter`: the impact parameter between particles a and b.
+/// `interaction_potentaial`: the interaction potential between particles a and b.
+/// `n0`: initial degree of Chebyshev interpolants.
+/// `nmax`: maximum degree of Chebyshev interpolants.
+/// `epsilon`: absolute tolerance of Chebyshev interpolant.
+/// `complex_threshold`: slightly-complex roots with an imaginary part below this value are considered real.
+/// `far_from_zero`: if the distance of closest approach function, evaluated over an interval [a, b] on the Lobatto grid, is always greater than this value, it is assumed that there are no roots in the interval [a, b].
+/// `truncation_threshold`: trailing terms of the Chebyshev interpolant with coefficients smaller than this value are ignored.
+/// `interval_limit`: if subdivision produces an interval smaller than this value, the root-finder will panic.
+/// `derivative_free`: if false, use Newton's method to polish roots from the CPR. If true, use the secant method.
+///
+/// # Returns
+/// Returns the distance of closest approach or an error if the root-finder failed.
 pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     interaction_potential: InteractionPotential, n0: usize, nmax: usize, epsilon: f64,
     complex_threshold: f64, truncation_threshold: f64, far_from_zero: f64,
@@ -589,6 +628,7 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     }
 }
 
+/// Use Newton's method to find the distance of closest approach between two particles a and b.
 pub fn newton_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     interaction_potential: InteractionPotential, max_iterations: usize, tolerance: f64) -> Result <f64, anyhow::Error> {
 
@@ -624,6 +664,7 @@ pub fn newton_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_par
         max_iterations, E0, x0, err, tolerance));
 }
 
+/// Gauss-Mehler quadrature.
 pub fn gauss_mehler(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: InteractionPotential, n_points: usize) -> f64 {
     let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
     let r0 = x0*a;
@@ -632,6 +673,7 @@ pub fn gauss_mehler(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_paramete
     scattering_integral_gauss_mehler(impact_parameter, relative_energy, r0, &V, n_points)
 }
 
+/// Gauss-Legendre quadrature.
 pub fn gauss_legendre(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: InteractionPotential) -> f64 {
     let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
     let r0 = x0*a;
@@ -640,6 +682,7 @@ pub fn gauss_legendre(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     scattering_integral_gauss_legendre(impact_parameter, relative_energy, r0, &V)
 }
 
+/// Ziegler's MAGIC algorithm for approximating the scattering integral.
 pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: InteractionPotential) -> f64 {
     //MAGIC algorithm
     //Since this is legacy code I don't think I will clean this up
@@ -667,6 +710,7 @@ pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     2.*((beta + rho/a + delta)/(x0 + rho/a)).acos()
 }
 
+/// Mendenhall-Weller quadrature.
 pub fn mendenhall_weller(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: InteractionPotential) -> f64 {
     //Lindhard screening length and reduced energy
     let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
@@ -679,6 +723,7 @@ pub fn mendenhall_weller(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_par
     PI*(1. - beta*alpha/x0)
 }
 
+/// Oen-Robinson local electronic energy loss for a collision between particles a and b.
 fn oen_robinson_loss(Za: f64, Zb: f64, Se: f64, x0: f64, ck: f64, interaction_potential: InteractionPotential) -> f64 {
     //Oen-Robinson local electronic stopping power
     let a = interactions::screening_length(Za, Zb, interaction_potential);

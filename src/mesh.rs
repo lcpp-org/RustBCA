@@ -3,6 +3,7 @@ use geo::algorithm::contains::Contains;
 use geo::{Polygon, LineString, Point};
 
 
+/// Object that contains raw mesh input data.
 #[derive(Deserialize)]
 pub struct Mesh2DInput {
     pub length_unit: String,
@@ -13,6 +14,7 @@ pub struct Mesh2DInput {
     pub energy_barrier_thickness: f64,
 }
 
+/// Triangular mesh for rustbca.
 pub struct Mesh2D {
     mesh: Vec<Cell2D>,
     pub boundary: Polygon<f64>,
@@ -20,6 +22,7 @@ pub struct Mesh2D {
     pub energy_barrier_thickness: f64
 }
 impl Mesh2D {
+    /// Constructor for Mesh2D object from mesh_2d_input.
     pub fn new(mesh_2d_input: Mesh2DInput) -> Mesh2D {
 
         let coordinate_sets = mesh_2d_input.coordinate_sets;
@@ -84,6 +87,7 @@ impl Mesh2D {
         }
     }
 
+    /// Find the number densities of the triangle that contains or is nearest to (x, y).
     pub fn get_densities(&self, x: f64, y: f64) -> &Vec<f64> {
         for cell in &self.mesh {
             if cell.contains(x, y) {
@@ -93,6 +97,7 @@ impl Mesh2D {
         panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
     }
 
+    /// Determine the total number density of the triangle that contains or is nearest to (x, y).
     pub fn get_total_density(&self, x: f64, y: f64) -> f64 {
         for cell in &self.mesh {
             if cell.contains(x, y) {
@@ -102,6 +107,7 @@ impl Mesh2D {
         panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
     }
 
+    /// Find the concentrations of the triangle that contains or is nearest to (x, y).
     pub fn get_concentrations(&self, x: f64, y: f64) -> &Vec<f64> {
         if self.inside(x, y) {
             for cell in &self.mesh {
@@ -115,10 +121,12 @@ impl Mesh2D {
         }
     }
 
+    /// Determines whether the point (x, y) is inside the mesh.
     pub fn inside(&self, x: f64, y: f64) -> bool {
         self.boundary.contains(&Point::new(x, y))
     }
 
+    /// Finds the cell that is nearest to (x, y).
     pub fn nearest_cell_to(&self, x: f64, y: f64) -> &Cell2D {
 
         let mut min_distance: f64 = std::f64::MAX;
@@ -136,12 +144,14 @@ impl Mesh2D {
     }
 }
 
+/// A mesh cell that contains a triangle and the local number densities and concentrations.
 pub struct Cell2D {
     triangle: Triangle2D,
     pub densities: Vec<f64>,
     pub concentrations: Vec<f64>
 }
 impl Cell2D {
+    /// Constructor for Cell2D from a set of coordinates and a list of densities and concentrations.
     pub fn new(coordinate_set: (f64, f64, f64, f64, f64, f64), densities: Vec<f64>, concentrations: Vec<f64>) -> Cell2D {
         Cell2D {
             triangle: Triangle2D::new(coordinate_set),
@@ -150,15 +160,18 @@ impl Cell2D {
         }
     }
 
+    /// Determines whether this cell contains the point (x, y).
     pub fn contains(&self, x: f64, y: f64) -> bool {
         self.triangle.contains(x, y)
     }
 
+    /// Computes the shortest distance between this cell and the point (x, y).
     pub fn distance_to(&self, x: f64, y: f64) -> f64 {
         self.triangle.distance_to(x, y)
     }
 }
 
+/// A triangle in 2D, with points (x1, y1), (x2, y2), (x3, y3), and the three line segments bewtween them.
 pub struct Triangle2D {
     x1: f64,
     x2: f64,
@@ -168,8 +181,8 @@ pub struct Triangle2D {
     y3: f64,
     segments: Vec<(f64, f64, f64, f64)>
 }
-
 impl Triangle2D {
+    /// Constructor for a triangle from a list of coordinates (x1, x2, x3, y1, y2, y3).
     pub fn new(coordinate_set: (f64, f64, f64, f64, f64, f64)) -> Triangle2D {
 
         let x1 = coordinate_set.0;
@@ -191,6 +204,7 @@ impl Triangle2D {
         }
     }
 
+    /// Determines whether the point (x, y) is inside this triangle.
     pub fn contains(&self, x: f64, y: f64) -> bool {
         let x1 = self.x1;
         let x2 = self.x2;
@@ -206,10 +220,12 @@ impl Triangle2D {
          (0. <= a) & (a <= 1.) & (0. <= b) & (b <= 1.) & (0. <= c) & (c <= 1.)
     }
 
+    /// Returns a point (x, y) that is the centroid of the triangle.
     pub fn centroid(&self) -> (f64, f64) {
         ((self.x1 + self.x2 + self.x3)/3., (self.y1 + self.y2 + self.y3)/3.)
     }
 
+    /// Calculates the shortest distance from this triangle to the point (x, y).
     pub fn distance_to(&self, x: f64, y: f64) -> f64 {
         let mut distance_to = std::f64::MAX;
 
@@ -238,6 +254,7 @@ impl Triangle2D {
         distance_to
     }
 
+    /// Calculates the distance between the center of this triangle and the point (x, y).
     pub fn distance_to_center(&self, x: f64, y: f64) -> f64 {
         let centroid = self.centroid();
         ((x - centroid.0)*(x - centroid.0) + (y - centroid.1)*(y - centroid.1)).sqrt()

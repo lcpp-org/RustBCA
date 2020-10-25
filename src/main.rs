@@ -47,28 +47,49 @@ pub mod bca;
 pub mod mesh;
 
 //Physical constants
+///Fundamental charge in Coulombs.
 const Q: f64 = 1.60217646E-19;
+/// One electron-volt in Joules.
 const EV: f64 = Q;
+/// One atomic mass unit in kilograms.
 const AMU: f64 = 1.660539E-27;
+/// One Angstrom in meters.
 const ANGSTROM: f64 = 1E-10;
+/// One micron in meters.
 const MICRON: f64 = 1E-6;
+/// One nanometer in meters.
 const NM: f64 = 1E-9;
+/// One centimeter in meters.
 const CM: f64 = 1E-2;
+/// Vacuum permitivity in Farads/meter.
 const EPS0: f64 = 8.85418781E-12;
+/// Bohr radius in meters.
 const A0: f64 = 5.29177211E-11;
+/// Electron mass in kilograms.
 const ME: f64 =  9.109383632E-31;
+/// sqrt(pi).
 const SQRTPI: f64 = 1.772453850906;
+/// sqrt(2 * pi).
 const SQRT2PI: f64 = 2.506628274631;
+/// Speed of light in meters/second.
 const C: f64 = 299792000.;
+/// Bethe-Bloch electronic stopping prefactor, in SI units.
 const BETHE_BLOCH_PREFACTOR: f64 = 4.*PI*(Q*Q/(4.*PI*EPS0))*(Q*Q/(4.*PI*EPS0))/ME/C/C;
+/// Lindhard-Scharff electronic stopping prefactor, in SI units.
 const LINDHARD_SCHARFF_PREFACTOR: f64 = 1.212*ANGSTROM*ANGSTROM*Q;
+/// Lindhard reduced energy prefactor, in SI units.
 const LINDHARD_REDUCED_ENERGY_PREFACTOR: f64 = 4.*PI*EPS0/Q/Q;
 
+/// Mode of electronic stopping to use.
 #[derive(Deserialize, PartialEq, Clone, Copy)]
 pub enum ElectronicStoppingMode {
+    /// Biersack-Varelas interpolated electronic stopping. Valid for ~eV/nucleon to ~GeV/nucleon.
     INTERPOLATED,
+    /// Oen-Robinson Firsov-type local electronic stopping. Valid up to ~25 keV/nucleon.
     LOW_ENERGY_LOCAL,
+    /// Lindhard-Scharff nonlocal electronic stopping. Valid up to ~25 keV/nucleon.
     LOW_ENERGY_NONLOCAL,
+    /// Equipartition between Oen-Robinson and Lindhard-Scharff electronic stopping formulas.
     LOW_ENERGY_EQUIPARTITION,
 }
 
@@ -83,10 +104,14 @@ impl fmt::Display for ElectronicStoppingMode {
     }
 }
 
+/// Mode of surface binding energy calculation.
 #[derive(Deserialize, PartialEq, Clone, Copy)]
 pub enum SurfaceBindingModel {
+    /// Surface binding energies will be determined individually depending only on the particle's `Es`.
     INDIVIDUAL,
+    /// Surface binding energies will be a concentration-weighted average of material surface-binding energies, unless `particle.Es == 0` in which case it will be zero.
     TARGET,
+    /// Surface binding energies will be the average of the particle and TARGET, unless either is zero in which case it will be zero.
     AVERAGE,
 }
 
@@ -103,10 +128,12 @@ impl fmt::Display for SurfaceBindingModel {
     }
 }
 
-
+/// Mean-free-path model.
 #[derive(Deserialize, PartialEq, Clone, Copy)]
 pub enum MeanFreePathModel {
+    /// Constant mean-free-path for liquids and amorphous solids.
     LIQUID,
+    /// Exponentially-distributed mean-free-paths for gases.
     GASEOUS,
 }
 
@@ -119,17 +146,28 @@ impl fmt::Display for MeanFreePathModel {
     }
 }
 
+/// Interatomic potentials between particles in rustbca.
 #[derive(Deserialize, Clone, Copy)]
 pub enum InteractionPotential {
+    /// TRIDYN-style Kr-C. Equivalent to KR_C, except for the MAGIC constants.
     TRIDYN,
+    /// Moliere's approximation to the Thomas-Fermi interatomic potential.
     MOLIERE,
+    /// Krypton-Carbon "universal" interatomic potential.
     KR_C,
+    /// Ziegler-Biersack-Littmark "unviversal" semi-empirical interatomic potential.
     ZBL,
+    /// Lenz-Jensen screened Coulomb potential.
     LENZ_JENSEN,
+    /// Lennard-Jones 12-6 potential, with user-defined sigma and epsilon.
     LENNARD_JONES_12_6 {sigma: f64, epsilon: f64},
+    /// Lennard-Jones 6.5-6 potential, with user-defined sigma and epsilon.
     LENNARD_JONES_65_6 {sigma: f64, epsilon: f64},
+    /// Morse potential, with user-defined D, alpha, and r0.
     MORSE{D: f64, alpha: f64, r0: f64},
+    /// Tungsten-tungsten cubic spline potential (Following Bjorkas et al.)
     WW,
+    /// Unscreened Coulombic interatomic potential between ions with charges Za and Zb.
     COULOMB{Za: f64, Zb: f64}
 }
 
@@ -156,11 +194,16 @@ impl PartialEq for InteractionPotential {
     }
 }
 
+/// Method for solving the scattering integral.
 #[derive(Deserialize, Clone, Copy)]
 pub enum ScatteringIntegral {
+    /// Mendenhall-Weller Gauss-Lobatto 4-point quadrature.
     MENDENHALL_WELLER,
+    /// Ziegler's MAGIC algorithm.
     MAGIC,
+    /// Gauss-Mehler n-point quadrature.
     GAUSS_MEHLER{n_points: usize},
+    /// Gauss-Legendre 5-point quadrature.
     GAUSS_LEGENDRE
 }
 
@@ -181,8 +224,10 @@ impl PartialEq for ScatteringIntegral {
     }
 }
 
+/// Root-finding algorithm.
 #[derive(Deserialize, Clone, Copy)]
 pub enum Rootfinder {
+    /// Newton root-finder with user-defined `max_iterations` and `tolerance`.
     NEWTON{max_iterations: usize, tolerance: f64},
     CPR{n0: usize, nmax: usize, epsilon: f64, complex_threshold: f64, truncation_threshold: f64,
         far_from_zero: f64, interval_limit: f64, derivative_free: bool},
@@ -205,6 +250,7 @@ impl PartialEq for Rootfinder {
     }
 }
 
+/// 3D vector.
 #[derive(Clone)]
 pub struct Vector {
     x: f64,
@@ -219,16 +265,20 @@ impl Vector {
             z
         }
     }
+
+    /// Calculates vector magnitude.
     fn magnitude(&self) -> f64 {
         return (self.x*self.x + self.y*self.y + self.z*self.z).sqrt();
     }
 
+    /// Assigns vector values from another vector.
     fn assign(&mut self, other: &Vector) {
         self.x = other.x;
         self.y = other.y;
         self.z = other.z;
     }
 
+    /// Normalizes vector components to magnitude 1.
     fn normalize(&mut self) {
         let magnitude = self.magnitude();
         self.x /= magnitude;
@@ -236,11 +286,13 @@ impl Vector {
         self.z /= magnitude;
     }
 
+    /// Add this vector and another and return a new vector.
     pub fn add(&self, other: &Vector) -> Vector {
         Vector::new(self.x + other.x, self.y + other.y, self.z + other.z)
     }
 }
 
+/// Vector4 is a trajectory-tracking object that includes x, y, z, and the current energy.
 #[derive(Clone)]
 pub struct Vector4 {
     E: f64,
@@ -260,6 +312,7 @@ impl Vector4 {
     }
 }
 
+/// Energy loss is an output tracker that tracks the separate nuclear and electronic energy losses.
 #[derive(Clone)]
 pub struct EnergyLoss {
     En: f64,
@@ -281,6 +334,7 @@ impl EnergyLoss {
     }
 }
 
+/// Rustbca's internal representation of an input file.
 #[derive(Deserialize)]
 pub struct Input {
     options: Options,
@@ -289,6 +343,7 @@ pub struct Input {
     mesh_2d_input: mesh::Mesh2DInput,
 }
 
+/// Rustbca's internal representation of the simulation-level options.
 #[derive(Deserialize)]
 pub struct Options {
     name: String,

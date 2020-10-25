@@ -4,6 +4,7 @@ use geo::algorithm::closest_point::ClosestPoint;
 use geo::{point, Closest};
 
 
+/// Holds material input parameters from [material_params].
 #[derive(Deserialize)]
 pub struct MaterialParameters {
     pub energy_unit: String,
@@ -18,6 +19,7 @@ pub struct MaterialParameters {
     pub surface_binding_model: SurfaceBindingModel
 }
 
+/// Material in rustbca. Includes the material properties and the mesh that defines the material geometry.
 pub struct Material {
     pub m: Vec<f64>,
     pub Z: Vec<f64>,
@@ -31,6 +33,7 @@ pub struct Material {
 
 }
 impl Material {
+    /// Constructs a new material object from a material parameters object and a mesh_2d_input object.
     pub fn new(material_parameters: MaterialParameters, mesh_2d_input: mesh::Mesh2DInput) -> Material {
 
         //Multiply all coordinates by value of geometry unit.
@@ -73,6 +76,7 @@ impl Material {
         }
     }
 
+    /// Gets concentrations of triangle that contains or is nearest to (x, y)
     pub fn get_concentrations(&self, x: f64, y: f64) -> Vec<f64> {
 
         let total_number_density: f64 = if self.inside(x, y) {
@@ -84,6 +88,8 @@ impl Material {
         return self.mesh_2d.get_densities(x, y).iter().map(|&i| i / total_number_density).collect();
     }
 
+    /// Gets cumulative concentrations of triangle that contains or is nearest to (x, y).
+    /// Used for weighting the random choice of one of the constituent species.
     pub fn get_cumulative_concentrations(&self, x: f64, y: f64) -> Vec<f64> {
         let mut sum: f64 = 0.;
         let concentrations = self.mesh_2d.get_concentrations(x, y);
@@ -95,16 +101,17 @@ impl Material {
         return cumulative_concentrations;
     }
 
+    /// Determines whether (x, y) is inside the material.
     pub fn inside(&self, x: f64, y: f64) -> bool {
         return self.mesh_2d.inside(x, y);
-        //let p = point!(x: x, y: y);
-        //return self.surface.contains(&p);
     }
 
+    /// Determines the local mean free path from the formula sum(n(x, y))^(-1/3)
     pub fn mfp(&self, x: f64, y: f64) -> f64 {
         return self.total_number_density(x, y).powf(-1./3.);
     }
 
+    /// Total number density of triangle that contains or is nearest to (x, y).
     pub fn total_number_density(&self, x: f64, y: f64) -> f64 {
         if self.inside(x, y) {
             return self.mesh_2d.get_densities(x, y).iter().sum::<f64>();
@@ -114,6 +121,7 @@ impl Material {
         //return self.n.iter().sum::<f64>();
     }
 
+    /// Lists number density of each species of triangle that contains or is nearest to (x, y).
     pub fn number_densities(&self, x: f64, y: f64) -> &Vec<f64> {
         if self.inside(x, y) {
             return &self.mesh_2d.get_densities(x, y);
@@ -123,6 +131,7 @@ impl Material {
         //return self.n.iter().sum::<f64>();
     }
 
+    /// Determines whether a point (x, y) is inside the energy barrier of the material.
     pub fn inside_energy_barrier(&self, x: f64, y: f64) -> bool {
 
         if self.mesh_2d.inside(x, y) {
@@ -136,40 +145,40 @@ impl Material {
         //return self.energy_surface.contains(&p);
     }
 
+    /// Determines whether a point (x, y) is inside the simulation boundary.
     pub fn inside_simulation_boundary(&self, x:f64, y: f64) -> bool {
         let p = point!(x: x, y: y);
         return self.mesh_2d.simulation_boundary.contains(&p);
     }
 
+    /// Finds the closest point on the material boundary to the point (x, y).
     pub fn closest_point(&self, x: f64, y: f64) -> Closest<f64> {
         let p = point!(x: x, y: y);
         return self.mesh_2d.boundary.closest_point(&p);
         //return self.surface.closest_point(&p)
     }
 
-    pub fn closest_point_on_energy_barrier(&self, x: f64, y: f64) -> Closest<f64> {
-        let p = point!(x: x, y: y);
-        return self.mesh_2d.boundary.closest_point(&p);
-        //return self.energy_surface.closest_point(&p)
-    }
-
+    /// Finds the closest point on the simulation boundary to the point (x, y).
     pub fn closest_point_on_simulation_surface(&self, x: f64, y: f64) -> Closest<f64> {
         let p = point!(x: x, y: y);
         return self.mesh_2d.simulation_boundary.closest_point(&p)
     }
 
+    /// Finds the average, concentration-weighted atomic number, Z_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_Z(&self, x: f64, y: f64) -> f64 {
         let concentrations = self.mesh_2d.get_concentrations(x, y);
         return self.Z.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum();
         //return self.Z.iter().sum::<f64>()/self.Z.len() as f64;
     }
 
+    /// Finds the average, concentration-weighted atomic mass, m_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_mass(&self, x: f64, y: f64) -> f64 {
         let concentrations = self.mesh_2d.get_concentrations(x, y);
         return self.m.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum();
         //return self.m.iter().sum::<f64>()/self.m.len() as f64;
     }
 
+    /// Finds the average, concentration-weighted bulk binding energy of the triangle that contains or is nearest to (x, y).
     pub fn average_bulk_binding_energy(&self, x: f64, y: f64) -> f64 {
         //returns average bulk binding energy
         let concentrations = self.mesh_2d.get_concentrations(x, y);
@@ -177,6 +186,11 @@ impl Material {
         //return self.Eb.iter().sum::<f64>()/self.Eb.len() as f64;
     }
 
+    /// Finds the concentration-dependent surface binding energy of the triangle that contains or is nearest to (x, y).
+    /// The surface binding energy is calculated using one of three methods:
+    /// 1. INDIVIDUAL: the surface binding energies are set individually for each species, as Es.
+    /// 2. TARGET: the surface binding energy is calculated as the local concentration-weighted average of the target surface binding energies, unless the particle has Es = 0, in which case it is 0.
+    /// 3. AVERAGE: the surface binding energy is the average of the particle surface binding energy and the TARGET surface binding energy, unless either is 0 in which case it is 0.
     pub fn actual_surface_binding_energy(&self, particle: &particle::Particle, x: f64, y: f64) -> f64 {
         let concentrations = self.mesh_2d.get_concentrations(x, y);
 
@@ -202,6 +216,7 @@ impl Material {
         }
     }
 
+    ///The minimum cutoff energy of all species that make up the material.
     pub fn minimum_cutoff_energy(&self) -> f64 {
         let mut min_Ec = self.Ec.iter().sum::<f64>();
         for Ec in self.Ec.iter() {
@@ -212,6 +227,7 @@ impl Material {
         return min_Ec;
     }
 
+    ///Choose the parameters of a target atom as a concentration-weighted random draw from the species in the triangle that contains or is nearest to (x, y).
     pub fn choose(&self, x: f64, y: f64) -> (usize, f64, f64, f64, f64, usize) {
         let random_number: f64 = rand::random::<f64>();
         let cumulative_concentrations = self.get_cumulative_concentrations(x, y);
@@ -224,6 +240,7 @@ impl Material {
         panic!("Input error: method choose() operation failed to choose a valid species. Check densities.");
     }
 
+    /// Calculate the electronic stopping cross-sections using the mode set in [options].
     pub fn electronic_stopping_cross_sections(&self, particle_1: &super::particle::Particle, electronic_stopping_mode: ElectronicStoppingMode) -> Vec<f64> {
 
         let E = particle_1.E;
@@ -282,6 +299,9 @@ impl Material {
     }
 }
 
+
+/// Calculate the effects of the planar surface binding potential of a material on a particle.
+/// These effects include surface reflection and refraction of particles with non-zero surface binding energies.
 pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &material::Material) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
@@ -361,6 +381,7 @@ pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &ma
     }
 }
 
+/// Apply the boundary conditions of a material on a particle, including stopping, leaving, and reflection/refraction by/through the surface binding potential.
 pub fn boundary_condition_2D_planar(particle_1: &mut particle::Particle, material: &material::Material) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;

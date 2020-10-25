@@ -1,5 +1,6 @@
 use super::*;
 
+/// Analytic solutions to outermost root of the interaction potential.
 pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
 
     match interaction_potential {
@@ -12,6 +13,7 @@ pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
 
 }
 
+/// Interaction potential between two particles a and b at a distance `r`.
 pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
@@ -35,6 +37,7 @@ pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_poten
     }
 }
 
+/// Analytic energy threshold above which the distance of closest approach function is guaranteed to have only one root.
 pub fn energy_threshold_single_root(interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential{
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => f64::INFINITY,
@@ -45,26 +48,31 @@ pub fn energy_threshold_single_root(interaction_potential: InteractionPotential)
     }
 }
 
+/// Distance of closest approach function for screened coulomb potentials.
 fn doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
     //Nonlinear equation to determine distance of closest approach
     return x0 - interactions::phi(x0, interaction_potential)/reduced_energy - beta*beta/x0;
 }
 
+/// First derivative w.r.t. `r` of the distance of closest approach function for screened coulomb potentials.
 fn diff_doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
     //First differential of distance of closest approach function for N-R solver
     return beta*beta/x0/x0 - interactions::dphi(x0, interaction_potential)/reduced_energy + 1.
 }
 
+/// Singularity-free version of the screened-coulomb distance of closest approach function.
 fn doca_function_transformed(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
     //Singularity free version of doca function
     return x0*x0 - x0*interactions::phi(x0, interaction_potential)/reduced_energy - beta*beta;
 }
 
+/// First derivative w.r.t. `r` of the singularity-free version of the screened-coulomb distance of closest approach function.
 fn diff_doca_function_transformed(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
     //First differential of distance of closest approach function for N-R solver
     return 2.*x0 - interactions::phi(x0, interaction_potential)/reduced_energy
 }
 
+/// Distance of closest approach function. The outermost root of this function is the distance of closest approach, or classical turning point, which is the lower bound to the scattering integral.
 pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
@@ -90,6 +98,7 @@ pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, r
     }
 }
 
+/// Singularity-free distance of closest approach function. The outermost root of this function is the distance of closest approach, or classical turning point, which is the lower bound to the scattering integral.
 pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     if r.is_nan() {
         panic!("Numerical error: r is NaN in distance of closest approach function. Check Rootfinder.")
@@ -117,6 +126,7 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
     }
 }
 
+/// Scaling function used to keep the distance of closest approach function ~1 for the CPR rootfinder.
 pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
@@ -140,6 +150,7 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
     }
 }
 
+/// First derivative w.r.t. `r` of the distance of closest approach function. The outermost root of this function is the distance of closest approach, or classical turning point, which is the lower bound to the scattering integral.
 pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN |InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
@@ -162,6 +173,7 @@ pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f
     }
 }
 
+/// First derivative w.r.t. `r` of the singularity-free distance of closest approach function. The outermost root of this function is the distance of closest approach, or classical turning point, which is the lower bound to the scattering integral.
 pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
@@ -184,14 +196,17 @@ pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f6
     }
 }
 
+/// Screened coulomb interaction potential.
 pub fn screened_coulomb(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
     Za*Zb*Q*Q/4./PI/EPS0/r*phi(r/a, interaction_potential)
 }
 
+/// Coulombic interaction potential.
 pub fn coulomb(r: f64, Za: f64, Zb: f64) -> f64 {
     return Za*Zb*Q*Q/4./PI/EPS0/r;
 }
 
+/// Screening functions for screened-coulomb interaction potentials.
 pub fn phi(xi: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE => moliere(xi),
@@ -203,6 +218,7 @@ pub fn phi(xi: f64, interaction_potential: InteractionPotential) -> f64 {
     }
 }
 
+/// First derivative w.r.t. `r` of the screening functions for screened-coulomb interaction potentials.
 pub fn dphi(xi: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE => diff_moliere(xi),
@@ -214,6 +230,7 @@ pub fn dphi(xi: f64, interaction_potential: InteractionPotential) -> f64 {
     }
 }
 
+/// Screening length of interatomic potentials.
 pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         //ZBL screening length, Eckstein (4.1.8)
@@ -226,6 +243,7 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
     }
 }
 
+/// Coefficients of inverse-polynomial interaction potentials.
 pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> Vec<f64> {
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
@@ -238,6 +256,7 @@ pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, inte
     }
 }
 
+/// Inverse-polynomial interaction potentials transformation to remove singularities for the CPR root-finder.
 pub fn inverse_transform(x: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{..} => {
@@ -250,42 +269,52 @@ pub fn inverse_transform(x: f64, interaction_potential: InteractionPotential) ->
     }
 }
 
+/// Lennard-Jones 12-6
 pub fn lennard_jones(r: f64, sigma: f64, epsilon: f64) -> f64 {
     4.*epsilon*((sigma/r).powf(12.) - (sigma/r).powf(6.))
 }
 
+/// Lennard-Jones 6.5-6
 pub fn lennard_jones_65_6(r: f64, sigma: f64, epsilon: f64) -> f64 {
     4.*epsilon*((sigma/r).powf(6.5) - (sigma/r).powf(6.))
 }
 
+/// Morse potential
 pub fn morse(r: f64, D: f64, alpha: f64, r0: f64) -> f64 {
     D*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp())
 }
 
+/// Distance of closest approach function for Morse potential.
 pub fn doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, alpha: f64, r0: f64) -> f64 {
     (r*alpha).powf(2.) - (r*alpha).powf(2.)*D/relative_energy*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp()) - (impact_parameter*alpha).powf(2.)
 }
 
+/// First derivative w.r.t. `r` of the distance of closest approach function for Morse potential.
 pub fn diff_doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, alpha: f64, r0: f64) -> f64 {
     2.*alpha.powf(2.)*r - 2.*alpha.powf(2.)*D*r*(-2.*alpha*(r - r0) - 1.).exp()*(alpha*r*(alpha*(r - r0)).exp() - 2.*(alpha*(r - r0)).exp() - r*alpha + 1.)
 }
 
+/// Distance of closest approach function for LJ 6.5-6 potential.
 pub fn doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
     (r/sigma).powf(6.5) - 4.*epsilon/relative_energy*(1. - (r/sigma).powf(0.5)) - (p/sigma).powf(2.)*(r/sigma).powf(4.5)
 }
 
+/// Distance of closest approach function for LJ 12-6 potential.
 pub fn doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
     (r/sigma).powf(12.) - 4.*epsilon/relative_energy*(1. - (r/sigma).powf(6.)) - p.powf(2.)*r.powf(10.)/sigma.powf(12.)
 }
 
+/// First derivative w.r.t. `r` of the distance of closest approach function for LJ 12-6 potential.
 pub fn diff_doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
     12.*(r/sigma).powf(11.)/sigma + 4.*epsilon/relative_energy*6.*(r/sigma).powf(5.)/sigma - 10.*p.powf(2.)*r.powf(9.)/sigma.powf(12.)
 }
 
+/// First derivative w.r.t. `r` of the distance of closest approach function for LJ 6.5-6 potential.
 pub fn diff_doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
     6.5*(r/sigma).powf(5.5)/sigma + 4.*epsilon/relative_energy*0.5*(sigma*r).powf(-0.5) - (p/sigma).powf(2.)*4.5*(r/sigma).powf(3.5)/sigma
 }
 
+/// W-W cublic spline potential from Bjorkas et al.
 pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
 
     let x = r/ANGSTROM;
@@ -340,6 +369,7 @@ pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
     }
 }
 
+/// Distance of closest approach function for the W-W cublic spline potential from Bjorkas et al.
 pub fn doca_tungsten_tungsten_cubic_spline(r: f64, p: f64, relative_energy: f64) -> f64 {
 
     let x = r/ANGSTROM;
@@ -394,6 +424,7 @@ fn diff_lenz_jensen(xi: f64) -> f64 {
      -0.206*0.01018*(-0.206*xi).exp() -0.3876*0.24330*(-0.3876*xi).exp() -1.038*0.7466*(-1.038*xi).exp()
 }
 
+/// Normalized first screening radius. Used in Oen-Robinson electronic stopping.
 pub fn first_screening_radius(interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE => 0.3,

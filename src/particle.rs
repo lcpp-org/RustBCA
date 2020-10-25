@@ -1,5 +1,6 @@
 use super::*;
 
+/// Rustbca's internal representation of the particle_parameters input.
 #[derive(Deserialize)]
 pub struct ParticleParameters {
     pub particle_input_filename: String,
@@ -17,6 +18,7 @@ pub struct ParticleParameters {
     pub interaction_index: Vec<usize>
 }
 
+/// HDF5 version of particle input.
 #[derive(Clone, PartialEq, Debug, Copy)]
 #[cfg_attr(feature = "hdf5_input", derive(hdf5::H5Type))]
 #[repr(C)]
@@ -35,6 +37,7 @@ pub struct ParticleInput {
     pub interaction_index: usize,
 }
 
+/// Particle object. Particles in rustbca include incident ions and material atoms.
 #[derive(Clone)]
 pub struct Particle {
     pub m: f64,
@@ -61,6 +64,7 @@ pub struct Particle {
     pub interaction_index: usize,
 }
 impl Particle {
+    /// Construct a particle object from input.
     pub fn from_input(input: ParticleInput, options: &Options) -> Particle {
         let dirx = input.ux;
         let diry = input.uy;
@@ -94,6 +98,7 @@ impl Particle {
         }
     }
 
+    /// Particle constructor from raw inputs.
     pub fn new(m: f64, Z: f64, E: f64, Ec: f64, Es: f64, x: f64, y: f64, z: f64, dirx: f64, diry: f64, dirz: f64, incident: bool, track_trajectories: bool, interaction_index: usize) -> Particle {
         let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
 
@@ -122,18 +127,22 @@ impl Particle {
             interaction_index,
         }
     }
+
+    /// If `track_trajectories`, add the current (E, x, y, z) to the trajectory.
     pub fn add_trajectory(&mut self) {
         if self.track_trajectories {
             self.trajectory.push(Vector4 {E: self.E, x: self.pos.x, y: self.pos.y, z: self.pos.z});
         }
     }
 
+    /// If `track_energy_losses`, add the most recent electronic and nuclear energy loss terms and (x, y, z) to the energy loss tracker.
     pub fn energy_loss(&mut self, options: &Options, En: f64, Ee: f64) {
         if self.incident & options.track_energy_losses {
             self.energies.push(EnergyLoss {Ee, En, x: self.pos.x, y: self.pos.y, z: self.pos.z});
         }
     }
 
+    /// Get the current momentum.
     pub fn get_momentum(&mut self) -> Vector {
         let speed = (2.*self.E/self.m).sqrt();
         Vector::new(
@@ -144,6 +153,7 @@ impl Particle {
     }
 }
 
+/// Rotate a particle by a deflection psi at an azimuthal angle phi.
 pub fn rotate_particle(particle_1: &mut particle::Particle, psi: f64, phi: f64) {
     let cosx: f64 = particle_1.dir.x;
     let cosy: f64 = particle_1.dir.y;
@@ -165,6 +175,7 @@ pub fn rotate_particle(particle_1: &mut particle::Particle, psi: f64, phi: f64) 
     particle_1.dir.normalize();
 }
 
+/// Push particle in space according to previous direction and return the distance traveled.
 pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asympototic_deflection: f64) -> f64 {
 
     if particle_1.E > particle_1.Ec {
@@ -193,6 +204,7 @@ pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asympotot
     return distance_traveled;
 }
 
+/// Calcualte the refraction angle based on the surface binding energy of the material.
 pub fn refraction_angle(costheta: f64, energy_old: f64, energy_new: f64) -> f64 {
     //println!("energy_old: {} energy_new: {} costheta: {}", energy_old/EV, energy_new/EV, costheta);
     let costheta = if costheta.abs() > 1. {costheta.signum()} else {costheta};
