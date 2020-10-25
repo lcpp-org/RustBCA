@@ -47,7 +47,7 @@ Optional Dependencies:
   * Python 3.6+
   * Python libraries: numpy, matplotlib, toml (must build from source),  Shapely, scipy
 
-# Ubuntu 18.04 LTS:
+# Detailed Instructions for Ubuntu 18.04 LTS:
 1. Optional: install Python 3.6+ (this comes natively in Ubuntu 18.04)
 2. Install curl, `apt-get install curl`
 3. Install rustup, the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/
