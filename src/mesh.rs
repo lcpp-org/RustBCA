@@ -47,6 +47,13 @@ impl Mesh2D {
         let densities: Vec<Vec<f64>> = mesh_2d_input.densities
             .iter()
             .map( |row| row.iter().map(|element| element/(length_unit).powf(3.)).collect() ).collect();
+
+        //Assert all triangle density lists are equal length
+        assert!(
+            densities.iter()
+            .all(|density_list| density_list.len() == densities[0].len())
+        );
+
         assert_eq!(coordinate_sets.len(), densities.len(), "Input error: coordinates and data of unequal length.");
 
         for (coordinate_set, densities) in coordinate_sets.iter().zip(densities) {

@@ -437,7 +437,6 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
             },
         };
 
-
         particle_1.E += -delta_energy;
         //Make sure particle energy doesn't become negative again
         assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following electronic stopping.");
