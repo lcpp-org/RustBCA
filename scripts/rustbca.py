@@ -1,19 +1,16 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib
 from shapely.geometry import Point, Polygon, box
 import os
 import toml
 import time
 from scipy.interpolate import interp1d
-from matplotlib import rcParams
+
+import matplotlib.pyplot as plt
+from matplotlib import rcParams, cm
 import matplotlib as mpl
 import matplotlib.colors as colors
-from matplotlib import cm
-from enum import Enum
-from collections import namedtuple
-rcParams.update({'figure.autolayout': True})
 
+rcParams.update({'figure.autolayout': True})
 
 Q = 1.602E-19
 PI = 3.14159
@@ -259,6 +256,7 @@ xenon = {
     'Ec': 1.0,
     'Es': 0.
 }
+
 INTERPOLATED = "INTERPOLATED"
 LOW_ENERGY_NONLOCAL = "LOW_ENERGY_NONLOCAL"
 LOW_ENERGY_LOCAL= "LOW_ENERGY_LOCAL"
@@ -276,6 +274,17 @@ QUADRATURE = "MENDENHALL_WELLER"
 MAGIC = "MAGIC"
 
 def thomas_reflection(ion, target, energy_eV):
+    '''
+    Thomas et al. (1991) semi-empirical reflection coefficient.
+
+    Args:
+        ion (dict): a dictionary with the fields Z (atomic number), m (mass)
+        target (dict): a dictionary with the fields Z (atomic number), m (mass)
+        energy_eV (float): energy in electron-volts
+
+    Returns:
+        R (float): reflection coefficient of ion on target with energy_eV
+    '''
     #Thomas et al. empirical reflection coefficient (1991)
     Z1 = ion['Z']
     Z2 = target['Z']
@@ -285,6 +294,7 @@ def thomas_reflection(ion, target, energy_eV):
 
     #Thomas-Fermi reduced energy
     reduced_energy = 32.55*energy_keV*M2/((M1 + M2)*Z1*Z2*(Z1**0.23 + Z2**0.23))
+
     mu = M2/M1
     if mu < 1:
         print('Warning: Thomas et al. reflection coefficient not defined for M2/M1 < 1.')
@@ -308,6 +318,18 @@ def thomas_reflection(ion, target, energy_eV):
     return a1(mu)*np.log(a2(mu)*reduced_energy + 2.718)/(1. + a3(mu)*reduced_energy**a4(mu) + a5(mu)*reduced_energy**a6(mu))
 
 def wierzbicki_biersack(ion, target, energy_eV):
+    '''
+    Wierzbicki-Biersack empirical reflection coefficient (1994); not as widely
+        applicable as Thomas et al.
+
+    Args:
+        ion (dict): a dictionary with the fields Z (atomic number), m (mass)
+        target (dict): a dictionary with the fields Z (atomic number), m (mass)
+        energy_eV (float): energy in electron-volts
+
+    Returns:
+        R (float): reflection coefficient of ion on target with energy_eV
+    '''
     #Wierzbicki and Biersack empirical reflection coefficient (1994)
     Z1 = ion['Z']
     Z2 = target['Z']
@@ -343,11 +365,24 @@ def wierzbicki_biersack(ion, target, energy_eV):
     return RN_mu*RN_e
 
 def bohdansky_light_ion(ion, target, energy_eV):
+    '''
+    Bohdansky sputtering yield formula in the light ion (M1/M2 < 0.5) limit.
+    Returns 0 if the target does not have a surface binding energy.
+
+    Args:
+        ion (dict): a dictionary with the fields Z (atomic number), m (mass)
+        target (dict): a dictionary with the fields Z (atomic number), m (mass), Es (surface binding energy)
+        energy_eV (float): energy in electron-volts
+
+    Returns:
+        Y (float): sputtering yield in atoms/ion
+    '''
     z1 = ion['Z']
     z2 = target['Z']
     m1 = ion['m']
     m2 = target['m']
     Us = target['Es']
+
     if Us == 0.: return 0
     alpha = 0.2
 
@@ -373,6 +408,17 @@ def bohdansky_light_ion(ion, target, energy_eV):
         return 0.
 
 def yamamura(ion, target, energy_eV):
+    '''
+    Yamamura sputtering yield formula for normal incidence.
+
+    Args:
+        ion (dict): a dictionary with the fields Z (atomic number), m (mass)
+        target (dict): a dictionary with the fields Z (atomic number), m (mass), Es (surface binding energy), Q (Yamamura coefficient)
+        energy_eV (float): energy in electron-volts
+
+    Returns:
+        Y (float): sputtering yield in atoms/ion
+    '''
     #Yamamura sputtering yield implementation
     z1 = ion['Z']
     z2 = target['Z']
@@ -402,33 +448,41 @@ def yamamura(ion, target, energy_eV):
 
     return 0.42*a_star*Q*K*sn/Us/(1. + 0.35*Us*se)*(1. - np.sqrt(Eth/energy_eV))**2.8
 
-def do_trajectory_plot(name, file_num='', symmetric=False, thickness=None, depth=None, num_trajectories=-2, plot_final_positions=True):
+def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_final_positions=True, plot_origins=True, show=True):
+    '''
+    Plots trajectories of ions and recoils from [name]trajectories.output.
+    Optionally marks final positions/origins and draws material geometry.
+
+    Geometry input is in same length_unit as the rustbca particles.
+
+    Args:
+        name (string): name of rustbca simulation
+        thickness list(float): thickness of target, or None to not draw target
+        depth list(float): depth of target, or None to not draw target
+        boundary list((float, float)): points that make up boundary, or None to not draw boundary
+        plot_final_positions (bool): mark final positions (reflected: X sputtered: * deposited ^)
+        plot_origins (bool): mark originating locations of particles (o)
+        show (bool): whether or not to show plots
+
+    '''
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
     deposited = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
     trajectories = np.atleast_2d(np.genfromtxt(name+'trajectories.output', delimiter=','))
     trajectory_data = np.atleast_1d(np.genfromtxt(name+'trajectory_data.output', delimiter=',').transpose().astype(int))
 
-    if symmetric:
-        if np.size(reflected)>0: reflected[:, 4] = abs(reflected[:, 4])
-        if np.size(sputtered)>0: sputtered[:, 4] = abs(sputtered[:, 4])
-        if np.size(deposited)>0: deposited[:, 3] = abs(deposited[:, 3])
-        if np.size(trajectories)>0: trajectories[:, 4] = abs(trajectories[:, 4])
-
-
     if np.size(trajectories) > 0:
         min_Z = np.min(trajectories[:, 1])
         max_Z = np.max(trajectories[:, 1])
-        colormap = cm.ScalarMappable(norm=colors.Normalize(vmin=min_Z, vmax=max_Z), cmap='brg')
+        colormap = cm.ScalarMappable(norm=colors.Normalize(vmin=min_Z, vmax=max_Z), cmap='tab20b')
 
     fig1, axis1 = plt.subplots()
 
     index = 0
     x_max = 0
 
-    n = min(num_trajectories + 1, len(trajectory_data) + 1)
     if np.size(trajectories) > 0:
-        for trajectory_length in trajectory_data[:n]:
+        for trajectory_length in trajectory_data:
 
             M = trajectories[index, 0]
             Z = trajectories[index, 1]
@@ -440,7 +494,7 @@ def do_trajectory_plot(name, file_num='', symmetric=False, thickness=None, depth
             if np.max(x) > x_max:
                 x_max = np.max(x)
 
-            #plt.scatter(x[0], y[0], color = colors[Z], marker='o', s=5)
+            if plot_origins: plt.scatter(x[0], y[0], color=colormap.to_rgba(Z), marker='.', s=5)
             plt.plot(x, y, color = colormap.to_rgba(Z), linewidth = 1)
 
             index += trajectory_length
@@ -463,11 +517,16 @@ def do_trajectory_plot(name, file_num='', symmetric=False, thickness=None, depth
             y_box = [-thickness/2., thickness/2., thickness/2., -thickness/2., -thickness/2.]
             plt.plot(x_box, y_box, color='dimgray', linewidth=3)
 
+        elif geometry:
+            for point_1, point_2 in zip(geometry[1:], geometry[:-1]):
+                plt.plot([point_1[0], point_2[0]], [point_1[1], point_2[1]], line_width=3, color='dimgray')
+            plt.plot([geometry[0][0], geometry[-1][0]], [geometry[0][1], geometry[-1][1]], line_width=3, color='dimgray')
+
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
         plt.title(name+' Trajectories')
 
-        plt.show()
+        if show: plt.show()
         plt.savefig(name+'trajectories_'+file_num+'.png')
         plt.close()
 
@@ -481,6 +540,11 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
     initial_particle_position = -1*ANGSTROM/MICRON, integral='"MENDENHALL_WELLER"',
     root_finder = '{"NEWTON"={max_iterations=100, tolerance=1e-3}}',
     delta_x_angstrom=5.):
+
+
+    '''
+    Generates a rustbca input file.
+    '''
 
     options = {
         'name': name,
@@ -563,11 +627,29 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         file.write(f'interaction_potential = [[{interaction_potential}]]\n')
         file.write(f'scattering_integral =  [[{integral}]]\n')
 
-def plot_distributions_rustbca(name, beam, target, max_collision_contours=4,
-    plot_2d_reflected_contours=False, collision_contour_significance_threshold=0.1, slice_angle=45,
-    incident_energy=1., incident_angle=0., plot_garrison_contours=False,
+def plot_distributions_rustbca(name, beam, target,
+    incident_energy=0, incident_angle=0,
+    max_collision_contours=4, plot_2d_reflected_contours=False,
+    collision_contour_significance_threshold=0.1, plot_garrison_contours=False,
     plot_reflected_energies_by_number_collisions=False,
     plot_scattering_energy_curve=False):
+
+    '''
+    Plots rustbca distributions.
+
+    Args:
+        name (string): name of rustbca simulation.
+        beam (dict): ions striking target; dictionary with fields symbol and Z
+        target (dict): target upon which ions are incdient; dictionary with fields symbol and Z
+        incident_energy (float): energy in energy_units; used to scale energy spectra
+        incident_angle (float): angle in degrees; currently used to generate titles only
+        max_collision_contours (int): number of collision event contours to plot on reflected EAD; default 4
+        plot_2d_reflected_contours (bool): whether to plot collision event contours on reflected EAD; default False
+        collision_contour_significance_threshold (int): threshold of significance for contour plotting; default 0.1
+        plot_reflected_energies_by_number_collisions (bool): separte reflected energy spectrum into collision number distributions; default False
+        plot_scattering_energy_curve (bool): plot bold, translucent white curve showing theoretical single-collision reflected energies; default False
+
+    '''
     num_bins = 120
 
     r = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
@@ -612,7 +694,7 @@ def plot_distributions_rustbca(name, beam, target, max_collision_contours=4,
 
         if plot_2d_reflected_contours:
             n_max = min(int(np.max(number_collision_events)), max_collision_contours)
-            cmap = matplotlib.cm.get_cmap('Wistia')
+            cmap = mpl.cm.get_cmap('Wistia')
             colors = [cmap((n - 1)/n_max) for n in range(1, n_max + 1)]
 
             for k in range(1, n_max + 1):
@@ -674,37 +756,38 @@ def plot_distributions_rustbca(name, beam, target, max_collision_contours=4,
         plt.close()
 
     #Deposited ion depth distributions
-    plt.figure(num='d')
-    plots = []
-    labels = []
-
     if np.size(d) > 0:
+        plt.figure(num='d')
+        plots = []
+        labels = []
+
         heights, bins, rust = plt.hist(d[d[:,2]>0., 2], histtype='step', bins=num_bins, density=True, color='black')
         np.savetxt(name+'depo_dist.dat', heights)
         np.savetxt(name+'depo_depths.dat', bins)
         plots.append(rust[0])
         labels.append('rustbca')
 
-    if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='upper right')
-    plt.title(f'Depth Distributions {beam["symbol"]} on {target["symbol"]} E0 = {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
-    plt.xlabel('x [um]')
-    plt.ylabel('f(x)')
-    #axis = plt.gca()
-    #axis.set_yscale('log')
-    plt.savefig(name+'dep.png')
-    plt.close()
+        if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='upper right')
+        plt.title(f'Depth Distributions {beam["symbol"]} on {target["symbol"]} E0 = {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
+        plt.xlabel('x [um]')
+        plt.ylabel('f(x)')
+        #axis = plt.gca()
+        #axis.set_yscale('log')
+        plt.savefig(name+'dep.png')
+        plt.close()
 
     #Reflected ion energy distributions
-    plt.figure(num='re')
-    plots = []
-    labels = []
-    #bins = np.linspace(0.0, 1000.0, num_bins)
     if np.size(r) > 0:
+
+        plt.figure(num='re')
+        plots = []
+        labels = []
+
         heights, bins, rust = plt.hist(r[:, 2]/incident_energy, histtype='step',  bins=num_bins, density=True, color='black')
         number_collision_events = r[:, -1]
 
         n_max = min(int(np.max(number_collision_events)), max_collision_contours)
-        cmap = matplotlib.cm.get_cmap('brg')
+        cmap = mpl.cm.get_cmap('brg')
         colors = [cmap((n - 1)/n_max) for n in range(1, n_max + 1)]
 
         if plot_reflected_energies_by_number_collisions:
@@ -727,7 +810,6 @@ def plot_distributions_rustbca(name, beam, target, max_collision_contours=4,
         plots.append(rust[0])
         labels.append('rustbca')
 
-    if np.size(r) > 0:
         if len(plots) > 0: plt.legend(plots, labels, fontsize='small', fancybox=True, shadow=True, loc='upper left')
         plt.title(f'Refl. Energies {beam["symbol"]} on {target["symbol"]} E0 = {np.round(incident_energy, 1)} eV {np.round(incident_angle, 1)} deg', fontsize='small')
         plt.xlabel('E/E0')
@@ -738,17 +820,17 @@ def plot_distributions_rustbca(name, beam, target, max_collision_contours=4,
         plt.savefig(name+'ref_e.png')
         plt.close()
 
-    #Sputtered atom energy distributions
-    plt.figure(num='se')
-    plots = []
-    labels = []
-    #bins=np.linspace(0.0, 100.0, num_bins)
+
     if np.size(s) > 0:
+        #Sputtered atom energy distributions
+        plt.figure(num='se')
+        plots = []
+        labels = []
+
         _, _, rust = plt.hist(s[:,2], histtype='step', bins=num_bins, density=True, color='black')
         plots.append(rust[0])
         labels.append('rustbca')
 
-    if np.size(s) > 0:
         energies = np.linspace(0., np.max(s[:,2]), num_bins*10)
         de = energies[1] - energies[0]
         thompson = energies/(energies + target['Es'])**(3)
@@ -764,7 +846,6 @@ def plot_distributions_rustbca(name, beam, target, max_collision_contours=4,
         plt.savefig(name+'spt_e.png')
         plt.close()
 
-    if np.size(s) > 0:
         plt.figure(num='so')
         depth_origin = s[:, 10]
         plt.hist(depth_origin, bins=num_bins, histtype='step', color='black')
@@ -847,7 +928,15 @@ def plot_distributions_rustbca(name, beam, target, max_collision_contours=4,
     plt.savefig(name+'ref_ang.png')
     plt.close()
 
-def plot_displacements(name, displacement_energy, N, num_bins=100):
+def plot_displacements(name, displacement_energy, num_bins=100):
+    '''
+    Plots displacements given a threshold displacement energy.
+
+    Args:
+        name (string): name of rustbca simulation.
+        displacement_energy (float): threshold energy needed to produce a permanent frenkel pair in energy_units
+        num_bins (int): number of histogram bins to use; default 100
+    '''
     displacements = np.genfromtxt(f'{name}displacements.output', delimiter=',')
     M = displacements[:,0]
     Z = displacements[:,1]
@@ -873,6 +962,14 @@ def plot_displacements(name, displacement_energy, N, num_bins=100):
     plt.close()
 
 def plot_energy_loss(name, N, num_bins=100):
+    '''
+    Plots energy loss plots separated by electronic and nuclear losses from rustbca.
+
+    Args:
+        name (string): name of rustbca simulation
+        N (int): number of incident ions
+        num_bins (int): number of histogram bins; default 100
+    '''
 
     energy_loss = np.genfromtxt(f'{name}energy_loss.output', delimiter=',')
     M = energy_loss[:,0]
@@ -912,6 +1009,15 @@ def plot_energy_loss(name, N, num_bins=100):
     plt.close()
 
 def plot_all_depth_distributions(name, displacement_energy, N, num_bins=100):
+    '''
+    Plots all available depth distributions (energy losses, displacements, implantation profiles) on one plot.
+
+    Args:
+        name (string): name of rustbca simulation
+        displacement_energy (float): threshold energy needed to produce a permanent frenkel pair in energy_units
+        N (int): number of incident ions
+        num_bins (int): number of histogram bins to use; default 100
+    '''
 
     energy_loss = np.genfromtxt(f'{name}energy_loss.output', delimiter=',')
     M = energy_loss[:,0]
@@ -946,6 +1052,17 @@ def plot_all_depth_distributions(name, displacement_energy, N, num_bins=100):
     plt.close()
 
 def run_iead(ions, target, energies, angles, iead, name="default_", N=1):
+    '''
+    Given an IEAD in the from of a 2D array of counts, run rustbca for the ions that make up the IEAD.
+
+    Args:
+        ions (dict): ion dictionary (see top of file)
+        target (dict): target dictionary (see top of file)
+        energies list(float): list of energies for each column of IEAD
+        angles list(float): list of angles for each row of IEAD
+        name (string): name of rustbca simulation; default: 'default_'
+        N (int): number of BCA ions to run per PIC particle; default 1
+    '''
     import itertools
 
     energy_angle_pairs = list(itertools.product(energies, angles))
@@ -1086,6 +1203,10 @@ def beam_target(ions, target, energy, angle, N_=10000, run_sim=True,
     thickness=100,
     depth=100, delta_x_angstrom=5.):
 
+    '''
+    Simplified generation of a monoenergetic, mono-angular beam on target simulation using rustbca.
+    '''
+
     Zb = [target['Z']]
     Mb = [target['m']]
     n = [target['n']]
@@ -1124,7 +1245,7 @@ def beam_target(ions, target, energy, angle, N_=10000, run_sim=True,
         if track_displacements and track_recoils: plot_displacements(name, 20., N*N_, num_bins=200)
 
         if track_trajectories and plot_trajectories:
-            do_trajectory_plot(name, thickness=thickness, depth=depth, plot_final_positions=False)
+            do_trajectory_plot(name, thickness=thickness, depth=depth, plot_final_positions=True)
 
     if track_recoils:
         s = np.atleast_2d(np.genfromtxt(f'{name}sputtered.output', delimiter=','))
@@ -1137,6 +1258,9 @@ def beam_target(ions, target, energy, angle, N_=10000, run_sim=True,
     return s, r, d
 
 def sputtering(ions, target, energies, angle, N_=10000, run_sim=True):
+    '''
+    Produces sputtering yield curves from rustbca.
+    '''
 
     Zb = [target['Z']]
     Mb = [target['m']]
@@ -1191,7 +1315,7 @@ def sputtering(ions, target, energies, angle, N_=10000, run_sim=True):
             if plot_depth_distributions: plot_all_depth_distributions(name+'_'+str(index)+str(option_index), 38., N_*N, num_bins=200)
 
             if track_trajectories and plot_trajectories:
-                do_trajectory_plot(name, thickness=thickness, depth=depth, num_trajectories=100, plot_final_positions=False)
+                do_trajectory_plot(name, thickness=thickness, depth=depth, num_trajectories=100, plot_final_positions=True)
 
             if plot_distributions: plot_distributions_rustbca(name+str(index)+'_'+str(option_index), hydrogen, boron, incident_angle=angle, incident_energy=energy)
 
@@ -1211,6 +1335,9 @@ def sputtering(ions, target, energies, angle, N_=10000, run_sim=True):
     plt.show()
 
 def different_depths():
+    '''
+    Tests reflection coefficients based on depth of Morse potential well.
+    '''
     EV = 1.602E-19
     alpha = 2.366/ANGSTROM
     r0 = 2.359*ANGSTROM
@@ -1261,6 +1388,14 @@ def different_depths():
     plt.savefig('refl_morse.png')
 
 def plot_3d_distributions(ions, target, name):
+    '''
+    Uses Mayavi to plot interactive 3D distributions.
+
+    Args:
+        name (string): name of rustbca simulation
+        ions (dict): ion dictionary; see top of file
+        target (dict): target dictionary; see top of file
+    '''
 
     from mayavi import mlab
 
@@ -1303,14 +1438,19 @@ def plot_3d_distributions(ions, target, name):
 
 
 def main():
+    '''
+    Here an example usage of beam_target is shown. This code runs rustbca and produces plots.
+
+    For helium on copper at 1 keV and 0 degrees angle of incidence,
+    all the distributions and trajectories are plotted.
+    '''
 
     energy = 1000.
     angle = 0.001
 
-    beam_target(helium, copper, energy, angle, N_ = 10, do_plots=True, run_sim=True,
-        plot_trajectories = True, track_trajectories=True)
-
-    name = name = helium['name']+'_'+copper['name']+'_'
+    beam_target(helium, copper, energy, angle, N_ = 100, do_plots=True, run_sim=True,
+        plot_trajectories = True, track_trajectories=True, thickness=0.01, depth=0.01,
+        interaction_potential=r"'KR_C'")
 
 if __name__ == '__main__':
     main()
