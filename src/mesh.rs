@@ -51,7 +51,8 @@ impl Mesh2D {
         //Assert all triangle density lists are equal length
         assert!(
             densities.iter()
-            .all(|density_list| density_list.len() == densities[0].len())
+            .all(|density_list| density_list.len() == densities[0].len()),
+            "Input error: all triangle density lists must be the same size."
         );
 
         assert_eq!(coordinate_sets.len(), densities.len(), "Input error: coordinates and data of unequal length.");
