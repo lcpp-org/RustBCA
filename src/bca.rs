@@ -527,7 +527,7 @@ fn scattering_integral_gauss_mehler(impact_parameter: f64, relative_energy: f64,
 
     PI - x.iter().zip(w)
         .map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential)
-        .with_context(|| format!("Numerical error: NaN in Gauss-Mehler scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy, impact_parameter))
+        .with_context(|| format!("Numerical error: NaN in Gauss-Mehler scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
         .unwrap()).sum::<f64>()
 }
 
@@ -538,7 +538,7 @@ fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f6
 
     PI - x.iter().zip(w)
         .map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential)
-        .with_context(|| format!("Numerical error: NaN in Gauss-Legendre scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy, impact_parameter))
+        .with_context(|| format!("Numerical error: NaN in Gauss-Legendre scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
         .unwrap()).sum::<f64>()
 }
 
