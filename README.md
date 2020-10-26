@@ -1,6 +1,6 @@
 # rustBCA
 
-A general-purpose, high-performance, Binary Collision Approximation (BCA) code for ion-material interaction, written in Rust.
+A general-purpose, high-performance, Binary Collision Approximation (BCA) code for ion-material interaction, written in Rust!
 
 Check out the [rustBCA wiki](https://github.com/lcpp-org/RustBCA/wiki) for detailed information, installation instructions, usage instructions, examples, and more.
 
