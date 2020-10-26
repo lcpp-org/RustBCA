@@ -72,6 +72,8 @@ impl Particle {
 
         let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
 
+        assert!((dirx/dir_mag).abs() > 0., "Input error: incident direction cannot round to exactly (1, 0, 0) due to gimbal lock. Use a non-zero y-component.");
+
         Particle {
             m: input.m,
             Z: input.Z,
