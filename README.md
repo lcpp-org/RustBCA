@@ -6,7 +6,7 @@ Check out the [rustBCA wiki](https://github.com/lcpp-org/RustBCA/wiki) for detai
 
 BCA codes are valid for incident ion energies between approximately 1 eV/nucleon  through GeV/nucleon. By discretizing the collision cascade into a sequence of binary collisions, BCA codes can accurately and efficiently model reflection, implantation, sputtering, transmission, and displacement damage.
 
-To get started, try running one of the examples in the rustbca directory (requires optional Python dependencies):
+To get started, try running one of the examples in the rustbca directory (requires optional Python dependencies [matplotlib, numpy, shapel, toml]):
 
 #### Hydrogen trajectories and collision cascade in boron-nitride dust grain:
 
