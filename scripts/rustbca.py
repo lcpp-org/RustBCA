@@ -465,6 +465,7 @@ def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_fin
         show (bool): whether or not to show plots
 
     '''
+
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
     deposited = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
@@ -480,6 +481,7 @@ def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_fin
 
     index = 0
     x_max = 0
+
 
     if np.size(trajectories) > 0:
         for trajectory_length in trajectory_data:
@@ -517,17 +519,17 @@ def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_fin
             y_box = [-thickness/2., thickness/2., thickness/2., -thickness/2., -thickness/2.]
             plt.plot(x_box, y_box, color='dimgray', linewidth=3)
 
-        elif geometry:
-            for point_1, point_2 in zip(geometry[1:], geometry[:-1]):
+        elif boundary:
+            for point_1, point_2 in zip(boundary[1:], boundary[:-1]):
                 plt.plot([point_1[0], point_2[0]], [point_1[1], point_2[1]], line_width=3, color='dimgray')
-            plt.plot([geometry[0][0], geometry[-1][0]], [geometry[0][1], geometry[-1][1]], line_width=3, color='dimgray')
+            plt.plot([boundary[0][0], boundary[-1][0]], [boundary[0][1], boundary[-1][1]], line_width=3, color='dimgray')
 
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
         plt.title(name+' Trajectories')
-
+        plt.axis('square')
         if show: plt.show()
-        plt.savefig(name+'trajectories_'+file_num+'.png')
+        plt.savefig(name+'trajectories_.png')
         plt.close()
 
 def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
@@ -543,7 +545,7 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
 
 
     '''
-    Generates a rustbca input file.
+    Generates a rustbca input file. Assumes eV, amu, and microns for units.
     '''
 
     options = {
@@ -628,7 +630,7 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         file.write(f'scattering_integral =  [[{integral}]]\n')
 
 def plot_distributions_rustbca(name, beam, target,
-    incident_energy=0, incident_angle=0,
+    incident_energy=1, incident_angle=0,
     max_collision_contours=4, plot_2d_reflected_contours=False,
     collision_contour_significance_threshold=0.1, plot_garrison_contours=False,
     plot_reflected_energies_by_number_collisions=False,
@@ -961,7 +963,7 @@ def plot_displacements(name, displacement_energy, num_bins=100):
     plt.savefig(name+'displacements2D.png')
     plt.close()
 
-def plot_energy_loss(name, N, num_bins=100):
+def plot_energy_loss(name, N, num_bins=100, thickness=None, depth=None):
     '''
     Plots energy loss plots separated by electronic and nuclear losses from rustbca.
 
@@ -989,6 +991,9 @@ def plot_energy_loss(name, N, num_bins=100):
     plt.title(f'Energy Losses {name}')
     plt.savefig(name+'energy_loss.png')
     plt.close()
+
+    if depth and thickness:
+        num_bins = (np.linspace(0., depth, num_bins), np.linspace(-thickness/2., thickness/2., num_bins))
 
     plt.figure(2)
     plt.xlabel('x [um]')
@@ -1028,9 +1033,9 @@ def plot_all_depth_distributions(name, displacement_energy, N, num_bins=100):
     y = energy_loss[:,5]
 
     plt.figure(1)
-    plt.hist(x, weights=En/N, bins=num_bins, histtype='step', color='black', density=True, linewidth=2, linestyle='--')
-    plt.hist(x, weights=Ee/N, bins=num_bins, histtype='step', color='red', density=True, linewidth=2, linestyle='--')
-    plt.hist(x, weights=(Ee + En)/N, bins=num_bins, histtype='step', color='green', density=True, linewidth=2)
+    plt.hist(x, weights=En/N, bins=num_bins, histtype='step', color='black', linewidth=2, linestyle='--', density=True)
+    plt.hist(x, weights=Ee/N, bins=num_bins, histtype='step', color='red', linewidth=2, linestyle='--', density=True)
+    plt.hist(x, weights=(Ee + En)/N, bins=num_bins, histtype='step', color='green', linewidth=2, density=True)
 
     displacements = np.genfromtxt(f'{name}displacements.output', delimiter=',')
     M = displacements[:,0]
@@ -1038,15 +1043,15 @@ def plot_all_depth_distributions(name, displacement_energy, N, num_bins=100):
     Er = displacements[:,2]
     x = displacements[Er>displacement_energy,3]
     y = displacements[Er>displacement_energy,4]
-    plt.hist(x, bins=num_bins, histtype='step', color='blue', density=True, linewidth=2)
+    plt.hist(x, bins=num_bins, histtype='step', color='blue', linewidth=2, density=True)
 
     deposited = np.genfromtxt(f'{name}deposited.output', delimiter=',')
     x = deposited[:, 2]
-    plt.hist(x, bins=num_bins, histtype='step', color='purple', density=True, linewidth=2)
+    plt.hist(x, bins=num_bins, histtype='step', color='purple', linewidth=2, density=True)
 
     plt.legend(['ΔE Nuclear', 'ΔE Electronic', 'ΔE Total', f'Damage Ed = {displacement_energy}', 'Deposited'])
     plt.xlabel('x [um]')
-    plt.ylabel('f(x)')
+    plt.ylabel('A.U.')
     plt.title(f'Depth Distributions {name}')
     plt.savefig(name+'plot_all_depth_distributions.png')
     plt.close()
@@ -1435,7 +1440,6 @@ def plot_3d_distributions(ions, target, name):
 
     mlab.axes()
     mlab.show()
-
 
 def main():
     '''
