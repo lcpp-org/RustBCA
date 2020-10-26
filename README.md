@@ -1,10 +1,35 @@
 # rustBCA
 
-A Binary Collision Approximation (BCA) code for ion-material interactions, written in Rust!
+A general-purpose, high-performance, Binary Collision Approximation (BCA) code for ion-material interaction, written in Rust!
 
 Check out the [rustBCA wiki](https://github.com/lcpp-org/RustBCA/wiki) for detailed information, installation instructions, usage instructions, examples, and more.
 
-BCA codes are valid for incident ion energies between approximately 10 eV  through GeV. By discretizing the collision cascade into a sequence of binary collisions, BCA codes can accurately and efficiently model reflection, implantation, sputtering, transmission, and displacement damage.
+BCA codes are valid for incident ion energies between approximately 1 eV/nucleon  through GeV/nucleon. By discretizing the collision cascade into a sequence of binary collisions, BCA codes can accurately and efficiently model reflection, implantation, sputtering, transmission, and displacement damage.
+
+To get started, try running one of the examples in the rustbca directory (requires optional Python dependencies [matplotlib, numpy, shapel, toml]):
+
+#### Hydrogen trajectories and collision cascade in boron-nitride dust grain:
+
+`cargo run --release examples/boron_nitride.toml`
+
+`python`
+
+`>>> from scripts.rustbca import *`
+
+`>>> do_trajectory_plot('boron_dust_grain_')`
+
+#### Helium implantation in a layered TiO2-Al-Si target:
+
+`cargo run --release examples/layered_geometry.toml`
+
+`python`
+
+`>>> import numpy as np; import matplotlib.pyplot as plt`
+
+`>>> plt.hist(np.genfromtxt("2000.0eV_0.0001deg_He_TiO2_Al_Sideposited.output", delimiter=',')[:,2], bins=100)`
+
+`>>> plt.show()`
+
 # Features
 
 * Ion-material interactions for all combinations of incident ion and target species
