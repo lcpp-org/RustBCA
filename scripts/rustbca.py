@@ -1,17 +1,21 @@
+import os
+import time
+
+import toml
 import numpy as np
 from shapely.geometry import Point, Polygon, box
-import os
-import toml
-import time
-from scipy.interpolate import interp1d
 
 import matplotlib.pyplot as plt
 from matplotlib import rcParams, cm
 import matplotlib as mpl
 import matplotlib.colors as colors
 
+from materials import *
+from formulas import *
+
 rcParams.update({'figure.autolayout': True})
 
+#Constants
 Q = 1.602E-19
 PI = 3.14159
 AMU = 1.66E-27
@@ -26,236 +30,6 @@ ME = 9.11E-31
 SQRTPI = 1.77245385
 SQRT2PI = 2.506628274631
 C = 299792000.
-
-titanium = {
-    'symbol': 'Ti',
-    'name': 'titanium',
-    'Z': 22,
-    'm': 47.867,
-    'Es': 4.84,
-    'Ec': 3.5,
-    'Eb': 3.,
-    'Q': 0.54,
-    'n': 5.67e28,
-    'W': 2.57,
-    's': 2.5
-}
-
-hydrogen = {
-    'symbol': 'H',
-    'name': 'hydrogen',
-    'Z': 1,
-    'm': 1.008,
-    'Ec': 0.95,
-    'Es': 1.5,
-}
-
-nitrogen = {
-    'symbol': 'N',
-    'name': 'nitrogen',
-    'Z': 7,
-    'm': 14,
-    'n': 5.4E25,
-    'Es': 0.,
-    'Eb': 0.,
-    'Ec': 1.0,
-    'Q': 1.
-}
-
-deuterium = {
-    'symbol': 'D',
-    'name': 'deuterium',
-    'Z': 1,
-    'm': 2,
-    'Ec': 0.1,
-    'Es': 1.5,
-}
-
-helium = {
-    'symbol': 'He',
-    'name': 'helium',
-    'Z': 2,
-    'm': 4.002602,
-    'Ec': 1.0,
-    'Es': 0.
-}
-
-beryllium = {
-    'symbol': 'Be',
-    'name': 'beryllium',
-    'Z': 4,
-    'm': 9.012182,
-    'n': 1.2347E29,
-    'Es': 3.31,
-    'Eb': 0.,
-    'Ec': 3.,
-    'Q': 1.66,
-    'W': 2.32,
-    's': 2.5
-}
-
-boron = {
-    'symbol': 'B',
-    'name': 'boron',
-    'Z': 5,
-    'm': 10.811,
-    'n': 1.309E29,
-    'Es': 5.76,
-    'Eb': 0.,
-    'Ec': 5.,
-    'Q': 2.62,
-    'W': 4.39,
-    's': 2.5
-}
-
-arsenic = {
-    'symbol': 'As',
-    'name': 'arsenic',
-    'Z': 33,
-    'm': 74.921595,
-    'n': 4.603E28,
-    'Es': 3.12,
-    'Eb': 0.,
-    'Ec': 1.,
-    'Q': None,
-    'W': None,
-    's': None
-}
-
-neon = {
-    'symbol': 'Ne',
-    'name': 'neon',
-    'Z': 10,
-    'm': 20.1797,
-    'Ec': 1.0,
-    'Es': 0.
-}
-
-krypton = {
-    'symbol': 'Kr',
-    'name': 'krypton',
-    'Z': 36,
-    'm': 83.80,
-    'Ec': 1.0,
-    'Es': 0.
-}
-
-silicon = {
-    'symbol': 'Si',
-    'name': 'silicon',
-    'Z': 14,
-    'm': 28.08553,
-    'n': 4.996E28,
-    'Es': 4.72,
-    'Eb': 0.,
-    'Ec': 1.5,
-    'Q': 0.66,
-    'W': 2.32,
-    's': 2.5
-}
-
-argon = {
-    'symbol': 'Ar',
-    'name': 'argon',
-    'Z': 18,
-    'm': 39.948,
-    'Ec': 1.0,
-    'Es': 0.
-}
-
-oxygen = {
-    'symbol': 'O',
-    'name': 'oxygen',
-    'Z': 8,
-    'm': 15.9994,
-    'Eb': 2.58,
-    'Ec': 2.0,
-    'Es': 2.58,
-    'n': 4.291E28
-}
-
-aluminum = {
-    'symbol': 'Al',
-    'name': 'aluminum',
-    'Z': 13,
-    'm': 26.98,
-    'n': 6.026E28,
-    'Es': 3.39,
-    'Ec': 3.,
-    'Eb': 3.,
-}
-
-copper = {
-    'symbol': 'Cu',
-    'name': 'copper',
-    'Z': 29,
-    'm': 63.546,
-    'n': 8.491E28,
-    'Es': 3.52,
-    'Eb': 0.,
-    'Ec': 3.0,
-    'Q': 1.0,
-    'W': 2.14,
-    's': 2.5
-}
-
-tungsten = {
-    'symbol': 'W',
-    'name': 'tungsten',
-    'Z': 74,
-    'm': 183.84,
-    'n': 6.306E28,
-    'Es': 8.79,
-    'Eb': 3.,
-    'Ec': 6.,
-    'Q': 0.72,
-    'W': 2.14,
-    's': 2.8
-}
-
-gold = {
-    'symbol': 'Au',
-    'name': 'gold',
-    'Z': 79,
-    'm': 196.97,
-    'n': 5.901E28,
-    'Es': 3.79,
-    'Eb': 0.,
-    'Ec': 3.,
-    'Q': 1.0,
-    'W': 0.,
-    's': 0.,
-}
-
-nickel = {
-    'symbol': 'Ni',
-    'name': 'nickel',
-    'Z': 28,
-    'm': 58.69,
-    'n': 9.14E28,
-    'Es': 4.44,
-    'Eb': 0.,
-    'Ec': 3.,
-    'Q': 1.0,
-}
-
-cesium = {
-    'symbol': 'Cs',
-    'name': 'cesium',
-    'Z': 55,
-    'm': 132.905,
-    'Ec': 0.8,
-    'Es': 0.8,
-}
-
-xenon = {
-    'symbol': 'Xe',
-    'name': 'xenon',
-    'Z': 54,
-    'm': 131.293,
-    'Ec': 1.0,
-    'Es': 0.
-}
 
 INTERPOLATED = "INTERPOLATED"
 LOW_ENERGY_NONLOCAL = "LOW_ENERGY_NONLOCAL"
@@ -272,181 +46,6 @@ LENZ_JENSEN = "LENZ_JENSEN"
 
 QUADRATURE = "MENDENHALL_WELLER"
 MAGIC = "MAGIC"
-
-def thomas_reflection(ion, target, energy_eV):
-    '''
-    Thomas et al. (1991) semi-empirical reflection coefficient.
-
-    Args:
-        ion (dict): a dictionary with the fields Z (atomic number), m (mass)
-        target (dict): a dictionary with the fields Z (atomic number), m (mass)
-        energy_eV (float): energy in electron-volts
-
-    Returns:
-        R (float): reflection coefficient of ion on target with energy_eV
-    '''
-    #Thomas et al. empirical reflection coefficient (1991)
-    Z1 = ion['Z']
-    Z2 = target['Z']
-    M1 = ion['m']
-    M2 = target['m']
-    energy_keV = energy_eV/1E3
-
-    #Thomas-Fermi reduced energy
-    reduced_energy = 32.55*energy_keV*M2/((M1 + M2)*Z1*Z2*(Z1**0.23 + Z2**0.23))
-
-    mu = M2/M1
-    if mu < 1:
-        print('Warning: Thomas et al. reflection coefficient not defined for M2/M1 < 1.')
-        return None
-
-    mu_ranges = [1, 3, 6, 7, 12, 15, 20]
-    A1 = [0.02129, 0.3680, 0.5173, 0.5173, 0.6192, 0.6192, 0.8250]
-    A2 = [16.39, 2.985, 2.549, 2.549, 20.01, 20.01, 21.41]
-    A3 = [26.39, 7.122, 5.325, 5.325, 8.922, 8.922, 8.606]
-    A4 = [0.9131, 0.5802, 0.5719, 0.5719, 0.6669, 0.6669, 0.6425]
-    A5 = [6.249, 4.211, 1.094, 1.094, 1.864, 1.864, 1.907]
-    A6 = [2.550, 1.597, 1.933, 1.933, 1.899, 1.899, 1.927]
-
-    a1 = interp1d(mu_ranges, A1, bounds_error = False, fill_value=(A1[0], A1[-1]))
-    a2 = interp1d(mu_ranges, A2, bounds_error = False, fill_value=(A2[0], A2[-1]))
-    a3 = interp1d(mu_ranges, A3, bounds_error = False, fill_value=(A3[0], A3[-1]))
-    a4 = interp1d(mu_ranges, A4, bounds_error = False, fill_value=(A4[0], A4[-1]))
-    a5 = interp1d(mu_ranges, A5, bounds_error = False, fill_value=(A5[0], A5[-1]))
-    a6 = interp1d(mu_ranges, A6, bounds_error = False, fill_value=(A6[0], A6[-1]))
-
-    return a1(mu)*np.log(a2(mu)*reduced_energy + 2.718)/(1. + a3(mu)*reduced_energy**a4(mu) + a5(mu)*reduced_energy**a6(mu))
-
-def wierzbicki_biersack(ion, target, energy_eV):
-    '''
-    Wierzbicki-Biersack empirical reflection coefficient (1994); not as widely
-        applicable as Thomas et al.
-
-    Args:
-        ion (dict): a dictionary with the fields Z (atomic number), m (mass)
-        target (dict): a dictionary with the fields Z (atomic number), m (mass)
-        energy_eV (float): energy in electron-volts
-
-    Returns:
-        R (float): reflection coefficient of ion on target with energy_eV
-    '''
-    #Wierzbicki and Biersack empirical reflection coefficient (1994)
-    Z1 = ion['Z']
-    Z2 = target['Z']
-    M1 = ion['m']
-    M2 = target['m']
-    energy_keV = energy_eV/1E3
-
-    #I've never seen this form of the reduced energy before - it's Thomas-Fermi
-    reduced_energy = 32.55*energy_keV*M2/((M1 + M2)*Z1*Z2*(Z1**0.23 + Z2**0.23))
-    mu = M2/M1
-
-    #Here are some empirical coefficients
-    a1 = 5.9638
-    b1 = 0.0646
-    c1 = 52.211
-
-    a2 = 1.26E-3
-    b2 = -0.9305
-    c2 = 1.235
-
-    #Wierzbicki and Biersack found that you can separate the dependence on mu, e
-    RN_mu = np.exp(a1*np.sqrt(1. - b1*(np.log(mu/c1))**2.))
-    RN_e = a2*np.exp(b2*(np.log(reduced_energy + 1.))**c2)
-
-    if not (1.03 < mu <= 240):
-        print("Warning: Wierzbicki-Biersack may not be accurate for this ion-target pair")
-        print(f'False: 1.03 < {mu} <= 240')
-
-    if not (1 < reduced_energy < 10):
-        print("Warning: Wierzbicki-Biersack may not be accurate at this energy")
-        print(f'False: 1 < {reduced_energy} <= 10')
-
-    return RN_mu*RN_e
-
-def bohdansky_light_ion(ion, target, energy_eV):
-    '''
-    Bohdansky sputtering yield formula in the light ion (M1/M2 < 0.5) limit.
-    Returns 0 if the target does not have a surface binding energy.
-
-    Args:
-        ion (dict): a dictionary with the fields Z (atomic number), m (mass)
-        target (dict): a dictionary with the fields Z (atomic number), m (mass), Es (surface binding energy)
-        energy_eV (float): energy in electron-volts
-
-    Returns:
-        Y (float): sputtering yield in atoms/ion
-    '''
-    z1 = ion['Z']
-    z2 = target['Z']
-    m1 = ion['m']
-    m2 = target['m']
-    Us = target['Es']
-
-    if Us == 0.: return 0
-    alpha = 0.2
-
-    reduced_mass_2 = m2/(m1 + m2)
-    reduced_mass_1 = m1/(m1 + m2)
-
-    #Following assumptions are for very light ions (m1/m2<0.5)
-    K = 0.4
-    R_Rp = K*m2/m1 + 1.
-
-    Eth = (1.9 + 3.8*(m1/m2) + 0.134*(m2/m1)**1.24)*Us
-
-    a0 = 0.529*ANGSTROM
-    a = 0.885*a0*(z1**(2./3.) + z2**(2./3.))**(-1./2.)
-    reduced_energy = 0.03255/(z1*z2*(z1**(2./3.) + z2**(2./3.))**(1./2.))*reduced_mass_2*energy_eV
-    sn = 3.441*np.sqrt(reduced_energy)*np.log(reduced_energy + 2.718)/(1. + 6.355*np.sqrt(reduced_energy) + reduced_energy*(-1.708 + 6.882*np.sqrt(reduced_energy)))
-    Sn = 8.478*z1*z2/(z1**(2./3.) + z2**(2./3.))**(1./2.)*reduced_mass_1*sn
-
-    sputtering_yield = 0.042/Us*(R_Rp)*alpha*Sn*(1-(Eth/energy_eV)**(2./3.))*(1-(Eth/energy_eV))**2
-    if sputtering_yield > 0:
-        return sputtering_yield
-    else:
-        return 0.
-
-def yamamura(ion, target, energy_eV):
-    '''
-    Yamamura sputtering yield formula for normal incidence.
-
-    Args:
-        ion (dict): a dictionary with the fields Z (atomic number), m (mass)
-        target (dict): a dictionary with the fields Z (atomic number), m (mass), Es (surface binding energy), Q (Yamamura coefficient)
-        energy_eV (float): energy in electron-volts
-
-    Returns:
-        Y (float): sputtering yield in atoms/ion
-    '''
-    #Yamamura sputtering yield implementation
-    z1 = ion['Z']
-    z2 = target['Z']
-    m1 = ion['m']
-    m2 = target['m']
-    Us = target['Es']
-    Q = target['Q']
-    #W = target['W']
-    #s = target['s']
-
-    reduced_mass_2 = m2/(m1 + m2)
-    reduced_mass_1 = m1/(m1 + m2)
-
-    #Lindhard's reduced energy
-    reduced_energy = 0.03255/(z1*z2*(z1**(2./3.) + z2**(2./3.))**(1./2.))*reduced_mass_2*energy_eV
-
-    #Yamamura empirical constants
-    K = 8.478*z1*z2/(z1**(2./3.) + z2**(2./3.))**(1./2.)*reduced_mass_1
-    a_star = 0.08 + 0.164*(m2/m1)**0.4 + 0.0145*(m2/m1)**1.29
-    #Sputtering threshold energy
-    Eth = (1.9 + 3.8*(m1/m2) + 0.134*(m2/m1)**1.24)*Us
-    #Lindhard-Scharff-Schiott nuclear cross section
-    sn = 3.441*np.sqrt(reduced_energy)*np.log(reduced_energy + 2.718)/(1. + 6.355*np.sqrt(reduced_energy) + reduced_energy*(-1.708 + 6.882*np.sqrt(reduced_energy)))
-    #Lindhard-Scharff electronic cross section
-    k = 0.079*(m1 + m2)**(3./2.)/(m1**(3./2.)*m2**(1./2.))*z1**(2./3.)*z2**(1./2.)/(z1**(2./3.) + z2**(2./3.))**(3./4.)
-    se = k*np.sqrt(reduced_energy)
-
-    return 0.42*a_star*Q*K*sn/Us/(1. + 0.35*Us*se)*(1. - np.sqrt(Eth/energy_eV))**2.8
 
 def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_final_positions=True, plot_origins=True, show=True):
     '''
@@ -475,7 +74,7 @@ def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_fin
     if np.size(trajectories) > 0:
         min_Z = np.min(trajectories[:, 1])
         max_Z = np.max(trajectories[:, 1])
-        colormap = cm.ScalarMappable(norm=colors.Normalize(vmin=min_Z, vmax=max_Z), cmap='tab20b')
+        colormap = cm.ScalarMappable(norm=colors.SymLogNorm( min_Z*4, vmin=min_Z, vmax=max_Z), cmap='tab20')
 
     fig1, axis1 = plt.subplots()
 
@@ -542,7 +141,6 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
     initial_particle_position = -1*ANGSTROM/MICRON, integral='"MENDENHALL_WELLER"',
     root_finder = '{"NEWTON"={max_iterations=100, tolerance=1e-3}}',
     delta_x_angstrom=5.):
-
 
     '''
     Generates a rustbca input file. Assumes eV, amu, and microns for units.
@@ -1441,6 +1039,146 @@ def plot_3d_distributions(ions, target, name):
     mlab.axes()
     mlab.show()
 
+def metal_oxide_bilayer_iead(ions, iead, energies, angles, metal,
+    metal_stoichiometry, oxygen_stoichiometry, metal_oxide_number_density,
+    layer_depth, total_depth, thickness, N=0.01, tag='', run_sim=True,
+    spread=0.0):
+
+    import itertools
+
+
+    name = metal['symbol']+oxygen['symbol']+str(oxygen_stoichiometry)+'_IEAD_'+tag
+    energy_angle_pairs = list(itertools.product(energies, angles))
+    E0 = np.array([pair[0] for pair in energy_angle_pairs])
+    theta = np.array([pair[1] for pair in energy_angle_pairs])
+
+    #skip last row of hPIC input because it's usually garbage
+    N_ = np.array([int(np.floor(iead[i, j]*N)) for i in range(len(energies)) for j in range(len(angles))], dtype=int)
+
+    #filter out zeros
+    E0 = E0[N_>0]
+    theta = theta[N_>0]
+    N_ = N_[N_>0]
+
+    #build geometry
+    minx, miny, maxx, maxy = 0.0, -thickness/2., total_depth, thickness/2.
+    material_boundary = box(minx, miny, maxx, maxy)
+    dx = 5*ANGSTROM/MICRON
+    simulation_boundary = material_boundary.buffer(10.*dx, cap_style=2, join_style=2)
+
+    #x1, x2, x3, y1, y2, y3
+    triangles = [
+        [0., layer_depth, 0., -thickness/2., thickness/2., thickness/2.],
+        [0., layer_depth, layer_depth, -thickness/2., -thickness/2., thickness/2.],
+        [layer_depth, layer_depth, total_depth, -thickness/2., thickness/2., thickness/2.],
+        [layer_depth, total_depth, total_depth, -thickness/2., -thickness/2., thickness/2.]
+    ]
+
+    total_stoichiometry = metal_stoichiometry + oxygen_stoichiometry
+    metal_number_density = metal_oxide_number_density*metal_stoichiometry/total_stoichiometry
+    oxygen_number_density = metal_oxide_number_density*oxygen_stoichiometry/total_stoichiometry
+
+    densities = [
+        [metal_number_density, oxygen_number_density],
+        [metal_number_density, oxygen_number_density],
+        [metal['n']*(MICRON**3), 0.],
+        [metal['n']*(MICRON**3), 0.],
+    ]
+
+    E0 = E0[N_>0]
+    theta = theta[N_>0]
+    N_ = N_[N_>0]
+
+    Za = ions['Z']
+    Ma = ions['m']
+    Esa = ions['Es']
+    Eca = ions['Ec']
+
+    options = {
+        'name': name,
+        'track_trajectories': True,
+        'track_recoils': True,
+        'track_recoil_trajectories': True,
+        'stream_size': 8000,
+        'weak_collision_order': 3,
+        'suppress_deep_recoils': False,
+        'high_energy_free_flight_paths': False,
+        'num_threads': 8,
+        'num_chunks': 10,
+        'use_hdf5': False,
+        'electronic_stopping_mode': LOW_ENERGY_LOCAL,
+        'mean_free_path_model': LIQUID,
+        'interaction_potential': [["KR_C"]],
+        'scattering_integral': [["MENDENHALL_WELLER"]],
+        'track_displacements': True,
+        'track_energy_losses': True,
+    }
+
+    material_parameters = {
+        'energy_unit': 'EV',
+        'mass_unit': 'AMU',
+        'Eb': [metal['Eb'], oxygen['Eb']],
+        'Es': [metal['Es'], oxygen['Es']],
+        'Ec': [metal['Ec'], oxygen['Ec']],
+        'Z': [metal['Z'], oxygen['Z']],
+        'm': [metal['m'], oxygen['m']],
+        'interaction_index': [0, 0],
+        'electronic_stopping_correction_factor': 1.0,
+        'surface_binding_model': "AVERAGE"
+    }
+
+    mesh_2d_input = {
+        'length_unit': 'MICRON',
+        'energy_barrier_thickness': sum(densities[0])**(-1./3.)/np.sqrt(2.*np.pi),
+        'coordinate_sets': triangles,
+        'densities': densities,
+        'boundary_points': list(material_boundary.exterior.coords),
+        'simulation_boundary_points':  list(simulation_boundary.exterior.coords)
+    }
+
+    cosx = np.cos(theta*np.pi/180.)
+    sinx = np.sin(theta*np.pi/180.)
+    positions = [(-dx/2., np.random.uniform(-spread/2., spread/2.), 0.) for _ in range(len(N_))]
+
+    particle_parameters = {
+        'length_unit': 'MICRON',
+        'energy_unit': 'EV',
+        'mass_unit': 'AMU',
+        'N': N_,
+        'm': [Ma for _ in range(len(N_))],
+        'Z': [Za for _ in range(len(N_))],
+        'E': E0,
+        'Ec': [Eca for _ in range(len(N_))],
+        'Es': [Esa for _ in range(len(N_))],
+        'interaction_index': np.zeros(len(N_), dtype=int),
+        'pos': positions,
+        'dir': [(cx, sx, 0.) for cx, sx in zip(cosx, sinx)],
+        'particle_input_filename': ''
+    }
+
+    input_file = {
+        'material_parameters': material_parameters,
+        'particle_parameters': particle_parameters,
+        'mesh_2d_input': mesh_2d_input,
+        'options': options,
+    }
+
+    with open(f'{name}.toml', 'w') as file:
+        toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
+    with open(f'{name}.toml', 'a') as file:
+        file.write(r'root_finder = [[{"NEWTON"={max_iterations = 100, tolerance=1E-3}}]]')
+
+    if run_sim: os.system(f'cargo run --release {name}.toml')
+
+    #do_trajectory_plot(name, thickness=thickness, depth=layer_depth)
+    plot_distributions_rustbca(name, ions, metal, incident_energy=np.max(energies))
+
+    s = np.atleast_2d(np.genfromtxt(f'{name}sputtered.output', delimiter=','))
+    r = np.atleast_2d(np.genfromtxt(f'{name}reflected.output', delimiter=','))
+    d = np.atleast_2d(np.genfromtxt(f'{name}deposited.output', delimiter=','))
+
+    return np.sum(N_), s, r, d
+
 def main():
     '''
     Here an example usage of beam_target is shown. This code runs rustbca and produces plots.
@@ -1457,4 +1195,59 @@ def main():
         interaction_potential=r"'KR_C'")
 
 if __name__ == '__main__':
-    main()
+
+    ions = helium
+    iead = np.genfromtxt('cprobe_1_IEAD_sp0.dat')
+    Te_eV = 1.62167190E1#, 7.69748285, 3.14783250, 9.55495830E-1, 2.90032039E-1]
+    energies = np.linspace(0.0, 48.0*Te_eV, 480)
+    angles = np.linspace(0.001, 89.99, 90)
+
+    plt.figure(1)
+    plt.pcolormesh(angles, energies, iead)
+    plt.title('He IEAD WEST Collector Probe Sample 1')
+    plt.xlabel('angles [deg]')
+    plt.ylabel('energies [eV]')
+    plt.savefig('iead_west_1.png')
+    plt.close()
+
+    metal = tungsten
+    metal['Ec'] = 1.0
+    metal_stoichiometry = 1
+    oxygen_stoichiometry = 2
+
+    porosities = [0., 0.2, 0.5]
+    layer_depths = [50*ANGSTROM/MICRON, 100*ANGSTROM/MICRON, 200*ANGSTROM/MICRON]
+
+    thickness = 10000*ANGSTROM/MICRON
+    total_depth = 10000*ANGSTROM/MICRON
+
+    num_bins = 100
+
+    for j, layer_depth in enumerate(layer_depths):
+        handles = []
+        legends = []
+
+        for i, porosity in enumerate(porosities):
+
+            metal_oxide_number_density = (1. - porosity)*1.004E10
+
+            N, s, r, d = metal_oxide_bilayer_iead(ions, iead, energies, angles, metal,
+                metal_stoichiometry, oxygen_stoichiometry, metal_oxide_number_density,
+                layer_depth, total_depth, thickness, N=0.01, tag=f'{str(i)}_{str(j)}_',
+                run_sim=True, spread=5*ANGSTROM/MICRON)
+
+            #deposition profile
+            plt.figure(j)
+            heights, bins, patches = plt.hist(d[:, 2], bins=num_bins, histtype='step', linewidth=2)
+            handles.append(patches[0])
+            legends.append(f'Porosity: {porosity*100}% R: {np.round(np.shape(r)[0]/N,2)} Y: {np.round(np.shape(s)[0]/N,2)} [at/ion]')
+
+        plt.text(layer_depth - (layer_depths[0])/8, 0.0, 'WO2', horizontalalignment='right')
+        plt.text(layer_depth + (layer_depths[0])/8, 0.0, 'W', horizontalalignment='left')
+        plt.plot([layer_depth, layer_depth], [0., 2*np.max(heights)], linewidth=3, color='dimgray')
+        plt.title(f'He on WO2-W, Δx = {layer_depth*MICRON/ANGSTROM} Angstrom')
+        plt.xlabel('x [um]')
+        plt.ylabel('Counts')
+        plt.legend(handles, legends)
+        plt.axis([0., 1.5*np.max(d[:,2]), 0., 1.2*np.max(heights)])
+        plt.savefig(f'dep_west_1_wo2_w_{j}.png')
