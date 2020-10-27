@@ -1179,23 +1179,7 @@ def metal_oxide_bilayer_iead(ions, iead, energies, angles, metal,
 
     return np.sum(N_), s, r, d
 
-def main():
-    '''
-    Here an example usage of beam_target is shown. This code runs rustbca and produces plots.
-
-    For helium on copper at 1 keV and 0 degrees angle of incidence,
-    all the distributions and trajectories are plotted.
-    '''
-
-    energy = 1000.
-    angle = 0.001
-
-    beam_target(helium, copper, energy, angle, N_ = 100, do_plots=True, run_sim=True,
-        plot_trajectories = True, track_trajectories=True, thickness=0.01, depth=0.01,
-        interaction_potential=r"'KR_C'")
-
-if __name__ == '__main__':
-
+def helium_on_tungsten_oxide_layer():
     ions = helium
     iead = np.genfromtxt('cprobe_1_IEAD_sp0.dat')
     Te_eV = 1.62167190E1#, 7.69748285, 3.14783250, 9.55495830E-1, 2.90032039E-1]
@@ -1251,3 +1235,38 @@ if __name__ == '__main__':
         plt.legend(handles, legends)
         plt.axis([0., 1.5*np.max(d[:,2]), 0., 1.2*np.max(heights)])
         plt.savefig(f'dep_west_1_wo2_w_{j}.png')
+
+def main():
+    '''
+    Here an example usage of beam_target is shown. This code runs rustbca and produces plots.
+
+    For helium on copper at 1 keV and 0 degrees angle of incidence,
+    all the distributions and trajectories are plotted.
+    '''
+
+    energy = 1000.
+    angle = 0.001
+
+    beam_target(helium, copper, energy, angle, N_ = 100, do_plots=True, run_sim=True,
+        plot_trajectories = True, track_trajectories=True, thickness=0.01, depth=0.01,
+        interaction_potential=r"'KR_C'")
+
+if __name__ == '__main__':
+
+    ion = argon
+    target = tungsten
+    energies = np.logspace(1, 6, 1000)
+
+    y = [yamamura(ion, target, energy) for energy in energies]
+    bl = [bohdansky_light_ion(ion, target, energy) for energy in energies]
+    bh = [bohdansky_heavy_ion(ion, target, energy) for energy in energies]
+    rt = [thomas_reflection(ion, target, energy) for energy in energies]
+    rwb = [wierzbicki_biersack(ion, target, energy) for energy in energies]
+
+    plt.loglog(energies, y)
+    plt.loglog(energies, bl)
+    plt.loglog(energies, bh)
+    plt.loglog(energies, rt)
+    plt.loglog(energies, rwb)
+
+    plt.show()

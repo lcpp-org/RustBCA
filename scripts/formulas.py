@@ -1,5 +1,21 @@
-from scipy import interp1d
+from scipy.interpolate import interp1d
 import numpy as np
+
+#Constants
+Q = 1.602E-19
+PI = 3.14159
+AMU = 1.66E-27
+ANGSTROM = 1E-10
+MICRON = 1E-6
+NM = 1E-9
+CM = 1E-2
+EPS0 = 8.85E-12
+A0 = 0.52918E-10
+K = 1.11265E-10
+ME = 9.11E-31
+SQRTPI = 1.77245385
+SQRT2PI = 2.506628274631
+C = 299792000.
 
 def thomas_reflection(ion, target, energy_eV):
     '''
@@ -69,7 +85,7 @@ def wierzbicki_biersack(ion, target, energy_eV):
     M2 = target['m']
     energy_keV = energy_eV/1E3
 
-    #I've never seen this form of the reduced energy before - it's Thomas-Fermi
+    #Thomas-Fermi reduced energy
     reduced_energy = 32.55*energy_keV*M2/((M1 + M2)*Z1*Z2*(Z1**0.23 + Z2**0.23))
     mu = M2/M1
 
@@ -96,12 +112,13 @@ def wierzbicki_biersack(ion, target, energy_eV):
 
     return RN_mu*RN_e
 
-def bohdansky_light_ion(ion, target, energy_eV):
+def bohdansky_heavy_ion(ion, target, energy_eV):
     '''
-    Bohdansky sputtering yield formula in the light ion (M1/M2 < 0.5) limit.
+    Bohdansky sputtering yield formula in the heavy ion (M1/M2 > 0.5) regime.
     Returns None if the target does not have a surface binding energy.
 
     https://doi.org/10.1063/1.327954
+    https://doi.org/10.1016/0168-583X(84)90271-4
 
     Args:
         ion (dict): a dictionary with the fields Z (atomic number), m (mass)
@@ -117,7 +134,51 @@ def bohdansky_light_ion(ion, target, energy_eV):
     m2 = target['m']
     Us = target['Es']
 
-    if Us == 0.: return 0
+    if Us == 0.: return None
+    alpha = 0.3*(m2/m1)**(2./3.)
+
+    reduced_mass_2 = m2/(m1 + m2)
+    reduced_mass_1 = m1/(m1 + m2)
+
+    #Following assumptions are for very light ions (m1/m2<0.5)
+    K = 0.4
+    R_Rp = K*m2/m1 + 1.
+
+    Eth = (1.9 + 3.8*(m1/m2) + 0.134*(m2/m1)**1.24)*Us
+
+    a0 = 0.529*ANGSTROM
+    a = 0.885*a0*(z1**(2./3.) + z2**(2./3.))**(-1./2.)
+    reduced_energy = 0.03255/(z1*z2*(z1**(2./3.) + z2**(2./3.))**(1./2.))*reduced_mass_2*energy_eV
+    sn = 3.441*np.sqrt(reduced_energy)*np.log(reduced_energy + 2.718)/(1. + 6.355*np.sqrt(reduced_energy) + reduced_energy*(-1.708 + 6.882*np.sqrt(reduced_energy)))
+    Sn = 8.478*z1*z2/(z1**(2./3.) + z2**(2./3.))**(1./2.)*reduced_mass_1*sn
+
+    sputtering_yield = alpha*Sn*(1 - (Eth/energy_eV)**(2./3.))*(1. - Eth/energy_eV)**2
+
+    return sputtering_yield
+
+def bohdansky_light_ion(ion, target, energy_eV):
+    '''
+    Bohdansky sputtering yield formula in the light ion (M1/M2 < 0.5) limit.
+    Returns None if the target does not have a surface binding energy.
+
+    https://doi.org/10.1063/1.327954
+    https://doi.org/10.1016/0168-583X(84)90271-4
+
+    Args:
+        ion (dict): a dictionary with the fields Z (atomic number), m (mass)
+        target (dict): a dictionary with the fields Z (atomic number), m (mass), Es (surface binding energy)
+        energy_eV (float): energy in electron-volts
+
+    Returns:
+        Y (float): sputtering yield in atoms/ion
+    '''
+    z1 = ion['Z']
+    z2 = target['Z']
+    m1 = ion['m']
+    m2 = target['m']
+    Us = target['Es']
+
+    if Us == 0.: return None
     alpha = 0.2
 
     reduced_mass_2 = m2/(m1 + m2)
@@ -136,10 +197,11 @@ def bohdansky_light_ion(ion, target, energy_eV):
     Sn = 8.478*z1*z2/(z1**(2./3.) + z2**(2./3.))**(1./2.)*reduced_mass_1*sn
 
     sputtering_yield = 0.042/Us*(R_Rp)*alpha*Sn*(1-(Eth/energy_eV)**(2./3.))*(1-(Eth/energy_eV))**2
+
     if sputtering_yield > 0:
         return sputtering_yield
     else:
-        return None
+        return 0.
 
 def yamamura(ion, target, energy_eV):
     '''
