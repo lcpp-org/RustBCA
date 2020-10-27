@@ -73,7 +73,7 @@ impl Particle {
         let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
 
         assert!((dirx/dir_mag).abs() < 1.0 - f64::EPSILON, "Input error: incident direction cannot round to exactly (1, 0, 0) due to gimbal lock. Use a non-zero y-component.");
-        assert!(E > 0., "Input error: incident energy {}; must be greater than zero.", input.E/EV);
+        assert!(input.E > 0., "Input error: incident energy {}; must be greater than zero.", input.E/EV);
 
         Particle {
             m: input.m,
