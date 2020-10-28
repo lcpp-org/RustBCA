@@ -51,7 +51,7 @@ pub struct Particle {
     pub dir_old: Vector,
     pub pos_origin: Vector,
     pub energy_origin: f64,
-    pub asympototic_deflection: f64,
+    pub asymptotic_deflection: f64,
     pub stopped: bool,
     pub left: bool,
     pub incident: bool,
@@ -87,7 +87,7 @@ impl Particle {
             dir_old: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
             pos_origin: Vector::new(input.x, input.y, input.z),
             energy_origin: input.E,
-            asympototic_deflection: 0.,
+            asymptotic_deflection: 0.,
             stopped: false,
             left: false,
             incident: true,
@@ -117,7 +117,7 @@ impl Particle {
             dir_old: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
             pos_origin: Vector::new(x, y, z),
             energy_origin: E,
-            asympototic_deflection: 0.,
+            asymptotic_deflection: 0.,
             stopped: false,
             left: false,
             incident,
@@ -179,7 +179,7 @@ pub fn rotate_particle(particle_1: &mut particle::Particle, psi: f64, phi: f64) 
 }
 
 /// Push particle in space according to previous direction and return the distance traveled.
-pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asympototic_deflection: f64) -> f64 {
+pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asymptotic_deflection: f64) -> f64 {
 
     if particle_1.E > particle_1.Ec {
         particle_1.add_trajectory();
@@ -191,13 +191,14 @@ pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asympotot
     particle_1.pos_old.z = particle_1.pos.z;
 
     //In order to keep average denisty constant, must add back previous asymptotic deflection
-    let distance_traveled = mfp + particle_1.asympototic_deflection - asympototic_deflection;
+    let distance_traveled = mfp + particle_1.asymptotic_deflection - asymptotic_deflection;
+    //let distance_traveled = mfp - asymptotic_deflection;
 
     //dir has been updated, so use previous direction to advance in space
     particle_1.pos.x += particle_1.dir_old.x*distance_traveled;
     particle_1.pos.y += particle_1.dir_old.y*distance_traveled;
     particle_1.pos.z += particle_1.dir_old.z*distance_traveled;
-    particle_1.asympototic_deflection = asympototic_deflection;
+    particle_1.asymptotic_deflection = asymptotic_deflection;
 
     //Update previous direction
     particle_1.dir_old.x = particle_1.dir.x;

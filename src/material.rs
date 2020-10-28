@@ -299,7 +299,6 @@ impl Material {
     }
 }
 
-
 /// Calculate the effects of the planar surface binding potential of a material on a particle.
 /// These effects include surface reflection and refraction of particles with non-zero surface binding energies.
 pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &material::Material) {

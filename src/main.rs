@@ -700,9 +700,10 @@ fn main() {
             //
             if !particle.incident & options.track_displacements {
                     writeln!(
-                        displacements_file_stream, "{},{},{},{},{},{}",
+                        displacements_file_stream, "{},{},{},{},{},{},{},{},{}",
                         particle.m/mass_unit, particle.Z, particle.energy_origin/energy_unit,
                         particle.pos_origin.x/length_unit, particle.pos_origin.y/length_unit, particle.pos_origin.z/length_unit,
+                        particle.pos.x/length_unit, particle.pos.y/length_unit, particle.pos.z/length_unit
                     ).expect(format!("Output error: could not write to {}displacements.output.", options.name).as_str());
             }
 
