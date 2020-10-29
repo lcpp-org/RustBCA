@@ -26,21 +26,15 @@ jobs:
         sudo apt-get install python3-pip
     - name: Install Python libraries
       run: |
-        python3.6 -m pip install numpy matplotlib shapely scipy
+        python3 -m pip install numpy matplotlib shapely scipy
     - name: Install python TOML library from source
       run: |
         git clone https://github.com/uiri/toml.git
         cd toml
-        sudo python3.6 setup.py install
-    - name: Install Cargo
-      run: |
-        sudo apt install cargo
+        sudo python3 setup.py install
     - name: Install HDF5 Libraries
       run: |
         sudo apt install libhdf5-dev
-    - name: Build RustBCA
-      run: |
-        cargo build --release --features cpr_rootfinder_netlib,hdf5_input
     - name: Test RustBCA
       run: |
         cargo test --features cpr_rootfinder_netlib,hdf5_input
