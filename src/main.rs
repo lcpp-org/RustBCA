@@ -764,14 +764,15 @@ fn main() {
                 }
             }
         }
+        //Flush all file streams before dropping to ensure all data is written
+        reflected_file_stream.flush().unwrap();
+        deposited_file_stream.flush().unwrap();
+        sputtered_file_stream.flush().unwrap();
+        trajectory_data_stream.flush().unwrap();
+        trajectory_file_stream.flush().unwrap();
     }
 
-    //Flush all file streams before dropping to ensure all data is written
-    reflected_file_stream.flush().unwrap();
-    deposited_file_stream.flush().unwrap();
-    sputtered_file_stream.flush().unwrap();
-    trajectory_data_stream.flush().unwrap();
-    trajectory_file_stream.flush().unwrap();
+
 
     println!("Finished!");
 }
