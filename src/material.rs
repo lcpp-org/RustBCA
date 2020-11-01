@@ -15,7 +15,6 @@ pub struct MaterialParameters {
     pub Z: Vec<f64>,
     pub m: Vec<f64>,
     pub interaction_index: Vec<usize>,
-    pub electronic_stopping_correction_factor: f64,
     pub surface_binding_model: SurfaceBindingModel
 }
 
@@ -27,7 +26,6 @@ pub struct Material {
     pub Es: Vec<f64>,
     pub Ec: Vec<f64>,
     pub interaction_index: Vec<usize>,
-    pub electronic_stopping_correction_factor: f64,
     pub mesh_2d: mesh::Mesh2D,
     pub surface_binding_model: SurfaceBindingModel
 
@@ -70,7 +68,6 @@ impl Material {
             Es: material_parameters.Es.iter().map(|&i| i*energy_unit).collect(),
             Ec: material_parameters.Ec.iter().map(|&i| i*energy_unit).collect(),
             interaction_index: material_parameters.interaction_index,
-            electronic_stopping_correction_factor: material_parameters.electronic_stopping_correction_factor,
             mesh_2d: mesh::Mesh2D::new(mesh_2d_input),
             surface_binding_model: material_parameters.surface_binding_model,
         }
@@ -104,6 +101,15 @@ impl Material {
     /// Determines whether (x, y) is inside the material.
     pub fn inside(&self, x: f64, y: f64) -> bool {
         return self.mesh_2d.inside(x, y);
+    }
+
+    /// Gets electronic stopping correction factor for LS and OR
+    pub fn electronic_stopping_correction_factor(&self, x: f64, y: f64) -> f64 {
+        if self.inside(x, y) {
+            return self.mesh_2d.get_ck(x, y);
+        } else {
+            return self.mesh_2d.nearest_cell_to(x, y).electronic_stopping_correction_factor;
+        }
     }
 
     /// Determines the local mean free path from the formula sum(n(x, y))^(-1/3)
@@ -254,6 +260,7 @@ impl Material {
 
         let x = particle_1.pos.x;
         let y = particle_1.pos.y;
+        let ck = self.electronic_stopping_correction_factor(x, y);
 
         for (n, Zb) in self.number_densities(x, y).iter().zip(&self.Z) {
             //let n = self.number_density(particle_1.pos.x, particle_1.pos.y);
@@ -284,13 +291,13 @@ impl Material {
 
             let stopping_power = match electronic_stopping_mode {
                 //Biersack-Varelas Interpolation
-                ElectronicStoppingMode::INTERPOLATED => 1./(1./S_high + 1./S_low),
+                ElectronicStoppingMode::INTERPOLATED => 1./(1./S_high + 1./S_low*ck),
                 //Oen-Robinson
-                ElectronicStoppingMode::LOW_ENERGY_LOCAL => S_low,
+                ElectronicStoppingMode::LOW_ENERGY_LOCAL => S_low*ck,
                 //Lindhard-Scharff
-                ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => S_low,
+                ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => S_low*ck,
                 //Lindhard-Scharff and Oen-Robinson, using Lindhard Equipartition
-                ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => S_low,
+                ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => S_low*ck,
             };
 
             stopping_powers.push(stopping_power);
