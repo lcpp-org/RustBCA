@@ -34,9 +34,9 @@ fn test_surface_binding_energy_barrier() {
     let depth: f64 = 1000.;
     let mesh_2d_input = mesh::Mesh2DInput {
         length_unit: "ANGSTROM".to_string(),
-        coordinate_sets: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
+        triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
         densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
-        boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
+        material_boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
         simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
         energy_barrier_thickness: 10.,
         electronic_stopping_correction_factors: vec![0.0, 0.0],
@@ -217,9 +217,9 @@ fn test_momentum_conservation() {
         let depth: f64 = 1000.;
         let mesh_2d_input = mesh::Mesh2DInput {
             length_unit: "ANGSTROM".to_string(),
-            coordinate_sets: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
+            triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
             densities: vec![vec![0.06306], vec![0.06306]],
-            boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
+            material_boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
             simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
             electronic_stopping_correction_factors: vec![0.0, 0.0],
             energy_barrier_thickness: 0.,
@@ -241,7 +241,7 @@ fn test_momentum_conservation() {
                             track_trajectories: false,
                             track_recoils: true,
                             track_recoil_trajectories: false,
-                            stream_size: 8000,
+                            write_buffer_size: 8000,
                             weak_collision_order: 0,
                             suppress_deep_recoils: false,
                             high_energy_free_flight_paths: high_energy_free_flight_paths,
@@ -401,7 +401,7 @@ fn test_quadrature() {
         track_trajectories: false,
         track_recoils: true,
         track_recoil_trajectories: false,
-        stream_size: 8000,
+        write_buffer_size: 8000,
         weak_collision_order: 0,
         suppress_deep_recoils: false,
         high_energy_free_flight_paths: false,

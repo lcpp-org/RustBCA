@@ -7,8 +7,8 @@ use geo::{Polygon, LineString, Point};
 #[derive(Deserialize)]
 pub struct Mesh2DInput {
     pub length_unit: String,
-    pub coordinate_sets: Vec<(f64, f64, f64, f64, f64, f64)>,
-    pub boundary_points: Vec<(f64, f64)>,
+    pub triangles: Vec<(f64, f64, f64, f64, f64, f64)>,
+    pub material_boundary_points: Vec<(f64, f64)>,
     pub simulation_boundary_points: Vec<(f64, f64)>,
     pub densities: Vec<Vec<f64>>,
     pub electronic_stopping_correction_factors: Vec<f64>,
@@ -26,12 +26,12 @@ impl Mesh2D {
     /// Constructor for Mesh2D object from mesh_2d_input.
     pub fn new(mesh_2d_input: Mesh2DInput) -> Mesh2D {
 
-        let coordinate_sets = mesh_2d_input.coordinate_sets;
-        let boundary_points = mesh_2d_input.boundary_points;
+        let triangles = mesh_2d_input.triangles;
+        let material_boundary_points = mesh_2d_input.material_boundary_points;
         let simulation_boundary_points = mesh_2d_input.simulation_boundary_points;
         let electronic_stopping_correction_factors = mesh_2d_input.electronic_stopping_correction_factors;
 
-        let n = coordinate_sets.len();
+        let n = triangles.len();
 
         let mut cells: Vec<Cell2D> =  Vec::with_capacity(n);
 
@@ -57,9 +57,9 @@ impl Mesh2D {
             "Input error: all triangle density lists must be the same size."
         );
 
-        assert_eq!(coordinate_sets.len(), densities.len(), "Input error: coordinates and data of unequal length.");
+        assert_eq!(triangles.len(), densities.len(), "Input error: coordinates and data of unequal length.");
 
-        for ((coordinate_set, densities), ck) in coordinate_sets.iter().zip(densities).zip(electronic_stopping_correction_factors) {
+        for ((coordinate_set, densities), ck) in triangles.iter().zip(densities).zip(electronic_stopping_correction_factors) {
             let coordinate_set_converted = (
                 coordinate_set.0*length_unit,
                 coordinate_set.1*length_unit,
@@ -75,8 +75,8 @@ impl Mesh2D {
             cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));
         }
 
-        let mut boundary_points_converted = Vec::with_capacity(boundary_points.len());
-        for (x, y) in boundary_points.iter() {
+        let mut boundary_points_converted = Vec::with_capacity(material_boundary_points.len());
+        for (x, y) in material_boundary_points.iter() {
             boundary_points_converted.push((x*length_unit, y*length_unit));
         }
         let boundary: Polygon<f64> = Polygon::new(LineString::from(boundary_points_converted), vec![]);

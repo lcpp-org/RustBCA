@@ -350,7 +350,7 @@ pub struct Options {
     track_trajectories: bool,
     track_recoils: bool,
     track_recoil_trajectories: bool,
-    stream_size: usize,
+    write_buffer_size: usize,
     weak_collision_order: usize,
     suppress_deep_recoils: bool,
     high_energy_free_flight_paths: bool,
@@ -605,7 +605,7 @@ fn main() {
         .open(format!("{}{}", options.name, "reflected.output"))
         .context("Could not open output file.")
         .unwrap();
-    let mut reflected_file_stream = BufWriter::with_capacity(options.stream_size, reflected_file);
+    let mut reflected_file_stream = BufWriter::with_capacity(options.write_buffer_size, reflected_file);
 
     let sputtered_file = OpenOptions::new()
         .write(true)
@@ -614,7 +614,7 @@ fn main() {
         .open(format!("{}{}", options.name, "sputtered.output"))
         .context("Could not open output file.")
         .unwrap();
-    let mut sputtered_file_stream = BufWriter::with_capacity(options.stream_size, sputtered_file);
+    let mut sputtered_file_stream = BufWriter::with_capacity(options.write_buffer_size, sputtered_file);
 
     let deposited_file = OpenOptions::new()
         .write(true)
@@ -623,7 +623,7 @@ fn main() {
         .open(format!("{}{}", options.name, "deposited.output"))
         .context("Could not open output file.")
         .unwrap();
-    let mut deposited_file_stream = BufWriter::with_capacity(options.stream_size, deposited_file);
+    let mut deposited_file_stream = BufWriter::with_capacity(options.write_buffer_size, deposited_file);
 
     let trajectory_file = OpenOptions::new()
         .write(true)
@@ -632,7 +632,7 @@ fn main() {
         .open(format!("{}{}", options.name, "trajectories.output"))
         .context("Could not open output file.")
         .unwrap();
-    let mut trajectory_file_stream = BufWriter::with_capacity(options.stream_size, trajectory_file);
+    let mut trajectory_file_stream = BufWriter::with_capacity(options.write_buffer_size, trajectory_file);
 
     let trajectory_data = OpenOptions::new()
         .write(true)
@@ -641,7 +641,7 @@ fn main() {
         .open(format!("{}{}", options.name, "trajectory_data.output"))
         .context("Could not open output file.")
         .unwrap();
-    let mut trajectory_data_stream = BufWriter::with_capacity(options.stream_size, trajectory_data);
+    let mut trajectory_data_stream = BufWriter::with_capacity(options.write_buffer_size, trajectory_data);
 
     let displacements_file = OpenOptions::new()
         .write(true)
@@ -650,7 +650,7 @@ fn main() {
         .open(format!("{}{}", options.name, "displacements.output"))
         .context("Could not open output file.")
         .unwrap();
-    let mut displacements_file_stream = BufWriter::with_capacity(options.stream_size, displacements_file);
+    let mut displacements_file_stream = BufWriter::with_capacity(options.write_buffer_size, displacements_file);
 
     let energy_loss_file = OpenOptions::new()
         .write(true)
@@ -659,7 +659,7 @@ fn main() {
         .open(format!("{}{}", options.name, "energy_loss.output"))
         .context("Could not open output file.")
         .unwrap();
-    let mut energy_loss_file_stream = BufWriter::with_capacity(options.stream_size, energy_loss_file);
+    let mut energy_loss_file_stream = BufWriter::with_capacity(options.write_buffer_size, energy_loss_file);
 
     println!("Processing {} ions...", particle_input_array.len());
 
