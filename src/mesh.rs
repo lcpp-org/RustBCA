@@ -11,6 +11,7 @@ pub struct Mesh2DInput {
     pub boundary_points: Vec<(f64, f64)>,
     pub simulation_boundary_points: Vec<(f64, f64)>,
     pub densities: Vec<Vec<f64>>,
+    pub electronic_stopping_correction_factors: Vec<f64>,
     pub energy_barrier_thickness: f64,
 }
 
@@ -28,6 +29,7 @@ impl Mesh2D {
         let coordinate_sets = mesh_2d_input.coordinate_sets;
         let boundary_points = mesh_2d_input.boundary_points;
         let simulation_boundary_points = mesh_2d_input.simulation_boundary_points;
+        let electronic_stopping_correction_factors = mesh_2d_input.electronic_stopping_correction_factors;
 
         let n = coordinate_sets.len();
 
@@ -57,7 +59,7 @@ impl Mesh2D {
 
         assert_eq!(coordinate_sets.len(), densities.len(), "Input error: coordinates and data of unequal length.");
 
-        for (coordinate_set, densities) in coordinate_sets.iter().zip(densities) {
+        for ((coordinate_set, densities), ck) in coordinate_sets.iter().zip(densities).zip(electronic_stopping_correction_factors) {
             let coordinate_set_converted = (
                 coordinate_set.0*length_unit,
                 coordinate_set.1*length_unit,
@@ -70,7 +72,7 @@ impl Mesh2D {
             let total_density: f64 = densities.iter().sum();
             let concentrations: Vec<f64> = densities.iter().map(|&i| i/total_density).collect::<Vec<f64>>();
 
-            cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations));
+            cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));
         }
 
         let mut boundary_points_converted = Vec::with_capacity(boundary_points.len());
@@ -100,6 +102,16 @@ impl Mesh2D {
         for cell in &self.mesh {
             if cell.contains(x, y) {
                 return &cell.densities;
+            }
+        }
+        panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
+    }
+
+    /// Find the number densities of the triangle that contains or is nearest to (x, y).
+    pub fn get_ck(&self, x: f64, y: f64) -> f64 {
+        for cell in &self.mesh {
+            if cell.contains(x, y) {
+                return cell.electronic_stopping_correction_factor;
             }
         }
         panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
@@ -156,15 +168,17 @@ impl Mesh2D {
 pub struct Cell2D {
     triangle: Triangle2D,
     pub densities: Vec<f64>,
-    pub concentrations: Vec<f64>
+    pub concentrations: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64
 }
 impl Cell2D {
     /// Constructor for Cell2D from a set of coordinates and a list of densities and concentrations.
-    pub fn new(coordinate_set: (f64, f64, f64, f64, f64, f64), densities: Vec<f64>, concentrations: Vec<f64>) -> Cell2D {
+    pub fn new(coordinate_set: (f64, f64, f64, f64, f64, f64), densities: Vec<f64>, concentrations: Vec<f64>, electronic_stopping_correction_factor: f64) -> Cell2D {
         Cell2D {
             triangle: Triangle2D::new(coordinate_set),
-            densities: densities,
-            concentrations: concentrations
+            densities,
+            concentrations,
+            electronic_stopping_correction_factor
         }
     }
 

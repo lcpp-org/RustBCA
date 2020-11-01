@@ -217,6 +217,7 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
         let Za: f64  = particle_1.Z;
         let Zb: f64  = material.average_Z(x, y);
         let n: &Vec<f64>  = material.number_densities(x, y);
+        let ck: f64 = material.electronic_stopping_correction_factor(x, y);
         let E: f64  = particle_1.E;
         let Ec: f64 = particle_1.Ec;
         //We just need the Lindhard screening length here, so the particular potential is not important
@@ -233,12 +234,12 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
         let mut ffp = 1./(material.total_number_density(x, y)*pmax*pmax*PI);
         let stopping_powers = material.electronic_stopping_cross_sections(particle_1, ElectronicStoppingMode::INTERPOLATED);
 
-        let delta_energy_electronic = stopping_powers.iter().zip(material.number_densities(x, y)).map(|(&i1, i2)| i1*i2).sum::<f64>()*ffp*material.electronic_stopping_correction_factor;
+        let delta_energy_electronic = stopping_powers.iter().zip(material.number_densities(x, y)).map(|(&i1, i2)| i1*i2).sum::<f64>()*ffp*ck;
 
         //If losing too much energy, scale free-flight-path down
         //5 percent limit set in original TRIM paper, Biersack and Haggmark 1980
-        if delta_energy_electronic > 0.01*E {
-            ffp *= 0.01*E/delta_energy_electronic;
+        if delta_energy_electronic > 0.05*E {
+            ffp *= 0.05*E/delta_energy_electronic;
             pmax = (1./(material.total_number_density(x, y)*PI*ffp)).sqrt()
         }
 
@@ -416,7 +417,6 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
 
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
-    let ck = material.electronic_stopping_correction_factor;
 
     if material.inside(x, y) {
 
@@ -425,15 +425,15 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
         let n = material.number_densities(x, y);
 
         let delta_energy = match options.electronic_stopping_mode {
-            ElectronicStoppingMode::INTERPOLATED => electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled*ck,
-            ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled*ck,
-            ElectronicStoppingMode::LOW_ENERGY_LOCAL => oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, ck, interaction_potential),
+            ElectronicStoppingMode::INTERPOLATED => electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
+            ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
+            ElectronicStoppingMode::LOW_ENERGY_LOCAL => oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, interaction_potential),
             ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => {
 
-                let delta_energy_local = oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, ck, interaction_potential);
-                let delta_energy_nonlocal = electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled*ck;
+                let delta_energy_local = oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, interaction_potential);
+                let delta_energy_nonlocal = electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled;
 
-                (0.5*delta_energy_local + 0.5*delta_energy_nonlocal)*ck
+                (0.5*delta_energy_local + 0.5*delta_energy_nonlocal)
             },
         };
 
@@ -723,7 +723,7 @@ pub fn mendenhall_weller(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_par
 }
 
 /// Oen-Robinson local electronic energy loss for a collision between particles a and b.
-fn oen_robinson_loss(Za: f64, Zb: f64, Se: f64, x0: f64, ck: f64, interaction_potential: InteractionPotential) -> f64 {
+fn oen_robinson_loss(Za: f64, Zb: f64, Se: f64, x0: f64, interaction_potential: InteractionPotential) -> f64 {
     //Oen-Robinson local electronic stopping power
     let a = interactions::screening_length(Za, Zb, interaction_potential);
 
