@@ -3,7 +3,7 @@ name = "2000.0eV_0.0001deg_He_H_TiO2_Al_Si"
 track_trajectories = true
 track_recoils = true
 track_recoil_trajectories = true
-stream_size = 8000
+write_buffer_size = 8000
 weak_collision_order = 0
 suppress_deep_recoils = false
 high_energy_free_flight_paths = false
@@ -40,15 +40,16 @@ Es = [ 0.0, 1.0]
 interaction_index = [0, 1]
 pos = [ [ -1.7453292519934434e-8, 0.0, 0.0,], [ -1.7453292519934434e-8, 0.0, 0.0,],]
 dir = [ [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,], [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,],]
-particle_input_filename = 
+particle_input_filename =
 
 [mesh_2d_input]
 energy_barrier_thickness = 2.2E-4
 length_unit = "MICRON"
-coordinate_sets = [ [ 0.0, 0.01, 0.0, 0.5, 0.5, -0.5,], [ 0.0, 0.01, 0.01, -0.5, 0.5, -0.5,], [ 0.01, 0.01, 0.04, -0.5, 0.5, -0.5,], [ 0.01, 0.04, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5, 0.5, -0.5, 0.5, -0.5,],]
+triangles = [ [ 0.0, 0.01, 0.0, 0.5, 0.5, -0.5,], [ 0.0, 0.01, 0.01, -0.5, 0.5, -0.5,], [ 0.01, 0.01, 0.04, -0.5, 0.5, -0.5,], [ 0.01, 0.04, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5, 0.5, -0.5, 0.5, -0.5,],]
 densities = [ [ 3.0e+10, 6.0e+10, 0.0, 0.0,], [ 3.0e+10, 6.0e+10, 0.0, 0.0,], [ 0.0, 0.0, 6.026e+10, 0.0,], [ 0.0, 0.0, 6.026e+10, 0.0,], [ 0.0, 0.0, 0.0, 4.996e+10,], [ 0.0, 0.0, 0.0, 4.996e+10,],]
-boundary_points = [ [ 0.0, 0.5,], [ 0.5, 0.5,], [ 0.5, -0.5,], [ 0.0, -0.5,],]
+material_boundary_points = [ [ 0.0, 0.5,], [ 0.5, 0.5,], [ 0.5, -0.5,], [ 0.0, -0.5,],]
 simulation_boundary_points = [ [ 0.6, -0.6,], [ -0.1, -0.6,], [ -0.1, 0.6,], [ 0.6, 0.6,], [ 0.6, -0.6,],]
+electronic_stopping_correction_factors = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
 [material_parameters]
 energy_unit = "EV"
@@ -59,5 +60,4 @@ Ec = [ 3.5, 2.0, 3.0, 1.5,]
 Z = [ 22, 8, 13, 14,]
 m = [ 47.867, 15.9994, 26.98, 28.08553,]
 interaction_index = [0, 0, 0, 0]
-electronic_stopping_correction_factor = 1.0
 surface_binding_model = "TARGET"
