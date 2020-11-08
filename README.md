@@ -64,40 +64,56 @@ plt.show()
 
 The following features are implemented in `rustBCA`:
 
-* Ion-material interactions for all combinations of incident ion and target species
-* 2D geometry with triangular-mesh-based inhomogeneous composition
-* Amorphous solid/liquid and gaseous targets
-* Low energy (< 25 keV/nucleon) electronic stopping modes, including local (Oen-Robinson), nonlocal (Lindhard-Scharff), and equipartition forms. Biersack-Varelas interpolation is also included to extend electronic stopping validity up to ~1 GeV/nucleon
-* Includes optional Biersack-Haggmark high-energy, free-flight paths between collisions to greatly speed up high-energy simulations by neglecting very small angle scattering
-* Includes Kr-C, ZBL, Lenz-Jensen, and Moliere screened-Coulomb potentials; Includes Lennard-Jones 12-6, Lennard-Jones 6.5-6, and Morse attractive-repulsive interaction potentials
-* Includes Newton-Raphson for simple root-finding and optionally includes Adaptive Chebyshev Proxy Rootfinder with Automatic Subdivision and Polynomial root-finding algorithms through the [rcpr] crate for solving the distance-of-closest-approach problem
-* Multiple interaction potentials can be used in a single simulation - for example, the He-W interaction can be specified as a Lennard-Jones 12-6 while the W-W interaction can be specified as a Kr-C, for any number of potentials or species
-* Includes Gauss-Mehler quadrature, Gauss-Legendre quadrature, Mendenall-Weller quadrature, and the MAGIC algorithm to calculate the scattering integral
-* Full trajectory tracking of ions and target atoms
-* Human-readable input file using the [TOML] format
-* User-friendly error messages pinpoint the cause of errors and suggest fixes to the user
-* Output of energies and directions of emitted particles (reflected ions and sputtered atoms)
-* Output of final positions of implanted ions
-* Output of full trajectory tracking for incident ions and target atoms
+* Ion-material interactions for all combinations of incident ion and target species.
+* Arbitrary 2D geometry definition using triangular-mesh-based inhomogeneous composition.
+* The ability to distinguish between (amorphous) solid/liquid and gaseous targets.
+* Low energy (< 25 keV/nucleon) electronic stopping modes including:
+  * local (Oen-Robinson),
+  * nonlocal (Lindhard-Scharff),
+  * and equipartition forms.
+* Biersack-Varelas interpolation is also included to extend electronic stopping validity up to ~1 GeV/nucleon.
+* Optionally, the Biersack-Haggmark treatment of high-energy free-flight paths between collisions can be included to greatly speed up high-energy simulations (i.e., by neglecting very small angle scattering).
+* A wide range of interaction potentials are provide, including:
+  * the Kr-C, ZBL, Lenz-Jensen, and Moliere screened-Coulomb potentials.
+  * the Lennard-Jones 12-6, Lennard-Jones 6.5-6, and Morse attractive-repulsive interaction potentials.
+* Solving the distance-of-closest-approach problem is achieved using:
+  * the Newton-Raphson method for simple root-finding,
+  * or, optionally, an Adaptive Chebyshev Proxy Rootfinder, with Automatic Subdivision and Polynomial root-finding algorithms, is provided through the [rcpr] crate.
+* Multiple interaction potentials can be used in a single simulation for any number of potentials/species.
+  * For example, the He-W interaction can be specified as a Lennard-Jones 12-6, while the W-W interaction can be specified as a Kr-C.
+* The scattering integral can be calculated using:
+  * Gauss-Mehler quadrature,
+  * Gauss-Legendre quadrature,
+  * Mendenall-Weller quadrature,
+  * or the MAGIC algorithm.
+* Input files use the [TOML] format, making them both human-readable and easily parsible. 
+* The [Rust] code generates user-friendly error messages, which help pinpoint the cause of errors and provide suggested fixes to the user.
+* The simulation results are formatted as unbiquitous `.csv` files and include:
+  * the energies and directions of emitted particles (reflected ions and sputtered atoms),
+  * the final positions of implanted ions,
+  * and full trajectory tracking for both the incident ions and target atoms.
 
 ## Installation
 
 Without optional features, `rustBCA` should compile with `cargo` alone on
 Windows, MacOS, and Linux systems.
-[HDF5] has been tested on Windows, but version 1.10.6 __must__ be used.
+[HDF5] has been tested on Windows, but version 1.10.6 must be used.
 [rcpr], the adaptive Chebyshev Proxy Rootfinder with automatic subdivision and
 polynomial rootfinder package for [RUST], has not yet been successfully compiled
 on Windows.
 However, it can be compiled on Windows Subsystem for Linux (WSL) and, likely,
 on Ubuntu for Windows or Cygwin.
 
-Manual Dependences:
+#### Manual Dependences
+
 * [rustup], the [Rust] toolchain (includes `cargo`, the [Rust] package manager, `rustc`, the [Rust] compiler, and more).
 
-Automatic Dependencies:
+#### Automatic Dependencies
+
 * see [Cargo.toml](https://github.com/lcpp-org/RustBCA/blob/master/Cargo.toml) for a complete list.
 
-Optional Dependencies:
+#### Optional Dependencies
+
 * [HDF5] libraries
 * `rcpr`: https://github.com/drobnyjt/rcpr the CPR and polynomial rootfinder, required for using attractive-repulsive interaction potentials such as Lennard-Jones or Morse, may require the following to be installed depending on the system:
   * gcc
@@ -116,7 +132,7 @@ Optional Dependencies:
 1. (Optional) Install Python 3.6+ (this comes natively in Ubuntu 18.04)
 2. Install `curl`:
 ```bash
-apt-get install curl
+sudo apt-get install curl
 ```
 3. Install [rustup], the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/ by running the following command and following on-screen instructions:
 ```bash
@@ -124,7 +140,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 4. (Optional) Install `pip` for [Python]:
 ```bash
-apt-get install python3-pip
+sudo apt-get install python3-pip
 ```
 5. (Optional) Install [Python] libraries for making input files:
 ```bash
@@ -136,7 +152,10 @@ git clone https://github.com/uiri/toml.git
 cd toml
 python3 setup.py install
 ```
-7. Install `cargo`, `apt install cargo`
+7. Install `cargo`:
+```bash
+sudo apt-get install cargo
+```
 8. Build `rustBCA`:
 ```bash
 git clone https://github.com/lcpp-org/rustBCA`
@@ -150,8 +169,16 @@ cargo build --release --features cpr_rootfinder_openblas,hdf5_input
 cargo build --release --features cpr_rootfinder_intel_mkl,hdf5_input
  ```
 10. `input.toml` is the input file - see [Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files) for more information
-11. `cargo test` will run all required tests
-12. (Optional) `cargo test --features cpr_rootfinder_*` will run all required and optional tests for desired backend
+11. Run the required tests using:
+```bash
+cargo test
+```
+12. (Optional) Run the required and optional tests for the desired backend(s):
+```bash
+cargo test --features cpr_rootfinder_netlib
+cargo test --features cpr_rootfinder_openblas
+cargo test --features cpr_rootfinder_intel_mkl
+```
 
 ### Detailed instructions for Fedora 33
 
