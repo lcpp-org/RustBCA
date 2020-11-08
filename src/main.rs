@@ -36,7 +36,11 @@ use rayon::*;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::BufWriter;
+
+//Math
+use std::f64::consts::FRAC_2_SQRT_PI;
 use std::f64::consts::PI;
+use std::f64::consts::SQRT_2;
 
 //Load internal modules
 pub mod material;
@@ -48,11 +52,11 @@ pub mod mesh;
 
 //Physical constants
 ///Fundamental charge in Coulombs.
-const Q: f64 = 1.60217646E-19;
+const Q: f64 = 1.602176634E-19;
 /// One electron-volt in Joules.
 const EV: f64 = Q;
 /// One atomic mass unit in kilograms.
-const AMU: f64 = 1.660539E-27;
+const AMU: f64 = 1.66053906660E-27;
 /// One Angstrom in meters.
 const ANGSTROM: f64 = 1E-10;
 /// One micron in meters.
@@ -62,17 +66,17 @@ const NM: f64 = 1E-9;
 /// One centimeter in meters.
 const CM: f64 = 1E-2;
 /// Vacuum permitivity in Farads/meter.
-const EPS0: f64 = 8.85418781E-12;
+const EPS0: f64 = 8.8541878128E-12;
 /// Bohr radius in meters.
-const A0: f64 = 5.29177211E-11;
+const A0: f64 = 5.29177210903E-11;
 /// Electron mass in kilograms.
-const ME: f64 =  9.109383632E-31;
+const ME: f64 = 9.1093837015E-31;
 /// sqrt(pi).
-const SQRTPI: f64 = 1.772453850906;
+const SQRTPI: f64 = 2. / FRAC_2_SQRT_PI;
 /// sqrt(2 * pi).
-const SQRT2PI: f64 = 2.506628274631;
+const SQRT2PI: f64 = 2. * SQRT_2 / FRAC_2_SQRT_PI;
 /// Speed of light in meters/second.
-const C: f64 = 299792000.;
+const C: f64 = 299792458.;
 /// Bethe-Bloch electronic stopping prefactor, in SI units.
 const BETHE_BLOCH_PREFACTOR: f64 = 4.*PI*(Q*Q/(4.*PI*EPS0))*(Q*Q/(4.*PI*EPS0))/ME/C/C;
 /// Lindhard-Scharff electronic stopping prefactor, in SI units.
