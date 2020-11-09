@@ -1,21 +1,22 @@
+from scipy import constants
 from scipy.interpolate import interp1d
 import numpy as np
 
 #Constants
-Q = 1.602E-19
-PI = 3.14159
-AMU = 1.66E-27
-ANGSTROM = 1E-10
-MICRON = 1E-6
-NM = 1E-9
-CM = 1E-2
-EPS0 = 8.85E-12
-A0 = 0.52918E-10
-K = 1.11265E-10
-ME = 9.11E-31
-SQRTPI = 1.77245385
-SQRT2PI = 2.506628274631
-C = 299792000.
+Q = constants.physical_constants["elementary charge"][0]
+PI = constants.pi
+AMU = constants.physical_constants["unified atomic mass unit"][0]
+ANGSTROM = constants.angstrom
+MICRON = constants.micro
+NM = constants.nano
+CM = constants.centi
+EPS0 = constants.epsilon_0
+A0 = constants.physical_constants["Bohr radius"][0]
+K = constants.physical_constants["atomic unit of permittivity"][0]
+ME = constants.physical_constants["electron mass"][0]
+SQRTPI = np.sqrt(PI)
+SQRT2PI = np.sqrt(2 * PI)
+C = constants.physical_constants["speed of light in vacuum"][0]
 
 def thomas_reflection(ion, target, energy_eV):
     '''
