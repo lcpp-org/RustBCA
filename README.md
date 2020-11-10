@@ -2,12 +2,15 @@
 
 `rustBCA` is a general-purpose, high-performance code for simulating
 ion-material interactions using the binary collision approximation ([BCA]),
-written in [Rust]! [BCA] codes are valid for incident ion energies between
-approximately ~1 eV/nucleon to ~1 GeV/nucleon. By discretizing the collision
-cascade into a sequence of binary collisions, [BCA] codes can accurately and
-efficiently model the physical processes resulting from the interaction of an
-energetic ion with a target material. This includes: reflection, implantation,
-sputtering, transmission, and displacement damage.
+written in [Rust]!
+
+By discretizing the collision cascade into a sequence of binary collisions,
+[BCA] codes can accurately and efficiently model the physics of the interaction
+between an energetic ion and a target material.
+This includes reflection, implantation, and transmission of the incident ion,
+as well as sputtering and displacement damage of the target.
+Generally, [BCA] codes are valid for incident ion energies between approximately
+~1 eV/nucleon to ~1 GeV/nucleon.
 
 Check out the `rustBCA` [Wiki] for detailed information, installation
 instructions, use cases, examples, and more!
@@ -16,7 +19,7 @@ instructions, use cases, examples, and more!
 
 For those eager to get started, try running one of the examples in the
 `rustBCA` directory. Note that these require several optional, but common,
-[Python] packages (`matplotlib`, `numpy`, `scipy`, `shapely`, `toml`).
+[Python] packages (`matplotlib`, `numpy`, `scipy`, `shapely`, and `toml`).
 
 ### H trajectories and collision cascades in a boron nitride dust grain
 
@@ -27,11 +30,11 @@ cargo run --release examples/boron_nitride.toml
 ```
 
 Afterwords, fire up your favourite [Python] interpreter
-(e.g., `python3` or `ipython3`) and execute:
+(e.g., [IPython]) and execute:
 
 ```python
 from scripts.rustbca import *
-do_trajectory_plot('boron_dust_grain_')
+do_trajectory_plot("boron_dust_grain_")
 ```
 
 ### He implantation into a layered TiO<sub>2</sub>/Al/Si target
@@ -43,7 +46,7 @@ cargo run --release examples/layered_geometry.toml
 ```
 
 Afterwords, fire up your favourite [Python] interpreter
-(e.g., `python3` or `ipython3`) and execute:
+(e.g., [IPython]) and execute:
 
 ```python
 import numpy as np
@@ -73,20 +76,20 @@ The following features are implemented in `rustBCA`:
   * and equipartition forms.
 * Biersack-Varelas interpolation is also included to extend electronic stopping validity up to ~1 GeV/nucleon.
 * Optionally, the Biersack-Haggmark treatment of high-energy free-flight paths between collisions can be included to greatly speed up high-energy simulations (i.e., by neglecting very small angle scattering).
-* A wide range of interaction potentials are provide, including:
+* A wide range of interaction potentials are provided, including:
   * the Kr-C, ZBL, Lenz-Jensen, and Moliere screened-Coulomb potentials.
   * the Lennard-Jones 12-6, Lennard-Jones 6.5-6, and Morse attractive-repulsive interaction potentials.
 * Solving the distance-of-closest-approach problem is achieved using:
   * the Newton-Raphson method for simple root-finding,
   * or, optionally, an Adaptive Chebyshev Proxy Rootfinder, with Automatic Subdivision and Polynomial root-finding algorithms, is provided through the [rcpr] crate.
 * Multiple interaction potentials can be used in a single simulation for any number of potentials/species.
-  * For example, the He-W interaction can be specified as a Lennard-Jones 12-6, while the W-W interaction can be specified as a Kr-C.
+  * For example, the He-W interaction can be specified using a Lennard-Jones 12-6 potential, while the W-W interaction can be defined using a Kr-C potential.
 * The scattering integral can be calculated using:
   * Gauss-Mehler quadrature,
   * Gauss-Legendre quadrature,
   * Mendenall-Weller quadrature,
   * or the MAGIC algorithm.
-* Input files use the [TOML] format, making them both human-readable and easily parsible. 
+* Input files use the [TOML] format, making them both human-readable and easily parsable. 
 * The [Rust] code generates user-friendly error messages, which help pinpoint the cause of errors and provide suggested fixes to the user.
 * The simulation results are formatted as unbiquitous `.csv` files and include:
   * the energies and directions of emitted particles (reflected ions and sputtered atoms),
@@ -99,9 +102,9 @@ Without optional features, `rustBCA` should compile with `cargo` alone on
 Windows, MacOS, and Linux systems.
 [HDF5] has been tested on Windows, but version 1.10.6 must be used.
 [rcpr], the adaptive Chebyshev Proxy Rootfinder with automatic subdivision and
-polynomial rootfinder package for [RUST], has not yet been successfully compiled
+polynomial rootfinder package for [Rust], has not yet been successfully compiled
 on Windows.
-However, it can be compiled on Windows Subsystem for Linux (WSL) and, likely,
+However, it can be compiled on the Windows Subsystem for Linux (WSL) and, likely,
 on Ubuntu for Windows or Cygwin.
 
 #### Manual Dependences
@@ -115,17 +118,10 @@ on Ubuntu for Windows or Cygwin.
 #### Optional Dependencies
 
 * [HDF5] libraries
-* `rcpr`: https://github.com/drobnyjt/rcpr the CPR and polynomial rootfinder, required for using attractive-repulsive interaction potentials such as Lennard-Jones or Morse, may require the following to be installed depending on the system:
-  * gcc
-  * build-essential
-  * cmake
-  * gfortran
-  * liblapack-dev
-  * libblas-dev
-  * liblapacke-dev
+* [rcpr], a CPR and polynomial rootfinder, required for using attractive-repulsive interaction potentials such as Lennard-Jones or Morse. It may require additional software (see below).
 * For manipulating input files and running associated scripts, the following are required:
-  * Python 3.6+
-  * [Python] libraries: `numpy`, `matplotlib`, `toml` (must build from source), `shapely`, `scipy`
+  * [Python] 3.6+
+  * The [Python] libraries: `numpy`, `matplotlib`, `toml` (must build from source), `shapely`, and `scipy`.
 
 ### Detailed instructions for Ubuntu 18.04 LTS
 
@@ -152,28 +148,32 @@ git clone https://github.com/uiri/toml.git
 cd toml
 python3 setup.py install
 ```
-7. Install `cargo`:
+7. (Optional) Install software for [rcpr]:
+```bash
+sudo apt-get install gcc gfortran build-essential cmake liblapack-dev libblas-dev liblapacke-dev
+```
+8. Install `cargo`:
 ```bash
 sudo apt-get install cargo
 ```
-8. Build `rustBCA`:
+9. Build `rustBCA`:
 ```bash
 git clone https://github.com/lcpp-org/rustBCA`
 cd rustBCA`
 cargo build --release
 ```
-9. (Optional) Build `rustBCA` with optional dependencies, `hdf5` and/or `rcpr` (with your choice of backend: `openblas`, `netlib`, or `intel-mkl`):
+10. (Optional) Build `rustBCA` with optional dependencies, `hdf5` and/or `rcpr` (with your choice of backend: `openblas`, `netlib`, or `intel-mkl`):
 ```bash
 cargo build --release --features cpr_rootfinder_netlib,hdf5_input
 cargo build --release --features cpr_rootfinder_openblas,hdf5_input
 cargo build --release --features cpr_rootfinder_intel_mkl,hdf5_input
  ```
-10. `input.toml` is the input file - see [Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files) for more information
-11. Run the required tests using:
+11. `input.toml` is the input file - see [Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files) for more information
+12. Run the required tests using:
 ```bash
 cargo test
 ```
-12. (Optional) Run the required and optional tests for the desired backend(s):
+13. (Optional) Run the required and optional tests for the desired backend(s):
 ```bash
 cargo test --features cpr_rootfinder_netlib
 cargo test --features cpr_rootfinder_openblas
@@ -200,6 +200,12 @@ sudo dnf install python3-numpy python3-scipy python3-matplotlib python3-toml pyt
 
 or, alternatively, using `pip3`.
 
+If the [rcpr] is desired, its probably also a good idea to install the following:
+
+```bash
+sudo dnf install gcc gcc-gfortran cmake lapack lapack-devel blas blas-devel
+```
+
 Building `rustBCA` is straightforward and can be done using:
 
 ```bash
@@ -222,7 +228,7 @@ To run a simulation, execute:
 ```
 
 with `input.toml` in the same directory as `rustBCA`.
-Alternatively, `rustBCA` accepts the name of a`.toml` input file a single
+Alternatively, `rustBCA` accepts the name of a`.toml` input file as a single
 command line argument:
 
 ```bash
@@ -236,6 +242,7 @@ Also have a look at the examples on the [Wiki] for writing `.toml` input files.
 
 [BCA]: https://en.wikipedia.org/wiki/Binary_collision_approximation
 [HDF5]: https://en.wikipedia.org/wiki/Hierarchical_Data_Format
+[IPython]: https://en.wikipedia.org/wiki/IPython
 [Python]: https://en.wikipedia.org/wiki/Python_(programming_language)
 [rcpr]: https://github.com/drobnyjt/rcpr
 [rustup]: https://rustup.rs
