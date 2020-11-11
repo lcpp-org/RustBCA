@@ -91,7 +91,7 @@ The following features are implemented in `rustBCA`:
   * or the MAGIC algorithm.
 * Input files use the [TOML] format, making them both human-readable and easily parsable. 
 * The [Rust] code generates user-friendly error messages, which help pinpoint the cause of errors and provide suggested fixes to the user.
-* The simulation results are formatted as unbiquitous `.csv` files and include:
+* The simulation results are formatted as ubiquitous `.csv` files and include:
   * the energies and directions of emitted particles (reflected ions and sputtered atoms),
   * the final positions of implanted ions,
   * and full trajectory tracking for both the incident ions and target atoms.
@@ -200,7 +200,7 @@ sudo dnf install python3-numpy python3-scipy python3-matplotlib python3-toml pyt
 
 or, alternatively, using `pip3`.
 
-If the [rcpr] is desired, its probably also a good idea to install the following:
+If the [rcpr] is desired, it's probably also a good idea to install the following:
 
 ```bash
 sudo dnf install gcc gcc-gfortran cmake lapack lapack-devel blas blas-devel
