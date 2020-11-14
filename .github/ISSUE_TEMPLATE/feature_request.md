@@ -1,8 +1,8 @@
 ---
 name: Feature request
 about: Suggest an idea for rustBCA
-title: ''
-labels: ''
+title: "[feature]"
+labels: enhancement
 assignees: ''
 
 ---
