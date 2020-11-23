@@ -234,7 +234,7 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
         let mut ffp = 1./(material.total_number_density(x, y)*pmax*pmax*PI);
         let stopping_powers = material.electronic_stopping_cross_sections(particle_1, ElectronicStoppingMode::INTERPOLATED);
 
-        let delta_energy_electronic = stopping_powers.iter().zip(material.number_densities(x, y)).map(|(&i1, i2)| i1*i2).sum::<f64>()*ffp*ck;
+        let delta_energy_electronic = stopping_powers.iter().zip(material.number_densities(x, y)).map(|(&se, number_density)| se*number_density).sum::<f64>()*ffp*ck;
 
         //If losing too much energy, scale free-flight-path down
         //5 percent limit set in original TRIM paper, Biersack and Haggmark 1980
@@ -425,13 +425,13 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
         let n = material.number_densities(x, y);
 
         let delta_energy = match options.electronic_stopping_mode {
-            ElectronicStoppingMode::INTERPOLATED => electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
-            ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
+            ElectronicStoppingMode::INTERPOLATED => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
+            ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
             ElectronicStoppingMode::LOW_ENERGY_LOCAL => oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, interaction_potential),
             ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => {
 
                 let delta_energy_local = oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, interaction_potential);
-                let delta_energy_nonlocal = electronic_stopping_powers.iter().zip(n).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled;
+                let delta_energy_nonlocal = electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled;
 
                 (0.5*delta_energy_local + 0.5*delta_energy_nonlocal)
             },

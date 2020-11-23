@@ -70,7 +70,7 @@ impl Mesh2D {
             );
 
             let total_density: f64 = densities.iter().sum();
-            let concentrations: Vec<f64> = densities.iter().map(|&i| i/total_density).collect::<Vec<f64>>();
+            let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
 
             cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));
         }

@@ -173,14 +173,14 @@ impl Material {
     /// Finds the average, concentration-weighted atomic number, Z_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_Z(&self, x: f64, y: f64) -> f64 {
         let concentrations = self.mesh_2d.get_concentrations(x, y);
-        return self.Z.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum();
+        return self.Z.iter().zip(concentrations).map(|(charge, concentration)| charge*concentration).collect::<Vec<f64>>().iter().sum();
         //return self.Z.iter().sum::<f64>()/self.Z.len() as f64;
     }
 
     /// Finds the average, concentration-weighted atomic mass, m_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_mass(&self, x: f64, y: f64) -> f64 {
         let concentrations = self.mesh_2d.get_concentrations(x, y);
-        return self.m.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum();
+        return self.m.iter().zip(concentrations).map(|(mass, concentration)| mass*concentration).collect::<Vec<f64>>().iter().sum();
         //return self.m.iter().sum::<f64>()/self.m.len() as f64;
     }
 
@@ -188,7 +188,7 @@ impl Material {
     pub fn average_bulk_binding_energy(&self, x: f64, y: f64) -> f64 {
         //returns average bulk binding energy
         let concentrations = self.mesh_2d.get_concentrations(x, y);
-        return self.Eb.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum();
+        return self.Eb.iter().zip(concentrations).map(|(bulk_binding_energy, concentration)| bulk_binding_energy*concentration).collect::<Vec<f64>>().iter().sum();
         //return self.Eb.iter().sum::<f64>()/self.Eb.len() as f64;
     }
 
@@ -207,7 +207,7 @@ impl Material {
                 if particle.Es == 0. {
                     0.
                 } else {
-                    self.Es.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum()
+                    self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum()
                 }
             },
 
@@ -215,7 +215,7 @@ impl Material {
                 if (particle.Es == 0.) | (self.Es.iter().sum::<f64>() == 0.) {
                     0.
                 } else {
-                    0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(i1, i2)| i1*i2).collect::<Vec<f64>>().iter().sum::<f64>())
+                    0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum::<f64>())
                 }
             },
 
