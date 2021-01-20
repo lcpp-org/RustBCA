@@ -31,20 +31,6 @@ class Mesh():
         
         self.trianglelist = []
         
-        if not type(xmax) == int:
-            print("xmax should be a int")
-            assert type(xmax) == int
-        if not type(xmin) == int:
-            print("xmin should be a int")
-            assert type(xmin) == int
-        if not type(ymax) == int:
-            print("ymax should be a int")
-            assert type(ymax) == int
-        if not type(ymin) == int:
-            print("ymin should be a int")
-            assert type(ymin) == int
-        
-        
         self.Simulation_boundaries = [[xmax, ymax], [xmax, ymin], [xmin, ymax], [xmin, ymin]]
         self.points = []
         self.shapes = []
@@ -96,6 +82,27 @@ class Mesh():
         
         return True
     
+    def triangle(self, arm1, arm2, theta, number_densities, x_offset = 0, y_offset = 0, theta_offset = 0):
+        point1 = Point(x_offset + arm1*math.cos(theta_offset), y_offset + arm1*math.sin(theta_offset))
+        point2 = Point(x_offset + arm2*math.cos(theta + theta_offset), y_offset + arm2*math.sin(theta + theta_offset))
+        center_point = Point(x_offset, y_offset)
+        
+        temp_points = [point1,point2,center_point]
+        
+        self.points += temp_points
+        self.shapes.append(Polygon(temp_points), number_densities)
+        
+        
+    def rectangle(self, length1, length2,number_densities, x_offset = 0.0, y_offset = 0.0):
+        temp_points = [Point(x_offset, y_offset)]
+        for i in range(4):
+            temp_points.append(Point(x_offset + (-1)**i*length1/2.0, y_offset + (-1)**(math.floor(i/2))*length2/2.0))
+        
+        self.points += temp_points
+        self.shapes.append(Polygon(temp_points), number_densities)
+        
+        return True
+        
     def add_Uniform_random(self, n_points):
         """
         returns True on completion.
@@ -254,7 +261,7 @@ class Mesh():
         temp_dict = {
             "mesh_2d_input" : {
                 "length_unit":self.length_unit,
-                "energy_barrier_thickness": decimal.Decimal(("{0:0." + number_of_decimals + "f}").format(self.energy_barrier_thickness)+"0"),
+                "energy_barrier_thickness": decimal.Decimal(("{0:0." + str(len(str(self.energ_barrier_thickness))) + "f}").format(self.energy_barrier_thickness)+"0"),
                 "triangles": have_ending_zeros(triangle_list),
                 "densities":have_ending_zeros(material_densities),
                 "material_boundary_points": have_ending_zeros(material_boundary_points),
@@ -272,16 +279,19 @@ class Mesh():
         return temp_dict
 if __name__ == "__main__":
     
-    mesh = Mesh("MICRON", 10,-10,10,-10)
+    mesh = Mesh("MICRON", .03,-.03,.03,-.03)
     
-    mesh.N_gon(5,100, [ 6.5E+10, 6.5E+10,])
+    mesh.N_gon(.02,100, [ 6.5E+10, 6.5E+10,])
     #mesh.N_gon(1.5, 4, 2, 5, 0, np.pi/4)
     #mesh.add_Uniform_random(10)
     #mesh.print_Triangles()
     mesh.write_to_file(True)
     
     
+
+    
     #code to plot out the example triangles
+    '''
     triangles = [ [ 0.0, 0.01, 0.0, 0.5, 0.5, -0.5,], [ 0.0, 0.01, 0.01, -0.5, 0.5, -0.5,], [ 0.01, 0.01, 0.04, -0.5, 0.5, -0.5,], [ 0.01, 0.04, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5, 0.5, -0.5, 0.5, -0.5,],]
     triangles = np.asarray(triangles)
     print(np.shape(triangles))
@@ -302,3 +312,4 @@ if __name__ == "__main__":
     print(np.shape(points))
     plt.triplot(points[:,0], points[:,1])
     plt.show()
+    '''
