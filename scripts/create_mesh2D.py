@@ -83,6 +83,12 @@ class Mesh():
         return True
     
     def triangle(self, arm1, arm2, theta, number_densities, x_offset = 0, y_offset = 0, theta_offset = 0):
+        '''
+        returns True on completion
+        creates a single triangle with arm lengths arm2 and arm2 and major angle theta (radians)
+        The x and y offset determine the center point
+        theta_offset determines the rotation of the triangle
+        '''
         point1 = Point(x_offset + arm1*math.cos(theta_offset), y_offset + arm1*math.sin(theta_offset))
         point2 = Point(x_offset + arm2*math.cos(theta + theta_offset), y_offset + arm2*math.sin(theta + theta_offset))
         center_point = Point(x_offset, y_offset)
@@ -93,10 +99,16 @@ class Mesh():
         self.shapes.append(Polygon(temp_points), number_densities)
         
         
-    def rectangle(self, length1, length2,number_densities, x_offset = 0.0, y_offset = 0.0):
+    def rectangle(self, length1, length2, number_densities, x_offset = 0.0, y_offset = 0.0, theta_offset = 0.0):
+        '''
+        returns True on completion
+        creates a single rectangle with center (x_offset, y_offset) and side lengths length1 and length2
+        length1 is the x-axis
+        theta_offset rotates around the center point (radians)
+        '''
         temp_points = [Point(x_offset, y_offset)]
         for i in range(4):
-            temp_points.append(Point(x_offset + (-1)**i*length1/2.0, y_offset + (-1)**(math.floor(i/2))*length2/2.0))
+            temp_points.append(Point(x_offset + ((-1)**i*length1/2.0)*math.cos(theta_offset), y_offset + ((-1)**(math.floor(i/2))*length2/2.0)*math.sin(theta_offset) ))
         
         self.points += temp_points
         self.shapes.append(Polygon(temp_points), number_densities)
