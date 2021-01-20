@@ -13,6 +13,7 @@ from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
 from decimal import Decimal
+from pickle import FALSE
 
 number_of_decimals = "11"
 np.set_printoptions(formatter={'float': lambda x: "{0:0." + number_of_decimals + "f}".format(x)+"0"})
@@ -28,6 +29,12 @@ class Mesh():
         The init functions requires the length units, x limits and y limits of the simulation.
         The x and y limits are assumed to be on the points of a square.
         """
+        if xmin >= xmax:
+            print("xmin should be less than xmax")
+            assert xmin < xmax
+        if ymin >= ymax:
+            print("ymin should be less than ymax")
+            assert ymin < ymax
         
         self.trianglelist = []
         
