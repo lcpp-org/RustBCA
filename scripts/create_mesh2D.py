@@ -12,9 +12,6 @@ import random
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
-from decimal import Decimal
-from pickle import FALSE
-
 number_of_decimals = "11"
 np.set_printoptions(formatter={'float': lambda x: "{0:0." + number_of_decimals + "f}".format(x)+"0"})
 
@@ -280,7 +277,7 @@ class Mesh():
         temp_dict = {
             "mesh_2d_input" : {
                 "length_unit":self.length_unit,
-                "energy_barrier_thickness": decimal.Decimal(("{0:0." + str(len(str(self.energ_barrier_thickness))) + "f}").format(self.energy_barrier_thickness)+"0"),
+                "energy_barrier_thickness": decimal.Decimal(("{0:0." + str(len(str(self.energy_barrier_thickness))) + "f}").format(self.energy_barrier_thickness)+"0"),
                 "triangles": have_ending_zeros(triangle_list),
                 "densities":have_ending_zeros(material_densities),
                 "material_boundary_points": have_ending_zeros(material_boundary_points),
