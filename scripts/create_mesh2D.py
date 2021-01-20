@@ -302,7 +302,7 @@ if __name__ == "__main__":
     
 
     
-    #code to plot out the example triangles
+    #code to plot out the example triangles for boron_nitride
     '''
     triangles = [ [ 0.0, 0.01, 0.0, 0.5, 0.5, -0.5,], [ 0.0, 0.01, 0.01, -0.5, 0.5, -0.5,], [ 0.01, 0.01, 0.04, -0.5, 0.5, -0.5,], [ 0.01, 0.04, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5, 0.5, -0.5, 0.5, -0.5,],]
     triangles = np.asarray(triangles)
