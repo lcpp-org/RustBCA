@@ -172,7 +172,7 @@ class Mesh():
         #print("Length of tri.simplices " + str(len(tri.simplices)))
         #print("Length of triangles " + str(len(triangles)))
         
-        temp_material_densities = [None]*(len(triangles))
+        temp_material_densities = [0.0]*(len(triangles))
         self.electronic_stopping_corrections = [1.0]*(len(triangles))
         #print("Len of triangles " + str(len(triangles)))
         for i, triangle in enumerate(triangles):
@@ -298,7 +298,7 @@ if __name__ == "__main__":
     mesh = Mesh("MICRON", .03,-.03,.03,-.03)
     
     mesh.N_gon(.02,100, [ 6.5E+10, 6.5E+10,])
-    #mesh.N_gon(1.5, 4, 2, 5, 0, np.pi/4)
+    mesh.N_gon(.01, 4, [2*6.5E+10, 0.0,], 0, 0, np.pi/4)
     #mesh.add_Uniform_random(10)
     #mesh.print_Triangles()
     mesh.write_to_file(True)
