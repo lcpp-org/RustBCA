@@ -45,6 +45,7 @@ class Mesh():
         self.length_unit = length_unit
         self.electronic_stopping_corrections = []
         self.energy_barrier_thickness = energy_barrier_thickness
+        self.pointnum = 0
     
     def N_gon(self, radius, n_points, number_densities, x_offset = 0.0, y_offset = 0.0, theta_offset = 0.0):
         """
@@ -58,6 +59,8 @@ class Mesh():
         square: N_gon(2, 4, 2)
         offset square: N_gon(5, 4, 2, 1, 1, np.pi/4)  
         """
+        n_points = int(n_points)
+        self.pointnum += n_points
         
         n_points -= 0
         dtheta = np.pi*2/n_points
@@ -93,6 +96,7 @@ class Mesh():
         The x and y offset determine the center point
         theta_offset determines the rotation of the triangle
         '''
+        self.pointnum += 3
         point1 = Point(x_offset + arm1*math.cos(theta_offset), y_offset + arm1*math.sin(theta_offset))
         point2 = Point(x_offset + arm2*math.cos(theta + theta_offset), y_offset + arm2*math.sin(theta + theta_offset))
         center_point = Point(x_offset, y_offset)
@@ -110,6 +114,7 @@ class Mesh():
         length1 is the x-axis
         theta_offset rotates around the center point (radians)
         '''
+        self.pointnum += 4
         temp_points = [Point(x_offset, y_offset)]
         for i in range(4):
             temp_points.append(Point(x_offset + ((-1)**i*length1/2.0)*math.cos(theta_offset), y_offset + ((-1)**(math.floor(i/2))*length2/2.0)*math.sin(theta_offset) ))
@@ -126,6 +131,7 @@ class Mesh():
         **Note**
         Will cause some shapes to have parts of them be labeled the incorrect number density. 
         """
+        self.pointnum += n_points
         temp_points = []
         for _ in range(n_points):
             temp_points.append(
@@ -295,16 +301,21 @@ class Mesh():
         return temp_dict
 if __name__ == "__main__":
     
+    import timeit
+    start  = timeit.default_timer()
     mesh = Mesh("MICRON", .03,-.03,.03,-.03)
     
-    mesh.N_gon(.02,100, [ 6.5E+10, 6.5E+10,])
+    mesh.N_gon(.02,500, [ 6.5E+10, 6.5E+10,])
     mesh.N_gon(.01, 4, [2*6.5E+10, 0.0,], 0, 0, np.pi/4)
     #mesh.add_Uniform_random(10)
     #mesh.print_Triangles()
     mesh.write_to_file(True)
     
+    end = timeit.default_timer()
     
-
+    triangle_list, material_densities = mesh.return_Triangles()
+    
+    print(str(end-start) + "s to do " + str(len(triangle_list)) + " triangles" )
     
     #code to plot out the example triangles for boron_nitride
     '''
