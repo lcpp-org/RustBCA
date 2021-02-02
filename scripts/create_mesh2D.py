@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.tri
 import scipy.spatial
 import random
+import itertools
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
@@ -35,7 +36,7 @@ class Mesh():
         
         self.trianglelist = []
         
-        self.Simulation_boundaries = [[xmax, ymax], [xmax, ymin], [xmin, ymax], [xmin, ymin]]
+        self.Simulation_boundaries = [[xmax, ymax], [xmax, ymin], [xmin, ymin], [xmin, ymax]]
         self.points = []
         self.shapes = []
         self.xmax, self.xmin, self.ymax, self.ymin = xmax, xmin, ymax,ymin
@@ -45,7 +46,7 @@ class Mesh():
         self.length_unit = length_unit
         self.electronic_stopping_corrections = []
         self.energy_barrier_thickness = energy_barrier_thickness
-        self.pointnum = 0
+
     
     def N_gon(self, radius, n_points, number_densities, x_offset = 0.0, y_offset = 0.0, theta_offset = 0.0):
         """
@@ -60,7 +61,6 @@ class Mesh():
         offset square: N_gon(5, 4, 2, 1, 1, np.pi/4)  
         """
         n_points = int(n_points)
-        self.pointnum += n_points
         
         n_points -= 0
         dtheta = np.pi*2/n_points
@@ -71,19 +71,13 @@ class Mesh():
                 Point(x_offset + radius*math.cos(dtheta*i + theta_offset), y_offset + radius*math.sin(dtheta*i + theta_offset))
                 )
 
-        #print(temp_points)
         poly = Polygon(temp_points)
-        #print(poly)
+        
         center = Point(x_offset,y_offset)
-        #print(zero.within(poly))
-        #print(poly.covers(zero))
         if center.within(poly):
             temp_points.append(center)
-        #poly = Polygon(temp_points)
-        #print(zero.within(poly))
-        
+
         self.points += temp_points
-        #temp_points = np.asarray(temp_points)
         
         self.shapes.append([poly, number_densities])
         
@@ -96,7 +90,6 @@ class Mesh():
         The x and y offset determine the center point
         theta_offset determines the rotation of the triangle
         '''
-        self.pointnum += 3
         point1 = Point(x_offset + arm1*math.cos(theta_offset), y_offset + arm1*math.sin(theta_offset))
         point2 = Point(x_offset + arm2*math.cos(theta + theta_offset), y_offset + arm2*math.sin(theta + theta_offset))
         center_point = Point(x_offset, y_offset)
@@ -104,26 +97,58 @@ class Mesh():
         temp_points = [point1,point2,center_point]
         
         self.points += temp_points
-        self.shapes.append(Polygon(temp_points), number_densities)
+        self.shapes.append([Polygon(temp_points), number_densities])
         
         
-    def rectangle(self, length1, length2, number_densities, x_offset = 0.0, y_offset = 0.0, theta_offset = 0.0):
+    def rectangle(self, length_x, length_y, number_densities, x_offset = 0.0, y_offset = 0.0, theta_offset = 0.0):
         '''
         returns True on completion
         creates a single rectangle with center (x_offset, y_offset) and side lengths length1 and length2
         length1 is the x-axis
-        theta_offset rotates around the center point (radians)
+        theta_offset rotates around the center point (radians) <- NOT IMPLEMENTED CORRECTLY CURRENTLY
         '''
-        self.pointnum += 4
-        temp_points = [Point(x_offset, y_offset)]
-        for i in range(4):
-            temp_points.append(Point(x_offset + ((-1)**i*length1/2.0)*math.cos(theta_offset), y_offset + ((-1)**(math.floor(i/2))*length2/2.0)*math.sin(theta_offset) ))
+        temp_points = []
+        for i in range(0,2):
+            for j in range(0,2):
+                temp_points.append(
+                    Point(x_offset + (-1)**i * length_x/2.0, y_offset + (-1)**(i ^ j) * length_y/2.0)
+                    )
         
+        #print(temp_points)
+        
+        
+        poly = Polygon(temp_points)
+        
+        center = Point(x_offset,y_offset)
+        #print(center.within(poly))
+        if center.within(poly):
+            temp_points.append(center)
+        
+
         self.points += temp_points
-        self.shapes.append(Polygon(temp_points), number_densities)
+        self.shapes.append([poly, number_densities])
         
         return True
+    
+    def rectangle_grid(self, n_x, n_y, total_length_x, total_length_y, number_densities, bottom_left_x = 0.0, bottom_left_y = 0.0):
+        '''
+        returns True on completion
+        Uses the total length and number of rectangles per side to calculate how rectangles should be made
+        The anchor point is the bottom left most point of the grid of rectangles
+        Since rectangles are defined the way they are in the code below it has to divide the number of rectangles per side by 2 to get what people intuit as the number of rectangles made of two triangles per side
+        '''
         
+        n_x, n_y = n_x, n_y 
+        
+        length_x = total_length_x/n_x
+        length_y = total_length_y/n_y
+        
+        for j in range(n_y):
+            for i in range(n_x):
+                self.rectangle(length_x, length_y, number_densities, x_offset = (bottom_left_x + length_x/2 + i*length_x), y_offset = (bottom_left_y + length_y/2 + j*length_y))
+        
+        return True
+    
     def add_Uniform_random(self, n_points):
         """
         returns True on completion.
@@ -131,7 +156,6 @@ class Mesh():
         **Note**
         Will cause some shapes to have parts of them be labeled the incorrect number density. 
         """
-        self.pointnum += n_points
         temp_points = []
         for _ in range(n_points):
             temp_points.append(
@@ -141,11 +165,27 @@ class Mesh():
         self.points += temp_points
         return True
     
+    def clean_points(self):
+        temp = []
+        for point in self.points:
+            temp.append([point.x,point.y])
+        
+        temp.sort()
+        temp = list(temp for temp,_ in itertools.groupby(temp))
+        
+        for i in range(len(temp)):
+            temp[i] = Point(temp[i])
+        
+        self.points = temp
+        
+        return True
+    
     def get_Points(self):
         """
         Deprecated - Don't use
         returns all of the individual points in the simulation as a np array
         """
+        #self.clean_points()
         temp = []
         for point in self.points:
             temp.append([point.x,point.y])
@@ -158,13 +198,17 @@ class Mesh():
         Generates triangles via the Delauny method:
         see scipy.spatial.Delaunay
         """
+        #print(len(self.get_Points()))
         return scipy.spatial.Delaunay(self.get_Points())
     
     def return_Triangles(self):
         """
         returns 2 lists : points, material densities
         Creates and Correlates the triangles to their number densities.
+        
+        Will throw errors shapely errors if lines overlap
         """
+        
         points = self.get_Points()
         tri = self.generate_Triangles()
         
@@ -183,10 +227,14 @@ class Mesh():
         #print("Len of triangles " + str(len(triangles)))
         for i, triangle in enumerate(triangles):
             for shape, number_densities in self.shapes:
-                if shape.contains(triangle):
+                if shape.contains(triangle) or shape.relate_pattern(triangle, 'FF2FF1212') or shape.relate_pattern(triangle, '212101212'):
+                    #print(shape.relate(triangle))
                     temp_material_densities[i] = list(number_densities)
-        
+                else:
+                    #print(shape.relate(triangle))
+                    continue
         #print(point_output)
+        print(len(temp_material_densities))
         return point_output, temp_material_densities
     
     def print_Triangles(self):
@@ -214,10 +262,13 @@ class Mesh():
         #print(type(triangles[0]))
         
         #plt.triplot(points[:,0], points[:,1], tri.simplices)
-        plt.xlim(self.Simulation_boundaries[1][0], self.Simulation_boundaries[-1][0])
-        plt.ylim(self.Simulation_boundaries[0:2][1])
+        plt.xlim(self.Simulation_boundaries[-1][0], self.Simulation_boundaries[1][0])
+        plt.ylim(self.Simulation_boundaries[1][1], self.Simulation_boundaries[0][1])
         for i, triangle in enumerate(triangles):
-            plt.triplot(triangle, self.color_dict[material_densities[i]]+ "-", )
+            if type(material_densities[i]) == list:
+                plt.triplot(triangle, self.color_dict[material_densities[i][0]]+ "-", )
+            else:
+                plt.triplot(triangle, self.color_dict[material_densities[i]]+ "-", )
         plt.show()
         return True
     
@@ -239,7 +290,7 @@ class Mesh():
                 if pointPoint.within(shape):
                     material_boundary_points.pop(i)
         
-        import itertools
+
         material_boundary_points.sort()
         material_boundary_points = list(material_boundary_points for material_boundary_points,_ in itertools.groupby(material_boundary_points))
         #print(len(material_boundary_points))
@@ -303,13 +354,16 @@ if __name__ == "__main__":
     
     import timeit
     start  = timeit.default_timer()
-    mesh = Mesh("MICRON", .03,-.03,.03,-.03)
+    mesh = Mesh("MICRON", 50.1, -0.1, 50.1, -0.1)
     
-    mesh.N_gon(.02,500, [ 6.5E+10, 6.5E+10,])
-    mesh.N_gon(.01, 4, [2*6.5E+10, 0.0,], 0, 0, np.pi/4)
-    #mesh.add_Uniform_random(10)
+    #mesh.N_gon(2, 4, [1], 1, 1, -np.pi/4 )
+    #mesh.rectangle(1, 1, [2], 1, 1)
+    mesh.rectangle_grid(10, 10, 50, 50, [5e5]) #Actual Number = 5.305e11
+    
     #mesh.print_Triangles()
     mesh.write_to_file(True)
+    
+    
     
     end = timeit.default_timer()
     
