@@ -234,7 +234,7 @@ class Mesh():
                     #print(shape.relate(triangle))
                     continue
         #print(point_output)
-        print(len(temp_material_densities))
+        #print(len(temp_material_densities))
         return point_output, temp_material_densities
     
     def print_Triangles(self):
@@ -358,7 +358,7 @@ if __name__ == "__main__":
     
     #mesh.N_gon(2, 4, [1], 1, 1, -np.pi/4 )
     #mesh.rectangle(1, 1, [2], 1, 1)
-    mesh.rectangle_grid(10, 10, 50, 50, [5e5]) #Actual Number = 5.305e11
+    mesh.rectangle_grid(10, 10, 50, 50, [5.305e9]) #Actual Number = 5.305e11
     
     #mesh.print_Triangles()
     mesh.write_to_file(True)

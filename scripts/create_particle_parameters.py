@@ -115,6 +115,9 @@ class Particles():
         return temp_dict
 
 if __name__ == "__main__":
+    import random
     particle = Particles()
-    particle.add_particle_species(10, 1, 1.008, 1, 100000.0, .5, 10.0, position = [0.0,25.0,0.0])
+    
+    for i in range(10):
+        particle.add_particle_species(1, 1, 1.008, 1, 100000.0, .5, 10.0, position = [0.0,random.randint(0,50.0),0.0])
     particle.write_to_file(True)
