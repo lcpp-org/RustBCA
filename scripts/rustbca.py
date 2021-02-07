@@ -13,7 +13,7 @@ import matplotlib.colors as colors
 from materials import *
 from formulas import *
 
-from generate_ftridyn_input import *
+#from generate_ftridyn_input import *
 
 rcParams.update({'figure.autolayout': True})
 

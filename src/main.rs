@@ -316,6 +316,28 @@ impl Vector4 {
     }
 }
 
+/// Simulation-wide summary output tracker.
+pub struct Summary {
+    num_incident: u64,
+    num_sputtered: u64,
+    num_reflected: u64,
+}
+
+impl Summary {
+    fn new(num_incident: u64) -> Summary {
+        Summary {
+            num_incident,
+            num_sputtered: 0,
+            num_reflected: 0,
+        }
+    }
+
+    fn add(&mut self, num_sputtered: u64, num_reflected: u64) {
+        self.num_sputtered += num_sputtered;
+        self.num_reflected += num_reflected;
+    }
+}
+
 /// Energy loss is an output tracker that tracks the separate nuclear and electronic energy losses.
 #[derive(Clone)]
 pub struct EnergyLoss {
@@ -665,9 +687,20 @@ fn main() {
         .unwrap();
     let mut energy_loss_file_stream = BufWriter::with_capacity(options.write_buffer_size, energy_loss_file);
 
+    let summary_output_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(format!("{}{}", options.name, "summary.output"))
+        .context("Could not open output file.")
+        .unwrap();
+    let mut summary_output_file_stream = BufWriter::with_capacity(options.write_buffer_size, summary_output_file);
+
     println!("Processing {} ions...", particle_input_array.len());
 
     let total_count: u64 = particle_input_array.len() as u64;
+
+    let mut summary = Summary::new(total_count);
 
     //Initialize threads with rayon
     println!("Initializing with {} threads...", options.num_threads);
@@ -711,7 +744,9 @@ fn main() {
                     ).expect(format!("Output error: could not write to {}displacements.output.", options.name).as_str());
             }
 
+            //Incident particle, left simulation: reflected
             if particle.incident & particle.left {
+                summary.add(0, 1);
                 writeln!(
                     reflected_file_stream, "{},{},{},{},{},{},{},{},{},{}",
                     particle.m/mass_unit, particle.Z, particle.E/energy_unit,
@@ -733,6 +768,7 @@ fn main() {
 
             //Not an incident particle, left material: sputtered
             if !particle.incident & particle.left {
+                summary.add(1, 0);
                 writeln!(
                     sputtered_file_stream, "{},{},{},{},{},{},{},{},{},{},{},{},{}",
                     particle.m/mass_unit, particle.Z, particle.E/energy_unit,
@@ -769,14 +805,19 @@ fn main() {
             }
         }
         //Flush all file streams before dropping to ensure all data is written
+
+
         reflected_file_stream.flush().unwrap();
         deposited_file_stream.flush().unwrap();
         sputtered_file_stream.flush().unwrap();
         trajectory_data_stream.flush().unwrap();
         trajectory_file_stream.flush().unwrap();
     }
-
-
-
+    writeln!(summary_output_file_stream, "incident, sputtered, reflected")
+        .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
+    writeln!(summary_output_file_stream, "{}, {}, {}",
+    summary.num_incident, summary.num_sputtered, summary.num_reflected)
+        .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
+    summary_output_file_stream.flush().unwrap();
     println!("Finished!");
 }
