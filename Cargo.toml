@@ -18,7 +18,7 @@ hdf5 = {version = "0.7.0", optional = true}
 rayon = "1.4.0"
 openblas-src = {version  = "0.9", optional = true}
 netlib-src = {version  = "0.8", optional = true}
-intel-mkl-src = {version = "0.6.0+mkl2020.1", optional = true}
+intel-mkl-src = {version = "0.6.0", optional = true}
 rcpr = { git = "https://github.com/drobnyjt/rcpr", optional = true}
 indicatif = {version="*", features=["rayon"]}
 itertools = "0.9.0"

@@ -433,7 +433,7 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
                 let delta_energy_local = oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, interaction_potential);
                 let delta_energy_nonlocal = electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled;
 
-                (0.5*delta_energy_local + 0.5*delta_energy_nonlocal)
+                0.5*delta_energy_local + 0.5*delta_energy_nonlocal
             },
         };
 
