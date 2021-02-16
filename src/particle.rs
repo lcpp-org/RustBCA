@@ -122,7 +122,7 @@ impl Particle {
             left: false,
             incident,
             first_step: incident,
-            trajectory: vec![Vector4::new(E, x, y, z)],
+            trajectory: vec![],
             energies: vec![EnergyLoss::new(0., 0., x, y, z)],
             track_trajectories,
             number_collision_events: 0,
