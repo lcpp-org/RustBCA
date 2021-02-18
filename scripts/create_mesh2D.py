@@ -296,7 +296,8 @@ class Mesh():
         #print(len(material_boundary_points))
         
         electronic_stopping_correction_factors = self.electronic_stopping_corrections
-        import decimal
+        
+        '''import decimal
         decimal.getcontext().prec = int(number_of_decimals) + 2
         def have_ending_zeros(lis):
             #lis = np.asarray(lis)
@@ -327,10 +328,12 @@ class Mesh():
                                     pass
 
             return lis
-
+        '''
+        
         file = open("Mesh2D.toml", "w")
         file.seek(0)
         
+        '''
         temp_dict = {
             "mesh_2d_input" : {
                 "length_unit":self.length_unit,
@@ -341,11 +344,21 @@ class Mesh():
                 "simulation_boundary_points":have_ending_zeros(Simulation_Boundaries),
                 "electronic_stopping_correction_factors":have_ending_zeros(electronic_stopping_correction_factors)
             }
+        }'''
+        temp_dict = {
+            "mesh_2d_input" : {
+                "length_unit":self.length_unit,
+                "energy_barrier_thickness":self.energy_barrier_thickness,
+                "triangles": triangle_list,
+                "densities": material_densities,
+                "material_boundary_points": material_boundary_points,
+                "simulation_boundary_points": Simulation_Boundaries,
+                "electronic_stopping_correction_factors": electronic_stopping_correction_factors
+            }
         }
-        
         if dump_to_file:
             import toml
-            toml.dump(temp_dict, file)
+            toml.dump(temp_dict, file, encoder=toml.TomlNumpyEncoder())
         
         #print(type(triangle_list))
         
@@ -358,7 +371,7 @@ if __name__ == "__main__":
     
     #mesh.N_gon(2, 4, [1], 1, 1, -np.pi/4 )
     #mesh.rectangle(1, 1, [2], 1, 1)
-    mesh.rectangle_grid(10, 10, 50, 50, [5.305e9]) #Actual Number = 5.305e11
+    mesh.rectangle_grid(10, 10, 50, 50, [5.305e11]) #Actual Number = 5.305e11
     
     #mesh.print_Triangles()
     mesh.write_to_file(True)

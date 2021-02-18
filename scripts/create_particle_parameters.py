@@ -98,26 +98,26 @@ class Particles():
                 "energy_unit" : "EV",
                 "mass_unit" : "AMU",
                 "N" : [int(i) for i in self.N],
-                "m" : have_ending_zeros(self.masses),
-                "Z" : have_ending_zeros(self.Z),
-                "E" : have_ending_zeros(self.E),
-                "Ec" : have_ending_zeros(self.Ec),
-                "Es" : have_ending_zeros(self.Es),
-                "pos" : have_ending_zeros(self.positions),
-                "dir" : have_ending_zeros(self.directions),
+                "m" : self.masses,
+                "Z" : self.Z,
+                "E" : self.E,
+                "Ec" : self.Ec,
+                "Es" : self.Es,
+                "pos" : self.positions,
+                "dir" : self.directions,
                 "interaction_index" : [int(i) for i in self.interaction_index],
                 "particle_input_filename" : ""
                 }
             }
         if dump_to_file:
             import toml
-            toml.dump(temp_dict, file)
+            toml.dump(temp_dict, file, encoder=toml.TomlNumpyEncoder())
         return temp_dict
 
 if __name__ == "__main__":
     import random
     particle = Particles()
     
-    for i in range(10):
-        particle.add_particle_species(1, 1, 1.008, 1, 100000.0, .5, 10.0, position = [0.0,random.randint(0,50.0),0.0])
+    for i in range(100):
+        particle.add_particle_species(1, 1, 1.008, 1, 1.00e6, .5, 10.0, position = [0.0,random.randint(0,50.0),0.0])
     particle.write_to_file(True)
