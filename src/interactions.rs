@@ -169,7 +169,7 @@ pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f
         InteractionPotential::MORSE{D, alpha, r0} => {
             diff_doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
         },
-        _ => panic!("Input error: {} does not have an implemented derivative. Try using the derivative free CPR-rootfinder.")
+        _ => panic!("Input error: {} does not have an implemented derivative. Try using the derivative free CPR-rootfinder.", interaction_potential)
     }
 }
 
@@ -192,7 +192,7 @@ pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f6
         InteractionPotential::MORSE{D, alpha, r0} => {
             diff_doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
         },
-        _ => panic!("Input error: {} does not have an implemented derivative. Try using the derivative free CPR-rootfinder.")
+        _ => panic!("Input error: {} does not have an implemented derivative. Try using the derivative free CPR-rootfinder.", interaction_potential)
     }
 }
 
