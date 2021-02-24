@@ -370,9 +370,15 @@ pub struct Options {
     track_energy_losses: bool,
 }
 
+pub struct OutputUnits {
+    length_unit: f64,
+    energy_unit: f64,
+    mass_unit: f64
+}
+
 fn main() {
     //Open and process input_file
-    let (particle_input_array, material, options, length_unit, energy_unit, mass_unit) = input::input();
+    let (particle_input_array, material, options, output_units) = input::input();
 
     println!("Processing {} ions...", particle_input_array.len());
     let total_count: u64 = particle_input_array.len() as u64;
@@ -387,6 +393,7 @@ fn main() {
     println!("Initializing with {} threads...", options.num_threads);
     if options.num_threads > 1 {let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global().unwrap();};
 
+    //Create and configure progress bar
     let bar: ProgressBar = ProgressBar::new(options.num_chunks);
     bar.set_style(ProgressStyle::default_bar()
         .template("[{elapsed_precise}] [{bar:40.cyan/blue}] {percent}%")
@@ -413,7 +420,7 @@ fn main() {
 
         for particle in finished_particles {
             summary.add(&particle);
-            output::output_lists(&mut output_list_streams, particle, &options, length_unit, energy_unit, mass_unit);
+            output::output_lists(&mut output_list_streams, particle, &options, &output_units);
         }
         //Flush all file streams before dropping to ensure all data is written
         output::output_list_flush(&mut output_list_streams);

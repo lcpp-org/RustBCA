@@ -1,7 +1,7 @@
 use super::*;
 
 // final three arguments are length, energy, and mass unit for output
-pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, f64, f64, f64){
+pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, OutputUnits){
 
     let args: Vec<String> = env::args().collect();
 
@@ -28,6 +28,10 @@ pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, f6
     let options = input.options;
     let particle_parameters = input.particle_parameters;
 
+    //Ensure nonsensical threads/chunks options crash on input
+    assert!(options.num_threads > 0, "Input error: num_threads must be greater than zero.");
+    assert!(options.num_chunks > 0, "Input error: num_chunks must be greater than zero.");
+
     //Check that all material arrays are of equal length.
     assert!(material.m.len() == material.Z.len(), "Input error: material input arrays of unequal length.");
     assert!(material.m.len() == material.Eb.len(), "Input error: material input arrays of unequal length.");
@@ -35,7 +39,6 @@ pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, f6
     assert!(material.m.len() == material.interaction_index.len(), "Input error: material input arrays of unequal length.");
 
     //Check that incompatible options are not on simultaneously
-
     if options.high_energy_free_flight_paths {
         assert!(options.electronic_stopping_mode == ElectronicStoppingMode::INTERPOLATED,
             "Input error: High energy free flight paths used with low energy stoppping power. Change to INTERPOLATED.");
@@ -103,7 +106,6 @@ pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, f6
         "Input error: interaction matrix too small for material interaction indices.");
     assert!(particle_parameters.interaction_index.iter().max().unwrap() < &options.interaction_potential.len(),
         "Input error: interaction matrix too small for particle interaction indices.");
-
 
     //N is the number of distinct particles.
     let N = particle_parameters.Z.len();
@@ -231,5 +233,5 @@ pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, f6
             particle_input
         }
     };
-    (particle_input_array, material, options, length_unit, energy_unit, mass_unit)
+    (particle_input_array, material, options, OutputUnits {length_unit, energy_unit, mass_unit})
 }

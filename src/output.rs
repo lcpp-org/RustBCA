@@ -126,7 +126,11 @@ pub fn open_output_lists(options: &Options) -> OutputListStreams {
     }
 }
 
-pub fn output_lists(output_list_streams: &mut OutputListStreams, particle: particle::Particle, options: &Options, length_unit: f64, energy_unit: f64, mass_unit: f64) {
+pub fn output_lists(output_list_streams: &mut OutputListStreams, particle: particle::Particle, options: &Options, output_units: &OutputUnits) {
+
+    let length_unit = output_units.length_unit;
+    let energy_unit = output_units.energy_unit;
+    let mass_unit = output_units.mass_unit;
 
     if !particle.incident & options.track_displacements {
         writeln!(
