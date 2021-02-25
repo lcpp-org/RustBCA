@@ -424,7 +424,9 @@ fn main() {
     assert!(total_count/options.num_chunks > 0, "Input error: chunk size == 0 - reduce num_chunks or increase particle count.");
 
     //Open output files if write_buffer_size > 0
+    #[cfg(not(feature = "no_list_output"))]
     let mut output_list_streams = output::open_output_lists(&options);
+
     let mut summary_stream = output::open_output_summary(&options);
     let mut summary = output::Summary::new(total_count);
 
@@ -466,12 +468,13 @@ fn main() {
             #[cfg(feature = "distributions")]
             distributions.update(&particle, &output_units);
 
-            if options.write_buffer_size > 0 {
-                output::output_lists(&mut output_list_streams, particle, &options, &output_units);
-            }
+            #[cfg(not(feature = "no_list_output"))]
+            output::output_lists(&mut output_list_streams, particle, &options, &output_units);
+
         }
         //Flush all file streams before dropping to ensure all data is written
-        if options.write_buffer_size > 0 { output::output_list_flush(&mut output_list_streams); }
+        #[cfg(not(feature = "no_list_output"))]
+        output::output_list_flush(&mut output_list_streams);
     }
 
     //Write to summary file

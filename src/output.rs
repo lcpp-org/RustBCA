@@ -79,7 +79,6 @@ impl Distributions {
         let inside_angle = (angle_index_left >= 0) & (angle_index_left < self.angles.len() as i32);
 
         if particle.incident & particle.left {
-            println!("{}, {}", energy, angle);
             if inside_energy & inside_angle {
                 self.reflected_ead[[energy_index_left as usize, angle_index_left as usize]] += 1;
             }
