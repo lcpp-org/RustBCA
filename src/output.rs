@@ -1,6 +1,18 @@
 use super::*;
 use std::fs::File;
 
+pub fn energy_angle_from_particle(particle: &particle::Particle, units: &OutputUnits) -> (f64, f64) {
+    let energy = particle.E/units.energy_unit;
+    let ux = particle.dir.x;
+    let uy = particle.dir.y;
+    let uz = particle.dir.z;
+
+    let vyz = ((uy).powf(2.) + (uz).powf(2.)).sqrt();
+    let angle = vyz.atan2(ux.abs()) * 180.0 / PI;
+
+    (energy, angle)
+}
+
 #[cfg(feature = "distributions")]
 extern crate ndarray;
 
@@ -55,47 +67,25 @@ impl Distributions {
     }
 
     pub fn update(&mut self, particle: &particle::Particle, units: &OutputUnits) {
+        let (energy, angle) = energy_angle_from_particle(particle, units);
+
+        let delta_energy = self.energies[1] - self.energies[0];
+        let energy_index_left: i32 = ((energy - self.energies[0])/delta_energy).floor() as i32;
+
+        let delta_angle = self.angles[1] - self.angles[0];
+        let angle_index_left: i32 = ((angle - self.angles[0])/delta_angle).floor() as i32;
+
+        let inside_energy = (energy_index_left >= 0) & (energy_index_left < self.energies.len() as i32);
+        let inside_angle = (angle_index_left >= 0) & (angle_index_left < self.angles.len() as i32);
+
         if particle.incident & particle.left {
-            let energy = particle.E/units.energy_unit;
-            let ux = particle.dir.x;
-            let uy = particle.dir.y;
-            let uz = particle.dir.z;
-
-            let vyz = ((uy).powf(2.) + (uz).powf(2.)).sqrt();
-            let angle = vyz.atan2(ux.abs());
-
-            let delta_energy = self.energies[1] - self.energies[0];
-            let energy_index_left: i32 = (energy - self.energies[0]/delta_energy).floor() as i32;
-
-            let delta_angle = self.angles[1] - self.angles[0];
-            let angle_index_left: i32 = ((angle - self.angles[0])/delta_angle).floor() as i32;
-
-            let inside_energy = (energy_index_left >= 0) & (energy_index_left < self.energies.len() as i32);
-            let inside_angle = (angle_index_left >= 0) & (angle_index_left < self.angles.len() as i32);
-
+            println!("{}, {}", energy, angle);
             if inside_energy & inside_angle {
                 self.reflected_ead[[energy_index_left as usize, angle_index_left as usize]] += 1;
             }
         }
 
         if !particle.incident & particle.left {
-            let energy = particle.E/units.energy_unit;
-            let ux = particle.dir.x;
-            let uy = particle.dir.y;
-            let uz = particle.dir.z;
-
-            let vyz = ((uy).powf(2.) + (uz).powf(2.)).sqrt();
-            let angle = vyz.atan2(ux.abs()) * 180.0 / PI;
-
-            let delta_energy = self.energies[1] - self.energies[0];
-            let energy_index_left: i32 = (energy - self.energies[0]/delta_energy).floor() as i32;
-
-            let delta_angle = self.angles[1] - self.angles[0];
-            let angle_index_left: i32 = ((angle - self.angles[0])/delta_angle).floor() as i32;
-
-            let inside_energy = (energy_index_left >= 0) & (energy_index_left < self.energies.len() as i32);
-            let inside_angle = (angle_index_left >= 0) & (angle_index_left < self.angles.len() as i32);
-
             if inside_energy & inside_angle {
                 self.sputtered_ead[[energy_index_left as usize, angle_index_left as usize]] += 1;
             }
