@@ -424,13 +424,7 @@ fn main() {
     assert!(total_count/options.num_chunks > 0, "Input error: chunk size == 0 - reduce num_chunks or increase particle count.");
 
     //Open output files if write_buffer_size > 0
-    let output_list_streams_result = if options.write_buffer_size > 0 {
-        Some(output::open_output_lists(&options))
-    } else {
-        None
-    };
-    let mut output_list_streams = output_list_streams_result.unwrap();
-
+    let mut output_list_streams = output::open_output_lists(&options);
     let mut summary_stream = output::open_output_summary(&options);
     let mut summary = output::Summary::new(total_count);
 

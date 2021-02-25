@@ -48,7 +48,7 @@ impl Distributions {
             .open(format!("{}{}", options.name, "distributions.toml"))
             .context("Could not open distributions output file.")
             .unwrap();
-        let mut distribution_file_stream = BufWriter::with_capacity(options.write_buffer_size, distribution_output_file);
+        let mut distribution_file_stream = BufWriter::with_capacity(8000, distribution_output_file);
         let toml = toml::to_string(&self).unwrap();
         writeln!(distribution_file_stream, "{}", toml).unwrap();
 
@@ -176,7 +176,7 @@ pub fn open_output_summary(options: &Options) -> BufWriter<File> {
         .open(format!("{}{}", options.name, "summary.output"))
         .context("Could not open output file.")
         .unwrap();
-    BufWriter::with_capacity(options.write_buffer_size, summary_output_file)
+    BufWriter::with_capacity(8000, summary_output_file)
 }
 
 pub fn open_output_lists(options: &Options) -> OutputListStreams {
