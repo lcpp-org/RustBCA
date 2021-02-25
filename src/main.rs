@@ -35,6 +35,9 @@ use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::BufWriter;
 
+//itertools
+use itertools::izip;
+
 //Math
 use std::f64::consts::FRAC_2_SQRT_PI;
 use std::f64::consts::PI;
@@ -420,15 +423,15 @@ fn main() {
     let (particle_input_array, material, options, output_units) = input::input();
 
     println!("Processing {} ions...", particle_input_array.len());
+
     let total_count: u64 = particle_input_array.len() as u64;
     assert!(total_count/options.num_chunks > 0, "Input error: chunk size == 0 - reduce num_chunks or increase particle count.");
 
-    //Open output files if write_buffer_size > 0
     #[cfg(not(feature = "no_list_output"))]
     let mut output_list_streams = output::open_output_lists(&options);
 
     let mut summary_stream = output::open_output_summary(&options);
-    let mut summary = output::Summary::new(total_count);
+    let mut summary = output::SummaryPerSpecies::new();
 
     #[cfg(feature = "distributions")]
     let mut distributions = output::Distributions::new(&options);
@@ -464,8 +467,10 @@ fn main() {
             );
         }
 
+        // Process this chunk of finished particles for output
         for particle in finished_particles {
-            summary.add(&particle);
+
+            summary.update(&particle);
 
             #[cfg(feature = "distributions")]
             distributions.update(&particle, &output_units);
@@ -480,11 +485,13 @@ fn main() {
     }
 
     //Write to summary file
-    writeln!(summary_stream, "incident, sputtered, reflected")
+    writeln!(summary_stream, "mass, reflected, sputtered, deposited")
         .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
-    writeln!(summary_stream, "{}, {}, {}",
-    summary.num_incident, summary.num_sputtered, summary.num_reflected)
-        .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
+
+    for (mass, reflected, sputtered, deposited) in izip!(&summary.m, &summary.reflected, &summary.sputtered, &summary.deposited) {
+        writeln!(summary_stream, "{} {} {} {}", mass/output_units.mass_unit, reflected, sputtered, deposited)
+            .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
+    }
     summary_stream.flush().unwrap();
 
     //Write distributions to file

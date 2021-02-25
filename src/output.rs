@@ -162,6 +162,47 @@ impl Summary {
     }
 }
 
+pub struct SummaryPerSpecies {
+    pub m: Vec<f64>,
+    pub sputtered: Vec<usize>,
+    pub reflected: Vec<usize>,
+    pub deposited: Vec<usize>,
+}
+
+impl SummaryPerSpecies {
+    pub fn new() -> SummaryPerSpecies {
+        SummaryPerSpecies {
+            m: vec![],
+            sputtered: vec![],
+            reflected: vec![],
+            deposited: vec![]
+        }
+    }
+
+    pub fn update(&mut self, particle: &particle::Particle) {
+
+        if self.m.contains(&(particle.m)) {
+
+            let index = self.m.iter().position(|m| *m == particle.m).unwrap();
+
+            match (particle.incident, particle.left) {
+                (true, true) => self.reflected[index] += 1,
+                (true, false) => self.deposited[index] += 1,
+                (false, true) => self.sputtered[index] += 1,
+                _ => (),
+            }
+        } else {
+            self.m.push(particle.m);
+            match (particle.incident, particle.left) {
+                (true, true) => {self.reflected.push(1); self.deposited.push(0); self.sputtered.push(0);},
+                (true, false) => {self.reflected.push(0); self.deposited.push(1); self.sputtered.push(0);},
+                (false, true) => {self.reflected.push(0); self.deposited.push(0); self.sputtered.push(1);},
+                _ => {self.reflected.push(0); self.deposited.push(0); self.sputtered.push(0);},
+            }
+        }
+    }
+}
+
 /// Open summary output file
 pub fn open_output_summary(options: &Options) -> BufWriter<File> {
     let summary_output_file = OpenOptions::new()
