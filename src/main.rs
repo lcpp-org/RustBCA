@@ -489,7 +489,7 @@ fn main() {
         .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
 
     for (mass, reflected, sputtered, deposited) in izip!(&summary.m, &summary.reflected, &summary.sputtered, &summary.deposited) {
-        writeln!(summary_stream, "{} {} {} {}", mass/output_units.mass_unit, reflected, sputtered, deposited)
+        writeln!(summary_stream, "{}, {}, {}, {},", mass/output_units.mass_unit, reflected, sputtered, deposited)
             .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
     }
     summary_stream.flush().unwrap();

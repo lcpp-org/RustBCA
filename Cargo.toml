@@ -14,13 +14,13 @@ toml = "0.5.6"
 anyhow = "1.0.32"
 itertools = "0.9.0"
 rayon = "1.4.0"
+indicatif = {version="*", features=["rayon"]}
 serde = { version = "1.0.116", features = ["derive"] }
 hdf5 = {version = "0.7.0", optional = true}
 openblas-src = {version  = "0.9", optional = true}
 netlib-src = {version  = "0.8", optional = true}
 intel-mkl-src = {version = "0.6.0", optional = true}
 rcpr = { git = "https://github.com/drobnyjt/rcpr", optional = true}
-indicatif = {version="*", features=["rayon"]}
 ndarray = {version = "0.14.0", features = ["serde"], optional = true}
 
 [dev-dependencies]
