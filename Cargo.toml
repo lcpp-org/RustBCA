@@ -22,6 +22,7 @@ intel-mkl-src = {version = "0.6.0", optional = true}
 rcpr = { git = "https://github.com/drobnyjt/rcpr", optional = true}
 indicatif = {version="*", features=["rayon"]}
 itertools = "0.9.0"
+ndarray = {version = "0.14.0", optional = true, features = ["serde"]}
 
 [profile.release]
 lto = "fat"
@@ -34,3 +35,4 @@ hdf5_input = ["hdf5"]
 cpr_rootfinder_openblas = ["rcpr", "openblas-src"]
 cpr_rootfinder_netlib = ["rcpr", "netlib-src"]
 cpr_rootfinder_intel_mkl = ["rcpr", "intel-mkl-src"]
+distributions = ["ndarray"]

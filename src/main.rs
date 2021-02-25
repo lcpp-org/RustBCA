@@ -348,6 +348,7 @@ pub struct Input {
 }
 
 /// Rustbca's internal representation of the simulation-level options.
+#[cfg(not(feature = "distributions"))]
 #[derive(Deserialize)]
 pub struct Options {
     name: String,
@@ -370,6 +371,44 @@ pub struct Options {
     track_energy_losses: bool,
 }
 
+#[cfg(feature = "distributions")]
+#[derive(Deserialize)]
+pub struct Options {
+    name: String,
+    track_trajectories: bool,
+    track_recoils: bool,
+    track_recoil_trajectories: bool,
+    write_buffer_size: usize,
+    weak_collision_order: usize,
+    suppress_deep_recoils: bool,
+    high_energy_free_flight_paths: bool,
+    electronic_stopping_mode: ElectronicStoppingMode,
+    mean_free_path_model: MeanFreePathModel,
+    interaction_potential: Vec<Vec<InteractionPotential>>,
+    scattering_integral: Vec<Vec<ScatteringIntegral>>,
+    root_finder: Vec<Vec<Rootfinder>>,
+    num_threads: usize,
+    num_chunks: u64,
+    use_hdf5: bool,
+    track_displacements: bool,
+    track_energy_losses: bool,
+    energy_min: f64,
+    energy_max: f64,
+    energy_num: usize,
+    angle_min: f64,
+    angle_max: f64,
+    angle_num: usize,
+    x_min: f64,
+    y_min: f64,
+    z_min: f64,
+    x_max: f64,
+    y_max: f64,
+    z_max: f64,
+    x_num: usize,
+    y_num: usize,
+    z_num: usize,
+}
+
 pub struct OutputUnits {
     length_unit: f64,
     energy_unit: f64,
@@ -384,10 +423,19 @@ fn main() {
     let total_count: u64 = particle_input_array.len() as u64;
     assert!(total_count/options.num_chunks > 0, "Input error: chunk size == 0 - reduce num_chunks or increase particle count.");
 
-    //Open output files
-    let mut output_list_streams = output::open_output_lists(&options);
+    //Open output files if write_buffer_size > 0
+    let output_list_streams_result = if options.write_buffer_size > 0 {
+        Some(output::open_output_lists(&options))
+    } else {
+        None
+    };
+    let mut output_list_streams = output_list_streams_result.unwrap();
+
     let mut summary_stream = output::open_output_summary(&options);
     let mut summary = output::Summary::new(total_count);
+
+    #[cfg(feature = "distributions")]
+    let mut distributions = output::Distributions::new(&options);
 
     //Initialize threads with rayon
     println!("Initializing with {} threads...", options.num_threads);
@@ -420,10 +468,16 @@ fn main() {
 
         for particle in finished_particles {
             summary.add(&particle);
-            output::output_lists(&mut output_list_streams, particle, &options, &output_units);
+
+            #[cfg(feature = "distributions")]
+            distributions.update(&particle, &output_units);
+
+            if options.write_buffer_size > 0 {
+                output::output_lists(&mut output_list_streams, particle, &options, &output_units);
+            }
         }
         //Flush all file streams before dropping to ensure all data is written
-        output::output_list_flush(&mut output_list_streams);
+        if options.write_buffer_size > 0 { output::output_list_flush(&mut output_list_streams); }
     }
 
     //Write to summary file
@@ -433,6 +487,10 @@ fn main() {
     summary.num_incident, summary.num_sputtered, summary.num_reflected)
         .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
     summary_stream.flush().unwrap();
+
+    //Write distributions to file
+    #[cfg(feature = "distributions")]
+    distributions.print(&options);
 
     println!("Finished!");
 }

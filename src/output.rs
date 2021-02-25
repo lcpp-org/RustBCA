@@ -1,6 +1,136 @@
 use super::*;
 use std::fs::File;
 
+#[cfg(feature = "distributions")]
+extern crate ndarray;
+
+#[cfg(feature = "distributions")]
+use ndarray::prelude::*;
+
+#[derive(Serialize)]
+#[cfg(feature = "distributions")]
+pub struct Distributions {
+    energies: Array1<f64>,
+    angles: Array1<f64>,
+    x_range: Array1<f64>,
+    y_range: Array1<f64>,
+    z_range: Array1<f64>,
+    reflected_ead: Array2<usize>,
+    sputtered_ead: Array2<usize>,
+    implanted_x: Array1<usize>,
+    implanted_y: Array1<usize>,
+    implanted_z: Array1<usize>
+}
+
+#[cfg(feature = "distributions")]
+impl Distributions {
+    pub fn new(options: &Options) -> Distributions {
+        Distributions {
+            energies: Array::linspace(options.energy_min, options.energy_max, options.energy_num),
+            angles: Array::linspace(options.angle_min, options.angle_max, options.angle_num),
+            x_range: Array::linspace(options.x_min, options.x_max, options.x_num),
+            y_range: Array::linspace(options.y_min, options.y_max, options.y_num),
+            z_range: Array::linspace(options.z_min, options.z_max, options.z_num),
+            reflected_ead: Array::zeros((options.energy_num, options.angle_num)),
+            sputtered_ead: Array::zeros((options.energy_num, options.angle_num)),
+            implanted_x: Array::zeros(options.x_num),
+            implanted_y: Array::zeros(options.y_num),
+            implanted_z: Array::zeros(options.z_num),
+        }
+    }
+
+    pub fn print(&self, options: &Options) {
+
+        let distribution_output_file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(format!("{}{}", options.name, "distributions.toml"))
+            .context("Could not open distributions output file.")
+            .unwrap();
+        let mut distribution_file_stream = BufWriter::with_capacity(options.write_buffer_size, distribution_output_file);
+        let toml = toml::to_string(&self).unwrap();
+        writeln!(distribution_file_stream, "{}", toml).unwrap();
+
+    }
+
+    pub fn update(&mut self, particle: &particle::Particle, units: &OutputUnits) {
+        if particle.incident & particle.left {
+            let energy = particle.E/units.energy_unit;
+            let ux = particle.dir.x;
+            let uy = particle.dir.y;
+            let uz = particle.dir.z;
+
+            let vyz = ((uy).powf(2.) + (uz).powf(2.)).sqrt();
+            let angle = vyz.atan2(ux.abs());
+
+            let delta_energy = self.energies[1] - self.energies[0];
+            let energy_index_left: i32 = (energy - self.energies[0]/delta_energy).floor() as i32;
+
+            let delta_angle = self.angles[1] - self.angles[0];
+            let angle_index_left: i32 = ((angle - self.angles[0])/delta_angle).floor() as i32;
+
+            let inside_energy = (energy_index_left >= 0) & (energy_index_left < self.energies.len() as i32);
+            let inside_angle = (angle_index_left >= 0) & (angle_index_left < self.angles.len() as i32);
+
+            if inside_energy & inside_angle {
+                self.reflected_ead[[energy_index_left as usize, angle_index_left as usize]] += 1;
+            }
+        }
+
+        if !particle.incident & particle.left {
+            let energy = particle.E/units.energy_unit;
+            let ux = particle.dir.x;
+            let uy = particle.dir.y;
+            let uz = particle.dir.z;
+
+            let vyz = ((uy).powf(2.) + (uz).powf(2.)).sqrt();
+            let angle = vyz.atan2(ux.abs()) * 180.0 / PI;
+
+            let delta_energy = self.energies[1] - self.energies[0];
+            let energy_index_left: i32 = (energy - self.energies[0]/delta_energy).floor() as i32;
+
+            let delta_angle = self.angles[1] - self.angles[0];
+            let angle_index_left: i32 = ((angle - self.angles[0])/delta_angle).floor() as i32;
+
+            let inside_energy = (energy_index_left >= 0) & (energy_index_left < self.energies.len() as i32);
+            let inside_angle = (angle_index_left >= 0) & (angle_index_left < self.angles.len() as i32);
+
+            if inside_energy & inside_angle {
+                self.sputtered_ead[[energy_index_left as usize, angle_index_left as usize]] += 1;
+            }
+        }
+
+        if particle.incident & particle.stopped {
+            let x = particle.pos.x/units.length_unit;
+            let y = particle.pos.y/units.length_unit;
+            let z = particle.pos.z/units.length_unit;
+
+            let delta_x = self.x_range[1] - self.x_range[0];
+            let delta_y = self.y_range[1] - self.y_range[0];
+            let delta_z = self.z_range[1] - self.z_range[0];
+
+            let x_index_left: i32 = ((x - self.x_range[0])/delta_x) as i32;
+            let y_index_left: i32 = ((y - self.y_range[0])/delta_y) as i32;
+            let z_index_left: i32 = ((z - self.z_range[0])/delta_z) as i32;
+
+            let inside_x = (x_index_left >= 0) & (x_index_left < self.x_range.len() as i32);
+            let inside_y = (y_index_left >= 0) & (y_index_left < self.y_range.len() as i32);
+            let inside_z = (z_index_left >= 0) & (z_index_left < self.z_range.len() as i32);
+
+            if inside_x {
+                self.implanted_x[x_index_left as usize] += 1;
+            }
+            if inside_y {
+                self.implanted_y[y_index_left as usize] += 1;
+            }
+            if inside_z {
+                self.implanted_z[z_index_left as usize] += 1;
+            }
+        }
+    }
+}
+
 /// File streams for list output
 pub struct OutputListStreams {
     reflected_file_stream: BufWriter<File>,
