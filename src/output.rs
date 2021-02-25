@@ -1,6 +1,7 @@
 use super::*;
 use std::fs::File;
 
+/// Converts from 6D particle coordinates to energy, angle coordinates w.r.t. negative x-axis
 pub fn energy_angle_from_particle(particle: &particle::Particle, units: &OutputUnits) -> (f64, f64) {
     let energy = particle.E/units.energy_unit;
     let ux = particle.dir.x;
@@ -19,6 +20,7 @@ extern crate ndarray;
 #[cfg(feature = "distributions")]
 use ndarray::prelude::*;
 
+/// Distribution tracker for tracking EADs and implantation distributions
 #[derive(Serialize)]
 #[cfg(feature = "distributions")]
 pub struct Distributions {
@@ -51,6 +53,7 @@ impl Distributions {
         }
     }
 
+    /// Write distributions to toml
     pub fn print(&self, options: &Options) {
 
         let distribution_output_file = OpenOptions::new()
@@ -66,6 +69,7 @@ impl Distributions {
 
     }
 
+    /// Updates distributions with a single particle
     pub fn update(&mut self, particle: &particle::Particle, units: &OutputUnits) {
         let (energy, angle) = energy_angle_from_particle(particle, units);
 
@@ -138,6 +142,7 @@ pub struct Summary {
     pub num_reflected: u64,
 }
 
+/// Summary tracker of sputtering and reflection
 impl Summary {
     pub fn new(num_incident: u64) -> Summary {
         Summary {
@@ -157,6 +162,7 @@ impl Summary {
     }
 }
 
+/// Open summary output file
 pub fn open_output_summary(options: &Options) -> BufWriter<File> {
     let summary_output_file = OpenOptions::new()
         .write(true)
@@ -168,8 +174,8 @@ pub fn open_output_summary(options: &Options) -> BufWriter<File> {
     BufWriter::with_capacity(8000, summary_output_file)
 }
 
+/// Open list output files for streaming write
 pub fn open_output_lists(options: &Options) -> OutputListStreams {
-
     //Open output files for streaming output
     let reflected_file = OpenOptions::new()
         .write(true)
@@ -245,6 +251,7 @@ pub fn open_output_lists(options: &Options) -> OutputListStreams {
     }
 }
 
+/// Write output lists
 pub fn output_lists(output_list_streams: &mut OutputListStreams, particle: particle::Particle, options: &Options, output_units: &OutputUnits) {
 
     let length_unit = output_units.length_unit;
@@ -319,7 +326,9 @@ pub fn output_lists(output_list_streams: &mut OutputListStreams, particle: parti
     }
 }
 
+/// Flush output list streams
 pub fn output_list_flush(output_list_streams: &mut OutputListStreams) {
+    output_list_streams.displacements_file_stream.flush().unwrap();
     output_list_streams.reflected_file_stream.flush().unwrap();
     output_list_streams.deposited_file_stream.flush().unwrap();
     output_list_streams.sputtered_file_stream.flush().unwrap();

@@ -449,6 +449,8 @@ fn main() {
         let mut finished_particles: Vec<particle::Particle> = Vec::new();
 
         if options.num_threads > 1 {
+            // BCA loop is implemented as parallelized extension of a per-chunk initially empty
+            // finished particle array via map from particle -> finished particles via BCA
             finished_particles.par_extend(
                 particle_input_chunk.into_par_iter()
                 .map(|particle_input| bca::single_ion_bca(particle::Particle::from_input(*particle_input, &options), &material, &options))
