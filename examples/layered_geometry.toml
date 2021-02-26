@@ -1,7 +1,7 @@
 [options]
 name = "2000.0eV_0.0001deg_He_TiO2_Al_Si"
 track_trajectories = false
-track_recoils = false
+track_recoils = true
 track_recoil_trajectories = false
 write_buffer_size = 8000
 weak_collision_order = 3
@@ -17,6 +17,21 @@ num_threads = 4
 num_chunks = 10
 track_displacements = false
 track_energy_losses = false
+energy_min = 0.0
+energy_max = 2000.0
+energy_num = 20
+angle_min = 0.0
+angle_max = 90.0
+angle_num = 20
+x_min = 0.0
+y_min = -0.1
+z_min = -0.1
+x_max = 0.1
+y_max = 0.1
+z_max = 0.1
+x_num = 20
+y_num = 20
+z_num = 20
 
 [particle_parameters]
 length_unit = "MICRON"
@@ -30,7 +45,7 @@ Ec = [ 1.0,]
 Es = [ 0.0,]
 interaction_index = [0]
 pos = [ [ -1.7453292519934434e-8, 0.0, 0.0,],]
-dir = [ [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,],]
+dir = [ [ 0.5, 0.5, 0.0,],]
 particle_input_filename = ""
 
 [mesh_2d_input]

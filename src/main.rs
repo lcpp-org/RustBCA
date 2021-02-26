@@ -35,6 +35,9 @@ use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::BufWriter;
 
+//itertools
+use itertools::izip;
+
 //Math
 use std::f64::consts::FRAC_2_SQRT_PI;
 use std::f64::consts::PI;
@@ -348,6 +351,7 @@ pub struct Input {
 }
 
 /// Rustbca's internal representation of the simulation-level options.
+#[cfg(not(feature = "distributions"))]
 #[derive(Deserialize)]
 pub struct Options {
     name: String,
@@ -370,6 +374,44 @@ pub struct Options {
     track_energy_losses: bool,
 }
 
+#[cfg(feature = "distributions")]
+#[derive(Deserialize)]
+pub struct Options {
+    name: String,
+    track_trajectories: bool,
+    track_recoils: bool,
+    track_recoil_trajectories: bool,
+    write_buffer_size: usize,
+    weak_collision_order: usize,
+    suppress_deep_recoils: bool,
+    high_energy_free_flight_paths: bool,
+    electronic_stopping_mode: ElectronicStoppingMode,
+    mean_free_path_model: MeanFreePathModel,
+    interaction_potential: Vec<Vec<InteractionPotential>>,
+    scattering_integral: Vec<Vec<ScatteringIntegral>>,
+    root_finder: Vec<Vec<Rootfinder>>,
+    num_threads: usize,
+    num_chunks: u64,
+    use_hdf5: bool,
+    track_displacements: bool,
+    track_energy_losses: bool,
+    energy_min: f64,
+    energy_max: f64,
+    energy_num: usize,
+    angle_min: f64,
+    angle_max: f64,
+    angle_num: usize,
+    x_min: f64,
+    y_min: f64,
+    z_min: f64,
+    x_max: f64,
+    y_max: f64,
+    z_max: f64,
+    x_num: usize,
+    y_num: usize,
+    z_num: usize,
+}
+
 pub struct OutputUnits {
     length_unit: f64,
     energy_unit: f64,
@@ -381,13 +423,18 @@ fn main() {
     let (particle_input_array, material, options, output_units) = input::input();
 
     println!("Processing {} ions...", particle_input_array.len());
+
     let total_count: u64 = particle_input_array.len() as u64;
     assert!(total_count/options.num_chunks > 0, "Input error: chunk size == 0 - reduce num_chunks or increase particle count.");
 
-    //Open output files
+    #[cfg(not(feature = "no_list_output"))]
     let mut output_list_streams = output::open_output_lists(&options);
+
     let mut summary_stream = output::open_output_summary(&options);
-    let mut summary = output::Summary::new(total_count);
+    let mut summary = output::SummaryPerSpecies::new();
+
+    #[cfg(feature = "distributions")]
+    let mut distributions = output::Distributions::new(&options);
 
     //Initialize threads with rayon
     println!("Initializing with {} threads...", options.num_threads);
@@ -405,6 +452,8 @@ fn main() {
         let mut finished_particles: Vec<particle::Particle> = Vec::new();
 
         if options.num_threads > 1 {
+            // BCA loop is implemented as parallelized extension of a per-chunk initially empty
+            // finished particle array via map from particle -> finished particles via BCA
             finished_particles.par_extend(
                 particle_input_chunk.into_par_iter()
                 .map(|particle_input| bca::single_ion_bca(particle::Particle::from_input(*particle_input, &options), &material, &options))
@@ -418,21 +467,36 @@ fn main() {
             );
         }
 
+        // Process this chunk of finished particles for output
         for particle in finished_particles {
-            summary.add(&particle);
+
+            summary.update(&particle);
+
+            #[cfg(feature = "distributions")]
+            distributions.update(&particle, &output_units);
+
+            #[cfg(not(feature = "no_list_output"))]
             output::output_lists(&mut output_list_streams, particle, &options, &output_units);
+
         }
         //Flush all file streams before dropping to ensure all data is written
+        #[cfg(not(feature = "no_list_output"))]
         output::output_list_flush(&mut output_list_streams);
     }
 
     //Write to summary file
-    writeln!(summary_stream, "incident, sputtered, reflected")
+    writeln!(summary_stream, "mass, reflected, sputtered, deposited")
         .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
-    writeln!(summary_stream, "{}, {}, {}",
-    summary.num_incident, summary.num_sputtered, summary.num_reflected)
-        .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
+
+    for (mass, reflected, sputtered, deposited) in izip!(&summary.m, &summary.reflected, &summary.sputtered, &summary.deposited) {
+        writeln!(summary_stream, "{}, {}, {}, {},", mass/output_units.mass_unit, reflected, sputtered, deposited)
+            .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
+    }
     summary_stream.flush().unwrap();
+
+    //Write distributions to file
+    #[cfg(feature = "distributions")]
+    distributions.print(&options);
 
     println!("Finished!");
 }

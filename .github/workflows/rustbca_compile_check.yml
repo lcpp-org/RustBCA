@@ -42,4 +42,4 @@ jobs:
     - name: Run Examples
       run: |
         cargo run --release examples/boron_nitride.toml
-        cargo run --release examples/layered_geometry.toml
+        cargo run --release --features distributions examples/layered_geometry.toml
