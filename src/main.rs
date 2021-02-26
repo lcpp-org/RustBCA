@@ -13,7 +13,7 @@ use std::{env, fmt};
 use std::mem::discriminant;
 
 //Progress bar crate - works with rayon
-use indicatif::{ProgressIterator, ProgressBar, ProgressStyle};
+use indicatif::{ProgressBar, ProgressStyle};
 
 //Error handling crate
 use anyhow::Result;
@@ -44,7 +44,7 @@ use std::f64::consts::PI;
 use std::f64::consts::SQRT_2;
 
 //rng
-use rand::{Rng, thread_rng};
+//use rand::{Rng, thread_rng};
 
 //Load internal modules
 pub mod material;
