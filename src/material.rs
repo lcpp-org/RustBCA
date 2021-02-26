@@ -41,8 +41,10 @@ impl Material {
             "ANGSTROM" => ANGSTROM,
             "NM" => NM,
             "M" => 1.,
-            _ => panic!("Input error: incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
-                mesh_2d_input.length_unit.as_str())
+            _ => particle_parameters.length_unit.parse()
+                .expect(format!(
+                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &material_parameters.length_unit.as_str()
+                    ).as_str()),
         };
 
         let energy_unit: f64 = match material_parameters.energy_unit.as_str() {
@@ -50,15 +52,19 @@ impl Material {
             "J"  => 1.,
             "KEV" => EV*1E3,
             "MEV" => EV*1E6,
-            _ => panic!("Input error: incorrect unit {} in input file. Choose one of: EV, J, KEV, MEV",
-                material_parameters.energy_unit.as_str())
+            _ => particle_parameters.energy_unit.parse()
+                .expect(format!(
+                        "Input errror: could nor parse energy unit {}. Use a valid float or one of EV, J, KEV, MEV", &material_parameters.energy_unit.as_str()
+                    ).as_str()),
         };
 
         let mass_unit: f64 = match material_parameters.mass_unit.as_str() {
             "AMU" => AMU,
             "KG" => 1.,
-            _ => panic!("Input error: incorrect unit {} in input file. Choose one of: AMU, KG",
-                material_parameters.mass_unit.as_str())
+            _ => particle_parameters.mass_unit.parse()
+                .expect(format!(
+                        "Input errror: could nor parse mass unit {}. Use a valid float or one of AMU, KG", &material_parameters.mass_unit.as_str()
+                    ).as_str()),
         };
 
         Material {
