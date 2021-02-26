@@ -1,6 +1,12 @@
 use super::*;
 use std::fs::File;
 
+pub struct OutputUnits {
+    pub length_unit: f64,
+    pub energy_unit: f64,
+    pub mass_unit: f64
+}
+
 /// Converts from 6D particle coordinates to energy, angle coordinates w.r.t. negative x-axis
 pub fn energy_angle_from_particle(particle: &particle::Particle, units: &OutputUnits) -> (f64, f64) {
     let energy = particle.E/units.energy_unit;
