@@ -128,6 +128,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
                     particle::rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
                         binary_collision_geometry.phi_azimuthal);
+                        
                     particle_2.dir_old.x = particle_2.dir.x;
                     particle_2.dir_old.y = particle_2.dir.y;
                     particle_2.dir_old.z = particle_2.dir.z;
@@ -413,7 +414,6 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
     if particle_1.E < 0. {
         particle_1.E = 0.;
     }
-
 
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;

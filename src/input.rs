@@ -72,7 +72,6 @@ pub struct Options {
     pub z_num: usize,
 }
 
-// final three arguments are length, energy, and mass unit for output
 pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, OutputUnits){
 
     let args: Vec<String> = env::args().collect();
@@ -189,8 +188,10 @@ pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, Ou
         "ANGSTROM" => ANGSTROM,
         "NM" => NM,
         "M" => 1.,
-        _ => panic!("Input error: unknown unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
-            particle_parameters.length_unit.as_str())
+        _ => particle_parameters.length_unit.parse()
+            .expect(format!(
+                    "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &particle_parameters.length_unit.as_str()
+                ).as_str()),
     };
 
     let energy_unit: f64 = match particle_parameters.energy_unit.as_str() {
@@ -198,15 +199,19 @@ pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, Ou
         "J"  => 1.,
         "KEV" => EV*1E3,
         "MEV" => EV*1E6,
-        _ => panic!("Input error: unknown unit {} in input file. Choose one of: EV, J, KEV, MEV",
-            particle_parameters.energy_unit.as_str())
+        _ => particle_parameters.energy_unit.parse()
+            .expect(format!(
+                    "Input errror: could nor parse energy unit {}. Use a valid float or one of EV, J, KEV, MEV", &particle_parameters.energy_unit.as_str()
+                ).as_str()),
     };
 
     let mass_unit: f64 = match particle_parameters.mass_unit.as_str() {
         "AMU" => AMU,
         "KG" => 1.0,
-        _ => panic!("Input error: unknown unit {} in input file. Choose one of: AMU, KG",
-            particle_parameters.mass_unit.as_str())
+        _ => particle_parameters.mass_unit.parse()
+            .expect(format!(
+                    "Input errror: could nor parse mass unit {}. Use a valid float or one of AMU, KG", &particle_parameters.mass_unit.as_str()
+                ).as_str()),
     };
 
     //HDF5
