@@ -1,5 +1,77 @@
 use super::*;
 
+
+/// Rustbca's internal representation of an input file.
+#[derive(Deserialize)]
+pub struct Input {
+    pub options: Options,
+    pub material_parameters: material::MaterialParameters,
+    pub particle_parameters: particle::ParticleParameters,
+    pub mesh_2d_input: mesh::Mesh2DInput,
+}
+
+/// Rustbca's internal representation of the simulation-level options.
+#[cfg(not(feature = "distributions"))]
+#[derive(Deserialize)]
+pub struct Options {
+    pub name: String,
+    pub track_trajectories: bool,
+    pub track_recoils: bool,
+    pub track_recoil_trajectories: bool,
+    pub write_buffer_size: usize,
+    pub weak_collision_order: usize,
+    pub suppress_deep_recoils: bool,
+    pub high_energy_free_flight_paths: bool,
+    pub electronic_stopping_mode: ElectronicStoppingMode,
+    pub mean_free_path_model: MeanFreePathModel,
+    pub interaction_potential: Vec<Vec<InteractionPotential>>,
+    pub scattering_integral: Vec<Vec<ScatteringIntegral>>,
+    pub root_finder: Vec<Vec<Rootfinder>>,
+    pub num_threads: usize,
+    pub num_chunks: u64,
+    pub use_hdf5: bool,
+    pub track_displacements: bool,
+    pub track_energy_losses: bool,
+}
+
+#[cfg(feature = "distributions")]
+#[derive(Deserialize)]
+pub struct Options {
+    pub name: String,
+    pub track_trajectories: bool,
+    pub track_recoils: bool,
+    pub track_recoil_trajectories: bool,
+    pub write_buffer_size: usize,
+    pub weak_collision_order: usize,
+    pub suppress_deep_recoils: bool,
+    pub high_energy_free_flight_paths: bool,
+    pub electronic_stopping_mode: ElectronicStoppingMode,
+    pub mean_free_path_model: MeanFreePathModel,
+    pub interaction_potential: Vec<Vec<InteractionPotential>>,
+    pub scattering_integral: Vec<Vec<ScatteringIntegral>>,
+    pub root_finder: Vec<Vec<Rootfinder>>,
+    pub num_threads: usize,
+    pub num_chunks: u64,
+    pub use_hdf5: bool,
+    pub track_displacements: bool,
+    pub track_energy_losses: bool,
+    pub energy_min: f64,
+    pub energy_max: f64,
+    pub energy_num: usize,
+    pub angle_min: f64,
+    pub angle_max: f64,
+    pub angle_num: usize,
+    pub x_min: f64,
+    pub y_min: f64,
+    pub z_min: f64,
+    pub x_max: f64,
+    pub y_max: f64,
+    pub z_max: f64,
+    pub x_num: usize,
+    pub y_num: usize,
+    pub z_num: usize,
+}
+
 // final three arguments are length, energy, and mass unit for output
 pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, OutputUnits){
 
