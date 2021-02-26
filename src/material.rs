@@ -34,31 +34,24 @@ impl Material {
     /// Constructs a new material object from a material parameters object and a mesh_2d_input object.
     pub fn new(material_parameters: MaterialParameters, mesh_2d_input: mesh::Mesh2DInput) -> Material {
 
-        //Multiply all coordinates by value of geometry unit.
-        let length_unit: f64 = match mesh_2d_input.length_unit.as_str() {
-            "MICRON" => MICRON,
-            "CM" => CM,
-            "ANGSTROM" => ANGSTROM,
-            "NM" => NM,
-            "M" => 1.,
-            _ => panic!("Input error: incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
-                mesh_2d_input.length_unit.as_str())
-        };
-
         let energy_unit: f64 = match material_parameters.energy_unit.as_str() {
             "EV" => EV,
             "J"  => 1.,
             "KEV" => EV*1E3,
             "MEV" => EV*1E6,
-            _ => panic!("Input error: incorrect unit {} in input file. Choose one of: EV, J, KEV, MEV",
-                material_parameters.energy_unit.as_str())
+            _ => material_parameters.energy_unit.parse()
+                .expect(format!(
+                        "Input errror: could nor parse energy unit {}. Use a valid float or one of EV, J, KEV, MEV", &material_parameters.energy_unit.as_str()
+                    ).as_str()),
         };
 
         let mass_unit: f64 = match material_parameters.mass_unit.as_str() {
             "AMU" => AMU,
             "KG" => 1.,
-            _ => panic!("Input error: incorrect unit {} in input file. Choose one of: AMU, KG",
-                material_parameters.mass_unit.as_str())
+            _ => material_parameters.mass_unit.parse()
+                .expect(format!(
+                        "Input errror: could nor parse mass unit {}. Use a valid float or one of AMU, KG", &material_parameters.mass_unit.as_str()
+                    ).as_str()),
         };
 
         Material {

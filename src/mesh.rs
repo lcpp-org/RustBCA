@@ -42,8 +42,10 @@ impl Mesh2D {
             "ANGSTROM" => ANGSTROM,
             "NM" => NM,
             "M" => 1.,
-            _ => panic!("Input error: incorrect unit {} in input file. Choose one of: MICRON, CM, ANGSTROM, NM, M",
-                mesh_2d_input.length_unit.as_str())
+            _ => mesh_2d_input.length_unit.parse()
+                .expect(format!(
+                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &mesh_2d_input.length_unit.as_str()
+                    ).as_str()),
         };
 
         let densities: Vec<Vec<f64>> = mesh_2d_input.densities

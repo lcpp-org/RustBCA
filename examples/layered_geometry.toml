@@ -34,7 +34,7 @@ y_num = 20
 z_num = 20
 
 [particle_parameters]
-length_unit = "MICRON"
+length_unit = "1e-6"
 energy_unit = "EV"
 mass_unit = "AMU"
 N = [ 100000,]
@@ -45,7 +45,7 @@ Ec = [ 1.0,]
 Es = [ 0.0,]
 interaction_index = [0]
 pos = [ [ -1.7453292519934434e-8, 0.0, 0.0,],]
-dir = [ [ 0.5, 0.5, 0.0,],]
+dir = [ [ 0.999, 0.0001, 0.0,],]
 particle_input_filename = ""
 
 [mesh_2d_input]
