@@ -173,16 +173,40 @@ pub struct SummaryPerSpecies {
     pub sputtered: Vec<usize>,
     pub reflected: Vec<usize>,
     pub deposited: Vec<usize>,
+    pub summary_stream_file: BufWriter<File>,
 }
 
 impl SummaryPerSpecies {
-    pub fn new() -> SummaryPerSpecies {
+    pub fn new(options: &Options) -> SummaryPerSpecies {
+
+        let summary_output_file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(format!("{}{}", options.name, "summary.output"))
+            .context("Could not open output file.")
+            .unwrap();
+        let writer = BufWriter::with_capacity(8000, summary_output_file);
+
         SummaryPerSpecies {
             m: vec![],
             sputtered: vec![],
             reflected: vec![],
-            deposited: vec![]
+            deposited: vec![],
+            summary_stream_file: writer,
         }
+    }
+
+    pub fn print(&mut self, options: &Options, output_units: &OutputUnits) {
+        //Write to summary file
+        writeln!(self.summary_stream_file, "mass, reflected, sputtered, deposited")
+            .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
+
+        for (mass, reflected, sputtered, deposited) in izip!(&self.m, &self.reflected, &self.sputtered, &self.deposited) {
+            writeln!(self.summary_stream_file, "{}, {}, {}, {},", mass/output_units.mass_unit, reflected, sputtered, deposited)
+                .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
+        }
+        self.summary_stream_file.flush().unwrap();
     }
 
     pub fn update(&mut self, particle: &particle::Particle) {
@@ -207,18 +231,6 @@ impl SummaryPerSpecies {
             }
         }
     }
-}
-
-/// Open summary output file
-pub fn open_output_summary(options: &Options) -> BufWriter<File> {
-    let summary_output_file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(format!("{}{}", options.name, "summary.output"))
-        .context("Could not open output file.")
-        .unwrap();
-    BufWriter::with_capacity(8000, summary_output_file)
 }
 
 /// Open list output files for streaming write

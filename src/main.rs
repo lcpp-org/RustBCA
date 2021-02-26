@@ -77,8 +77,7 @@ fn main() {
     #[cfg(not(feature = "no_list_output"))]
     let mut output_list_streams = output::open_output_lists(&options);
 
-    let mut summary_stream = output::open_output_summary(&options);
-    let mut summary = output::SummaryPerSpecies::new();
+    let mut summary = output::SummaryPerSpecies::new(&options);
 
     #[cfg(feature = "distributions")]
     let mut distributions = output::Distributions::new(&options);
@@ -137,15 +136,7 @@ fn main() {
         output::output_list_flush(&mut output_list_streams);
     }
 
-    //Write to summary file
-    writeln!(summary_stream, "mass, reflected, sputtered, deposited")
-        .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
-
-    for (mass, reflected, sputtered, deposited) in izip!(&summary.m, &summary.reflected, &summary.sputtered, &summary.deposited) {
-        writeln!(summary_stream, "{}, {}, {}, {},", mass/output_units.mass_unit, reflected, sputtered, deposited)
-            .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
-    }
-    summary_stream.flush().unwrap();
+    summary.print(&options, &output_units);
 
     //Write distributions to file
     #[cfg(feature = "distributions")]
