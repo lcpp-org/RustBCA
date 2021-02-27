@@ -64,6 +64,7 @@ pub use crate::consts::*;
 pub use crate::structs::*;
 pub use crate::input::{Input, Options};
 pub use crate::output::{OutputUnits};
+pub use crate::mesh::{Mesh, MeshElement};
 
 fn main() {
     //Open and process input_file

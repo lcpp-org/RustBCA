@@ -22,6 +22,21 @@ pub struct Mesh2D {
     pub simulation_boundary: Polygon<f64>,
     pub energy_barrier_thickness: f64
 }
+
+pub trait Mesh {
+    fn get_densities(&self,  x: f64, y: f64, z: f64) -> &Vec<f64>;
+    fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64;
+    fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64;
+    fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64>;
+    fn nearest_cell_to(&self, x: f64, y: f64, z: f64) -> &Cell2D;
+    fn inside(&self, x: f64, y: f64, z: f64) -> bool;
+}
+
+pub trait MeshElement {
+    fn contains(&self, x: f64, y: f64, z: f64) -> bool;
+    fn distance_to(&self, x: f64, y: f64, z: f64) -> f64;
+}
+
 impl Mesh2D {
     /// Constructor for Mesh2D object from mesh_2d_input.
     pub fn new(mesh_2d_input: Mesh2DInput) -> Mesh2D {
@@ -98,11 +113,12 @@ impl Mesh2D {
             energy_barrier_thickness: energy_barrier_thickness,
         }
     }
-
+}
+impl Mesh for Mesh2D {
     /// Find the number densities of the triangle that contains or is nearest to (x, y).
-    pub fn get_densities(&self, x: f64, y: f64) -> &Vec<f64> {
+    fn get_densities(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
         for cell in &self.mesh {
-            if cell.contains(x, y) {
+            if cell.contains(x, y, z) {
                 return &cell.densities;
             }
         }
@@ -110,9 +126,9 @@ impl Mesh2D {
     }
 
     /// Find the number densities of the triangle that contains or is nearest to (x, y).
-    pub fn get_ck(&self, x: f64, y: f64) -> f64 {
+    fn get_ck(&self, x: f64, y: f64, z: f64) -> f64 {
         for cell in &self.mesh {
-            if cell.contains(x, y) {
+            if cell.contains(x, y, z) {
                 return cell.electronic_stopping_correction_factor;
             }
         }
@@ -120,9 +136,9 @@ impl Mesh2D {
     }
 
     /// Determine the total number density of the triangle that contains or is nearest to (x, y).
-    pub fn get_total_density(&self, x: f64, y: f64) -> f64 {
+    fn get_total_density(&self, x: f64, y: f64, z: f64) -> f64 {
         for cell in &self.mesh {
-            if cell.contains(x, y) {
+            if cell.contains(x, y, z) {
                 return cell.densities.iter().sum::<f64>();
             }
         }
@@ -130,32 +146,32 @@ impl Mesh2D {
     }
 
     /// Find the concentrations of the triangle that contains or is nearest to (x, y).
-    pub fn get_concentrations(&self, x: f64, y: f64) -> &Vec<f64> {
-        if self.inside(x, y) {
+    fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        if self.inside(x, y, z) {
             for cell in &self.mesh {
-                if cell.contains(x, y) {
+                if cell.contains(x, y, z) {
                     return &cell.concentrations;
                 }
             }
             panic!("Geometry error: method inside() is returning true for points outside all cells. Check boundary points.")
         } else {
-            return &self.nearest_cell_to(x, y).concentrations;
+            return &self.nearest_cell_to(x, y, z).concentrations;
         }
     }
 
     /// Determines whether the point (x, y) is inside the mesh.
-    pub fn inside(&self, x: f64, y: f64) -> bool {
+    fn inside(&self, x: f64, y: f64, z: f64) -> bool {
         self.boundary.contains(&Point::new(x, y))
     }
 
     /// Finds the cell that is nearest to (x, y).
-    pub fn nearest_cell_to(&self, x: f64, y: f64) -> &Cell2D {
+    fn nearest_cell_to(&self, x: f64, y: f64, z: f64) -> &Cell2D {
 
         let mut min_distance: f64 = std::f64::MAX;
         let mut index: usize = 0;
 
         for (cell_index, cell) in self.mesh.iter().enumerate() {
-            let distance_to = cell.distance_to(x, y);
+            let distance_to = cell.distance_to(x, y, z);
             if distance_to < min_distance {
                 min_distance = distance_to;
                 index = cell_index;
@@ -165,6 +181,7 @@ impl Mesh2D {
         return &self.mesh[index];
     }
 }
+
 
 /// A mesh cell that contains a triangle and the local number densities and concentrations.
 pub struct Cell2D {
@@ -183,14 +200,16 @@ impl Cell2D {
             electronic_stopping_correction_factor
         }
     }
+}
 
+impl MeshElement for Cell2D {
     /// Determines whether this cell contains the point (x, y).
-    pub fn contains(&self, x: f64, y: f64) -> bool {
+    fn contains(&self, x: f64, y: f64, z: f64) -> bool {
         self.triangle.contains(x, y)
     }
 
     /// Computes the shortest distance between this cell and the point (x, y).
-    pub fn distance_to(&self, x: f64, y: f64) -> f64 {
+    fn distance_to(&self, x: f64, y: f64, z: f64) -> f64 {
         self.triangle.distance_to(x, y)
     }
 }

@@ -96,7 +96,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
                     &binary_collision_geometry, &options);
 
                 //If recoil location is inside, proceed with binary collision loop
-                if material.inside(particle_2.pos.x, particle_2.pos.y) & material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) {
+                if material.inside(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z) & material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z) {
 
                     //Determine scattering angle from binary collision
                     let binary_collision_result = bca::calculate_binary_collision(&particle_1,
@@ -113,7 +113,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
                     }
 
                     //Energy transfer to recoil
-                    particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y);
+                    particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                     particle_2.energy_origin = particle_2.E;
 
                     //Accumulate asymptotic deflections for primary particle
@@ -128,7 +128,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
                     particle::rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
                         binary_collision_geometry.phi_azimuthal);
-                        
+
                     particle_2.dir_old.x = particle_2.dir.x;
                     particle_2.dir_old.y = particle_2.dir.y;
                     particle_2.dir_old.z = particle_2.dir.z;
@@ -148,13 +148,14 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
                         let Ma: f64 = particle_1.m;
                         let Mb: f64 = particle_2.m;
 
-                        let n = material.total_number_density(particle_2.pos.x, particle_2.pos.y);
+                        let n = material.total_number_density(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                         //We just need the lindhard screening length here, so the particular potential is not important
                         let a: f64 = interactions::screening_length(Za, Zb, InteractionPotential::MOLIERE);
                         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
                         let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powf(3.)/n/a/a;
 
-                        if let Closest::SinglePoint(p2) = material.closest_point(particle_2.pos.x, particle_2.pos.y) {
+                        //TODO: CHange this 2D
+                        if let Closest::SinglePoint(p2) = material.closest_point(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z) {
                             let dx = p2.x() - particle_2.pos.x;
                             let dy = p2.y() - particle_2.pos.y;
                             let distance_to_surface = (dx*dx + dy*dy).sqrt();
@@ -200,7 +201,7 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;
 
-    let mut mfp = material.mfp(x, y);
+    let mut mfp = material.mfp(x, y, z);
 
     let mut phis_azimuthal = Vec::with_capacity(options.weak_collision_order + 1);
     let mut binary_collision_geometries = Vec::with_capacity(options.weak_collision_order + 1);
@@ -214,11 +215,11 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
     if options.high_energy_free_flight_paths {
 
         let Ma: f64 = particle_1.m;
-        let Mb: f64  = material.average_mass(x, y);
+        let Mb: f64  = material.average_mass(x, y, z);
         let Za: f64  = particle_1.Z;
-        let Zb: f64  = material.average_Z(x, y);
-        let n: &Vec<f64>  = material.number_densities(x, y);
-        let ck: f64 = material.electronic_stopping_correction_factor(x, y);
+        let Zb: f64  = material.average_Z(x, y, z);
+        let n: &Vec<f64>  = material.number_densities(x, y, z);
+        let ck: f64 = material.electronic_stopping_correction_factor(x, y, z);
         let E: f64  = particle_1.E;
         let Ec: f64 = particle_1.Ec;
         //We just need the Lindhard screening length here, so the particular potential is not important
@@ -232,16 +233,16 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
         //Free flight path formulation here described in SRIM textbook chapter 7, and Eckstein 1991 7.5.2
         let ep = (reduced_energy*reduced_energy_min).sqrt();
         let mut pmax = a/(ep + ep.sqrt() + 0.125*ep.powf(0.1));
-        let mut ffp = 1./(material.total_number_density(x, y)*pmax*pmax*PI);
+        let mut ffp = 1./(material.total_number_density(x, y, z)*pmax*pmax*PI);
         let stopping_powers = material.electronic_stopping_cross_sections(particle_1, ElectronicStoppingMode::INTERPOLATED);
 
-        let delta_energy_electronic = stopping_powers.iter().zip(material.number_densities(x, y)).map(|(&se, number_density)| se*number_density).sum::<f64>()*ffp*ck;
+        let delta_energy_electronic = stopping_powers.iter().zip(material.number_densities(x, y, z)).map(|(&se, number_density)| se*number_density).sum::<f64>()*ffp*ck;
 
         //If losing too much energy, scale free-flight-path down
         //5 percent limit set in original TRIM paper, Biersack and Haggmark 1980
         if delta_energy_electronic > 0.05*E {
             ffp *= 0.05*E/delta_energy_electronic;
-            pmax = (1./(material.total_number_density(x, y)*PI*ffp)).sqrt()
+            pmax = (1./(material.total_number_density(x, y, z)*PI*ffp)).sqrt()
         }
 
         //If free-flight-path less than the interatomic spacing, revert to solid model
@@ -348,7 +349,7 @@ pub fn choose_collision_partner(particle_1: &particle::Particle, material: &mate
     let z_recoil: f64 = z + mfp*cosz + impact_parameter*(sinphi*cosy - cosphi*cosx*cosz)/sinx;
 
     //Choose recoil Z, M
-    let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, interaction_index) = material.choose(x_recoil, y_recoil);
+    let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil);
 
     return (species_index,
         particle::Particle::new(
@@ -417,12 +418,13 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
 
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
+    let z = particle_1.pos.z;
 
-    if material.inside(x, y) {
+    if material.inside(x, y, z) {
 
         let interaction_potential = options.interaction_potential[particle_1.interaction_index][material.interaction_index[strong_collision_index]];
         let electronic_stopping_powers = material.electronic_stopping_cross_sections(particle_1, options.electronic_stopping_mode);
-        let n = material.number_densities(x, y);
+        let n = material.number_densities(x, y, z);
 
         let delta_energy = match options.electronic_stopping_mode {
             ElectronicStoppingMode::INTERPOLATED => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,

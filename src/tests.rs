@@ -50,35 +50,35 @@ fn test_surface_binding_energy_barrier() {
     particle_1.pos_old.x = -500.*ANGSTROM;
     particle_1.pos_old.y = 0.;
 
-    let inside = material_1.inside(particle_1.pos.x, particle_1.pos.y);
-    let inside_old = material_1.inside(particle_1.pos_old.x, particle_1.pos_old.y);
+    let inside = material_1.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
+    let inside_old = material_1.inside(particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos.z);
 
     //println!("{} {}", inside, inside_old);
     assert!(inside);
     assert!(!inside_old);
 
     //Test concentration-dependent surface binding energy
-    let surface_binding_energy = material_1.actual_surface_binding_energy(&particle_1, particle_1.pos.x, particle_1.pos.y);
+    let surface_binding_energy = material_1.actual_surface_binding_energy(&particle_1, particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
     assert!(approx_eq!(f64, surface_binding_energy/EV, (2. + 4.)/2., epsilon=1E-12));
     //println!("sbv: {}", surface_binding_energy/EV);
 
     //Test leftmost boundary
-    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, 0.));
-    assert!(material_1.inside_energy_barrier(-5.*ANGSTROM, 0.));
-    assert!(!material_1.inside_energy_barrier(-15.*ANGSTROM, 0.));
+    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, 0., 0.));
+    assert!(material_1.inside_energy_barrier(-5.*ANGSTROM, 0., 0.));
+    assert!(!material_1.inside_energy_barrier(-15.*ANGSTROM, 0., 0.));
 
     //Test top boundary
-    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, 0.));
-    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, 505.*ANGSTROM));
-    assert!(!material_1.inside_energy_barrier(500.*ANGSTROM, 515.*ANGSTROM));
+    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, 0., 0.));
+    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, 505.*ANGSTROM, 0.));
+    assert!(!material_1.inside_energy_barrier(500.*ANGSTROM, 515.*ANGSTROM, 0.));
 
     //Test bottom boundary
-    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, -505.*ANGSTROM));
-    assert!(!material_1.inside_energy_barrier(500.*ANGSTROM, -515.*ANGSTROM));
+    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, -505.*ANGSTROM, 0.));
+    assert!(!material_1.inside_energy_barrier(500.*ANGSTROM, -515.*ANGSTROM, 0.));
 
     //Test rightmost boundary
-    assert!(material_1.inside_energy_barrier(1005.*ANGSTROM, 0.));
-    assert!(!material_1.inside_energy_barrier(1015.*ANGSTROM, 0.));
+    assert!(material_1.inside_energy_barrier(1005.*ANGSTROM, 0., 0.));
+    assert!(!material_1.inside_energy_barrier(1015.*ANGSTROM, 0., 0.));
 }
 
 #[test]
@@ -281,7 +281,7 @@ fn test_momentum_conservation() {
                         println!("Initial Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
 
                         //Energy transfer to recoil
-                        particle_2.E = binary_collision_result.recoil_energy - material_1.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y);
+                        particle_2.E = binary_collision_result.recoil_energy - material_1.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
 
                         //Rotate particle 1, 2 by lab frame scattering angles
                         particle::rotate_particle(&mut particle_1, binary_collision_result.psi,
