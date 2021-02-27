@@ -42,7 +42,7 @@ fn test_surface_binding_energy_barrier() {
         electronic_stopping_correction_factors: vec![0.0, 0.0],
     };
 
-    let material_1 = material::Material::new(material_parameters, mesh_2d_input);
+    let material_1: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(material_parameters, mesh_2d_input);
 
     particle_1.pos.x = 500.*ANGSTROM;
     particle_1.pos.y = 0.;
@@ -225,7 +225,7 @@ fn test_momentum_conservation() {
             energy_barrier_thickness: 0.,
         };
 
-        let material_1 = material::Material::new(material_parameters, mesh_2d_input);
+        let material_1: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(material_parameters, mesh_2d_input);
 
         for high_energy_free_flight_paths in vec![true, false] {
             for potential in vec![InteractionPotential::KR_C, InteractionPotential::MOLIERE, InteractionPotential::ZBL, InteractionPotential::LENZ_JENSEN] {

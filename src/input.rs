@@ -72,7 +72,7 @@ pub struct Options {
     pub z_num: usize,
 }
 
-pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, OutputUnits){
+pub fn input() -> (Vec<particle::ParticleInput>, material::Material<mesh::Mesh2D>, Options, OutputUnits){
 
     let args: Vec<String> = env::args().collect();
 
@@ -95,7 +95,7 @@ pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, Ou
         .expect("Input error: failed to parse TOML file. Check that all floats have terminal 0s and that there are no missing/extra delimiters.");
 
     //Unpack toml information into structs
-    let material = material::Material::new(input.material_parameters, input.mesh_2d_input);
+    let material: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(input.material_parameters, input.mesh_2d_input);
     let options = input.options;
     let particle_parameters = input.particle_parameters;
 

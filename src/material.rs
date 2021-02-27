@@ -19,20 +19,20 @@ pub struct MaterialParameters {
 }
 
 /// Material in rustbca. Includes the material properties and the mesh that defines the material geometry.
-pub struct Material {
+pub struct Material<T: Mesh> {
     pub m: Vec<f64>,
     pub Z: Vec<f64>,
     pub Eb: Vec<f64>,
     pub Es: Vec<f64>,
     pub Ec: Vec<f64>,
     pub interaction_index: Vec<usize>,
-    pub mesh_2d: mesh::Mesh2D,
+    pub mesh_2d: Box<T>,
     pub surface_binding_model: SurfaceBindingModel
 
 }
-impl Material {
+impl <T: Mesh> Material<T> {
     /// Constructs a new material object from a material parameters object and a mesh_2d_input object.
-    pub fn new(material_parameters: MaterialParameters, mesh_2d_input: mesh::Mesh2DInput) -> Material {
+    pub fn new(material_parameters: MaterialParameters, mesh_2d_input: mesh::Mesh2DInput) -> Material<mesh::Mesh2D> {
 
         let energy_unit: f64 = match material_parameters.energy_unit.as_str() {
             "EV" => EV,
@@ -61,7 +61,7 @@ impl Material {
             Es: material_parameters.Es.iter().map(|&i| i*energy_unit).collect(),
             Ec: material_parameters.Ec.iter().map(|&i| i*energy_unit).collect(),
             interaction_index: material_parameters.interaction_index,
-            mesh_2d: mesh::Mesh2D::new(mesh_2d_input),
+            mesh_2d: Box::new(mesh::Mesh2D::new(mesh_2d_input)),
             surface_binding_model: material_parameters.surface_binding_model,
         }
     }
@@ -138,7 +138,7 @@ impl Material {
         } else {
             let nearest_cell = self.mesh_2d.nearest_cell_to(x, y, z);
             let distance = nearest_cell.distance_to(x, y, z);
-            distance < self.mesh_2d.energy_barrier_thickness
+            distance < self.mesh_2d.get_energy_barrier_thickness()
         }
         //let p = point!(x: x, y: y);
         //return self.energy_surface.contains(&p);
@@ -147,14 +147,14 @@ impl Material {
     /// Determines whether a point (x, y) is inside the simulation boundary.
     pub fn inside_simulation_boundary(&self, x:f64, y: f64, z: f64) -> bool {
         let p = point!(x: x, y: y);
-        return self.mesh_2d.simulation_boundary.contains(&p);
+        return self.mesh_2d.get_simulation_boundary().contains(&p);
     }
 
     //TODO: CHANGE THIS TO REMOVE IMPLIED 2D
     /// Finds the closest point on the material boundary to the point (x, y).
     pub fn closest_point(&self, x: f64, y: f64, z: f64) -> Closest<f64> {
         let p = point!(x: x, y: y);
-        return self.mesh_2d.boundary.closest_point(&p);
+        return self.mesh_2d.get_boundary().closest_point(&p);
         //return self.surface.closest_point(&p)
     }
 
@@ -162,7 +162,7 @@ impl Material {
     /// Finds the closest point on the simulation boundary to the point (x, y).
     pub fn closest_point_on_simulation_surface(&self, x: f64, y: f64, z: f64) -> Closest<f64> {
         let p = point!(x: x, y: y);
-        return self.mesh_2d.simulation_boundary.closest_point(&p)
+        return self.mesh_2d.get_simulation_boundary().closest_point(&p)
     }
 
     /// Finds the average, concentration-weighted atomic number, Z_effective, of the triangle that contains or is nearest to (x, y).
@@ -304,7 +304,7 @@ impl Material {
 
 /// Calculate the effects of the planar surface binding potential of a material on a particle.
 /// These effects include surface reflection and refraction of particles with non-zero surface binding energies.
-pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &material::Material) {
+pub fn surface_binding_energy<T: Mesh>(particle_1: &mut particle::Particle, material: &material::Material<T>) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;
@@ -387,7 +387,7 @@ pub fn surface_binding_energy(particle_1: &mut particle::Particle, material: &ma
 }
 
 /// Apply the boundary conditions of a material on a particle, including stopping, leaving, and reflection/refraction by/through the surface binding potential.
-pub fn boundary_condition_2D_planar(particle_1: &mut particle::Particle, material: &material::Material) {
+pub fn boundary_condition_2D_planar<T: Mesh>(particle_1: &mut particle::Particle, material: &material::Material<T>) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;

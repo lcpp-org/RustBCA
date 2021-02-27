@@ -30,6 +30,9 @@ pub trait Mesh {
     fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64>;
     fn nearest_cell_to(&self, x: f64, y: f64, z: f64) -> &Cell2D;
     fn inside(&self, x: f64, y: f64, z: f64) -> bool;
+    fn get_energy_barrier_thickness(&self) -> f64;
+    fn get_simulation_boundary(&self) -> &Polygon<f64>;
+    fn get_boundary(&self) -> &Polygon<f64>;
 }
 
 pub trait MeshElement {
@@ -115,6 +118,18 @@ impl Mesh2D {
     }
 }
 impl Mesh for Mesh2D {
+    fn get_energy_barrier_thickness(&self) -> f64 {
+        self.energy_barrier_thickness
+    }
+
+    fn get_simulation_boundary(&self) -> &Polygon<f64> {
+        &self.simulation_boundary
+    }
+
+    fn get_boundary(&self) -> &Polygon<f64> {
+        &self.boundary
+    }
+
     /// Find the number densities of the triangle that contains or is nearest to (x, y).
     fn get_densities(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
         for cell in &self.mesh {
