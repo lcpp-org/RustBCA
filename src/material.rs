@@ -26,7 +26,7 @@ pub struct Material<T: Mesh> {
     pub Es: Vec<f64>,
     pub Ec: Vec<f64>,
     pub interaction_index: Vec<usize>,
-    pub mesh_2d: Box<T>,
+    pub geometry: Box<T>,
     pub surface_binding_model: SurfaceBindingModel
 
 }
@@ -61,7 +61,7 @@ impl <T: Mesh> Material<T> {
             Es: material_parameters.Es.iter().map(|&i| i*energy_unit).collect(),
             Ec: material_parameters.Ec.iter().map(|&i| i*energy_unit).collect(),
             interaction_index: material_parameters.interaction_index,
-            mesh_2d: Box::new(mesh::Mesh2D::new(mesh_2d_input)),
+            geometry: Box::new(mesh::Mesh2D::new(mesh_2d_input)),
             surface_binding_model: material_parameters.surface_binding_model,
         }
     }
@@ -70,19 +70,19 @@ impl <T: Mesh> Material<T> {
     pub fn get_concentrations(&self, x: f64, y: f64, z: f64) -> Vec<f64> {
 
         let total_number_density: f64 = if self.inside(x, y, z) {
-            self.mesh_2d.get_total_density(x, y, z)
+            self.geometry.get_total_density(x, y, z)
         } else {
-            self.mesh_2d.nearest_cell_to(x, y, z).densities.iter().sum::<f64>()
+            self.geometry.nearest_cell_to(x, y, z).densities.iter().sum::<f64>()
         };
 
-        return self.mesh_2d.get_densities(x, y, z).iter().map(|&i| i / total_number_density).collect();
+        return self.geometry.get_densities(x, y, z).iter().map(|&i| i / total_number_density).collect();
     }
 
     /// Gets cumulative concentrations of triangle that contains or is nearest to (x, y).
     /// Used for weighting the random choice of one of the constituent species.
     pub fn get_cumulative_concentrations(&self, x: f64, y: f64, z: f64) -> Vec<f64> {
         let mut sum: f64 = 0.;
-        let concentrations = self.mesh_2d.get_concentrations(x, y, z);
+        let concentrations = self.geometry.get_concentrations(x, y, z);
         let mut cumulative_concentrations = Vec::with_capacity(concentrations.len());
         for concentration in concentrations {
             sum += concentration;
@@ -93,15 +93,15 @@ impl <T: Mesh> Material<T> {
 
     /// Determines whether (x, y) is inside the material.
     pub fn inside(&self, x: f64, y: f64, z: f64) -> bool {
-        return self.mesh_2d.inside(x, y, z);
+        return self.geometry.inside(x, y, z);
     }
 
     /// Gets electronic stopping correction factor for LS and OR
     pub fn electronic_stopping_correction_factor(&self, x: f64, y: f64, z: f64) -> f64 {
         if self.inside(x, y, z) {
-            return self.mesh_2d.get_ck(x, y, z);
+            return self.geometry.get_ck(x, y, z);
         } else {
-            return self.mesh_2d.nearest_cell_to(x, y, z).electronic_stopping_correction_factor;
+            return self.geometry.nearest_cell_to(x, y, z).electronic_stopping_correction_factor;
         }
     }
 
@@ -113,9 +113,9 @@ impl <T: Mesh> Material<T> {
     /// Total number density of triangle that contains or is nearest to (x, y).
     pub fn total_number_density(&self, x: f64, y: f64, z: f64) -> f64 {
         if self.inside(x, y, z) {
-            return self.mesh_2d.get_densities(x, y, z).iter().sum::<f64>();
+            return self.geometry.get_densities(x, y, z).iter().sum::<f64>();
         } else {
-            return self.mesh_2d.nearest_cell_to(x, y, z).densities.iter().sum::<f64>();
+            return self.geometry.nearest_cell_to(x, y, z).densities.iter().sum::<f64>();
         }
         //return self.n.iter().sum::<f64>();
     }
@@ -123,9 +123,9 @@ impl <T: Mesh> Material<T> {
     /// Lists number density of each species of triangle that contains or is nearest to (x, y).
     pub fn number_densities(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
         if self.inside(x, y, z) {
-            return &self.mesh_2d.get_densities(x, y, z);
+            return &self.geometry.get_densities(x, y, z);
         } else {
-            return &self.mesh_2d.nearest_cell_to(x, y, z).densities;
+            return &self.geometry.nearest_cell_to(x, y, z).densities;
         }
         //return self.n.iter().sum::<f64>();
     }
@@ -133,12 +133,12 @@ impl <T: Mesh> Material<T> {
     /// Determines whether a point (x, y) is inside the energy barrier of the material.
     pub fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
 
-        if self.mesh_2d.inside(x, y, z) {
+        if self.geometry.inside(x, y, z) {
             true
         } else {
-            let nearest_cell = self.mesh_2d.nearest_cell_to(x, y, z);
+            let nearest_cell = self.geometry.nearest_cell_to(x, y, z);
             let distance = nearest_cell.distance_to(x, y, z);
-            distance < self.mesh_2d.get_energy_barrier_thickness()
+            distance < self.geometry.get_energy_barrier_thickness()
         }
         //let p = point!(x: x, y: y);
         //return self.energy_surface.contains(&p);
@@ -147,14 +147,14 @@ impl <T: Mesh> Material<T> {
     /// Determines whether a point (x, y) is inside the simulation boundary.
     pub fn inside_simulation_boundary(&self, x:f64, y: f64, z: f64) -> bool {
         let p = point!(x: x, y: y);
-        return self.mesh_2d.get_simulation_boundary().contains(&p);
+        return self.geometry.get_simulation_boundary().contains(&p);
     }
 
     //TODO: CHANGE THIS TO REMOVE IMPLIED 2D
     /// Finds the closest point on the material boundary to the point (x, y).
     pub fn closest_point(&self, x: f64, y: f64, z: f64) -> Closest<f64> {
         let p = point!(x: x, y: y);
-        return self.mesh_2d.get_boundary().closest_point(&p);
+        return self.geometry.get_boundary().closest_point(&p);
         //return self.surface.closest_point(&p)
     }
 
@@ -162,19 +162,19 @@ impl <T: Mesh> Material<T> {
     /// Finds the closest point on the simulation boundary to the point (x, y).
     pub fn closest_point_on_simulation_surface(&self, x: f64, y: f64, z: f64) -> Closest<f64> {
         let p = point!(x: x, y: y);
-        return self.mesh_2d.get_simulation_boundary().closest_point(&p)
+        return self.geometry.get_simulation_boundary().closest_point(&p)
     }
 
     /// Finds the average, concentration-weighted atomic number, Z_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_Z(&self, x: f64, y: f64, z: f64) -> f64 {
-        let concentrations = self.mesh_2d.get_concentrations(x, y, z);
+        let concentrations = self.geometry.get_concentrations(x, y, z);
         return self.Z.iter().zip(concentrations).map(|(charge, concentration)| charge*concentration).collect::<Vec<f64>>().iter().sum();
         //return self.Z.iter().sum::<f64>()/self.Z.len() as f64;
     }
 
     /// Finds the average, concentration-weighted atomic mass, m_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_mass(&self, x: f64, y: f64, z: f64) -> f64 {
-        let concentrations = self.mesh_2d.get_concentrations(x, y, z);
+        let concentrations = self.geometry.get_concentrations(x, y, z);
         return self.m.iter().zip(concentrations).map(|(mass, concentration)| mass*concentration).collect::<Vec<f64>>().iter().sum();
         //return self.m.iter().sum::<f64>()/self.m.len() as f64;
     }
@@ -182,7 +182,7 @@ impl <T: Mesh> Material<T> {
     /// Finds the average, concentration-weighted bulk binding energy of the triangle that contains or is nearest to (x, y).
     pub fn average_bulk_binding_energy(&self, x: f64, y: f64, z: f64) -> f64 {
         //returns average bulk binding energy
-        let concentrations = self.mesh_2d.get_concentrations(x, y, z);
+        let concentrations = self.geometry.get_concentrations(x, y, z);
         return self.Eb.iter().zip(concentrations).map(|(bulk_binding_energy, concentration)| bulk_binding_energy*concentration).collect::<Vec<f64>>().iter().sum();
         //return self.Eb.iter().sum::<f64>()/self.Eb.len() as f64;
     }
@@ -193,7 +193,7 @@ impl <T: Mesh> Material<T> {
     /// 2. TARGET: the surface binding energy is calculated as the local concentration-weighted average of the target surface binding energies, unless the particle has Es = 0, in which case it is 0.
     /// 3. AVERAGE: the surface binding energy is the average of the particle surface binding energy and the TARGET surface binding energy, unless either is 0 in which case it is 0.
     pub fn actual_surface_binding_energy(&self, particle: &particle::Particle, x: f64, y: f64, z: f64) -> f64 {
-        let concentrations = self.mesh_2d.get_concentrations(x, y, z);
+        let concentrations = self.geometry.get_concentrations(x, y, z);
 
         match self.surface_binding_model {
             SurfaceBindingModel::INDIVIDUAL => particle.Es,
