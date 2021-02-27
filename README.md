@@ -158,8 +158,8 @@ sudo apt-get install cargo
 ```
 9. Build `rustBCA`:
 ```bash
-git clone https://github.com/lcpp-org/rustBCA`
-cd rustBCA`
+git clone https://github.com/lcpp-org/rustBCA
+cd rustBCA
 cargo build --release
 ```
 10. (Optional) Build `rustBCA` with optional dependencies, `hdf5` and/or `rcpr` (with your choice of backend: `openblas`, `netlib`, or `intel-mkl`):
