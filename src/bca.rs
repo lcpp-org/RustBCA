@@ -63,7 +63,7 @@ impl fmt::Display for BinaryCollisionResult {
 }
 
 /// This function takes a single particle, a material, and an options object and runs a binary-collision-approximation trajectory for that particle in that material, producing a final particle list that consists of the original ion and any material particles displaced thereby.
-pub fn single_ion_bca<T: Mesh>(particle: particle::Particle, material: &material::Material<T>, options: &Options) -> Vec<particle::Particle> {
+pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &material::Material<T>, options: &Options) -> Vec<particle::Particle> {
 
     let mut particles: Vec<particle::Particle> = Vec::new();
     particles.push(particle);
@@ -195,7 +195,7 @@ pub fn single_ion_bca<T: Mesh>(particle: particle::Particle, material: &material
 
 /// For a particle in a material, determine the mean free path and choose the azimuthal angle and impact parameter.
 /// The mean free path can be exponentially distributed (gaseous) or constant (amorphous solid/liquid). Azimuthal angles are chosen uniformly. Impact parameters are chosen for collision partners distributed uniformly on a disk of density-dependent radius.
-pub fn determine_mfp_phi_impact_parameter<T: Mesh>(particle_1: &mut particle::Particle, material: &material::Material<T>, options: &Options) -> Vec<BinaryCollisionGeometry> {
+pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>, options: &Options) -> Vec<BinaryCollisionGeometry> {
 
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
@@ -326,7 +326,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Mesh>(particle_1: &mut particle::Pa
 }
 
 /// For a particle in a material, and for a particular binary collision geometry, choose a species for the collision partner.
-pub fn choose_collision_partner<T: Mesh>(particle_1: &particle::Particle, material: &material::Material<T>, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> (usize, particle::Particle) {
+pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, material: &material::Material<T>, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> (usize, particle::Particle) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;
@@ -406,7 +406,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
 }
 
 /// Update a particle's energy following nuclear and electronic interactions of a single BCA step.
-pub fn update_particle_energy<T: Mesh>(particle_1: &mut particle::Particle, material: &material::Material<T>, distance_traveled: f64,
+pub fn update_particle_energy<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>, distance_traveled: f64,
     recoil_energy: f64, x0: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) {
 
     //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs

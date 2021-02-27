@@ -19,7 +19,7 @@ pub struct MaterialParameters {
 }
 
 /// Material in rustbca. Includes the material properties and the mesh that defines the material geometry.
-pub struct Material<T: Mesh> {
+pub struct Material<T: Geometry> {
     pub m: Vec<f64>,
     pub Z: Vec<f64>,
     pub Eb: Vec<f64>,
@@ -30,7 +30,8 @@ pub struct Material<T: Mesh> {
     pub surface_binding_model: SurfaceBindingModel
 
 }
-impl <T: Mesh> Material<T> {
+impl <T: Geometry> Material<T> {
+
     /// Constructs a new material object from a material parameters object and a mesh_2d_input object.
     pub fn new(material_parameters: MaterialParameters, mesh_2d_input: mesh::Mesh2DInput) -> Material<mesh::Mesh2D> {
 
@@ -304,7 +305,7 @@ impl <T: Mesh> Material<T> {
 
 /// Calculate the effects of the planar surface binding potential of a material on a particle.
 /// These effects include surface reflection and refraction of particles with non-zero surface binding energies.
-pub fn surface_binding_energy<T: Mesh>(particle_1: &mut particle::Particle, material: &material::Material<T>) {
+pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;
@@ -387,7 +388,7 @@ pub fn surface_binding_energy<T: Mesh>(particle_1: &mut particle::Particle, mate
 }
 
 /// Apply the boundary conditions of a material on a particle, including stopping, leaving, and reflection/refraction by/through the surface binding potential.
-pub fn boundary_condition_2D_planar<T: Mesh>(particle_1: &mut particle::Particle, material: &material::Material<T>) {
+pub fn boundary_condition_2D_planar<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;

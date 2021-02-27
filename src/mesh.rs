@@ -23,7 +23,8 @@ pub struct Mesh2D {
     pub energy_barrier_thickness: f64
 }
 
-pub trait Mesh {
+///Trait for a Geometry object
+pub trait Geometry {
     fn get_densities(&self,  x: f64, y: f64, z: f64) -> &Vec<f64>;
     fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64;
     fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64;
@@ -35,9 +36,12 @@ pub trait Mesh {
     fn get_boundary(&self) -> &Polygon<f64>;
 }
 
-pub trait MeshElement {
+pub trait GeometryElement {
     fn contains(&self, x: f64, y: f64, z: f64) -> bool;
     fn distance_to(&self, x: f64, y: f64, z: f64) -> f64;
+    fn get_densities(&self) -> &Vec<f64>;
+    fn get_concentrations(&self) -> &Vec<f64>;
+    fn get_electronic_stopping_correction_factor(&self) -> f64;
 }
 
 impl Mesh2D {
@@ -117,7 +121,7 @@ impl Mesh2D {
         }
     }
 }
-impl Mesh for Mesh2D {
+impl Geometry for Mesh2D {
     fn get_energy_barrier_thickness(&self) -> f64 {
         self.energy_barrier_thickness
     }
@@ -217,7 +221,7 @@ impl Cell2D {
     }
 }
 
-impl MeshElement for Cell2D {
+impl GeometryElement for Cell2D {
     /// Determines whether this cell contains the point (x, y).
     fn contains(&self, x: f64, y: f64, z: f64) -> bool {
         self.triangle.contains(x, y)
@@ -226,6 +230,18 @@ impl MeshElement for Cell2D {
     /// Computes the shortest distance between this cell and the point (x, y).
     fn distance_to(&self, x: f64, y: f64, z: f64) -> f64 {
         self.triangle.distance_to(x, y)
+    }
+
+    fn get_densities(&self) -> &Vec<f64> {
+        &self.densities
+    }
+
+    fn get_concentrations(&self) -> &Vec<f64> {
+        &self.concentrations
+    }
+
+    fn get_electronic_stopping_correction_factor(&self) -> f64 {
+        self.electronic_stopping_correction_factor
     }
 }
 
