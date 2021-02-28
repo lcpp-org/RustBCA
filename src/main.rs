@@ -62,13 +62,13 @@ pub mod structs;
 pub use crate::enums::*;
 pub use crate::consts::*;
 pub use crate::structs::*;
-pub use crate::input::{Input, Options};
+pub use crate::input::{Input2D, Input0D, Options, InputFile};
 pub use crate::output::{OutputUnits};
 pub use crate::mesh::{Geometry, GeometryElement};
 
 fn main() {
     //Open and process input_file
-    let (particle_input_array, material, options, output_units) = input::input();
+    let (particle_input_array, material, options, output_units): (Vec<particle::ParticleInput>,  material::Material<mesh::Mesh2D>, Options, OutputUnits) = input::input();
 
     println!("Processing {} ions...", particle_input_array.len());
 

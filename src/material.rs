@@ -28,8 +28,9 @@ pub struct Material<T: Geometry> {
 }
 impl <T: Geometry> Material<T> {
 
-    /// Constructs a new material object from a material parameters object and a mesh_2d_input object.
-    pub fn new(material_parameters: MaterialParameters, mesh_2d_input: mesh::Mesh2DInput) -> Material<mesh::Mesh2D> {
+    pub fn new(raw_input: &<T as Geometry>::InputFileFormat) -> Material<T> {
+
+        let material_parameters = raw_input.get_material_parameters();
 
         let energy_unit: f64 = match material_parameters.energy_unit.as_str() {
             "EV" => EV,
@@ -53,13 +54,13 @@ impl <T: Geometry> Material<T> {
 
         Material {
             m: material_parameters.m.iter().map(|&i| i*mass_unit).collect(),
-            Z: material_parameters.Z,
+            Z: material_parameters.Z.clone(),
             Eb: material_parameters.Eb.iter().map(|&i| i*energy_unit).collect(),
             Es: material_parameters.Es.iter().map(|&i| i*energy_unit).collect(),
             Ec: material_parameters.Ec.iter().map(|&i| i*energy_unit).collect(),
-            interaction_index: material_parameters.interaction_index,
-            geometry: Box::new(mesh::Mesh2D::new(mesh_2d_input)),
+            interaction_index: material_parameters.interaction_index.clone(),
             surface_binding_model: material_parameters.surface_binding_model,
+            geometry: Box::new(T::new(raw_input)),
         }
     }
 

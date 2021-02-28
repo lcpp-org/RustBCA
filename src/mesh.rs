@@ -3,28 +3,14 @@ use geo::algorithm::contains::Contains;
 use geo::{Polygon, LineString, Point, point, Closest};
 use geo::algorithm::closest_point::ClosestPoint;
 
-/// Object that contains raw mesh input data.
-#[derive(Deserialize)]
-pub struct Mesh2DInput {
-    pub length_unit: String,
-    pub triangles: Vec<(f64, f64, f64, f64, f64, f64)>,
-    pub material_boundary_points: Vec<(f64, f64)>,
-    pub simulation_boundary_points: Vec<(f64, f64)>,
-    pub densities: Vec<Vec<f64>>,
-    pub electronic_stopping_correction_factors: Vec<f64>,
-    pub energy_barrier_thickness: f64,
-}
 
-/// Triangular mesh for rustbca.
-pub struct Mesh2D {
-    mesh: Vec<Cell2D>,
-    pub boundary: Polygon<f64>,
-    pub simulation_boundary: Polygon<f64>,
-    pub energy_barrier_thickness: f64
-}
-
-///Trait for a Geometry object
+///Trait for a Geometry object - all forms of geometry must implement these traits to be used
 pub trait Geometry {
+    type GeometryInput;
+    type InputFileFormat: InputFile;
+
+    fn new(input: &Self::InputFileFormat) -> Self;
+
     fn get_densities(&self,  x: f64, y: f64, z: f64) -> &Vec<f64>;
     fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64;
     fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64;
@@ -46,33 +32,167 @@ pub trait GeometryElement {
     fn get_electronic_stopping_correction_factor(&self) -> f64;
 }
 
-impl Mesh2D {
-    /// Constructor for Mesh2D object from mesh_2d_input.
-    pub fn new(mesh_2d_input: Mesh2DInput) -> Mesh2D {
+#[derive(Deserialize)]
+pub struct Mesh0DInput {
+    pub length_unit: String,
+    pub densities: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64,
+    pub energy_barrier_thickness: f64,
+}
 
-        let triangles = mesh_2d_input.triangles;
-        let material_boundary_points = mesh_2d_input.material_boundary_points;
-        let simulation_boundary_points = mesh_2d_input.simulation_boundary_points;
-        let electronic_stopping_correction_factors = mesh_2d_input.electronic_stopping_correction_factors;
+pub struct Mesh0D {
+    pub densities: Vec<f64>,
+    pub concentrations: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64,
+    pub energy_barrier_thickness: f64,
+}
+
+impl Geometry for Mesh0D {
+
+    type GeometryInput = Mesh0DInput;
+    type InputFileFormat = Input0D;
+
+    fn new(input: &Self::InputFileFormat) -> Mesh0D {
+
+        let input = input.get_geometry_input();
+
+        let length_unit: f64 = match input.length_unit.as_str() {
+            "MICRON" => MICRON,
+            "CM" => CM,
+            "ANGSTROM" => ANGSTROM,
+            "NM" => NM,
+            "M" => 1.,
+            _ => input.length_unit.parse()
+                .expect(format!(
+                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M",
+                        &input.length_unit.as_str()
+                    ).as_str()),
+        };
+
+        let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
+        let energy_barrier_thickness = input.energy_barrier_thickness/length_unit;
+
+        let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powf(3.)).collect();
+
+        let total_density: f64 = densities.iter().sum();
+        let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
+
+        Mesh0D {
+            densities,
+            concentrations,
+            electronic_stopping_correction_factor,
+            energy_barrier_thickness
+        }
+    }
+
+    fn get_densities(&self,  x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.densities
+    }
+    fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64 {
+        self.electronic_stopping_correction_factor
+    }
+    fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64{
+        self.densities.iter().sum()
+    }
+    fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.concentrations
+    }
+    fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.densities
+    }
+    fn get_ck_nearest_to(&self, x: f64, y: f64, z: f64) -> f64 {
+        self.electronic_stopping_correction_factor
+    }
+    fn inside(&self, x: f64, y: f64, z: f64) -> bool {
+        x > 0.0
+    }
+    fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
+        x > -2.*self.energy_barrier_thickness
+    }
+    fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
+        x > -self.energy_barrier_thickness
+    }
+
+    fn get_energy_barrier_thickness(&self) -> f64 {
+        self.energy_barrier_thickness
+    }
+
+    fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        (0., y, z)
+    }
+}
+
+/// Object that contains raw mesh input data.
+#[derive(Deserialize)]
+pub struct Mesh2DInput {
+    pub length_unit: String,
+    pub triangles: Vec<(f64, f64, f64, f64, f64, f64)>,
+    pub material_boundary_points: Vec<(f64, f64)>,
+    pub simulation_boundary_points: Vec<(f64, f64)>,
+    pub densities: Vec<Vec<f64>>,
+    pub electronic_stopping_correction_factors: Vec<f64>,
+    pub energy_barrier_thickness: f64,
+}
+
+/// Triangular mesh for rustbca.
+pub struct Mesh2D {
+    mesh: Vec<Cell2D>,
+    pub boundary: Polygon<f64>,
+    pub simulation_boundary: Polygon<f64>,
+    pub energy_barrier_thickness: f64
+}
+
+impl Mesh2D {
+    /// Finds the cell that is nearest to (x, y).
+    fn nearest_to(&self, x: f64, y: f64, z: f64) -> &Cell2D {
+
+        let mut min_distance: f64 = std::f64::MAX;
+        let mut index: usize = 0;
+
+        for (cell_index, cell) in self.mesh.iter().enumerate() {
+            let distance_to = cell.distance_to(x, y, z);
+            if distance_to < min_distance {
+                min_distance = distance_to;
+                index = cell_index;
+            }
+        }
+
+        return &self.mesh[index];
+    }
+}
+
+impl Geometry for Mesh2D {
+
+    type InputFileFormat = Input2D;
+    type GeometryInput = Mesh2DInput;
+
+    /// Constructor for Mesh2D object from geometry_input.
+    fn new(input: &Self::InputFileFormat) -> Mesh2D {
+
+        let geometry_input = input.get_geometry_input();
+        let triangles = geometry_input.triangles.clone();
+        let material_boundary_points = geometry_input.material_boundary_points.clone();
+        let simulation_boundary_points = geometry_input.simulation_boundary_points.clone();
+        let electronic_stopping_correction_factors = geometry_input.electronic_stopping_correction_factors.clone();
 
         let n = triangles.len();
 
         let mut cells: Vec<Cell2D> =  Vec::with_capacity(n);
 
         //Multiply all coordinates by value of geometry unit.
-        let length_unit: f64 = match mesh_2d_input.length_unit.as_str() {
+        let length_unit: f64 = match geometry_input.length_unit.as_str() {
             "MICRON" => MICRON,
             "CM" => CM,
             "ANGSTROM" => ANGSTROM,
             "NM" => NM,
             "M" => 1.,
-            _ => mesh_2d_input.length_unit.parse()
+            _ => geometry_input.length_unit.parse()
                 .expect(format!(
-                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &mesh_2d_input.length_unit.as_str()
+                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &geometry_input.length_unit.as_str()
                     ).as_str()),
         };
 
-        let densities: Vec<Vec<f64>> = mesh_2d_input.densities
+        let densities: Vec<Vec<f64>> = geometry_input.densities
             .iter()
             .map( |row| row.iter().map(|element| element/(length_unit).powf(3.)).collect() ).collect();
 
@@ -113,7 +233,7 @@ impl Mesh2D {
         }
         let simulation_boundary: Polygon<f64> = Polygon::new(LineString::from(simulation_boundary_points_converted), vec![]);
 
-        let energy_barrier_thickness = mesh_2d_input.energy_barrier_thickness*length_unit;
+        let energy_barrier_thickness = geometry_input.energy_barrier_thickness*length_unit;
 
         Mesh2D {
             mesh: cells,
@@ -123,25 +243,6 @@ impl Mesh2D {
         }
     }
 
-    /// Finds the cell that is nearest to (x, y).
-    fn nearest_to(&self, x: f64, y: f64, z: f64) -> &Cell2D {
-
-        let mut min_distance: f64 = std::f64::MAX;
-        let mut index: usize = 0;
-
-        for (cell_index, cell) in self.mesh.iter().enumerate() {
-            let distance_to = cell.distance_to(x, y, z);
-            if distance_to < min_distance {
-                min_distance = distance_to;
-                index = cell_index;
-            }
-        }
-
-        return &self.mesh[index];
-    }
-}
-
-impl Geometry for Mesh2D {
     fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
         if self.inside(x, y, z) {
             true

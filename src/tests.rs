@@ -32,7 +32,7 @@ fn test_surface_binding_energy_barrier() {
 
     let thickness: f64 = 1000.;
     let depth: f64 = 1000.;
-    let mesh_2d_input = mesh::Mesh2DInput {
+    let geometry_input = mesh::Mesh2DInput {
         length_unit: "ANGSTROM".to_string(),
         triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
         densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
@@ -42,7 +42,51 @@ fn test_surface_binding_energy_barrier() {
         electronic_stopping_correction_factors: vec![0.0, 0.0],
     };
 
-    let material_1: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(material_parameters, mesh_2d_input);
+    let options = Options {
+        name: "test".to_string(),
+        track_trajectories: false,
+        track_recoils: true,
+        track_recoil_trajectories: false,
+        write_buffer_size: 8000,
+        weak_collision_order: 0,
+        suppress_deep_recoils: false,
+        high_energy_free_flight_paths: true,
+        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
+        mean_free_path_model: MeanFreePathModel::LIQUID,
+        interaction_potential: vec![vec![InteractionPotential::MOLIERE]],
+        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
+        num_threads: 1,
+        num_chunks: 1,
+        use_hdf5: false,
+        root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}]],
+        track_displacements: false,
+        track_energy_losses: false,
+    };
+
+    let particle_parameters = particle::ParticleParameters {
+        particle_input_filename: "test".to_string(),
+        length_unit: "ANGSTROM".to_string(),
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        N: vec![],
+        m: vec![],
+        Z: vec![],
+        E: vec![],
+        Ec: vec![],
+        Es: vec![],
+        pos: vec![],
+        dir: vec![],
+        interaction_index: vec![],
+    };
+
+    let raw_input = Input2D {
+        options,
+        geometry_input,
+        material_parameters,
+        particle_parameters,
+    };
+
+    let material_1: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(&raw_input);
 
     particle_1.pos.x = 500.*ANGSTROM;
     particle_1.pos.y = 0.;
@@ -215,7 +259,7 @@ fn test_momentum_conservation() {
 
         let thickness: f64 = 1000.;
         let depth: f64 = 1000.;
-        let mesh_2d_input = mesh::Mesh2DInput {
+        let geometry_input = mesh::Mesh2DInput {
             length_unit: "ANGSTROM".to_string(),
             triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
             densities: vec![vec![0.06306], vec![0.06306]],
@@ -225,7 +269,51 @@ fn test_momentum_conservation() {
             energy_barrier_thickness: 0.,
         };
 
-        let material_1: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(material_parameters, mesh_2d_input);
+        let options = Options {
+            name: "test".to_string(),
+            track_trajectories: false,
+            track_recoils: true,
+            track_recoil_trajectories: false,
+            write_buffer_size: 8000,
+            weak_collision_order: 0,
+            suppress_deep_recoils: false,
+            high_energy_free_flight_paths: true,
+            electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
+            mean_free_path_model: MeanFreePathModel::LIQUID,
+            interaction_potential: vec![vec![InteractionPotential::MOLIERE]],
+            scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
+            num_threads: 1,
+            num_chunks: 1,
+            use_hdf5: false,
+            root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}]],
+            track_displacements: false,
+            track_energy_losses: false,
+        };
+
+        let particle_parameters = particle::ParticleParameters {
+            particle_input_filename: "test".to_string(),
+            length_unit: "ANGSTROM".to_string(),
+            energy_unit: "EV".to_string(),
+            mass_unit: "AMU".to_string(),
+            N: vec![],
+            m: vec![],
+            Z: vec![],
+            E: vec![],
+            Ec: vec![],
+            Es: vec![],
+            pos: vec![],
+            dir: vec![],
+            interaction_index: vec![],
+        };
+
+        let raw_input = Input2D {
+            options,
+            geometry_input,
+            material_parameters,
+            particle_parameters,
+        };
+
+        let material_1: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(&raw_input);
 
         for high_energy_free_flight_paths in vec![true, false] {
             for potential in vec![InteractionPotential::KR_C, InteractionPotential::MOLIERE, InteractionPotential::ZBL, InteractionPotential::LENZ_JENSEN] {

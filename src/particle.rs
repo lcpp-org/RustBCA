@@ -1,7 +1,7 @@
 use super::*;
 
 /// Rustbca's internal representation of the particle_parameters input.
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct ParticleParameters {
     pub particle_input_filename: String,
     pub length_unit: String,
