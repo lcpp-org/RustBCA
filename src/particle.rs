@@ -210,7 +210,6 @@ pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asymptoti
 
 /// Calcualte the refraction angle based on the surface binding energy of the material.
 pub fn refraction_angle(costheta: f64, energy_old: f64, energy_new: f64) -> f64 {
-    //println!("energy_old: {} energy_new: {} costheta: {}", energy_old/EV, energy_new/EV, costheta);
     let costheta = if costheta.abs() > 1. {costheta.signum()} else {costheta};
     let sintheta0 = (1. - costheta*costheta).sqrt();
     let sintheta1 = sintheta0*(energy_old/energy_new).sqrt();

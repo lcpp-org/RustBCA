@@ -114,7 +114,6 @@ impl <T: Geometry> Material<T> {
         } else {
             return self.geometry.get_densities_nearest_to(x, y, z).iter().sum::<f64>();
         }
-        //return self.n.iter().sum::<f64>();
     }
 
     /// Lists number density of each species of triangle that contains or is nearest to (x, y).
@@ -124,7 +123,6 @@ impl <T: Geometry> Material<T> {
         } else {
             return &self.geometry.get_densities_nearest_to(x, y, z);
         }
-        //return self.n.iter().sum::<f64>();
     }
 
     /// Determines whether a point (x, y) is inside the energy barrier of the material.
@@ -146,14 +144,12 @@ impl <T: Geometry> Material<T> {
     pub fn average_Z(&self, x: f64, y: f64, z: f64) -> f64 {
         let concentrations = self.geometry.get_concentrations(x, y, z);
         return self.Z.iter().zip(concentrations).map(|(charge, concentration)| charge*concentration).collect::<Vec<f64>>().iter().sum();
-        //return self.Z.iter().sum::<f64>()/self.Z.len() as f64;
     }
 
     /// Finds the average, concentration-weighted atomic mass, m_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_mass(&self, x: f64, y: f64, z: f64) -> f64 {
         let concentrations = self.geometry.get_concentrations(x, y, z);
         return self.m.iter().zip(concentrations).map(|(mass, concentration)| mass*concentration).collect::<Vec<f64>>().iter().sum();
-        //return self.m.iter().sum::<f64>()/self.m.len() as f64;
     }
 
     /// Finds the average, concentration-weighted bulk binding energy of the triangle that contains or is nearest to (x, y).
@@ -161,7 +157,6 @@ impl <T: Geometry> Material<T> {
         //returns average bulk binding energy
         let concentrations = self.geometry.get_concentrations(x, y, z);
         return self.Eb.iter().zip(concentrations).map(|(bulk_binding_energy, concentration)| bulk_binding_energy*concentration).collect::<Vec<f64>>().iter().sum();
-        //return self.Eb.iter().sum::<f64>()/self.Eb.len() as f64;
     }
 
     /// Finds the concentration-dependent surface binding energy of the triangle that contains or is nearest to (x, y).
@@ -236,12 +231,11 @@ impl <T: Geometry> Material<T> {
         let ck = self.electronic_stopping_correction_factor(x, y, z);
 
         for (n, Zb) in self.number_densities(x, y, z).iter().zip(&self.Z) {
-            //let n = self.number_density(particle_1.pos.x, particle_1.pos.y);
-            //let Zb = self.Z_eff(particle_1.pos.x, particle_1.pos.y);
 
             let beta = (1. - (1. + E/Ma/C.powf(2.)).powf(-2.)).sqrt();
             let v = beta*C;
 
+            // This term is an empirical fit to the mean ionization potential
             let I0 = match *Zb < 13. {
                 true => 12. + 7./Zb,
                 false => 9.76 + 58.5*Zb.powf(-1.19),
@@ -308,16 +302,15 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
             particle_1.backreflected = false;
         } else {
             let (x2, y2, z2) = material.closest_point(x, y, z);
-
             let dx = x2 - x;
             let dy = y2 - y;
             let dz = z2 - z;
             let mag = (dx*dx + dy*dy + dz*dz).sqrt();
 
-            let costheta = dx*cosx/mag + dy*cosy/mag;
+            let costheta = dx*cosx/mag + dy*cosy/mag + dz*cosz/mag;
             particle_1.E += Es;
 
-            //Surface refraction via Snell's law
+            //Surface refraction through energy barrier via Snell's law
             let delta_theta = particle::refraction_angle(costheta, E, E + Es);
             particle::rotate_particle(particle_1, delta_theta, 0.);
         }
@@ -330,29 +323,26 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
         let dy = y2 - y;
         let dz = z2 - z;
         let mag = (dx*dx + dy*dy + dz*dz).sqrt();
-        let costheta = dx*cosx/mag + dy*cosy/mag;
+        let costheta = dx*cosx/mag + dy*cosy/mag + dz*cosz/mag;
         let leaving_energy = E*costheta*costheta;
 
         if costheta < 0. {
             if leaving_energy > Es {
 
-                //particle_1.left = true;
                 particle_1.E += -Es;
 
                 //Surface refraction via Snell's law
                 let delta_theta = particle::refraction_angle(costheta, E, E - Es);
                 particle::rotate_particle(particle_1, delta_theta, 0.);
 
-                //particle_1.add_trajectory();
-
             } else {
 
                 //Specular reflection at local surface normal
                 particle_1.dir.x = -2.*(costheta)*dx/mag + cosx;
                 particle_1.dir.y = -2.*(costheta)*dy/mag + cosy;
+                particle_1.dir.z = -2.*(costheta)*dz/mag + cosz;
 
                 particle_1.backreflected = true;
-                //particle_1.add_trajectory();
             }
         }
     }

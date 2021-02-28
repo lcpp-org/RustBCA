@@ -204,7 +204,6 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
     let mut binary_collision_geometries = Vec::with_capacity(options.weak_collision_order + 1);
 
     //Each weak collision gets its own aziumuthal angle in annuli around collision point
-    //azimuthal angle randomly selected (0..2pi)
     for k in 0..options.weak_collision_order + 1 {
         phis_azimuthal.push(2.*PI*rand::random::<f64>());
     }
@@ -242,7 +241,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
             pmax = (1./(material.total_number_density(x, y, z)*PI*ffp)).sqrt()
         }
 
-        //If free-flight-path less than the interatomic spacing, revert to solid model
+        //If free-flight-path less than the interatomic spacing, revert to amorphous solid model
         //Mentioned in Eckstein 1991, Ziegler, Biersack, and Ziegler 2008 (SRIM textbook 7-8)
         if ffp < mfp {
 
