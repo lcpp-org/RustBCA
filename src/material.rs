@@ -69,7 +69,7 @@ impl <T: Geometry> Material<T> {
         let total_number_density: f64 = if self.inside(x, y, z) {
             self.geometry.get_total_density(x, y, z)
         } else {
-            self.geometry.nearest_to(x, y, z).densities.iter().sum::<f64>()
+            self.geometry.get_densities_nearest_to(x, y, z).iter().sum::<f64>()
         };
 
         return self.geometry.get_densities(x, y, z).iter().map(|&i| i / total_number_density).collect();
@@ -98,7 +98,7 @@ impl <T: Geometry> Material<T> {
         if self.inside(x, y, z) {
             return self.geometry.get_ck(x, y, z);
         } else {
-            return self.geometry.nearest_to(x, y, z).electronic_stopping_correction_factor;
+            return self.geometry.get_ck_nearest_to(x, y, z);
         }
     }
 
@@ -112,7 +112,7 @@ impl <T: Geometry> Material<T> {
         if self.inside(x, y, z) {
             return self.geometry.get_densities(x, y, z).iter().sum::<f64>();
         } else {
-            return self.geometry.nearest_to(x, y, z).densities.iter().sum::<f64>();
+            return self.geometry.get_densities_nearest_to(x, y, z).iter().sum::<f64>();
         }
         //return self.n.iter().sum::<f64>();
     }
@@ -122,23 +122,14 @@ impl <T: Geometry> Material<T> {
         if self.inside(x, y, z) {
             return &self.geometry.get_densities(x, y, z);
         } else {
-            return &self.geometry.nearest_to(x, y, z).densities;
+            return &self.geometry.get_densities_nearest_to(x, y, z);
         }
         //return self.n.iter().sum::<f64>();
     }
 
     /// Determines whether a point (x, y) is inside the energy barrier of the material.
     pub fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
-
-        if self.geometry.inside(x, y, z) {
-            true
-        } else {
-            let nearest_cell = self.geometry.nearest_to(x, y, z);
-            let distance = nearest_cell.distance_to(x, y, z);
-            distance < self.geometry.get_energy_barrier_thickness()
-        }
-        //let p = point!(x: x, y: y);
-        //return self.energy_surface.contains(&p);
+        self.geometry.inside_energy_barrier(x, y, z)
     }
 
     /// Determines whether a point (x, y) is inside the simulation boundary.
@@ -312,7 +303,6 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
     let leaving = !inside_now & inside_old;
     let entering = inside_now & !inside_old;
 
-    //TODO: Remove explicit 2D dependence
     if entering {
         if particle_1.backreflected {
             particle_1.backreflected = false;
@@ -369,7 +359,7 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
 }
 
 /// Apply the boundary conditions of a material on a particle, including stopping, leaving, and reflection/refraction by/through the surface binding potential.
-pub fn boundary_condition_2D_planar<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>) {
+pub fn boundary_condition_planar<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;

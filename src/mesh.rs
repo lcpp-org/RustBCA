@@ -29,9 +29,11 @@ pub trait Geometry {
     fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64;
     fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64;
     fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64>;
-    fn nearest_to(&self, x: f64, y: f64, z: f64) -> &Cell2D;
+    fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64>;
+    fn get_ck_nearest_to(&self, x: f64, y: f64, z: f64) -> f64;
     fn inside(&self, x: f64, y: f64, z: f64) -> bool;
     fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool;
+    fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool;
     fn get_energy_barrier_thickness(&self) -> f64;
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64);
 }
@@ -120,9 +122,44 @@ impl Mesh2D {
             energy_barrier_thickness: energy_barrier_thickness,
         }
     }
+
+    /// Finds the cell that is nearest to (x, y).
+    fn nearest_to(&self, x: f64, y: f64, z: f64) -> &Cell2D {
+
+        let mut min_distance: f64 = std::f64::MAX;
+        let mut index: usize = 0;
+
+        for (cell_index, cell) in self.mesh.iter().enumerate() {
+            let distance_to = cell.distance_to(x, y, z);
+            if distance_to < min_distance {
+                min_distance = distance_to;
+                index = cell_index;
+            }
+        }
+
+        return &self.mesh[index];
+    }
 }
 
 impl Geometry for Mesh2D {
+    fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
+        if self.inside(x, y, z) {
+            true
+        } else {
+            let nearest_cell = self.nearest_to(x, y, z);
+            let distance = nearest_cell.distance_to(x, y, z);
+            distance < self.get_energy_barrier_thickness()
+        }
+    }
+
+    fn get_ck_nearest_to(&self, x: f64, y: f64, z: f64) -> f64 {
+        self.nearest_to(x, y, z).get_electronic_stopping_correction_factor()
+    }
+
+    fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        self.nearest_to(x, y, z).get_densities()
+    }
+
     fn get_energy_barrier_thickness(&self) -> f64 {
         self.energy_barrier_thickness
     }
@@ -187,23 +224,6 @@ impl Geometry for Mesh2D {
     /// Determines whether the point (x, y) is inside the mesh.
     fn inside(&self, x: f64, y: f64, z: f64) -> bool {
         self.boundary.contains(&Point::new(x, y))
-    }
-
-    /// Finds the cell that is nearest to (x, y).
-    fn nearest_to(&self, x: f64, y: f64, z: f64) -> &Cell2D {
-
-        let mut min_distance: f64 = std::f64::MAX;
-        let mut index: usize = 0;
-
-        for (cell_index, cell) in self.mesh.iter().enumerate() {
-            let distance_to = cell.distance_to(x, y, z);
-            if distance_to < min_distance {
-                min_distance = distance_to;
-                index = cell_index;
-            }
-        }
-
-        return &self.mesh[index];
     }
 }
 

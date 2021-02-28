@@ -156,7 +156,8 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                         let (x2, y2, z2) = material.closest_point(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                         let dx = x2 - particle_2.pos.x;
                         let dy = y2 - particle_2.pos.y;
-                        let distance_to_surface = (dx*dx + dy*dy).sqrt();
+                        let dz = z2 - particle_2.pos.z;
+                        let distance_to_surface = (dx*dx + dy*dy + dz*dz).sqrt();
 
                         if (distance_to_surface < estimated_range_of_recoils) & (particle_2.E > particle_2.Ec) {
                             particles.push(particle_2);
@@ -179,7 +180,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                 strong_collision_index, &options);
 
             //Check boundary conditions on leaving and stopping
-            material::boundary_condition_2D_planar(&mut particle_1, &material);
+            material::boundary_condition_planar(&mut particle_1, &material);
 
             //Set particle index to topmost particle
             particle_index = particles.len();
