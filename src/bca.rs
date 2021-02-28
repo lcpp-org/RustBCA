@@ -1,5 +1,4 @@
 use super::*;
-use geo::{Closest};
 
 #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
 use rcpr::chebyshev::*;
@@ -154,18 +153,15 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
                         let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powf(3.)/n/a/a;
 
-                        //TODO: CHange this 2D
-                        if let Closest::SinglePoint(p2) = material.closest_point(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z) {
-                            let dx = p2.x() - particle_2.pos.x;
-                            let dy = p2.y() - particle_2.pos.y;
-                            let distance_to_surface = (dx*dx + dy*dy).sqrt();
+                        let (x2, y2, z2) = material.closest_point(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
+                        let dx = x2 - particle_2.pos.x;
+                        let dy = y2 - particle_2.pos.y;
+                        let distance_to_surface = (dx*dx + dy*dy).sqrt();
 
-                            if (distance_to_surface < estimated_range_of_recoils) & (particle_2.E > particle_2.Ec) {
-                                particles.push(particle_2);
-                            }
-                        } else {
-                            panic!("Numerical error: geometry algorithm failed to find distance from particle to surface.")
+                        if (distance_to_surface < estimated_range_of_recoils) & (particle_2.E > particle_2.Ec) {
+                            particles.push(particle_2);
                         }
+
                     //If transferred energy > cutoff energy, add recoil to particle vector
                     } else if options.track_recoils & (particle_2.E > particle_2.Ec) {
                         particles.push(particle_2);

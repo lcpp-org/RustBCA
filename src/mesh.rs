@@ -1,7 +1,7 @@
 use super::*;
 use geo::algorithm::contains::Contains;
-use geo::{Polygon, LineString, Point};
-
+use geo::{Polygon, LineString, Point, point, Closest};
+use geo::algorithm::closest_point::ClosestPoint;
 
 /// Object that contains raw mesh input data.
 #[derive(Deserialize)]
@@ -29,11 +29,11 @@ pub trait Geometry {
     fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64;
     fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64;
     fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64>;
-    fn nearest_cell_to(&self, x: f64, y: f64, z: f64) -> &Cell2D;
+    fn nearest_to(&self, x: f64, y: f64, z: f64) -> &Cell2D;
     fn inside(&self, x: f64, y: f64, z: f64) -> bool;
+    fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool;
     fn get_energy_barrier_thickness(&self) -> f64;
-    fn get_simulation_boundary(&self) -> &Polygon<f64>;
-    fn get_boundary(&self) -> &Polygon<f64>;
+    fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64);
 }
 
 pub trait GeometryElement {
@@ -121,17 +121,23 @@ impl Mesh2D {
         }
     }
 }
+
 impl Geometry for Mesh2D {
     fn get_energy_barrier_thickness(&self) -> f64 {
         self.energy_barrier_thickness
     }
 
-    fn get_simulation_boundary(&self) -> &Polygon<f64> {
-        &self.simulation_boundary
+    fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
+        self.simulation_boundary.contains(&point!(x: x, y: y))
     }
 
-    fn get_boundary(&self) -> &Polygon<f64> {
-        &self.boundary
+    fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+            (p.x(), p.y(), z)
+        } else {
+            panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
+        }
+
     }
 
     /// Find the number densities of the triangle that contains or is nearest to (x, y).
@@ -174,7 +180,7 @@ impl Geometry for Mesh2D {
             }
             panic!("Geometry error: method inside() is returning true for points outside all cells. Check boundary points.")
         } else {
-            return &self.nearest_cell_to(x, y, z).concentrations;
+            return &self.nearest_to(x, y, z).concentrations;
         }
     }
 
@@ -184,7 +190,7 @@ impl Geometry for Mesh2D {
     }
 
     /// Finds the cell that is nearest to (x, y).
-    fn nearest_cell_to(&self, x: f64, y: f64, z: f64) -> &Cell2D {
+    fn nearest_to(&self, x: f64, y: f64, z: f64) -> &Cell2D {
 
         let mut min_distance: f64 = std::f64::MAX;
         let mut index: usize = 0;
@@ -200,7 +206,6 @@ impl Geometry for Mesh2D {
         return &self.mesh[index];
     }
 }
-
 
 /// A mesh cell that contains a triangle and the local number densities and concentrations.
 pub struct Cell2D {

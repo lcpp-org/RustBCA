@@ -1,8 +1,4 @@
 use super::*;
-use geo::algorithm::contains::Contains;
-use geo::algorithm::closest_point::ClosestPoint;
-use geo::{point, Closest};
-
 
 /// Holds material input parameters from [material_params].
 #[derive(Deserialize)]
@@ -73,7 +69,7 @@ impl <T: Geometry> Material<T> {
         let total_number_density: f64 = if self.inside(x, y, z) {
             self.geometry.get_total_density(x, y, z)
         } else {
-            self.geometry.nearest_cell_to(x, y, z).densities.iter().sum::<f64>()
+            self.geometry.nearest_to(x, y, z).densities.iter().sum::<f64>()
         };
 
         return self.geometry.get_densities(x, y, z).iter().map(|&i| i / total_number_density).collect();
@@ -102,7 +98,7 @@ impl <T: Geometry> Material<T> {
         if self.inside(x, y, z) {
             return self.geometry.get_ck(x, y, z);
         } else {
-            return self.geometry.nearest_cell_to(x, y, z).electronic_stopping_correction_factor;
+            return self.geometry.nearest_to(x, y, z).electronic_stopping_correction_factor;
         }
     }
 
@@ -116,7 +112,7 @@ impl <T: Geometry> Material<T> {
         if self.inside(x, y, z) {
             return self.geometry.get_densities(x, y, z).iter().sum::<f64>();
         } else {
-            return self.geometry.nearest_cell_to(x, y, z).densities.iter().sum::<f64>();
+            return self.geometry.nearest_to(x, y, z).densities.iter().sum::<f64>();
         }
         //return self.n.iter().sum::<f64>();
     }
@@ -126,7 +122,7 @@ impl <T: Geometry> Material<T> {
         if self.inside(x, y, z) {
             return &self.geometry.get_densities(x, y, z);
         } else {
-            return &self.geometry.nearest_cell_to(x, y, z).densities;
+            return &self.geometry.nearest_to(x, y, z).densities;
         }
         //return self.n.iter().sum::<f64>();
     }
@@ -137,7 +133,7 @@ impl <T: Geometry> Material<T> {
         if self.geometry.inside(x, y, z) {
             true
         } else {
-            let nearest_cell = self.geometry.nearest_cell_to(x, y, z);
+            let nearest_cell = self.geometry.nearest_to(x, y, z);
             let distance = nearest_cell.distance_to(x, y, z);
             distance < self.geometry.get_energy_barrier_thickness()
         }
@@ -147,23 +143,12 @@ impl <T: Geometry> Material<T> {
 
     /// Determines whether a point (x, y) is inside the simulation boundary.
     pub fn inside_simulation_boundary(&self, x:f64, y: f64, z: f64) -> bool {
-        let p = point!(x: x, y: y);
-        return self.geometry.get_simulation_boundary().contains(&p);
+        return self.geometry.inside_simulation_boundary(x, y, z);
     }
 
-    //TODO: CHANGE THIS TO REMOVE IMPLIED 2D
     /// Finds the closest point on the material boundary to the point (x, y).
-    pub fn closest_point(&self, x: f64, y: f64, z: f64) -> Closest<f64> {
-        let p = point!(x: x, y: y);
-        return self.geometry.get_boundary().closest_point(&p);
-        //return self.surface.closest_point(&p)
-    }
-
-    //TODO: CHANGE THIS TO REMOVE IMPLIED 2D
-    /// Finds the closest point on the simulation boundary to the point (x, y).
-    pub fn closest_point_on_simulation_surface(&self, x: f64, y: f64, z: f64) -> Closest<f64> {
-        let p = point!(x: x, y: y);
-        return self.geometry.get_simulation_boundary().closest_point(&p)
+    pub fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        self.geometry.closest_point(x, y, z)
     }
 
     /// Finds the average, concentration-weighted atomic number, Z_effective, of the triangle that contains or is nearest to (x, y).
@@ -331,10 +316,13 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
     if entering {
         if particle_1.backreflected {
             particle_1.backreflected = false;
-        } else if let Closest::SinglePoint(p2) = material.closest_point(x, y, z) {
-            let dx = p2.x() - x;
-            let dy = p2.y() - y;
-            let mag = (dx*dx + dy*dy).sqrt();
+        } else {
+            let (x2, y2, z2) = material.closest_point(x, y, z);
+
+            let dx = x2 - x;
+            let dy = y2 - y;
+            let dz = z2 - z;
+            let mag = (dx*dx + dy*dy + dz*dz).sqrt();
 
             let costheta = dx*cosx/mag + dy*cosy/mag;
             particle_1.E += Es;
@@ -342,47 +330,40 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
             //Surface refraction via Snell's law
             let delta_theta = particle::refraction_angle(costheta, E, E + Es);
             particle::rotate_particle(particle_1, delta_theta, 0.);
-
-            //particle_1.add_trajectory();
-        } else {
-            panic!("Numerical error: surface boundary algorithm encountered an error. Check geometry.");
         }
     }
 
     if leaving {
-        if let Closest::SinglePoint(p2) = material.closest_point(x, y, z) {
 
-            let dx = p2.x() - x;
-            let dy = p2.y() - y;
-            let mag = (dx*dx + dy*dy).sqrt();
+        let (x2, y2, z2) = material.closest_point(x, y, z);
+        let dx = x2 - x;
+        let dy = y2 - y;
+        let dz = z2 - z;
+        let mag = (dx*dx + dy*dy + dz*dz).sqrt();
+        let costheta = dx*cosx/mag + dy*cosy/mag;
+        let leaving_energy = E*costheta*costheta;
 
-            let costheta = dx*cosx/mag + dy*cosy/mag;
-            let leaving_energy = E*costheta*costheta;
+        if costheta < 0. {
+            if leaving_energy > Es {
 
-            if costheta < 0. {
-                if leaving_energy > Es {
+                //particle_1.left = true;
+                particle_1.E += -Es;
 
-                    //particle_1.left = true;
-                    particle_1.E += -Es;
+                //Surface refraction via Snell's law
+                let delta_theta = particle::refraction_angle(costheta, E, E - Es);
+                particle::rotate_particle(particle_1, delta_theta, 0.);
 
-                    //Surface refraction via Snell's law
-                    let delta_theta = particle::refraction_angle(costheta, E, E - Es);
-                    particle::rotate_particle(particle_1, delta_theta, 0.);
+                //particle_1.add_trajectory();
 
-                    //particle_1.add_trajectory();
+            } else {
 
-                } else {
+                //Specular reflection at local surface normal
+                particle_1.dir.x = -2.*(costheta)*dx/mag + cosx;
+                particle_1.dir.y = -2.*(costheta)*dy/mag + cosy;
 
-                    //Specular reflection at local surface normal
-                    particle_1.dir.x = -2.*(costheta)*dx/mag + cosx;
-                    particle_1.dir.y = -2.*(costheta)*dy/mag + cosy;
-
-                    particle_1.backreflected = true;
-                    //particle_1.add_trajectory();
-                }
+                particle_1.backreflected = true;
+                //particle_1.add_trajectory();
             }
-        } else {
-            panic!("Numerical error: surface boundary algorithm encountered an error. Check geometry.");
         }
     }
 }
