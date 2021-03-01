@@ -3,14 +3,12 @@ use geo::algorithm::contains::Contains;
 use geo::{Polygon, LineString, Point, point, Closest};
 use geo::algorithm::closest_point::ClosestPoint;
 
-
 ///Trait for a Geometry object - all forms of geometry must implement these traits to be used
-pub trait Geometry {
-    type GeometryInput;
-    type InputFileFormat: InputFile;
+pub trait Geometry: GeometryInput {
 
-    fn new(input: &Self::InputFileFormat) -> Self;
+    type InputFileFormat: InputFile + Clone;
 
+    fn new(input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Self;
     fn get_densities(&self,  x: f64, y: f64, z: f64) -> &Vec<f64>;
     fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64;
     fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64;
@@ -24,7 +22,7 @@ pub trait Geometry {
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64);
 }
 
-pub trait GeometryElement {
+pub trait GeometryElement: Clone {
     fn contains(&self, x: f64, y: f64, z: f64) -> bool;
     fn distance_to(&self, x: f64, y: f64, z: f64) -> f64;
     fn get_densities(&self) -> &Vec<f64>;
@@ -32,7 +30,7 @@ pub trait GeometryElement {
     fn get_electronic_stopping_correction_factor(&self) -> f64;
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Mesh0DInput {
     pub length_unit: String,
     pub densities: Vec<f64>,
@@ -40,6 +38,7 @@ pub struct Mesh0DInput {
     pub energy_barrier_thickness: f64,
 }
 
+#[derive(Clone)]
 pub struct Mesh0D {
     pub densities: Vec<f64>,
     pub concentrations: Vec<f64>,
@@ -47,14 +46,15 @@ pub struct Mesh0D {
     pub energy_barrier_thickness: f64,
 }
 
+impl GeometryInput for Mesh0D {
+    type GeometryInput = Mesh0DInput;
+}
+
 impl Geometry for Mesh0D {
 
-    type GeometryInput = Mesh0DInput;
     type InputFileFormat = Input0D;
 
-    fn new(input: &Self::InputFileFormat) -> Mesh0D {
-
-        let input = input.get_geometry_input();
+    fn new(input: &<Self as GeometryInput>::GeometryInput) -> Mesh0D {
 
         let length_unit: f64 = match input.length_unit.as_str() {
             "MICRON" => MICRON,
@@ -123,7 +123,7 @@ impl Geometry for Mesh0D {
 }
 
 /// Object that contains raw mesh input data.
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Mesh2DInput {
     pub length_unit: String,
     pub triangles: Vec<(f64, f64, f64, f64, f64, f64)>,
@@ -135,6 +135,7 @@ pub struct Mesh2DInput {
 }
 
 /// Triangular mesh for rustbca.
+#[derive(Clone)]
 pub struct Mesh2D {
     mesh: Vec<Cell2D>,
     pub boundary: Polygon<f64>,
@@ -161,15 +162,17 @@ impl Mesh2D {
     }
 }
 
+impl GeometryInput for Mesh2D {
+    type GeometryInput = Mesh2DInput;
+}
+
 impl Geometry for Mesh2D {
 
     type InputFileFormat = Input2D;
-    type GeometryInput = Mesh2DInput;
 
     /// Constructor for Mesh2D object from geometry_input.
-    fn new(input: &Self::InputFileFormat) -> Mesh2D {
+    fn new(geometry_input: &<Self as GeometryInput>::GeometryInput) -> Mesh2D {
 
-        let geometry_input = input.get_geometry_input();
         let triangles = geometry_input.triangles.clone();
         let material_boundary_points = geometry_input.material_boundary_points.clone();
         let simulation_boundary_points = geometry_input.simulation_boundary_points.clone();
@@ -329,6 +332,7 @@ impl Geometry for Mesh2D {
 }
 
 /// A mesh cell that contains a triangle and the local number densities and concentrations.
+#[derive(Clone)]
 pub struct Cell2D {
     triangle: Triangle2D,
     pub densities: Vec<f64>,
@@ -372,6 +376,7 @@ impl GeometryElement for Cell2D {
 }
 
 /// A triangle in 2D, with points (x1, y1), (x2, y2), (x3, y3), and the three line segments bewtween them.
+#[derive(Clone)]
 pub struct Triangle2D {
     x1: f64,
     x2: f64,

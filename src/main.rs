@@ -62,7 +62,7 @@ pub mod structs;
 pub use crate::enums::*;
 pub use crate::consts::*;
 pub use crate::structs::*;
-pub use crate::input::{Input2D, Input0D, Options, InputFile};
+pub use crate::input::{Input2D, Input0D, Options, InputFile, GeometryInput};
 pub use crate::output::{OutputUnits};
 pub use crate::mesh::{Geometry, GeometryElement};
 

@@ -1,16 +1,19 @@
 use super::*;
 
-pub trait InputFile {
-    type GeometryInput;
+pub trait InputFile: GeometryInput {
     fn new(string: &str) -> Self;
     fn get_options(&self) -> &Options;
     fn get_material_parameters(&self) -> &material::MaterialParameters;
     fn get_particle_parameters(&self) -> &particle::ParticleParameters;
-    fn get_geometry_input(&self) -> &Self::GeometryInput;
+    fn get_geometry_input(&self) -> &<Self as GeometryInput>::GeometryInput;
+}
+
+pub trait GeometryInput {
+    type GeometryInput;
 }
 
 /// Rustbca's internal representation of an input file.
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Input2D {
     pub options: Options,
     pub material_parameters: material::MaterialParameters,
@@ -18,8 +21,11 @@ pub struct Input2D {
     pub geometry_input: mesh::Mesh2DInput,
 }
 
-impl InputFile for Input2D {
+impl GeometryInput for Input2D {
     type GeometryInput = mesh::Mesh2DInput;
+}
+
+impl InputFile for Input2D {
 
     fn new(string: &str) -> Input2D {
         toml::from_str(string).expect("Could not parse TOML file.")
@@ -39,7 +45,7 @@ impl InputFile for Input2D {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Input0D {
     pub options: Options,
     pub material_parameters: material::MaterialParameters,
@@ -47,8 +53,11 @@ pub struct Input0D {
     pub geometry_input: mesh::Mesh0DInput,
 }
 
-impl InputFile for Input0D {
+impl GeometryInput for Input0D {
     type GeometryInput = mesh::Mesh0DInput;
+}
+
+impl InputFile for Input0D {
 
     fn new(string: &str) -> Input0D {
         toml::from_str(string).expect("Could not parse TOML file.")
@@ -131,7 +140,7 @@ pub struct Options {
 }
 
 pub fn input<T: Geometry>() -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits)
-where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
+where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static, <T as GeometryInput>::GeometryInput: Clone {
 
     let args: Vec<String> = env::args().collect();
 
@@ -154,9 +163,10 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
     let input: <T as Geometry>::InputFileFormat = InputFile::new(&input_toml);
 
     //Unpack toml information into structs
-    let material: material::Material<T> = material::Material::<T>::new(&input);
     let options = (*input.get_options()).clone();
     let particle_parameters = (*input.get_particle_parameters()).clone();
+    let material_parameters = (*input.get_material_parameters()).clone();
+    let material: material::Material<T> = material::Material::<T>::new(material_parameters, input.get_geometry_input());
 
     //Ensure nonsensical threads/chunks options crash on input
     assert!(options.num_threads > 0, "Input error: num_threads must be greater than zero.");

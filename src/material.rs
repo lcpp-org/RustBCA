@@ -1,7 +1,7 @@
 use super::*;
 
 /// Holds material input parameters from [material_params].
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct MaterialParameters {
     pub energy_unit: String,
     pub mass_unit: String,
@@ -26,11 +26,9 @@ pub struct Material<T: Geometry> {
     pub surface_binding_model: SurfaceBindingModel
 
 }
-impl <T: Geometry> Material<T> {
+impl <T: Geometry + GeometryInput> Material<T> {
 
-    pub fn new(raw_input: &<T as Geometry>::InputFileFormat) -> Material<T> {
-
-        let material_parameters = raw_input.get_material_parameters();
+    pub fn new(material_parameters: MaterialParameters, geometry_input: &<<T as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Material<T> {
 
         let energy_unit: f64 = match material_parameters.energy_unit.as_str() {
             "EV" => EV,
@@ -60,7 +58,7 @@ impl <T: Geometry> Material<T> {
             Ec: material_parameters.Ec.iter().map(|&i| i*energy_unit).collect(),
             interaction_index: material_parameters.interaction_index.clone(),
             surface_binding_model: material_parameters.surface_binding_model,
-            geometry: Box::new(T::new(raw_input)),
+            geometry: Box::new(T::new(geometry_input)),
         }
     }
 
