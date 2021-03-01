@@ -288,6 +288,7 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
 
     //Actual surface binding energies
     let Es = material.actual_surface_binding_energy(particle_1, x_old, y_old, z_old);
+    //println!("Actual Es: {}", Es);
     let Ec = particle_1.Ec;
 
     let inside_now = material.inside_energy_barrier(x, y, z);
@@ -354,6 +355,8 @@ pub fn boundary_condition_planar<T: Geometry>(particle_1: &mut particle::Particl
     let z = particle_1.pos.z;
     let E = particle_1.E;
     let Ec = particle_1.Ec;
+
+    //println!("({} {} {}) inside: {} inside energy: {} inside sim: {}", x/ANGSTROM, y/ANGSTROM, z/ANGSTROM, material.inside(x, y, z), material.inside_energy_barrier(x, y, z), material.inside_simulation_boundary(x, y, z));
 
     if !material.inside_simulation_boundary(x, y, z) {
         particle_1.left = true;

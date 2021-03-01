@@ -76,6 +76,8 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
         //Remove particle from top of vector as particle_1
         let mut particle_1 = particles.pop().unwrap();
 
+        //println!("Particle start Z: {} E: {} ({}, {}, {})", particle_1.Z, particle_1.E/Q, particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM);
+
         //BCA loop
         while !particle_1.stopped & !particle_1.left {
 
@@ -103,6 +105,8 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                         .with_context(|| format!("Numerical error: binary collision calculation failed at x = {} y = {} with {}",
                             particle_1.pos.x, particle_2.pos.x, &binary_collision_geometry))
                         .unwrap();
+
+                    //println!("{}", binary_collision_result);
 
                     //Only use 0th order collision for local electronic stopping
                     if k == 0 {
@@ -178,6 +182,9 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
             bca::update_particle_energy(&mut particle_1, &material, distance_traveled,
                 total_energy_loss, normalized_distance_of_closest_approach, strong_collision_Z,
                 strong_collision_index, &options);
+            //println!("Particle finished collision loop Z: {} E: {} ({}, {}, {})", particle_1.Z, particle_1.E/Q, particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM);
+
+            //println!("{} {} {}", energy_0/EV, energy_1/EV, (energy_1 - energy_0)/EV);
 
             //Check boundary conditions on leaving and stopping
             material::boundary_condition_planar(&mut particle_1, &material);
@@ -185,6 +192,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
             //Set particle index to topmost particle
             particle_index = particles.len();
         }
+        //println!("Particle stopped or left Z: {} E: {} ({}, {}, {})", particle_1.Z, particle_1.E/Q, particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM);
         particle_output.push(particle_1);
     }
     particle_output

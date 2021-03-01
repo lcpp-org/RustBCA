@@ -68,7 +68,10 @@ pub use crate::mesh::{Geometry, GeometryElement};
 
 fn main() {
     //Open and process input_file
+    #[cfg(not(feature = "mesh_0D"))]
     let (particle_input_array, material, options, output_units): (Vec<particle::ParticleInput>,  material::Material<mesh::Mesh2D>, Options, OutputUnits) = input::input();
+    #[cfg(feature = "mesh_0D")]
+    let (particle_input_array, material, options, output_units): (Vec<particle::ParticleInput>,  material::Material<mesh::Mesh0D>, Options, OutputUnits) = input::input();
 
     println!("Processing {} ions...", particle_input_array.len());
 
