@@ -28,7 +28,7 @@ pub struct Material<T: Geometry> {
 }
 impl <T: Geometry + GeometryInput> Material<T> {
 
-    pub fn new(material_parameters: MaterialParameters, geometry_input: &<<T as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Material<T> {
+    pub fn new(material_parameters: &MaterialParameters, geometry_input: &<<T as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Material<T> {
 
         let energy_unit: f64 = match material_parameters.energy_unit.as_str() {
             "EV" => EV,
@@ -355,8 +355,6 @@ pub fn boundary_condition_planar<T: Geometry>(particle_1: &mut particle::Particl
     let z = particle_1.pos.z;
     let E = particle_1.E;
     let Ec = particle_1.Ec;
-
-    //println!("({} {} {}) inside: {} inside energy: {} inside sim: {}", x/ANGSTROM, y/ANGSTROM, z/ANGSTROM, material.inside(x, y, z), material.inside_energy_barrier(x, y, z), material.inside_simulation_boundary(x, y, z));
 
     if !material.inside_simulation_boundary(x, y, z) {
         particle_1.left = true;

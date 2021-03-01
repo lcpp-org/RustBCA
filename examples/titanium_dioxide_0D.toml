@@ -1,0 +1,65 @@
+[options]
+name = "2000.0eV_0.0001deg_He_TiO2"
+track_trajectories = false
+track_recoils = true
+track_recoil_trajectories = false
+write_buffer_size = 8000
+weak_collision_order = 3
+suppress_deep_recoils = false
+high_energy_free_flight_paths = false
+electronic_stopping_mode = "LOW_ENERGY_NONLOCAL"
+mean_free_path_model = "LIQUID"
+interaction_potential = [["KR_C"]]
+scattering_integral = [["MENDENHALL_WELLER"]]
+use_hdf5 = false
+root_finder = [[{"NEWTON"={max_iterations=100, tolerance=1E-6}}]]
+num_threads = 4
+num_chunks = 10
+track_displacements = false
+track_energy_losses = false
+energy_min = 0.0
+energy_max = 2000.0
+energy_num = 20
+angle_min = 0.0
+angle_max = 90.0
+angle_num = 20
+x_min = 0.0
+y_min = -0.1
+z_min = -0.1
+x_max = 0.1
+y_max = 0.1
+z_max = 0.1
+x_num = 20
+y_num = 20
+z_num = 20
+
+[particle_parameters]
+length_unit = "1e-6"
+energy_unit = "EV"
+mass_unit = "AMU"
+N = [ 100000,]
+m = [ 4.002602,]
+Z = [ 2,]
+E = [ 2000.0,]
+Ec = [ 1.0,]
+Es = [ 0.0,]
+interaction_index = [0]
+pos = [ [ 0.0, 0.0, 0.0,],]
+dir = [ [ 0.5, 0.5, 0.0,],]
+particle_input_filename = ""
+
+[geometry_input]
+length_unit = "MICRON"
+densities = [ 3.0e+10, 6.0e+10, 0.0, 0.0 ]
+electronic_stopping_correction_factor = 1.0
+
+[material_parameters]
+energy_unit = "EV"
+mass_unit = "AMU"
+Eb = [ 3.0, 2.58, 3.0, 0.0,]
+Es = [ 4.84, 2.58, 3.39, 4.72,]
+Ec = [ 3.5, 2.0, 3.0, 1.5,]
+Z = [ 22, 8, 13, 14,]
+m = [ 47.867, 15.9994, 26.98, 28.08553,]
+interaction_index = [0, 0, 0, 0]
+surface_binding_model = "TARGET"

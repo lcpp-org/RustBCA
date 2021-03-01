@@ -35,7 +35,6 @@ pub struct Mesh0DInput {
     pub length_unit: String,
     pub densities: Vec<f64>,
     pub electronic_stopping_correction_factor: f64,
-    pub energy_barrier_thickness: f64,
 }
 
 #[derive(Clone)]
@@ -70,11 +69,13 @@ impl Geometry for Mesh0D {
         };
 
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
-        let energy_barrier_thickness = input.energy_barrier_thickness*length_unit;
 
         let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powf(3.)).collect();
 
         let total_density: f64 = densities.iter().sum();
+
+        let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
+
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
 
         for density in densities.iter() {
@@ -113,7 +114,7 @@ impl Geometry for Mesh0D {
 
     fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
         //println!("x: {} energy_barrier_thickness: {}", x/ANGSTROM, self.energy_barrier_thickness/ANGSTROM);
-        x > -2.*self.energy_barrier_thickness
+        x > -10.*self.energy_barrier_thickness
     }
 
     fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {

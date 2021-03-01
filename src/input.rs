@@ -166,7 +166,7 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static, <T as Ge
     let options = (*input.get_options()).clone();
     let particle_parameters = (*input.get_particle_parameters()).clone();
     let material_parameters = (*input.get_material_parameters()).clone();
-    let material: material::Material<T> = material::Material::<T>::new(material_parameters, input.get_geometry_input());
+    let material: material::Material<T> = material::Material::<T>::new(&material_parameters, input.get_geometry_input());
 
     //Ensure nonsensical threads/chunks options crash on input
     assert!(options.num_threads > 0, "Input error: num_threads must be greater than zero.");
