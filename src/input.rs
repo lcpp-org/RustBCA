@@ -1,18 +1,85 @@
 use super::*;
 
+pub trait InputFile: GeometryInput {
+    fn new(string: &str) -> Self;
+    fn get_options(&self) -> &Options;
+    fn get_material_parameters(&self) -> &material::MaterialParameters;
+    fn get_particle_parameters(&self) -> &particle::ParticleParameters;
+    fn get_geometry_input(&self) -> &<Self as GeometryInput>::GeometryInput;
+}
+
+pub trait GeometryInput {
+    type GeometryInput;
+}
 
 /// Rustbca's internal representation of an input file.
-#[derive(Deserialize)]
-pub struct Input {
+#[derive(Deserialize, Clone)]
+pub struct Input2D {
     pub options: Options,
     pub material_parameters: material::MaterialParameters,
     pub particle_parameters: particle::ParticleParameters,
-    pub mesh_2d_input: mesh::Mesh2DInput,
+    pub geometry_input: mesh::Mesh2DInput,
+}
+
+impl GeometryInput for Input2D {
+    type GeometryInput = mesh::Mesh2DInput;
+}
+
+impl InputFile for Input2D {
+
+    fn new(string: &str) -> Input2D {
+        toml::from_str(string).unwrap()
+    }
+
+    fn get_options(&self) -> &Options{
+        &self.options
+    }
+    fn get_material_parameters(&self) -> &material::MaterialParameters{
+        &self.material_parameters
+    }
+    fn get_particle_parameters(&self) -> &particle::ParticleParameters{
+        &self.particle_parameters
+    }
+    fn get_geometry_input(&self) -> &Self::GeometryInput{
+        &self.geometry_input
+    }
+}
+
+#[derive(Deserialize, Clone)]
+pub struct Input0D {
+    pub options: Options,
+    pub material_parameters: material::MaterialParameters,
+    pub particle_parameters: particle::ParticleParameters,
+    pub geometry_input: mesh::Mesh0DInput,
+}
+
+impl GeometryInput for Input0D {
+    type GeometryInput = mesh::Mesh0DInput;
+}
+
+impl InputFile for Input0D {
+
+    fn new(string: &str) -> Input0D {
+        toml::from_str(string).expect("Could not parse TOML file.")
+    }
+
+    fn get_options(&self) -> &Options{
+        &self.options
+    }
+    fn get_material_parameters(&self) -> &material::MaterialParameters{
+        &self.material_parameters
+    }
+    fn get_particle_parameters(&self) ->& particle::ParticleParameters{
+        &self.particle_parameters
+    }
+    fn get_geometry_input(&self) -> &Self::GeometryInput{
+        &self.geometry_input
+    }
 }
 
 /// Rustbca's internal representation of the simulation-level options.
 #[cfg(not(feature = "distributions"))]
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Options {
     pub name: String,
     pub track_trajectories: bool,
@@ -35,7 +102,7 @@ pub struct Options {
 }
 
 #[cfg(feature = "distributions")]
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Options {
     pub name: String,
     pub track_trajectories: bool,
@@ -72,14 +139,16 @@ pub struct Options {
     pub z_num: usize,
 }
 
-pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, OutputUnits){
+pub fn input<T: Geometry>() -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits)
+where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static, <T as GeometryInput>::GeometryInput: Clone {
 
     let args: Vec<String> = env::args().collect();
 
-    let input_file = match args.len() {
-        1 => "input.toml".to_string(),
-        2 => args[1].clone(),
-        _ => panic!("Too many command line arguments. RustBCA accepts 0 (use 'input.toml') or 1 (input file name).")
+    let (input_file, geometry_type) = match args.len() {
+        1 => ("input.toml".to_string(), GeometryType::MESH2D),
+        2 => (args[1].clone(), GeometryType::MESH2D),
+        3 => (args[2].clone(), match args[1].as_str() { "0D" => GeometryType::MESH0D, "2D" => GeometryType::MESH2D, _ => panic!("Unimplemented geometry {}.", args[1].clone()) }),
+        _ => panic!("Too many command line arguments. RustBCA accepts 0 (use 'input.toml') 1 (<input file name>) or 2 (<geometry type> <input file name>)"),
     };
 
     //Read input file, convert to string, and open with toml
@@ -91,13 +160,14 @@ pub fn input() -> (Vec<particle::ParticleInput>, material::Material, Options, Ou
         .open(&input_file)
         .expect(format!("Input errror: could not open input file {}.", &input_file).as_str());
     file.read_to_string(&mut input_toml).context("Could not convert TOML file to string.").unwrap();
-    let input: Input = toml::from_str(&input_toml)
-        .expect("Input error: failed to parse TOML file. Check that all floats have terminal 0s and that there are no missing/extra delimiters.");
+
+    let input: <T as Geometry>::InputFileFormat = InputFile::new(&input_toml);
 
     //Unpack toml information into structs
-    let material = material::Material::new(input.material_parameters, input.mesh_2d_input);
-    let options = input.options;
-    let particle_parameters = input.particle_parameters;
+    let options = (*input.get_options()).clone();
+    let particle_parameters = (*input.get_particle_parameters()).clone();
+    let material_parameters = (*input.get_material_parameters()).clone();
+    let material: material::Material<T> = material::Material::<T>::new(&material_parameters, input.get_geometry_input());
 
     //Ensure nonsensical threads/chunks options crash on input
     assert!(options.num_threads > 0, "Input error: num_threads must be greater than zero.");

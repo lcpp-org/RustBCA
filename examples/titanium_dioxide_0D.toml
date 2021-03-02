@@ -1,5 +1,5 @@
 [options]
-name = "2000.0eV_0.0001deg_He_TiO2_Al_Si"
+name = "2000.0eV_0.0001deg_He_TiO2"
 track_trajectories = false
 track_recoils = true
 track_recoil_trajectories = false
@@ -44,18 +44,14 @@ E = [ 2000.0,]
 Ec = [ 1.0,]
 Es = [ 0.0,]
 interaction_index = [0]
-pos = [ [ -1.7453292519934434e-8, 0.0, 0.0,],]
-dir = [ [ 0.999, 0.001, 0.0,],]
+pos = [ [ 0.0, 0.0, 0.0,],]
+dir = [ [ 0.5, 0.5, 0.0,],]
 particle_input_filename = ""
 
 [geometry_input]
 length_unit = "MICRON"
-triangles = [ [ 0.0, 0.01, 0.0, 0.5, 0.5, -0.5,], [ 0.0, 0.01, 0.01, -0.5, 0.5, -0.5,], [ 0.01, 0.01, 0.04, -0.5, 0.5, -0.5,], [ 0.01, 0.04, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5, 0.04, 0.5, 0.5, -0.5,], [ 0.04, 0.5, 0.5, -0.5, 0.5, -0.5,],]
-densities = [ [ 3.0e+10, 6.0e+10, 0.0, 0.0,], [ 3.0e+10, 6.0e+10, 0.0, 0.0,], [ 0.0, 0.0, 6.026e+10, 0.0,], [ 0.0, 0.0, 6.026e+10, 0.0,], [ 0.0, 0.0, 0.0, 4.996e+10,], [ 0.0, 0.0, 0.0, 4.996e+10,],]
-material_boundary_points = [ [ 0.0, 0.5,], [ 0.5, 0.5,], [ 0.5, -0.5,], [ 0.0, -0.5,],]
-simulation_boundary_points = [ [ 0.6, -0.6,], [ -0.1, -0.6,], [ -0.1, 0.6,], [ 0.6, 0.6,], [ 0.6, -0.6,],]
-electronic_stopping_correction_factors = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-energy_barrier_thickness = 2.2E-4
+densities = [ 3.0e+10, 6.0e+10, 0.0, 0.0 ]
+electronic_stopping_correction_factor = 1.0
 
 [material_parameters]
 energy_unit = "EV"

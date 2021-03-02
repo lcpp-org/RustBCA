@@ -4,6 +4,72 @@ use super::*;
 use float_cmp::*;
 
 #[test]
+fn test_geometry() {
+    let mass = 1.;
+    let Z = 1.;
+    let E = 10.*EV;
+    let Ec = 1.*EV;
+    let Es = 5.76*EV;
+    let x = 0.;
+    let y = 0.;
+    let z = 0.;
+    let cosx = 1./(2.0_f64).sqrt();
+    let cosy = 1./(2.0_f64).sqrt();
+    let cosz = 0.;
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+
+    let material_parameters = material::MaterialParameters{
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: vec![0.0, 0.0],
+        Es: vec![2.0, 4.0],
+        Ec: vec![1.0, 1.0],
+        Z: vec![29., 1.],
+        m: vec![63.54, 1.0008],
+        interaction_index: vec![0, 0],
+        surface_binding_model: SurfaceBindingModel::TARGET
+    };
+
+    let thickness: f64 = 1000.;
+    let depth: f64 = 1000.;
+
+    let geometry_input_2D = mesh::Mesh2DInput {
+        length_unit: "ANGSTROM".to_string(),
+        triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
+        densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
+        material_boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
+        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
+        energy_barrier_thickness: 10.,
+        electronic_stopping_correction_factors: vec![1.0, 1.0],
+    };
+
+    let geometry_input_0D = mesh::Mesh0DInput {
+        length_unit: "ANGSTROM".to_string(),
+        densities: vec![0.03, 0.03],
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let material_2D: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(&material_parameters, &geometry_input_2D);
+    let mut material_0D: material::Material<mesh::Mesh0D> = material::Material::<mesh::Mesh0D>::new(&material_parameters, &geometry_input_0D);
+    material_0D.geometry.energy_barrier_thickness = 10.*ANGSTROM;
+
+    particle_1.pos.x = 500.*ANGSTROM;
+    particle_1.pos.y = 0.;
+
+    particle_1.pos_old.x = -500.*ANGSTROM;
+    particle_1.pos_old.y = 0.;
+
+    assert_eq!(material_2D.geometry.get_ck(0., 0., 0.), material_0D.geometry.get_ck(0., 0., 0.));
+    assert_eq!(material_2D.geometry.get_energy_barrier_thickness(), material_0D.geometry.get_energy_barrier_thickness());
+    assert_eq!(material_2D.geometry.get_densities(0., 0., 0.), material_0D.geometry.get_densities(0., 0., 0.));
+    assert_eq!(material_2D.geometry.get_total_density(0., 0., 0.), material_0D.geometry.get_total_density(0., 0., 0.));
+    assert_eq!(material_2D.geometry.get_concentrations(0., 0., 0.), material_0D.geometry.get_concentrations(0., 0., 0.));
+    assert_eq!(material_2D.geometry.closest_point(-10., 0., 5.), material_0D.geometry.closest_point(-10., 0., 5.));
+    assert_eq!(material_2D.geometry.get_densities_nearest_to(-10., 0., 5.), material_0D.geometry.get_densities_nearest_to(-10., 0., 5.));
+    assert_eq!(material_2D.geometry.get_ck_nearest_to(-10., 0., 5.), material_0D.geometry.get_ck_nearest_to(-10., 0., 5.));
+}
+
+#[test]
 fn test_surface_binding_energy_barrier() {
     let mass = 1.;
     let Z = 1.;
@@ -32,17 +98,26 @@ fn test_surface_binding_energy_barrier() {
 
     let thickness: f64 = 1000.;
     let depth: f64 = 1000.;
-    let mesh_2d_input = mesh::Mesh2DInput {
+
+    let geometry_input_2D = mesh::Mesh2DInput {
         length_unit: "ANGSTROM".to_string(),
         triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
         densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
         material_boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
         simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
         energy_barrier_thickness: 10.,
-        electronic_stopping_correction_factors: vec![0.0, 0.0],
+        electronic_stopping_correction_factors: vec![1.0, 1.0],
     };
 
-    let material_1 = material::Material::new(material_parameters, mesh_2d_input);
+    let geometry_input_0D = mesh::Mesh0DInput {
+        length_unit: "ANGSTROM".to_string(),
+        densities: vec![0.03, 0.03],
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let material_2D: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(&material_parameters, &geometry_input_2D);
+    let mut material_0D: material::Material<mesh::Mesh0D> = material::Material::<mesh::Mesh0D>::new(&material_parameters, &geometry_input_0D);
+    material_0D.geometry.energy_barrier_thickness = 10.*ANGSTROM;
 
     particle_1.pos.x = 500.*ANGSTROM;
     particle_1.pos.y = 0.;
@@ -50,35 +125,65 @@ fn test_surface_binding_energy_barrier() {
     particle_1.pos_old.x = -500.*ANGSTROM;
     particle_1.pos_old.y = 0.;
 
-    let inside = material_1.inside(particle_1.pos.x, particle_1.pos.y);
-    let inside_old = material_1.inside(particle_1.pos_old.x, particle_1.pos_old.y);
+    let inside_0D = material_0D.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
+    let inside_old_0D = material_0D.inside(particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos_old.z);
+
+    let inside_2D = material_2D.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
+    let inside_old_2D = material_2D.inside(particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos_old.z);
 
     //println!("{} {}", inside, inside_old);
-    assert!(inside);
-    assert!(!inside_old);
+    assert!(inside_0D);
+    assert!(!inside_old_0D);
+
+    assert!(inside_2D);
+    assert!(!inside_old_2D);
 
     //Test concentration-dependent surface binding energy
-    let surface_binding_energy = material_1.actual_surface_binding_energy(&particle_1, particle_1.pos.x, particle_1.pos.y);
-    assert!(approx_eq!(f64, surface_binding_energy/EV, (2. + 4.)/2., epsilon=1E-12));
-    //println!("sbv: {}", surface_binding_energy/EV);
+    let surface_binding_energy_2D = material_2D.actual_surface_binding_energy(&particle_1, particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
+    let surface_binding_energy_0D = material_0D.actual_surface_binding_energy(&particle_1, particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
+
+    assert!(approx_eq!(f64, surface_binding_energy_0D/EV, (2. + 4.)/2., epsilon=1E-24));
+    assert!(approx_eq!(f64, surface_binding_energy_2D/EV, (2. + 4.)/2., epsilon=1E-24));
+
+    println!("sbv 0D: {}", surface_binding_energy_0D/EV);
+    println!("sbv 2D: {}", surface_binding_energy_2D/EV);
 
     //Test leftmost boundary
-    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, 0.));
-    assert!(material_1.inside_energy_barrier(-5.*ANGSTROM, 0.));
-    assert!(!material_1.inside_energy_barrier(-15.*ANGSTROM, 0.));
+    assert!(material_2D.inside_energy_barrier(500.*ANGSTROM, 0., 0.));
+    assert!(material_2D.inside_energy_barrier(-5.*ANGSTROM, 0., 0.));
+    assert!(!material_2D.inside_energy_barrier(-15.*ANGSTROM, 0., 0.));
+
+    assert!(material_0D.inside_energy_barrier(500.*ANGSTROM, 0., 0.));
+    assert!(material_0D.inside_energy_barrier(-5.*ANGSTROM, 0., 0.));
+    assert!(!material_0D.inside_energy_barrier(-15.*ANGSTROM, 0., 0.));
+
+    assert!(material_0D.inside_energy_barrier(500.*ANGSTROM, 0., 0.));
+    assert!(!material_0D.inside_energy_barrier(-500.*ANGSTROM, 0., 0.));
+    assert!(material_0D.inside_energy_barrier(-9.*ANGSTROM, 0., 0.));
+    assert!(!material_0D.inside_energy_barrier(-11.*ANGSTROM, 0., 0.));
 
     //Test top boundary
-    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, 0.));
-    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, 505.*ANGSTROM));
-    assert!(!material_1.inside_energy_barrier(500.*ANGSTROM, 515.*ANGSTROM));
+    assert!(material_2D.inside_energy_barrier(500.*ANGSTROM, 0., 0.));
+    assert!(material_2D.inside_energy_barrier(500.*ANGSTROM, 505.*ANGSTROM, 0.));
+    assert!(!material_2D.inside_energy_barrier(500.*ANGSTROM, 515.*ANGSTROM, 0.));
+
+    assert!(material_0D.inside_energy_barrier(500.*ANGSTROM, 0., 0.));
+    assert!(material_0D.inside_energy_barrier(500.*ANGSTROM, 505.*ANGSTROM, 0.));
+    assert!(material_0D.inside_energy_barrier(500.*ANGSTROM, 515.*ANGSTROM, 0.));
 
     //Test bottom boundary
-    assert!(material_1.inside_energy_barrier(500.*ANGSTROM, -505.*ANGSTROM));
-    assert!(!material_1.inside_energy_barrier(500.*ANGSTROM, -515.*ANGSTROM));
+    assert!(material_2D.inside_energy_barrier(500.*ANGSTROM, -505.*ANGSTROM, 0.));
+    assert!(!material_2D.inside_energy_barrier(500.*ANGSTROM, -515.*ANGSTROM, 0.));
+
+    assert!(material_0D.inside_energy_barrier(500.*ANGSTROM, -505.*ANGSTROM, 0.));
+    assert!(material_0D.inside_energy_barrier(500.*ANGSTROM, -515.*ANGSTROM, 0.));
 
     //Test rightmost boundary
-    assert!(material_1.inside_energy_barrier(1005.*ANGSTROM, 0.));
-    assert!(!material_1.inside_energy_barrier(1015.*ANGSTROM, 0.));
+    assert!(material_2D.inside_energy_barrier(1005.*ANGSTROM, 0., 0.));
+    assert!(!material_2D.inside_energy_barrier(1015.*ANGSTROM, 0., 0.));
+
+    assert!(material_0D.inside_energy_barrier(1005.*ANGSTROM, 0., 0.));
+    assert!(material_0D.inside_energy_barrier(1015.*ANGSTROM, 0., 0.));
 }
 
 #[test]
@@ -215,7 +320,7 @@ fn test_momentum_conservation() {
 
         let thickness: f64 = 1000.;
         let depth: f64 = 1000.;
-        let mesh_2d_input = mesh::Mesh2DInput {
+        let geometry_input = mesh::Mesh2DInput {
             length_unit: "ANGSTROM".to_string(),
             triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
             densities: vec![vec![0.06306], vec![0.06306]],
@@ -225,7 +330,7 @@ fn test_momentum_conservation() {
             energy_barrier_thickness: 0.,
         };
 
-        let material_1 = material::Material::new(material_parameters, mesh_2d_input);
+        let material_1: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(&material_parameters, &geometry_input);
 
         for high_energy_free_flight_paths in vec![true, false] {
             for potential in vec![InteractionPotential::KR_C, InteractionPotential::MOLIERE, InteractionPotential::ZBL, InteractionPotential::LENZ_JENSEN] {
@@ -281,7 +386,7 @@ fn test_momentum_conservation() {
                         println!("Initial Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
 
                         //Energy transfer to recoil
-                        particle_2.E = binary_collision_result.recoil_energy - material_1.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y);
+                        particle_2.E = binary_collision_result.recoil_energy - material_1.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
 
                         //Rotate particle 1, 2 by lab frame scattering angles
                         particle::rotate_particle(&mut particle_1, binary_collision_result.psi,

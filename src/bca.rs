@@ -1,5 +1,4 @@
 use super::*;
-use geo::{Closest};
 
 #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
 use rcpr::chebyshev::*;
@@ -63,7 +62,7 @@ impl fmt::Display for BinaryCollisionResult {
 }
 
 /// This function takes a single particle, a material, and an options object and runs a binary-collision-approximation trajectory for that particle in that material, producing a final particle list that consists of the original ion and any material particles displaced thereby.
-pub fn single_ion_bca(particle: particle::Particle, material: &material::Material, options: &Options) -> Vec<particle::Particle> {
+pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &material::Material<T>, options: &Options) -> Vec<particle::Particle> {
 
     let mut particles: Vec<particle::Particle> = Vec::new();
     particles.push(particle);
@@ -76,6 +75,8 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
         //Remove particle from top of vector as particle_1
         let mut particle_1 = particles.pop().unwrap();
+
+        //println!("Particle start Z: {} E: {} ({}, {}, {})", particle_1.Z, particle_1.E/Q, particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM);
 
         //BCA loop
         while !particle_1.stopped & !particle_1.left {
@@ -96,7 +97,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
                     &binary_collision_geometry, &options);
 
                 //If recoil location is inside, proceed with binary collision loop
-                if material.inside(particle_2.pos.x, particle_2.pos.y) & material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y) {
+                if material.inside(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z) & material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z) {
 
                     //Determine scattering angle from binary collision
                     let binary_collision_result = bca::calculate_binary_collision(&particle_1,
@@ -104,6 +105,8 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
                         .with_context(|| format!("Numerical error: binary collision calculation failed at x = {} y = {} with {}",
                             particle_1.pos.x, particle_2.pos.x, &binary_collision_geometry))
                         .unwrap();
+
+                    //println!("{}", binary_collision_result);
 
                     //Only use 0th order collision for local electronic stopping
                     if k == 0 {
@@ -113,7 +116,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
                     }
 
                     //Energy transfer to recoil
-                    particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y);
+                    particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                     particle_2.energy_origin = particle_2.E;
 
                     //Accumulate asymptotic deflections for primary particle
@@ -128,7 +131,7 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
                     particle::rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
                         binary_collision_geometry.phi_azimuthal);
-                        
+
                     particle_2.dir_old.x = particle_2.dir.x;
                     particle_2.dir_old.y = particle_2.dir.y;
                     particle_2.dir_old.z = particle_2.dir.z;
@@ -148,23 +151,22 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
                         let Ma: f64 = particle_1.m;
                         let Mb: f64 = particle_2.m;
 
-                        let n = material.total_number_density(particle_2.pos.x, particle_2.pos.y);
+                        let n = material.total_number_density(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                         //We just need the lindhard screening length here, so the particular potential is not important
                         let a: f64 = interactions::screening_length(Za, Zb, InteractionPotential::MOLIERE);
                         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
                         let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powf(3.)/n/a/a;
 
-                        if let Closest::SinglePoint(p2) = material.closest_point(particle_2.pos.x, particle_2.pos.y) {
-                            let dx = p2.x() - particle_2.pos.x;
-                            let dy = p2.y() - particle_2.pos.y;
-                            let distance_to_surface = (dx*dx + dy*dy).sqrt();
+                        let (x2, y2, z2) = material.closest_point(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
+                        let dx = x2 - particle_2.pos.x;
+                        let dy = y2 - particle_2.pos.y;
+                        let dz = z2 - particle_2.pos.z;
+                        let distance_to_surface = (dx*dx + dy*dy + dz*dz).sqrt();
 
-                            if (distance_to_surface < estimated_range_of_recoils) & (particle_2.E > particle_2.Ec) {
-                                particles.push(particle_2);
-                            }
-                        } else {
-                            panic!("Numerical error: geometry algorithm failed to find distance from particle to surface.")
+                        if (distance_to_surface < estimated_range_of_recoils) & (particle_2.E > particle_2.Ec) {
+                            particles.push(particle_2);
                         }
+
                     //If transferred energy > cutoff energy, add recoil to particle vector
                     } else if options.track_recoils & (particle_2.E > particle_2.Ec) {
                         particles.push(particle_2);
@@ -180,13 +182,17 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
             bca::update_particle_energy(&mut particle_1, &material, distance_traveled,
                 total_energy_loss, normalized_distance_of_closest_approach, strong_collision_Z,
                 strong_collision_index, &options);
+            //println!("Particle finished collision loop Z: {} E: {} ({}, {}, {})", particle_1.Z, particle_1.E/Q, particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM);
+
+            //println!("{} {} {}", energy_0/EV, energy_1/EV, (energy_1 - energy_0)/EV);
 
             //Check boundary conditions on leaving and stopping
-            material::boundary_condition_2D_planar(&mut particle_1, &material);
+            material::boundary_condition_planar(&mut particle_1, &material);
 
             //Set particle index to topmost particle
             particle_index = particles.len();
         }
+        //println!("Particle stopped or left Z: {} E: {} ({}, {}, {})", particle_1.Z, particle_1.E/Q, particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM);
         particle_output.push(particle_1);
     }
     particle_output
@@ -194,19 +200,18 @@ pub fn single_ion_bca(particle: particle::Particle, material: &material::Materia
 
 /// For a particle in a material, determine the mean free path and choose the azimuthal angle and impact parameter.
 /// The mean free path can be exponentially distributed (gaseous) or constant (amorphous solid/liquid). Azimuthal angles are chosen uniformly. Impact parameters are chosen for collision partners distributed uniformly on a disk of density-dependent radius.
-pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, material: &material::Material, options: &Options) -> Vec<BinaryCollisionGeometry> {
+pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>, options: &Options) -> Vec<BinaryCollisionGeometry> {
 
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;
 
-    let mut mfp = material.mfp(x, y);
+    let mut mfp = material.mfp(x, y, z);
 
     let mut phis_azimuthal = Vec::with_capacity(options.weak_collision_order + 1);
     let mut binary_collision_geometries = Vec::with_capacity(options.weak_collision_order + 1);
 
     //Each weak collision gets its own aziumuthal angle in annuli around collision point
-    //azimuthal angle randomly selected (0..2pi)
     for k in 0..options.weak_collision_order + 1 {
         phis_azimuthal.push(2.*PI*rand::random::<f64>());
     }
@@ -214,11 +219,11 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
     if options.high_energy_free_flight_paths {
 
         let Ma: f64 = particle_1.m;
-        let Mb: f64  = material.average_mass(x, y);
+        let Mb: f64  = material.average_mass(x, y, z);
         let Za: f64  = particle_1.Z;
-        let Zb: f64  = material.average_Z(x, y);
-        let n: &Vec<f64>  = material.number_densities(x, y);
-        let ck: f64 = material.electronic_stopping_correction_factor(x, y);
+        let Zb: f64  = material.average_Z(x, y, z);
+        let n: &Vec<f64>  = material.number_densities(x, y, z);
+        let ck: f64 = material.electronic_stopping_correction_factor(x, y, z);
         let E: f64  = particle_1.E;
         let Ec: f64 = particle_1.Ec;
         //We just need the Lindhard screening length here, so the particular potential is not important
@@ -232,19 +237,19 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
         //Free flight path formulation here described in SRIM textbook chapter 7, and Eckstein 1991 7.5.2
         let ep = (reduced_energy*reduced_energy_min).sqrt();
         let mut pmax = a/(ep + ep.sqrt() + 0.125*ep.powf(0.1));
-        let mut ffp = 1./(material.total_number_density(x, y)*pmax*pmax*PI);
+        let mut ffp = 1./(material.total_number_density(x, y, z)*pmax*pmax*PI);
         let stopping_powers = material.electronic_stopping_cross_sections(particle_1, ElectronicStoppingMode::INTERPOLATED);
 
-        let delta_energy_electronic = stopping_powers.iter().zip(material.number_densities(x, y)).map(|(&se, number_density)| se*number_density).sum::<f64>()*ffp*ck;
+        let delta_energy_electronic = stopping_powers.iter().zip(material.number_densities(x, y, z)).map(|(&se, number_density)| se*number_density).sum::<f64>()*ffp*ck;
 
         //If losing too much energy, scale free-flight-path down
         //5 percent limit set in original TRIM paper, Biersack and Haggmark 1980
         if delta_energy_electronic > 0.05*E {
             ffp *= 0.05*E/delta_energy_electronic;
-            pmax = (1./(material.total_number_density(x, y)*PI*ffp)).sqrt()
+            pmax = (1./(material.total_number_density(x, y, z)*PI*ffp)).sqrt()
         }
 
-        //If free-flight-path less than the interatomic spacing, revert to solid model
+        //If free-flight-path less than the interatomic spacing, revert to amorphous solid model
         //Mentioned in Eckstein 1991, Ziegler, Biersack, and Ziegler 2008 (SRIM textbook 7-8)
         if ffp < mfp {
 
@@ -325,7 +330,7 @@ pub fn determine_mfp_phi_impact_parameter(particle_1: &mut particle::Particle, m
 }
 
 /// For a particle in a material, and for a particular binary collision geometry, choose a species for the collision partner.
-pub fn choose_collision_partner(particle_1: &particle::Particle, material: &material::Material, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> (usize, particle::Particle) {
+pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, material: &material::Material<T>, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> (usize, particle::Particle) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;
@@ -348,7 +353,7 @@ pub fn choose_collision_partner(particle_1: &particle::Particle, material: &mate
     let z_recoil: f64 = z + mfp*cosz + impact_parameter*(sinphi*cosy - cosphi*cosx*cosz)/sinx;
 
     //Choose recoil Z, M
-    let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, interaction_index) = material.choose(x_recoil, y_recoil);
+    let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil);
 
     return (species_index,
         particle::Particle::new(
@@ -405,7 +410,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
 }
 
 /// Update a particle's energy following nuclear and electronic interactions of a single BCA step.
-pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &material::Material, distance_traveled: f64,
+pub fn update_particle_energy<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>, distance_traveled: f64,
     recoil_energy: f64, x0: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) {
 
     //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
@@ -417,12 +422,13 @@ pub fn update_particle_energy(particle_1: &mut particle::Particle, material: &ma
 
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
+    let z = particle_1.pos.z;
 
-    if material.inside(x, y) {
+    if material.inside(x, y, z) {
 
         let interaction_potential = options.interaction_potential[particle_1.interaction_index][material.interaction_index[strong_collision_index]];
         let electronic_stopping_powers = material.electronic_stopping_cross_sections(particle_1, options.electronic_stopping_mode);
-        let n = material.number_densities(x, y);
+        let n = material.number_densities(x, y, z);
 
         let delta_energy = match options.electronic_stopping_mode {
             ElectronicStoppingMode::INTERPOLATED => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
