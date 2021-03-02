@@ -66,6 +66,8 @@ pub enum MeanFreePathModel {
     LIQUID,
     /// Exponentially-distributed mean-free-paths for gases.
     GASEOUS,
+    /// Switch from gas (below threshold) to liquid (above threshold).
+    THRESHOLD{density: f64}
 }
 
 impl fmt::Display for MeanFreePathModel {
@@ -73,6 +75,7 @@ impl fmt::Display for MeanFreePathModel {
         match *self {
             MeanFreePathModel::LIQUID => write!(f, "Amorphous Solid/Liquid Model"),
             MeanFreePathModel::GASEOUS => write!(f, "Gaseous Model"),
+            MeanFreePathModel::THRESHOLD{density} => write!(f, "Gaseous if n0 < {}, Liquid/Amorphous Solid otherwise.", density)
         }
     }
 }

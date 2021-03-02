@@ -267,9 +267,17 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
                 particle_1.first_step = false;
             }
 
-            if options.mean_free_path_model == MeanFreePathModel::GASEOUS {
-                ffp *= -rand::random::<f64>().ln();
-            }
+            ffp *= match options.mean_free_path_model {
+                MeanFreePathModel::GASEOUS => -rand::random::<f64>().ln(),
+                MeanFreePathModel::LIQUID => 1.0,
+                MeanFreePathModel::THRESHOLD{density} => {
+                    if material.geometry.get_densities(x, y, z).iter().sum::<f64>() < density {
+                        -rand::random::<f64>().ln()
+                    } else {
+                        1.0
+                    }
+                }
+            };
 
             binary_collision_geometries.push(BinaryCollisionGeometry::new(phis_azimuthal[0], impact_parameter[0], ffp));
             return binary_collision_geometries;
