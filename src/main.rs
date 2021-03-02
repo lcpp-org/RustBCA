@@ -157,13 +157,12 @@ fn main() {
 
      match geometry_type {
         GeometryType::MESH0D => {
-            let (particle_input_array, material, options, output_units) = input::input::<mesh::Mesh0D>();
+            let (particle_input_array, material, options, output_units) = input::input::<mesh::Mesh0D>(input_file);
             physics_loop::<Mesh0D>(particle_input_array, material, options, output_units);
         },
         GeometryType::MESH2D => {
-            let (particle_input_array, material, options, output_units) = input::input::<mesh::Mesh2D>();
+            let (particle_input_array, material, options, output_units) = input::input::<mesh::Mesh2D>(input_file);
             physics_loop::<Mesh2D>(particle_input_array, material, options, output_units);
         },
     }
-
 }
