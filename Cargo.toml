@@ -9,12 +9,13 @@ name="rustBCA"
 
 [dependencies]
 rand = "0.8.3"
-geo = "0.17.1"
+
 toml = "0.5.8"
 anyhow = "1.0.38"
 itertools = "0.10.0"
 rayon = "1.5.0"
-indicatif = {version="0.15.0", features=["rayon"]}
+geo = {version = "0.17.1", optional = false}
+indicatif = {version = "0.15.0", features=["rayon"]}
 serde = { version = "1.0.123", features = ["derive"] }
 hdf5 = {version = "0.7.1", optional = true}
 openblas-src = {version  = "0.9", optional = true}
@@ -40,3 +41,4 @@ cpr_rootfinder_intel_mkl = ["rcpr", "intel-mkl-src"]
 distributions = ["ndarray"]
 no_list_output = []
 mesh_0D = []
+mesh_2D = []

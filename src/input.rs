@@ -28,7 +28,7 @@ impl GeometryInput for Input2D {
 impl InputFile for Input2D {
 
     fn new(string: &str) -> Input2D {
-        toml::from_str(string).expect("Could not parse TOML file.")
+        toml::from_str(string).unwrap()
     }
 
     fn get_options(&self) -> &Options{
@@ -144,10 +144,11 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static, <T as Ge
 
     let args: Vec<String> = env::args().collect();
 
-    let input_file = match args.len() {
-        1 => "input.toml".to_string(),
-        2 => args[1].clone(),
-        _ => panic!("Too many command line arguments. RustBCA accepts 0 (use 'input.toml') or 1 (input file name).")
+    let (input_file, geometry_type) = match args.len() {
+        1 => ("input.toml".to_string(), GeometryType::MESH2D),
+        2 => (args[1].clone(), GeometryType::MESH2D),
+        3 => (args[2].clone(), match args[1].as_str() { "0D" => GeometryType::MESH0D, "2D" => GeometryType::MESH2D, _ => panic!("Unimplemented geometry {}.", args[1].clone()) }),
+        _ => panic!("Too many command line arguments. RustBCA accepts 0 (use 'input.toml') 1 (<input file name>) or 2 (<geometry type> <input file name>)"),
     };
 
     //Read input file, convert to string, and open with toml

@@ -24,7 +24,6 @@ pub struct Material<T: Geometry> {
     pub interaction_index: Vec<usize>,
     pub geometry: Box<T>,
     pub surface_binding_model: SurfaceBindingModel
-
 }
 impl <T: Geometry + GeometryInput> Material<T> {
 

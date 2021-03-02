@@ -1,4 +1,5 @@
 use super::*;
+
 use geo::algorithm::contains::Contains;
 use geo::{Polygon, LineString, Point, point, Closest};
 use geo::algorithm::closest_point::ClosestPoint;
@@ -77,10 +78,6 @@ impl Geometry for Mesh0D {
         let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
 
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
-
-        for density in densities.iter() {
-            println!("density: {}", density);
-        }
 
         Mesh0D {
             densities,

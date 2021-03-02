@@ -1,5 +1,16 @@
 use super::*;
 
+pub enum MaterialType {
+    MESH0D(material::Material<mesh::Mesh0D>),
+    MESH2D(material::Material<mesh::Mesh2D>)
+}
+
+#[derive(Deserialize)]
+pub enum GeometryType {
+    MESH0D,
+    MESH2D,
+}
+
 /// Mode of electronic stopping to use.
 #[derive(Deserialize, PartialEq, Clone, Copy)]
 pub enum ElectronicStoppingMode {
