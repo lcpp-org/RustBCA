@@ -1,5 +1,5 @@
 [options]
-name = "boron_dust_grain_"
+name = "boron_nitride_"
 track_trajectories = false
 track_recoils = true
 track_recoil_trajectories = false
