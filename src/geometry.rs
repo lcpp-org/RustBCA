@@ -127,6 +127,173 @@ impl Geometry for Mesh0D {
     }
 }
 
+#[derive(Deserialize, Clone)]
+pub struct Mesh1DInput {
+    pub length_unit: String,
+    pub layer_thicknesses: Vec<f64>,
+    pub densities: Vec<Vec<f64>>,
+    pub electronic_stopping_correction_factors: Vec<f64>,
+}
+
+#[derive(Clone)]
+pub struct Mesh1D {
+    layers: Vec<Layer1D>,
+    top: f64,
+    bottom: f64,
+    pub top_energy_barrier_thickness: f64,
+    pub bottom_energy_barrier_thickness: f64,
+}
+
+impl GeometryInput for Mesh1D {
+    type GeometryInput = Mesh1DInput;
+}
+
+impl Geometry for Mesh1D {
+
+    type InputFileFormat = input::Input1D;
+
+    fn new(geometry_input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Self {
+
+        let layer_thicknesses = geometry_input.layer_thicknesses.clone();
+        let electronic_stopping_correction_factors = geometry_input.electronic_stopping_correction_factors.clone();
+        let n = layer_thicknesses.len();
+
+        let mut layers: Vec<Layer1D> =  Vec::with_capacity(n);
+
+        //Multiply all coordinates by value of geometry unit.
+        let length_unit: f64 = match geometry_input.length_unit.as_str() {
+            "MICRON" => MICRON,
+            "CM" => CM,
+            "ANGSTROM" => ANGSTROM,
+            "NM" => NM,
+            "M" => 1.,
+            _ => geometry_input.length_unit.parse()
+                .expect(format!(
+                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &geometry_input.length_unit.as_str()
+                    ).as_str()),
+        };
+
+        let densities: Vec<Vec<f64>> = geometry_input.densities
+            .iter()
+            .map( |row| row.iter().map(|element| element/(length_unit).powf(3.)).collect() ).collect();
+
+        //Assert all layer density lists are equal length
+        assert!(
+            densities.iter()
+            .all(|density_list| density_list.len() == densities[0].len()),
+            "Input error: all layer density lists must be the same size."
+        );
+        assert_eq!(layer_thicknesses.len(), densities.len(), "Input error: coordinates and data of unequal length.");
+
+        let mut layer_top = 0.;
+        let mut layer_bottom = 0.;
+        for ((layer_thickness, densities), ck) in layer_thicknesses.iter().zip(densities).zip(electronic_stopping_correction_factors) {
+
+            layer_bottom += layer_thickness*length_unit;
+
+            let total_density: f64 = densities.iter().sum();
+            let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
+
+            layers.push(Layer1D::new(layer_top, layer_bottom, densities, concentrations, ck));
+            layer_top = layer_bottom;
+        }
+
+        let top_energy_barrier_thickness = layers[0].densities.iter().sum::<f64>().powf(-1./3.)/SQRTPI*2.;
+        let bottom_energy_barrier_thickness = layers[layers.len() - 1].densities.iter().sum::<f64>().powf(-1./3.)/SQRTPI*2.;
+
+        Mesh1D {
+            layers,
+            top: 0.0,
+            bottom: layer_bottom,
+            top_energy_barrier_thickness,
+            bottom_energy_barrier_thickness,
+        }
+    }
+    fn get_densities(&self,  x: f64, y: f64, z: f64) -> &Vec<f64> {
+        if self.inside(x, y, z) {
+            for layer in &self.layers {
+                if layer.contains(x, y, z) {
+                    return &layer.densities
+                }
+            }
+            panic!("Geometry error: method inside() is returning true for points outside all layers. Check geometry.")
+        } else if x < self.top {
+            &self.layers[0].densities
+        } else {
+            &self.layers[self.layers.len() - 1].densities
+        }
+    }
+    fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64 {
+        if self.inside(x, y, z) {
+            for layer in &self.layers {
+                if layer.contains(x, y, z) {
+                    return layer.electronic_stopping_correction_factor
+                }
+            }
+            panic!("Geometry error: method inside() is returning true for points outside all layers. Check geometry.")
+        } else if x < self.top {
+            self.layers[0].electronic_stopping_correction_factor
+        } else {
+            self.layers[self.layers.len() - 1].electronic_stopping_correction_factor
+        }
+    }
+    fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64 {
+        if self.inside(x, y, z) {
+            for layer in &self.layers {
+                if layer.contains(x, y, z) {
+                    return layer.densities.iter().sum()
+                }
+            }
+            panic!("Geometry error: method inside() is returning true for points outside all layers. Check geometry.")
+        } else if x < self.top {
+            self.layers[0].densities.iter().sum()
+        } else {
+            self.layers[self.layers.len() - 1].densities.iter().sum()
+        }
+    }
+    fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        if self.inside(x, y, z) {
+            for layer in &self.layers {
+                if layer.contains(x, y, z) {
+                    return &layer.concentrations
+                }
+            }
+            panic!("Geometry error: method inside() is returning true for points outside all layers. Check geometry.")
+        } else if x < self.top {
+            &self.layers[0].concentrations
+        } else {
+            &self.layers[self.layers.len() - 1].concentrations
+        }
+    }
+    fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        self.get_densities(x, y, z)
+    }
+    fn get_ck_nearest_to(&self, x: f64, y: f64, z: f64) -> f64 {
+        self.get_ck(x, y, z)
+    }
+    fn inside(&self, x: f64, y: f64, z: f64) -> bool {
+        (x > self.top) & (x < self.bottom)
+    }
+    fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
+        (x > self.top - 10.*self.top_energy_barrier_thickness) & (x < self.bottom + 10.*self.bottom_energy_barrier_thickness)
+    }
+    fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
+        (x > self.top - self.top_energy_barrier_thickness) & (x < self.bottom + self.bottom_energy_barrier_thickness)
+    }
+    fn get_energy_barrier_thickness(&self) -> f64 {
+        self.top_energy_barrier_thickness
+    }
+    fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        let distance_from_bottom = (x - self.bottom).abs();
+        let distance_from_top = (x - self.top).abs();
+        if distance_from_bottom < distance_from_top {
+            (self.bottom, y, z)
+        } else {
+            (self.top, y, z)
+        }
+    }
+}
+
 /// Object that contains raw mesh input data.
 #[derive(Deserialize, Clone)]
 pub struct Mesh2DInput {
@@ -375,6 +542,54 @@ impl GeometryElement for Cell2D {
         &self.concentrations
     }
 
+    fn get_electronic_stopping_correction_factor(&self) -> f64 {
+        self.electronic_stopping_correction_factor
+    }
+}
+
+#[derive(Clone)]
+pub struct Layer1D {
+    top: f64,
+    bottom: f64,
+    densities: Vec<f64>,
+    concentrations: Vec<f64>,
+    electronic_stopping_correction_factor: f64
+}
+
+impl Layer1D {
+    pub fn new(top: f64, bottom: f64, densities: Vec<f64>, concentrations: Vec<f64>, electronic_stopping_correction_factor: f64) -> Layer1D {
+
+        assert!(top < bottom, "Layer cannot have negative thickness.");
+
+        Layer1D{
+            top,
+            bottom,
+            densities,
+            concentrations,
+            electronic_stopping_correction_factor
+        }
+    }
+}
+
+impl GeometryElement for Layer1D {
+    fn contains(&self, x: f64, y: f64, z: f64) -> bool {
+        (x > self.top) & (x <= self.bottom)
+    }
+    fn distance_to(&self, x: f64, y: f64, z: f64) -> f64 {
+        let distance_to_top = (x - self.top).abs();
+        let distance_to_bottom = (x - self.bottom).abs();
+        if distance_to_top < distance_to_bottom {
+            distance_to_top
+        } else {
+            distance_to_bottom
+        }
+    }
+    fn get_densities(&self) -> &Vec<f64> {
+        &self.densities
+    }
+    fn get_concentrations(&self) -> &Vec<f64> {
+        &self.concentrations
+    }
     fn get_electronic_stopping_correction_factor(&self) -> f64 {
         self.electronic_stopping_correction_factor
     }

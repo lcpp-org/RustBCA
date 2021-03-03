@@ -52,7 +52,7 @@ pub mod particle;
 pub mod tests;
 pub mod interactions;
 pub mod bca;
-pub mod mesh;
+pub mod geometry;
 pub mod input;
 pub mod output;
 pub mod enums;
@@ -62,9 +62,9 @@ pub mod structs;
 pub use crate::enums::*;
 pub use crate::consts::*;
 pub use crate::structs::*;
-pub use crate::input::{Input2D, Input0D, Options, InputFile, GeometryInput};
+pub use crate::input::{Input2D, Input1D, Input0D, Options, InputFile, GeometryInput};
 pub use crate::output::{OutputUnits};
-pub use crate::mesh::{Geometry, GeometryElement, Mesh0D, Mesh2D};
+pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D};
 
 fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::ParticleInput>, material: material::Material<T>, options: Options, output_units: OutputUnits) {
 
@@ -151,17 +151,21 @@ fn main() {
     let (input_file, geometry_type) = match args.len() {
         1 => ("input.toml".to_string(), GeometryType::MESH2D),
         2 => (args[1].clone(), GeometryType::MESH2D),
-        3 => (args[2].clone(), match args[1].as_str() { "0D" => GeometryType::MESH0D, "2D" => GeometryType::MESH2D, _ => panic!("Unimplemented geometry {}.", args[1].clone()) }),
+        3 => (args[2].clone(), match args[1].as_str() { "0D" => GeometryType::MESH0D, "1D" => GeometryType::MESH1D, "2D" => GeometryType::MESH2D, _ => panic!("Unimplemented geometry {}.", args[1].clone()) }),
         _ => panic!("Too many command line arguments. RustBCA accepts 0 (use 'input.toml') 1 (<input file name>) or 2 (<geometry type> <input file name>)"),
     };
 
      match geometry_type {
         GeometryType::MESH0D => {
-            let (particle_input_array, material, options, output_units) = input::input::<mesh::Mesh0D>(input_file);
+            let (particle_input_array, material, options, output_units) = input::input::<geometry::Mesh0D>(input_file);
             physics_loop::<Mesh0D>(particle_input_array, material, options, output_units);
         },
+        GeometryType::MESH1D => {
+            let (particle_input_array, material, options, output_units) = input::input::<geometry::Mesh1D>(input_file);
+            physics_loop::<Mesh1D>(particle_input_array, material, options, output_units);
+        },
         GeometryType::MESH2D => {
-            let (particle_input_array, material, options, output_units) = input::input::<mesh::Mesh2D>(input_file);
+            let (particle_input_array, material, options, output_units) = input::input::<geometry::Mesh2D>(input_file);
             physics_loop::<Mesh2D>(particle_input_array, material, options, output_units);
         },
     }
