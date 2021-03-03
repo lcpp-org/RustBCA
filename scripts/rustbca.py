@@ -175,7 +175,8 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         'Z': Zb,
         'm': Mb,
         'interaction_index': np.zeros(len(n), dtype=int),
-        'surface_binding_model': "AVERAGE"
+        'surface_binding_model': "AVERAGE",
+        'bulk_binding_model': "AVERAGE"
     }
 
     dx = delta_x_angstrom*ANGSTROM/MICRON
@@ -184,7 +185,7 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
     surface = box(minx, miny, maxx, maxy)
 
     simulation_surface = surface.buffer(10*dx, cap_style=2, join_style=2)
-    mesh_2d_input = {
+    geometry_input = {
         'length_unit': 'MICRON',
         'triangles': [[0., depth, 0., thickness/2., -thickness/2., -thickness/2.], [0., depth, depth, thickness/2., thickness/2., -thickness/2.]],
         'densities': [np.array(n)*(MICRON)**3, np.array(n)*(MICRON)**3],
@@ -220,7 +221,7 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
     input_file = {
         'material_parameters': material_parameters,
         'particle_parameters': particle_parameters,
-        'mesh_2d_input': mesh_2d_input,
+        'geometry_input': geometry_input,
         'options': options,
     }
 
@@ -748,6 +749,7 @@ def run_iead(ions, target, energies, angles, iead, name="default_", N=1):
         'm': Mb,
         'interaction_index': np.zeros(len(n), dtype=int),
         'surface_binding_model': "AVERAGE"
+        'bulk_binding_model': "AVERAGE"
     }
 
     dx = 5.*ANGSTROM/MICRON
@@ -756,7 +758,7 @@ def run_iead(ions, target, energies, angles, iead, name="default_", N=1):
     surface = box(minx, miny, maxx, maxy)
 
     simulation_surface = surface.buffer(10.*dx, cap_style=2, join_style=2)
-    mesh_2d_input = {
+    geometry_input = {
         'length_unit': 'MICRON',
         'energy_barrier_thickness': sum(n)**(-1./3.)/np.sqrt(2.*np.pi),
         'triangles': [[0., depth, 0., thickness/2., -thickness/2., -thickness/2.], [0., depth, depth, thickness/2., thickness/2., -thickness/2.]],
@@ -789,7 +791,7 @@ def run_iead(ions, target, energies, angles, iead, name="default_", N=1):
     input_file = {
         'material_parameters': material_parameters,
         'particle_parameters': particle_parameters,
-        'mesh_2d_input': mesh_2d_input,
+        'geometry_input': geometry_input,
         'options': options,
     }
 
@@ -1194,11 +1196,11 @@ def metal_oxide_bilayer_iead(ions, iead, energies, angles, metal,
         'Z': [metal['Z'], oxygen['Z']],
         'm': [metal['m'], oxygen['m']],
         'interaction_index': [0, 0],
-
+        'bulk_binding_model': "AVERAGE",
         'surface_binding_model': "AVERAGE"
     }
 
-    mesh_2d_input = {
+    geometry_input = {
         'length_unit': 'MICRON',
         'energy_barrier_thickness': sum(densities[0])**(-1./3.)/np.sqrt(2.*np.pi),
         'triangles': triangles,
@@ -1231,7 +1233,7 @@ def metal_oxide_bilayer_iead(ions, iead, energies, angles, metal,
     input_file = {
         'material_parameters': material_parameters,
         'particle_parameters': particle_parameters,
-        'mesh_2d_input': mesh_2d_input,
+        'geometry_input': geometry_input,
         'options': options,
     }
 

@@ -67,3 +67,4 @@ Z = [ 22, 8, 13, 14,]
 m = [ 47.867, 15.9994, 26.98, 28.08553,]
 interaction_index = [0, 0, 0, 0]
 surface_binding_model = "TARGET"
+bulk_binding_model = "AVERAGE"

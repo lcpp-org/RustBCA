@@ -27,7 +27,8 @@ fn test_geometry() {
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
-        surface_binding_model: SurfaceBindingModel::TARGET
+        surface_binding_model: SurfaceBindingModel::TARGET,
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
     };
 
     let thickness: f64 = 1000.;
@@ -93,7 +94,8 @@ fn test_surface_binding_energy_barrier() {
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
-        surface_binding_model: SurfaceBindingModel::TARGET
+        surface_binding_model: SurfaceBindingModel::TARGET,
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
     };
 
     let thickness: f64 = 1000.;
@@ -315,7 +317,8 @@ fn test_momentum_conservation() {
             Z: vec![Z2],
             m: vec![m2],
             interaction_index: vec![0],
-            surface_binding_model: SurfaceBindingModel::TARGET
+            surface_binding_model: SurfaceBindingModel::TARGET,
+            bulk_binding_model: BulkBindingModel::INDIVIDUAL,
         };
 
         let thickness: f64 = 1000.;
