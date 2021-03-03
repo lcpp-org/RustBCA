@@ -1,24 +1,24 @@
-# `rustBCA`
+# `RustBCA`
 
-`rustBCA` is a general-purpose, high-performance code for simulating
+`RustBCA` is a general-purpose, high-performance code for simulating
 ion-material interactions using the binary collision approximation ([BCA]),
 written in [Rust]!
 
 By discretizing the collision cascade into a sequence of binary collisions,
-[BCA] codes can accurately and efficiently model the physics of the interaction
+[BCA] codes can accurately and efficiently model the prompt interaction
 between an energetic ion and a target material.
 This includes reflection, implantation, and transmission of the incident ion,
 as well as sputtering and displacement damage of the target.
 Generally, [BCA] codes are valid for incident ion energies between approximately
 ~1 eV/nucleon to ~1 GeV/nucleon.
 
-Check out the `rustBCA` [Wiki] for detailed information, installation
+Check out the `RustBCA` [Wiki] for detailed information, installation
 instructions, use cases, examples, and more!
 
 ## Getting started
 
 For those eager to get started, try running one of the examples in the
-`rustBCA` directory. Note that these require several optional, but common,
+`rustBCA` directory. Note that to automatically manipulate input files and reproduce the plots located on the [Wiki], these require several optional, but common,
 [Python] packages (`matplotlib`, `numpy`, `scipy`, `shapely`, and `toml`).
 
 ### H trajectories and collision cascades in a boron nitride dust grain
@@ -68,20 +68,20 @@ plt.show()
 The following features are implemented in `rustBCA`:
 
 * Ion-material interactions for all combinations of incident ion and target species.
-* Arbitrary 2D geometry definition using triangular-mesh-based inhomogeneous composition.
-* The ability to distinguish between (amorphous) solid/liquid and gaseous targets.
+* Infinite, homogeneous targets (Mesh0D), Layered, finite-depth inhomogeneous targets (Mesh1D) and arbitrary 2D geometry and composition through a triangular mesh (Mesh2D).
+* Amorphous Solid/Liquid targets, Gaseous targets, and targets with both solid/liquid and gaseous elements
 * Low energy (< 25 keV/nucleon) electronic stopping modes including:
   * local (Oen-Robinson),
   * nonlocal (Lindhard-Scharff),
   * and equipartition forms.
-* Biersack-Varelas interpolation is also included to extend electronic stopping validity up to ~1 GeV/nucleon.
+* Biersack-Varelas interpolation is also included for electronic stopping up to ~1 GeV/nucleon.
 * Optionally, the Biersack-Haggmark treatment of high-energy free-flight paths between collisions can be included to greatly speed up high-energy simulations (i.e., by neglecting very small angle scattering).
 * A wide range of interaction potentials are provided, including:
-  * the Kr-C, ZBL, Lenz-Jensen, and Moliere screened-Coulomb potentials.
-  * the Lennard-Jones 12-6, Lennard-Jones 6.5-6, and Morse attractive-repulsive interaction potentials.
+  * the Kr-C, ZBL, Lenz-Jensen, and Moliere universal, screened-Coulomb potentials.
+  * the Lennard-Jones 12-6, Lennard-Jones 6.5-6, and Morse attractive-repulsive potentials.
 * Solving the distance-of-closest-approach problem is achieved using:
   * the Newton-Raphson method for simple root-finding,
-  * or, optionally, an Adaptive Chebyshev Proxy Rootfinder, with Automatic Subdivision and Polynomial root-finding algorithms, is provided through the [rcpr] crate.
+  * or, for attractive-repulsive potentials, an Adaptive Chebyshev Proxy Rootfinder with Automatic Subdivision algorithm and a Polynomial root-finding algorithm are provided through the [rcpr] crate.
 * Multiple interaction potentials can be used in a single simulation for any number of potentials/species.
   * For example, the He-W interaction can be specified using a Lennard-Jones 12-6 potential, while the W-W interaction can be defined using a Kr-C potential.
 * The scattering integral can be calculated using:
@@ -89,12 +89,13 @@ The following features are implemented in `rustBCA`:
   * Gauss-Legendre quadrature,
   * Mendenall-Weller quadrature,
   * or the MAGIC algorithm.
-* Input files use the [TOML] format, making them both human-readable and easily parsable. 
-* The [Rust] code generates user-friendly error messages, which help pinpoint the cause of errors and provide suggested fixes to the user.
-* The simulation results are formatted as ubiquitous `.csv` files and include:
+* Input files use the [TOML] format, making them both human-readable and easily parsable.
+* RustBCA generates user-friendly, context-providing error messages, which help pinpoint the cause of errors and provide suggested fixes to the user.
+* The simulation results are formatted as the ubiquitous `csv` format and include:
   * the energies and directions of emitted particles (reflected ions and sputtered atoms),
   * the final positions of implanted ions,
   * and full trajectory tracking for both the incident ions and target atoms.
+* Optionally, the code can produce energy-angle and implantation distributions when built with the `--features distributions` flag and disable space-intensive particle list output with `--features no_list_output`.
 
 ## Installation
 
