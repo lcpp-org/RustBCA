@@ -11,7 +11,8 @@ pub struct MaterialParameters {
     pub Z: Vec<f64>,
     pub m: Vec<f64>,
     pub interaction_index: Vec<usize>,
-    pub surface_binding_model: SurfaceBindingModel
+    pub surface_binding_model: SurfaceBindingModel,
+    pub bulk_binding_model: BulkBindingModel
 }
 
 /// Material in rustbca. Includes the material properties and the mesh that defines the material geometry.
@@ -23,7 +24,8 @@ pub struct Material<T: Geometry> {
     pub Ec: Vec<f64>,
     pub interaction_index: Vec<usize>,
     pub geometry: Box<T>,
-    pub surface_binding_model: SurfaceBindingModel
+    pub surface_binding_model: SurfaceBindingModel,
+    pub bulk_binding_model: BulkBindingModel
 }
 impl <T: Geometry + GeometryInput> Material<T> {
 
@@ -57,6 +59,7 @@ impl <T: Geometry + GeometryInput> Material<T> {
             Ec: material_parameters.Ec.iter().map(|&i| i*energy_unit).collect(),
             interaction_index: material_parameters.interaction_index.clone(),
             surface_binding_model: material_parameters.surface_binding_model,
+            bulk_binding_model: material_parameters.bulk_binding_model,
             geometry: Box::new(T::new(geometry_input)),
         }
     }
@@ -155,6 +158,21 @@ impl <T: Geometry + GeometryInput> Material<T> {
         //returns average bulk binding energy
         let concentrations = self.geometry.get_concentrations(x, y, z);
         return self.Eb.iter().zip(concentrations).map(|(bulk_binding_energy, concentration)| bulk_binding_energy*concentration).collect::<Vec<f64>>().iter().sum();
+    }
+
+    pub fn actual_bulk_binding_energy(&self, species_index: usize, x: f64, y: f64, z: f64) -> f64 {
+
+        match self.bulk_binding_model {
+            BulkBindingModel::INDIVIDUAL => self.Eb[species_index],
+
+            BulkBindingModel::AVERAGE => {
+                if self.Eb[species_index] == 0. {
+                    0.
+                } else {
+                    self.average_bulk_binding_energy(x, y, z)
+                }
+            }
+        }
     }
 
     /// Finds the concentration-dependent surface binding energy of the triangle that contains or is nearest to (x, y).

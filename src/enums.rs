@@ -61,6 +61,27 @@ impl fmt::Display for SurfaceBindingModel {
     }
 }
 
+/// Mode of bulk binding energy calculation.
+#[derive(Deserialize, PartialEq, Clone, Copy)]
+pub enum BulkBindingModel {
+    /// Bulk binding energies will be determined individually depending only on the particle's `Eb`.
+    INDIVIDUAL,
+    /// Bulk binding energies will be the concentration-weighted average, unless either is zero in which case it will be zero.
+    AVERAGE,
+}
+
+impl fmt::Display for BulkBindingModel {
+    fn fmt (&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            BulkBindingModel::INDIVIDUAL => write!(f,
+                "Individual bulk binding energies."),
+
+            BulkBindingModel::AVERAGE => write!(f,
+                "Concentration-weighted average bulk binding energy."),
+        }
+    }
+}
+
 /// Mean-free-path model.
 #[derive(Deserialize, PartialEq, Clone, Copy)]
 pub enum MeanFreePathModel {
