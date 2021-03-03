@@ -1,13 +1,15 @@
 use super::*;
 
 pub enum MaterialType {
-    MESH0D(material::Material<mesh::Mesh0D>),
-    MESH2D(material::Material<mesh::Mesh2D>)
+    MESH0D(material::Material<geometry::Mesh0D>),
+    MESH1D(material::Material<geometry::Mesh1D>),
+    MESH2D(material::Material<geometry::Mesh2D>)
 }
 
 #[derive(Deserialize)]
 pub enum GeometryType {
     MESH0D,
+    MESH1D,
     MESH2D,
 }
 

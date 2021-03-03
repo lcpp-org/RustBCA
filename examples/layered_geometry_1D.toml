@@ -1,5 +1,5 @@
 [options]
-name = "2000.0eV_0.0001deg_He_TiO2"
+name = "2000.0eV_0.0001deg_He_TiO2_Al_Si"
 track_trajectories = false
 track_recoils = true
 track_recoil_trajectories = false
@@ -8,7 +8,7 @@ weak_collision_order = 3
 suppress_deep_recoils = false
 high_energy_free_flight_paths = false
 electronic_stopping_mode = "LOW_ENERGY_NONLOCAL"
-mean_free_path_model = {"THRESHOLD"={density=1E28}}
+mean_free_path_model = "LIQUID"
 interaction_potential = [["KR_C"]]
 scattering_integral = [["MENDENHALL_WELLER"]]
 use_hdf5 = false
@@ -44,14 +44,15 @@ E = [ 2000.0,]
 Ec = [ 1.0,]
 Es = [ 0.0,]
 interaction_index = [0]
-pos = [ [ 0.0, 0.0, 0.0,],]
-dir = [ [ 0.5, 0.5, 0.0,],]
+pos = [ [ -1.7453292519934434e-8, 0.0, 0.0,],]
+dir = [ [ 0.999, 0.001, 0.0,],]
 particle_input_filename = ""
 
 [geometry_input]
 length_unit = "MICRON"
-densities = [ 3.0e+10, 6.0e+10, 0.0, 0.0 ]
-electronic_stopping_correction_factor = 1.0
+densities = [ [ 3.0e+10, 6.0e+10, 0.0, 0.0,], [ 0.0, 0.0, 6.026e+10, 0.0,], [ 0.0, 0.0, 0.0, 4.996e+10,],]
+layer_thicknesses = [0.01, 0.03, 0.46]
+electronic_stopping_correction_factors = [1.0, 1.0, 1.0]
 
 [material_parameters]
 energy_unit = "EV"

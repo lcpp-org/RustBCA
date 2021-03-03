@@ -18,11 +18,11 @@ pub struct Input2D {
     pub options: Options,
     pub material_parameters: material::MaterialParameters,
     pub particle_parameters: particle::ParticleParameters,
-    pub geometry_input: mesh::Mesh2DInput,
+    pub geometry_input: geometry::Mesh2DInput,
 }
 
 impl GeometryInput for Input2D {
-    type GeometryInput = mesh::Mesh2DInput;
+    type GeometryInput = geometry::Mesh2DInput;
 }
 
 impl InputFile for Input2D {
@@ -50,16 +50,48 @@ pub struct Input0D {
     pub options: Options,
     pub material_parameters: material::MaterialParameters,
     pub particle_parameters: particle::ParticleParameters,
-    pub geometry_input: mesh::Mesh0DInput,
+    pub geometry_input: geometry::Mesh0DInput,
 }
 
 impl GeometryInput for Input0D {
-    type GeometryInput = mesh::Mesh0DInput;
+    type GeometryInput = geometry::Mesh0DInput;
 }
 
 impl InputFile for Input0D {
 
     fn new(string: &str) -> Input0D {
+        toml::from_str(string).expect("Could not parse TOML file.")
+    }
+
+    fn get_options(&self) -> &Options{
+        &self.options
+    }
+    fn get_material_parameters(&self) -> &material::MaterialParameters{
+        &self.material_parameters
+    }
+    fn get_particle_parameters(&self) ->& particle::ParticleParameters{
+        &self.particle_parameters
+    }
+    fn get_geometry_input(&self) -> &Self::GeometryInput{
+        &self.geometry_input
+    }
+}
+
+#[derive(Deserialize, Clone)]
+pub struct Input1D {
+    pub options: Options,
+    pub material_parameters: material::MaterialParameters,
+    pub particle_parameters: particle::ParticleParameters,
+    pub geometry_input: geometry::Mesh1DInput,
+}
+
+impl GeometryInput for Input1D {
+    type GeometryInput = geometry::Mesh1DInput;
+}
+
+impl InputFile for Input1D {
+
+    fn new(string: &str) -> Input1D {
         toml::from_str(string).expect("Could not parse TOML file.")
     }
 

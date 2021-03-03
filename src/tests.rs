@@ -33,7 +33,7 @@ fn test_geometry() {
     let thickness: f64 = 1000.;
     let depth: f64 = 1000.;
 
-    let geometry_input_2D = mesh::Mesh2DInput {
+    let geometry_input_2D = geometry::Mesh2DInput {
         length_unit: "ANGSTROM".to_string(),
         triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
         densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
@@ -43,14 +43,14 @@ fn test_geometry() {
         electronic_stopping_correction_factors: vec![1.0, 1.0],
     };
 
-    let geometry_input_0D = mesh::Mesh0DInput {
+    let geometry_input_0D = geometry::Mesh0DInput {
         length_unit: "ANGSTROM".to_string(),
         densities: vec![0.03, 0.03],
         electronic_stopping_correction_factor: 1.0
     };
 
-    let material_2D: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(&material_parameters, &geometry_input_2D);
-    let mut material_0D: material::Material<mesh::Mesh0D> = material::Material::<mesh::Mesh0D>::new(&material_parameters, &geometry_input_0D);
+    let material_2D: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input_2D);
+    let mut material_0D: material::Material<geometry::Mesh0D> = material::Material::<geometry::Mesh0D>::new(&material_parameters, &geometry_input_0D);
     material_0D.geometry.energy_barrier_thickness = 10.*ANGSTROM;
 
     particle_1.pos.x = 500.*ANGSTROM;
@@ -99,7 +99,7 @@ fn test_surface_binding_energy_barrier() {
     let thickness: f64 = 1000.;
     let depth: f64 = 1000.;
 
-    let geometry_input_2D = mesh::Mesh2DInput {
+    let geometry_input_2D = geometry::Mesh2DInput {
         length_unit: "ANGSTROM".to_string(),
         triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
         densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
@@ -109,14 +109,14 @@ fn test_surface_binding_energy_barrier() {
         electronic_stopping_correction_factors: vec![1.0, 1.0],
     };
 
-    let geometry_input_0D = mesh::Mesh0DInput {
+    let geometry_input_0D = geometry::Mesh0DInput {
         length_unit: "ANGSTROM".to_string(),
         densities: vec![0.03, 0.03],
         electronic_stopping_correction_factor: 1.0
     };
 
-    let material_2D: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(&material_parameters, &geometry_input_2D);
-    let mut material_0D: material::Material<mesh::Mesh0D> = material::Material::<mesh::Mesh0D>::new(&material_parameters, &geometry_input_0D);
+    let material_2D: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input_2D);
+    let mut material_0D: material::Material<geometry::Mesh0D> = material::Material::<geometry::Mesh0D>::new(&material_parameters, &geometry_input_0D);
     material_0D.geometry.energy_barrier_thickness = 10.*ANGSTROM;
 
     particle_1.pos.x = 500.*ANGSTROM;
@@ -188,11 +188,11 @@ fn test_surface_binding_energy_barrier() {
 
 #[test]
 fn test_triangle_contains() {
-    let triangle_1 = mesh::Triangle2D::new((0., 2., 0., 2., 0., 0.));
+    let triangle_1 = geometry::Triangle2D::new((0., 2., 0., 2., 0., 0.));
     assert!(triangle_1.contains(0.5, 0.5));
     assert!(!triangle_1.contains(2., 2.));
 
-    let triangle_2 = mesh::Triangle2D::new((-2., 0., 0., 0., 0., -2.));
+    let triangle_2 = geometry::Triangle2D::new((-2., 0., 0., 0., 0., -2.));
     assert!(triangle_2.contains(-0.5, -0.5));
     assert!(!triangle_2.contains(0.5, 0.5));
     assert!(!triangle_2.contains(-2., -2.));
@@ -200,7 +200,7 @@ fn test_triangle_contains() {
 
 #[test]
 fn test_triangle_distance_to() {
-    let triangle_1 = mesh::Triangle2D::new((0., 2., 0., 2., 0., 0.));
+    let triangle_1 = geometry::Triangle2D::new((0., 2., 0., 2., 0., 0.));
     assert!(approx_eq!(f64, triangle_1.distance_to(-2., 0.), 2., epsilon=1E-12), "{}", triangle_1.distance_to(-2., 0.));
 
     assert!(approx_eq!(f64, triangle_1.distance_to(2., 2.), (2.0_f64).sqrt(), epsilon=1E-12), "{}", triangle_1.distance_to(2., 2.));
@@ -320,7 +320,7 @@ fn test_momentum_conservation() {
 
         let thickness: f64 = 1000.;
         let depth: f64 = 1000.;
-        let geometry_input = mesh::Mesh2DInput {
+        let geometry_input = geometry::Mesh2DInput {
             length_unit: "ANGSTROM".to_string(),
             triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
             densities: vec![vec![0.06306], vec![0.06306]],
@@ -330,7 +330,7 @@ fn test_momentum_conservation() {
             energy_barrier_thickness: 0.,
         };
 
-        let material_1: material::Material<mesh::Mesh2D> = material::Material::<mesh::Mesh2D>::new(&material_parameters, &geometry_input);
+        let material_1: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input);
 
         for high_energy_free_flight_paths in vec![true, false] {
             for potential in vec![InteractionPotential::KR_C, InteractionPotential::MOLIERE, InteractionPotential::ZBL, InteractionPotential::LENZ_JENSEN] {
