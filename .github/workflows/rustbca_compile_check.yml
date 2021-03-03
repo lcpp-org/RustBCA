@@ -40,7 +40,7 @@ jobs:
         cargo test --features cpr_rootfinder_netlib,hdf5_input
     - name: Run Examples
       run: |
-        cargo run --release --features distributions 0D examples/boron_nitride_0D.toml
+        cargo run --release 0D examples/boron_nitride_0D.toml
         ./target/release/rustBCA 0D examples/titanium_dioxide_0D.toml
         ./target/release/rustBCA 1D examples/layered_geometry.toml
         ./target/release/rustBCA examples/boron_nitride.toml
