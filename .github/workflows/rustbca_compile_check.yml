@@ -41,7 +41,7 @@ jobs:
     - name: Run Examples
       run: |
         cargo run --release 0D examples/boron_nitride_0D.toml
-        ./target/relesae/rustBCA --release 0D examples/titanium_dioxide_0D.toml
-        ./target/relesae/rustBCA --release 1D --features distributions examples/layered_geometry.toml
-        ./target/relesae/rustBCA --release examples/boron_nitride.toml
-        ./target/relesae/rustBCA --release --features distributions examples/layered_geometry.toml
+        ./target/release/rustBCA --release 0D examples/titanium_dioxide_0D.toml
+        ./target/release/rustBCA --release 1D --features distributions examples/layered_geometry.toml
+        ./target/release/rustBCA --release examples/boron_nitride.toml
+        ./target/release/rustBCA --release --features distributions examples/layered_geometry.toml
