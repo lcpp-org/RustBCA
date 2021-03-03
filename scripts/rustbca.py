@@ -10,8 +10,8 @@ from matplotlib import rcParams, cm
 import matplotlib as mpl
 import matplotlib.colors as colors
 
-from materials import *
-from formulas import *
+from .materials import *
+from .formulas import *
 
 #from generate_ftridyn_input import *
 
@@ -748,7 +748,7 @@ def run_iead(ions, target, energies, angles, iead, name="default_", N=1):
         'Z': Zb,
         'm': Mb,
         'interaction_index': np.zeros(len(n), dtype=int),
-        'surface_binding_model': "AVERAGE"
+        'surface_binding_model': "AVERAGE",
         'bulk_binding_model': "AVERAGE"
     }
 
