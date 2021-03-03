@@ -51,7 +51,7 @@ particle_input_filename = ""
 [geometry_input]
 length_unit = "MICRON"
 densities = [ [ 3.0e+10, 6.0e+10, 0.0, 0.0,], [ 0.0, 0.0, 6.026e+10, 0.0,], [ 0.0, 0.0, 0.0, 4.996e+10,],]
-layer_thicknesses = [0.01, 0.04, 0.5]
+layer_thicknesses = [0.01, 0.03, 0.46]
 electronic_stopping_correction_factors = [1.0, 1.0, 1.0]
 
 [material_parameters]
