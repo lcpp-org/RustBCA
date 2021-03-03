@@ -1,0 +1,67 @@
+[options]
+name = "lithium_vapor_shield_"
+track_trajectories = true
+track_recoils = true
+track_recoil_trajectories = true
+write_buffer_size = 8000
+weak_collision_order = 0
+suppress_deep_recoils = false
+high_energy_free_flight_paths = false
+electronic_stopping_mode = "LOW_ENERGY_LOCAL"
+mean_free_path_model = {"THRESHOLD"={density=1e28}}
+interaction_potential = [["KR_C"]]
+scattering_integral = [["MENDENHALL_WELLER"]]
+use_hdf5 = false
+root_finder = [[{"NEWTON"={max_iterations=100, tolerance=1E-6}}]]
+num_threads = 4
+num_chunks = 2
+track_displacements = false
+track_energy_losses = true
+energy_min = 0.0
+energy_max = 2000.0
+energy_num = 20
+angle_min = 0.0
+angle_max = 90.0
+angle_num = 20
+x_min = 0.0
+y_min = -0.1
+z_min = -0.1
+x_max = 0.1
+y_max = 0.1
+z_max = 0.1
+x_num = 20
+y_num = 20
+z_num = 20
+
+[particle_parameters]
+length_unit = "1e-6"
+energy_unit = "EV"
+mass_unit = "AMU"
+N = [ 10,]
+m = [ 4.002602,]
+Z = [ 2,]
+E = [ 2000.0,]
+Ec = [ 1.0,]
+Es = [ 0.0,]
+interaction_index = [0]
+pos = [ [ -1.7453292519934434e-8, 0.0, 0.0,],]
+dir = [ [ 0.999, 0.001, 0.0,],]
+particle_input_filename = ""
+
+[geometry_input]
+length_unit = "MICRON"
+densities = [ [ 4.652e+8, 0.0], [ 0.0, 4.642e+10,],]
+layer_thicknesses = [1.0, 1.0]
+electronic_stopping_correction_factors = [1.0, 1.0]
+
+[material_parameters]
+energy_unit = "EV"
+mass_unit = "AMU"
+Eb = [ 0.0, 1.64 ]
+Es = [ 0.0, 1.64 ]
+Ec = [ 1.0, 1.0 ]
+Z = [ 3, 3 ]
+m = [ 6.94, 6.94 ]
+interaction_index = [ 0, 0 ]
+surface_binding_model = "INDIVIDUAL"
+bulk_binding_model = "INDIVIDUAL"
