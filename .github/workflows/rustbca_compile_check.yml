@@ -45,4 +45,4 @@ jobs:
         ./target/release/rustBCA 1D examples/layered_geometry_1D.toml
         ./target/release/rustBCA examples/boron_nitride.toml
         ./target/release/rustBCA examples/layered_geometry.toml
-        ./target/release/rustBCA examples/boron_nitride_sphere.toml
+        ./target/release/rustBCA SPHERE examples/boron_nitride_sphere.toml
