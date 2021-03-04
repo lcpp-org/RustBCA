@@ -124,7 +124,7 @@ fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Particle
                 summary.update(&particle);
 
                 #[cfg(feature = "distributions")]
-                distributions.update(&particle, &output_units);
+                distributions.update(&particle, &output_units, &options, total_count as usize);
 
                 #[cfg(not(feature = "no_list_output"))]
                 output::output_lists(&mut output_list_streams, particle, &options, &output_units);

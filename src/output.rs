@@ -39,7 +39,9 @@ pub struct Distributions {
     sputtered_ead: Array2<usize>,
     implanted_x: Array1<usize>,
     implanted_y: Array1<usize>,
-    implanted_z: Array1<usize>
+    implanted_z: Array1<usize>,
+    electronic_energy_loss_x: Array1<f64>,
+    nuclear_energy_loss_x: Array1<f64>,
 }
 
 #[cfg(feature = "distributions")]
@@ -56,6 +58,8 @@ impl Distributions {
             implanted_x: Array::zeros(options.x_num),
             implanted_y: Array::zeros(options.y_num),
             implanted_z: Array::zeros(options.z_num),
+            electronic_energy_loss_x: Array::zeros(options.x_num),
+            nuclear_energy_loss_x: Array::zeros(options.x_num),
         }
     }
 
@@ -76,7 +80,7 @@ impl Distributions {
     }
 
     /// Updates distributions with a single particle
-    pub fn update(&mut self, particle: &particle::Particle, units: &OutputUnits) {
+    pub fn update(&mut self, particle: &particle::Particle, units: &OutputUnits, options: &Options, num_incident: usize) {
         let (energy, angle) = energy_angle_from_particle(particle, units);
 
         let delta_energy = self.energies[1] - self.energies[0];
@@ -125,6 +129,25 @@ impl Distributions {
             }
             if inside_z {
                 self.implanted_z[z_index_left as usize] += 1;
+            }
+        }
+
+        if options.track_energy_losses & particle.incident {
+
+            for energy_loss in particle.energies.iter() {
+                let x = energy_loss.x/units.length_unit;
+                let delta_x = self.x_range[1] - self.x_range[0];
+
+                let electronic_energy_loss = energy_loss.Ee/units.energy_unit/(num_incident as f64)/delta_x;
+                let nuclear_energy_loss = energy_loss.En/units.energy_unit/(num_incident as f64)/delta_x;
+
+                let x_index_left: i32 = ((x - self.x_range[0])/delta_x) as i32;
+                let inside_x = (x_index_left >= 0) & (x_index_left < self.x_range.len() as i32);
+
+                if inside_x {
+                    self.electronic_energy_loss_x[x_index_left as usize] += electronic_energy_loss;
+                    self.nuclear_energy_loss_x[x_index_left as usize] += nuclear_energy_loss;
+                }
             }
         }
     }
