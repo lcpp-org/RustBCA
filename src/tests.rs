@@ -4,6 +4,105 @@ use super::*;
 use float_cmp::*;
 
 #[test]
+fn test_spherical_geometry() {
+    let mass = 1.;
+    let Z = 1.;
+    let E = 10.*EV;
+    let Ec = 1.*EV;
+    let Es = 5.76*EV;
+    let x = 0.;
+    let y = 0.;
+    let z = 0.;
+    let cosx = 1./(2.0_f64).sqrt();
+    let cosy = 1./(2.0_f64).sqrt();
+    let cosz = 0.;
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+
+    let material_parameters = material::MaterialParameters{
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: vec![0.0, 0.0],
+        Es: vec![2.0, 4.0],
+        Ec: vec![1.0, 1.0],
+        Z: vec![29., 1.],
+        m: vec![63.54, 1.0008],
+        interaction_index: vec![0, 0],
+        surface_binding_model: SurfaceBindingModel::TARGET,
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let radius = 1000.*ANGSTROM;
+
+    let geometry_input_sphere = sphere::SphereInput {
+        length_unit: "ANGSTROM".to_string(),
+        radius: 1000.0,
+        densities: vec![0.03, 0.03],
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let mut material_sphere: material::Material<sphere::Sphere> = material::Material::<sphere::Sphere>::new(&material_parameters, &geometry_input_sphere);
+    material_sphere.geometry.energy_barrier_thickness = 10.*ANGSTROM;
+
+    particle_1.pos.x = 500.*ANGSTROM;
+    particle_1.pos.y = 0.;
+
+    particle_1.pos_old.x = -1500.*ANGSTROM;
+    particle_1.pos_old.y = 0.;
+
+    let inside_sphere = material_sphere.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
+    let inside_old_sphere = material_sphere.inside(particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos_old.z);
+
+    //println!("{} {}", inside, inside_old);
+    assert!(inside_sphere);
+    assert!(!inside_old_sphere);
+
+    //Test concentration-dependent surface binding energy
+    let surface_binding_energy = material_sphere.actual_surface_binding_energy(&particle_1, particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
+    assert!(approx_eq!(f64, surface_binding_energy/EV, (2. + 4.)/2., epsilon=1E-24));
+
+    assert!(material_sphere.inside_energy_barrier(0., 0., 0.));
+    assert!(material_sphere.inside_simulation_boundary(0., 0., 0.));
+    assert!(material_sphere.inside(0., 0., 0.));
+
+    let ux = 1214.0*ANGSTROM;
+    let uy = 123123.0*ANGSTROM;
+    let uz = 1239.0*ANGSTROM;
+    let r = (ux.powf(2.) + uy.powf(2.) + uz.powf(2.)).sqrt();
+    let R = 1001.0*ANGSTROM;
+    let u = (ux/r*R, uy/r*R, uz/r*R);
+    assert!(!material_sphere.inside(u.0, u.1, u.2));
+    assert!(material_sphere.inside_energy_barrier(u.0, u.1, u.2));
+    assert!(material_sphere.inside_simulation_boundary(u.0, u.1, u.2));
+
+    assert!(material_sphere.inside_energy_barrier(0., 0., 0.));
+    assert!(material_sphere.inside_simulation_boundary(0., 0., 0.));
+    assert!(material_sphere.inside(0., 0., 0.));
+
+    assert!(material_sphere.inside_energy_barrier(-1000.0*ANGSTROM - 1.0*ANGSTROM, 0., 0.));
+    assert!(!material_sphere.inside_energy_barrier(-1000.0*ANGSTROM - 11.0*ANGSTROM, 0., 0.));
+
+    assert!(material_sphere.inside_energy_barrier(0., -1000.0*ANGSTROM - 1.0*ANGSTROM, 0.));
+    assert!(!material_sphere.inside_energy_barrier(0., -1000.0*ANGSTROM - 11.0*ANGSTROM, 0.));
+
+    assert!(material_sphere.inside_energy_barrier(0., 0., -1000.0*ANGSTROM - 1.0*ANGSTROM));
+    assert!(!material_sphere.inside_energy_barrier(0., 0., -1000.0*ANGSTROM - 11.0*ANGSTROM));
+
+    assert!(material_sphere.inside(-1000.0*ANGSTROM + 1.0*ANGSTROM, 0., 0.));
+    assert!(!material_sphere.inside(-1000.0*ANGSTROM - 1.0*ANGSTROM, 0., 0.));
+
+    assert!(material_sphere.inside(0., -1000.0*ANGSTROM + 1.0*ANGSTROM, 0.));
+    assert!(!material_sphere.inside(0., -1000.0*ANGSTROM - 1.0*ANGSTROM, 0.));
+
+    assert!(material_sphere.inside(0., 0., -1000.0*ANGSTROM + 1.0*ANGSTROM));
+    assert!(!material_sphere.inside(0., 0., -1000.0*ANGSTROM - 1.0*ANGSTROM));
+
+    assert!(approx_eq!(f64, material_sphere.closest_point(-2000.*ANGSTROM, 0., 0.).0, (-1000.*ANGSTROM, 0., 0.).0, epsilon=1E-12));
+    assert!(approx_eq!(f64, material_sphere.closest_point(0., -2000.*ANGSTROM, 0.).1, (0., -1000.*ANGSTROM, 0.).1, epsilon=1E-12));
+    assert!(approx_eq!(f64, material_sphere.closest_point(0., 0., -2000.*ANGSTROM).2, (0., 0., -1000.*ANGSTROM).2, epsilon=1E-12));
+
+}
+
+#[test]
 fn test_geometry() {
     let mass = 1.;
     let Z = 1.;
