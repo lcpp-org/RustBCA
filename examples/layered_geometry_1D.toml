@@ -37,7 +37,7 @@ z_num = 20
 length_unit = "1e-6"
 energy_unit = "EV"
 mass_unit = "AMU"
-N = [ 100000,]
+N = [ 10000,]
 m = [ 4.002602,]
 Z = [ 2,]
 E = [ 2000.0,]
@@ -45,7 +45,7 @@ Ec = [ 1.0,]
 Es = [ 0.0,]
 interaction_index = [0]
 pos = [ [ -1.7453292519934434e-8, 0.0, 0.0,],]
-dir = [ [ 0.5, 0.5, 0.0,],]
+dir = [ [ 0.999, 0.001, 0.0,],]
 particle_input_filename = ""
 
 [geometry_input]
