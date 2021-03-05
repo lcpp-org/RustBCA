@@ -130,7 +130,7 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
 pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            1./(1. + (r/a).powf(2.))
+            1./(1. + (r/a).powi(2))
         },
         InteractionPotential::LENNARD_JONES_12_6{sigma, ..} => {
             let n = 11.;
@@ -141,7 +141,7 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
             1./(1. + (r/sigma).powf(n))
         },
         InteractionPotential::MORSE{D, alpha, r0} => {
-            1./(1. + (r*alpha).powf(2.))
+            1./(1. + (r*alpha).powi(2))
         }
         InteractionPotential::WW => {
             1.
@@ -247,10 +247,10 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
 pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> Vec<f64> {
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
-            vec![1., 0., -impact_parameter.powf(2.), 0., 0., 0., 4.*epsilon*sigma.powf(6.)/relative_energy, 0., 0., 0., 0., 0., -4.*epsilon*sigma.powf(12.)/relative_energy]
+            vec![1., 0., -impact_parameter.powi(2), 0., 0., 0., 4.*epsilon*sigma.powf(6.)/relative_energy, 0., 0., 0., 0., 0., -4.*epsilon*sigma.powf(12.)/relative_energy]
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
-            vec![1., 0., 0., 0., -impact_parameter.powf(2.), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon*sigma.powf(6.)/relative_energy, -4.*epsilon*sigma.powf(6.5)/relative_energy]
+            vec![1., 0., 0., 0., -impact_parameter.powi(2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon*sigma.powf(6.)/relative_energy, -4.*epsilon*sigma.powf(6.5)/relative_energy]
         },
         _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder.")
     }
@@ -286,32 +286,32 @@ pub fn morse(r: f64, D: f64, alpha: f64, r0: f64) -> f64 {
 
 /// Distance of closest approach function for Morse potential.
 pub fn doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, alpha: f64, r0: f64) -> f64 {
-    (r*alpha).powf(2.) - (r*alpha).powf(2.)*D/relative_energy*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp()) - (impact_parameter*alpha).powf(2.)
+    (r*alpha).powi(2) - (r*alpha).powi(2)*D/relative_energy*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp()) - (impact_parameter*alpha).powi(2)
 }
 
 /// First derivative w.r.t. `r` of the distance of closest approach function for Morse potential.
 pub fn diff_doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, alpha: f64, r0: f64) -> f64 {
-    2.*alpha.powf(2.)*r - 2.*alpha.powf(2.)*D*r*(-2.*alpha*(r - r0) - 1.).exp()*(alpha*r*(alpha*(r - r0)).exp() - 2.*(alpha*(r - r0)).exp() - r*alpha + 1.)
+    2.*alpha.powi(2)*r - 2.*alpha.powi(2)*D*r*(-2.*alpha*(r - r0) - 1.).exp()*(alpha*r*(alpha*(r - r0)).exp() - 2.*(alpha*(r - r0)).exp() - r*alpha + 1.)
 }
 
 /// Distance of closest approach function for LJ 6.5-6 potential.
 pub fn doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
-    (r/sigma).powf(6.5) - 4.*epsilon/relative_energy*(1. - (r/sigma).powf(0.5)) - (p/sigma).powf(2.)*(r/sigma).powf(4.5)
+    (r/sigma).powf(6.5) - 4.*epsilon/relative_energy*(1. - (r/sigma).powf(0.5)) - (p/sigma).powi(2)*(r/sigma).powf(4.5)
 }
 
 /// Distance of closest approach function for LJ 12-6 potential.
 pub fn doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
-    (r/sigma).powf(12.) - 4.*epsilon/relative_energy*(1. - (r/sigma).powf(6.)) - p.powf(2.)*r.powf(10.)/sigma.powf(12.)
+    (r/sigma).powf(12.) - 4.*epsilon/relative_energy*(1. - (r/sigma).powf(6.)) - p.powi(2)*r.powf(10.)/sigma.powf(12.)
 }
 
 /// First derivative w.r.t. `r` of the distance of closest approach function for LJ 12-6 potential.
 pub fn diff_doca_lennard_jones(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
-    12.*(r/sigma).powf(11.)/sigma + 4.*epsilon/relative_energy*6.*(r/sigma).powf(5.)/sigma - 10.*p.powf(2.)*r.powf(9.)/sigma.powf(12.)
+    12.*(r/sigma).powf(11.)/sigma + 4.*epsilon/relative_energy*6.*(r/sigma).powf(5.)/sigma - 10.*p.powi(2)*r.powf(9.)/sigma.powf(12.)
 }
 
 /// First derivative w.r.t. `r` of the distance of closest approach function for LJ 6.5-6 potential.
 pub fn diff_doca_lennard_jones_65_6(r: f64, p: f64, relative_energy: f64, sigma: f64, epsilon: f64) -> f64 {
-    6.5*(r/sigma).powf(5.5)/sigma + 4.*epsilon/relative_energy*0.5*(sigma*r).powf(-0.5) - (p/sigma).powf(2.)*4.5*(r/sigma).powf(3.5)/sigma
+    6.5*(r/sigma).powf(5.5)/sigma + 4.*epsilon/relative_energy*0.5*(sigma*r).powf(-0.5) - (p/sigma).powi(2)*4.5*(r/sigma).powf(3.5)/sigma
 }
 
 /// W-W cublic spline potential from Bjorkas et al.
@@ -337,7 +337,7 @@ pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
             -0.050264585985867E4
         ];
 
-        (a[0] + a[1]*x + a[2]*x.powf(2.) + a[3]*x.powf(3.) + a[4]*x.powf(4.) + a[5]*x.powf(5.))*EV
+        (a[0] + a[1]*x + a[2]*x.powi(2) + a[3]*x.powi(3) + a[4]*x.powf(4.) + a[5]*x.powf(5.))*EV
 
     } else {
 
@@ -365,7 +365,7 @@ pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
             2.466990000000000,
         ];
 
-        a.iter().zip(delta).map(|(&a_i, delta_i)| EV*a_i*(delta_i - x).powf(3.)*heaviside(delta_i - x)).sum::<f64>()
+        a.iter().zip(delta).map(|(&a_i, delta_i)| EV*a_i*(delta_i - x).powi(3)*heaviside(delta_i - x)).sum::<f64>()
     }
 }
 
@@ -380,7 +380,7 @@ pub fn doca_tungsten_tungsten_cubic_spline(r: f64, p: f64, relative_energy: f64)
         let a = screening_length(74., 74., InteractionPotential::ZBL);
         distance_of_closest_approach_function_singularity_free(r, a, 74., 74., relative_energy, p, InteractionPotential::ZBL)
     } else {
-        (r/ANGSTROM).powf(2.) - (r/ANGSTROM).powf(2.)*tungsten_tungsten_cubic_spline(r)/relative_energy - p.powf(2.)/ANGSTROM.powf(2.)
+        (r/ANGSTROM).powi(2) - (r/ANGSTROM).powi(2)*tungsten_tungsten_cubic_spline(r)/relative_energy - p.powi(2)/ANGSTROM.powi(2)
     }
 }
 

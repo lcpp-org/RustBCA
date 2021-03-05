@@ -155,7 +155,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                         //We just need the lindhard screening length here, so the particular potential is not important
                         let a: f64 = interactions::screening_length(Za, Zb, InteractionPotential::MOLIERE);
                         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
-                        let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powf(3.)/n/a/a;
+                        let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powi(3)/n/a/a;
 
                         let (x2, y2, z2) = material.closest_point(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                         let dx = x2 - particle_2.pos.x;
@@ -386,7 +386,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     let interaction_potential = options.interaction_potential[particle_1.interaction_index][particle_2.interaction_index];
 
     if let InteractionPotential::COULOMB{Za: Z1, Zb: Z2} = interaction_potential {
-        let doca = Z1*Z2*Q*Q/relative_energy/PI/EPS0/8. + (64.*(relative_energy*PI*p*EPS0).powf(2.) + (Z1*Z2*Q*Q).powf(2.)).sqrt()/relative_energy/PI/EPS0/8.;
+        let doca = Z1*Z2*Q*Q/relative_energy/PI/EPS0/8. + (64.*(relative_energy*PI*p*EPS0).powi(2) + (Z1*Z2*Q*Q).powi(2)).sqrt()/relative_energy/PI/EPS0/8.;
         return doca/interactions::screening_length(Z1, Z2, interaction_potential);
     }
 
@@ -497,7 +497,7 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     };
     let psi = (theta.sin().atan2(Ma/Mb + theta.cos())).abs();
     let psi_recoil = (theta.sin().atan2(1. - theta.cos())).abs();
-    let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powf(2.)*E0*(theta/2.).sin().powf(2.);
+    let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powi(2)*E0*(theta/2.).sin().powi(2);
 
     Ok(BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asymptotic_deflection, x0))
 }
@@ -511,7 +511,7 @@ fn scattering_integral_mw(x: f64, beta: f64, reduced_energy: f64, interaction_po
 
 /// Gauss-Legendre scattering integrand.
 fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> Result<f64, anyhow::Error> {
-    let result = 4.*impact_parameter*u/(r0*(1. - interaction_potential(r0/(1. - u*u))/relative_energy - impact_parameter*impact_parameter*(1. - u*u).powf(2.)/r0/r0).sqrt());
+    let result = 4.*impact_parameter*u/(r0*(1. - interaction_potential(r0/(1. - u*u))/relative_energy - impact_parameter*impact_parameter*(1. - u*u).powi(2)/r0/r0).sqrt());
 
     if result.is_nan() {
         Err(anyhow!("Numerical error: Gauss-Legendre scattering integrand complex. Likely incorrect distance of closest approach Er = {}, r0 = {} A, p = {} A - check root-finder.",
@@ -523,7 +523,7 @@ fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energ
 
 /// Gauss-Mehler scattering integrand.
 fn scattering_function_gm(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> Result<f64, anyhow::Error> {
-    let result = impact_parameter/r0/(1. - interaction_potential(r0/u)/relative_energy - (impact_parameter*u/r0).powf(2.)).sqrt();
+    let result = impact_parameter/r0/(1. - interaction_potential(r0/u)/relative_energy - (impact_parameter*u/r0).powi(2)).sqrt();
 
     if result.is_nan() {
         Err(anyhow!("Numerical error: Gauss-Mehler scattering integrand complex. Likely incorrect distance of closest approach Er = {} eV r0 = {} A, p = {} A - check root-finder.",

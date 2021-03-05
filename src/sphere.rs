@@ -73,7 +73,7 @@ impl Geometry for Sphere {
         };
 
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
-        let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powf(3.)).collect();
+        let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
         let total_density: f64 = densities.iter().sum();
         let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
@@ -107,17 +107,17 @@ impl Geometry for Sphere {
         self.electronic_stopping_correction_factor
     }
     fn inside(&self, x: f64, y: f64, z: f64) -> bool {
-        let r = (x.powf(2.) + y.powf(2.) + z.powf(2.)).sqrt();
+        let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
         r < self.radius
     }
 
     fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
-        let r = (x.powf(2.) + y.powf(2.) + z.powf(2.)).sqrt();
+        let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
         r < (10.*self.energy_barrier_thickness + self.radius)
     }
 
     fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
-        let r = (x.powf(2.) + y.powf(2.) + z.powf(2.)).sqrt();
+        let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
         r < (self.energy_barrier_thickness + self.radius)
     }
 
@@ -126,7 +126,7 @@ impl Geometry for Sphere {
     }
 
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
-        let r = (x.powf(2.) + y.powf(2.) + z.powf(2.)).sqrt();
+        let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
         let R = self.radius;
         let ux = x/r;
         let uy = y/r;

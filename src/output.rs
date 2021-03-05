@@ -14,7 +14,7 @@ pub fn energy_angle_from_particle(particle: &particle::Particle, units: &OutputU
     let uy = particle.dir.y;
     let uz = particle.dir.z;
 
-    let vyz = ((uy).powf(2.) + (uz).powf(2.)).sqrt();
+    let vyz = ((uy).powi(2) + (uz).powi(2)).sqrt();
     let angle = vyz.atan2(-ux) * 180.0 / PI;
 
     (energy, angle)
