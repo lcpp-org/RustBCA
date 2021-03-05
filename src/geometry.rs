@@ -71,7 +71,7 @@ impl Geometry for Mesh0D {
 
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
 
-        let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powf(3.)).collect();
+        let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
 
         let total_density: f64 = densities.iter().sum();
 
@@ -175,7 +175,7 @@ impl Geometry for Mesh1D {
 
         let densities: Vec<Vec<f64>> = geometry_input.densities
             .iter()
-            .map( |row| row.iter().map(|element| element/(length_unit).powf(3.)).collect() ).collect();
+            .map( |row| row.iter().map(|element| element/(length_unit).powi(3)).collect() ).collect();
 
         //Assert all layer density lists are equal length
         assert!(
@@ -369,7 +369,7 @@ impl Geometry for Mesh2D {
 
         let densities: Vec<Vec<f64>> = geometry_input.densities
             .iter()
-            .map( |row| row.iter().map(|element| element/(length_unit).powf(3.)).collect() ).collect();
+            .map( |row| row.iter().map(|element| element/(length_unit).powi(3)).collect() ).collect();
 
         //Assert all triangle density lists are equal length
         assert!(

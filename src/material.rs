@@ -248,7 +248,7 @@ impl <T: Geometry + GeometryInput> Material<T> {
 
         for (n, Zb) in self.number_densities(x, y, z).iter().zip(&self.Z) {
 
-            let beta = (1. - (1. + E/Ma/C.powf(2.)).powf(-2.)).sqrt();
+            let beta = (1. - (1. + E/Ma/C.powi(2)).powf(-2.)).sqrt();
             let v = beta*C;
 
             // This term is an empirical fit to the mean ionization potential

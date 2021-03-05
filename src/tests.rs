@@ -67,7 +67,7 @@ fn test_spherical_geometry() {
     let ux = 1214.0*ANGSTROM;
     let uy = 123123.0*ANGSTROM;
     let uz = 1239.0*ANGSTROM;
-    let r = (ux.powf(2.) + uy.powf(2.) + uz.powf(2.)).sqrt();
+    let r = (ux.powi(2) + uy.powi(2) + uz.powi(2)).sqrt();
     let R = 1001.0*ANGSTROM;
     let u = (ux/r*R, uy/r*R, uz/r*R);
     assert!(!material_sphere.inside(u.0, u.1, u.2));
@@ -563,7 +563,7 @@ fn test_rotate_particle() {
     assert!(approx_eq!(f64, particle.dir.y, 0., epsilon = 1E-12), "particle.dir.y: {} Should be ~0.", particle.dir.y);
 
     //Check that particle direction vector remains normalized following rotations
-    assert!(approx_eq!(f64, particle.dir.x.powf(2.) + particle.dir.y.powf(2.) + particle.dir.z.powf(2.), 1.), "Particle direction not normalized.");
+    assert!(approx_eq!(f64, particle.dir.x.powi(2) + particle.dir.y.powi(2) + particle.dir.z.powi(2), 1.), "Particle direction not normalized.");
 
 }
 
