@@ -397,21 +397,21 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
     #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
     match root_finder {
         Rootfinder::POLYNOMIAL{complex_threshold} => polynomial_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, complex_threshold)
-            .with_context(|| format!("Numerical error: CPR rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
+            .with_context(|| format!("Numerical error: Polynomial rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
         Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, derivative_free} =>
             cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, derivative_free)
             .with_context(|| format!("Numerical error: CPR rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
-            .with_context(|| format!("Numerical error: CPR rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
+            .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
     }
 
     #[cfg(not(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl")))]
     match root_finder {
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
-            .with_context(|| format!("Numerical error: CPR rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
+            .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
         _ => panic!("Input error: unimplemented root-finder. Choose NEWTON or build with cpr_rootfinder to enable CPR and POLYNOMIAL")
     }

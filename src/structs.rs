@@ -16,7 +16,7 @@ impl Vector {
 
     /// Calculates vector magnitude.
     pub fn magnitude(&self) -> f64 {
-        return (self.x*self.x + self.y*self.y + self.z*self.z).sqrt();
+        (self.x*self.x + self.y*self.y + self.z*self.z).sqrt()
     }
 
     /// Assigns vector values from another vector.
