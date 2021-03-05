@@ -236,7 +236,7 @@ impl SummaryPerSpecies {
 
         if self.m.contains(&(particle.m)) {
 
-            let index = self.m.iter().position(|m| *m == particle.m).unwrap();
+            let index = self.m.iter().position(|m| (*m - particle.m).abs() < f64::EPSILON).unwrap();
 
             match (particle.incident, particle.left) {
                 (true, true) => self.reflected[index] += 1,

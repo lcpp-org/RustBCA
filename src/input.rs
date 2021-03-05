@@ -216,17 +216,17 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static, <T as Ge
     }
 
     for i in 0..options.interaction_potential.len() {
-        assert!(&options.interaction_potential.len() == &options.interaction_potential[i].len(),
+        assert!(options.interaction_potential.len() == options.interaction_potential[i].len(),
             "Input error: interaction matrix not square.");
 
-        assert!(&options.scattering_integral.len() == &options.scattering_integral[i].len(),
+        assert!(options.scattering_integral.len() == options.scattering_integral[i].len(),
             "Input error: scattering intergral matrix not square.");
 
-        assert!(&options.root_finder.len() == &options.root_finder[i].len(),
+        assert!(options.root_finder.len() == options.root_finder[i].len(),
             "Input error: rootfinder matrix not square.");
     }
 
-    for ((interaction_potentials, scattering_integrals), root_finders) in options.interaction_potential.clone().iter().zip(options.scattering_integral.clone()).zip(options.root_finder.clone()) {
+    for ((interaction_potentials, scattering_integrals), root_finders) in options.interaction_potential.iter().zip(options.scattering_integral.clone()).zip(options.root_finder.clone()) {
         for ((interaction_potential, scattering_integral), root_finder) in interaction_potentials.iter().zip(scattering_integrals).zip(root_finders) {
 
             if cfg!(not(any(feature="cpr_rootfinder_openblas", feature="cpr_rootfinder_netlib", feature="cpr_rootfinder_intel_mkl",))) {
