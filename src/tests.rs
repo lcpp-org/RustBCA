@@ -160,7 +160,6 @@ fn test_geometry() {
     particle_1.pos_old.y = 0.;
 
     assert_eq!(material_2D.geometry.get_ck(0., 0., 0.), material_0D.geometry.get_ck(0., 0., 0.));
-    assert_eq!(material_2D.geometry.get_energy_barrier_thickness(), material_0D.geometry.get_energy_barrier_thickness());
     assert_eq!(material_2D.geometry.get_densities(0., 0., 0.), material_0D.geometry.get_densities(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_total_density(0., 0., 0.), material_0D.geometry.get_total_density(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_concentrations(0., 0., 0.), material_0D.geometry.get_concentrations(0., 0., 0.));

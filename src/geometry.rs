@@ -19,7 +19,6 @@ pub trait Geometry: GeometryInput {
     fn inside(&self, x: f64, y: f64, z: f64) -> bool;
     fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool;
     fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool;
-    fn get_energy_barrier_thickness(&self) -> f64;
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64);
 }
 
@@ -116,10 +115,6 @@ impl Geometry for Mesh0D {
 
     fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
         x > -self.energy_barrier_thickness
-    }
-
-    fn get_energy_barrier_thickness(&self) -> f64 {
-        self.energy_barrier_thickness
     }
 
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
@@ -280,9 +275,6 @@ impl Geometry for Mesh1D {
     fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
         (x > self.top - self.top_energy_barrier_thickness) & (x < self.bottom + self.bottom_energy_barrier_thickness)
     }
-    fn get_energy_barrier_thickness(&self) -> f64 {
-        self.top_energy_barrier_thickness
-    }
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
         let distance_from_bottom = (x - self.bottom).abs();
         let distance_from_top = (x - self.top).abs();
@@ -424,7 +416,7 @@ impl Geometry for Mesh2D {
         } else {
             let nearest_cell = self.nearest_to(x, y, z);
             let distance = nearest_cell.distance_to(x, y, z);
-            distance < self.get_energy_barrier_thickness()
+            distance < self.energy_barrier_thickness
         }
     }
 
@@ -435,11 +427,7 @@ impl Geometry for Mesh2D {
     fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
         self.nearest_to(x, y, z).get_densities()
     }
-
-    fn get_energy_barrier_thickness(&self) -> f64 {
-        self.energy_barrier_thickness
-    }
-
+    
     fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
         self.simulation_boundary.contains(&point!(x: x, y: y))
     }

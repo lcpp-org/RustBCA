@@ -121,10 +121,6 @@ impl Geometry for Sphere {
         r < (self.energy_barrier_thickness + self.radius)
     }
 
-    fn get_energy_barrier_thickness(&self) -> f64 {
-        self.energy_barrier_thickness
-    }
-
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
         let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
         let R = self.radius;
