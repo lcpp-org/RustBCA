@@ -49,6 +49,7 @@ LENZ_JENSEN = "LENZ_JENSEN"
 QUADRATURE = "MENDENHALL_WELLER"
 MAGIC = "MAGIC"
 
+
 def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_final_positions=True, plot_origins=True, show=True):
     '''
     Plots trajectories of ions and recoils from [name]trajectories.output.
@@ -121,9 +122,11 @@ def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_fin
             plt.plot(x_box, y_box, color='dimgray', linewidth=3)
 
         elif boundary:
-            for point_1, point_2 in zip(boundary[1:], boundary[:-1]):
-                plt.plot([point_1[0], point_2[0]], [point_1[1], point_2[1]], line_width=3, color='dimgray')
-            plt.plot([boundary[0][0], boundary[-1][0]], [boundary[0][1], boundary[-1][1]], line_width=3, color='dimgray')
+            x = [x_ for (x_, y_) in boundary]
+            y = [y_ for (x_, y_) in boundary]
+            x.append(x[0])
+            y.append(y[0])
+            plt.plot(x, y, linewidth=3, color="dimgray")
 
         plt.xlabel('x [um]')
         plt.ylabel('y [um]')
@@ -132,6 +135,92 @@ def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_fin
         if show: plt.show()
         plt.savefig(name+'trajectories_.png')
         plt.close()
+
+def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_final_positions=True, plot_origins=True, radius=None):
+    '''
+    Plots trajectories of ions and recoils from [name]trajectories.output.
+    Optionally marks final positions/origins and draws material geometry.
+
+    Geometry input is in same length_unit as the rustbca particles.
+
+    Args:
+        name (string): name of rustbca simulation
+        thickness list(float): thickness of target, or None to not draw target
+        depth list(float): depth of target, or None to not draw target
+        boundary list((float, float)): points that make up boundary, or None to not draw boundary
+        plot_final_positions (bool): mark final positions (reflected: X sputtered: * deposited ^)
+        plot_origins (bool): mark originating locations of particles (o)
+        show (bool): whether or not to show plots
+
+    '''
+
+    from mayavi.mlab import points3d, plot3d, mesh
+
+    reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
+    sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
+    deposited = np.atleast_2d(np.genfromtxt(name+'deposited.output', delimiter=','))
+    trajectories = np.atleast_2d(np.genfromtxt(name+'trajectories.output', delimiter=','))
+    trajectory_data = np.atleast_1d(np.genfromtxt(name+'trajectory_data.output', delimiter=',').transpose().astype(int))
+
+    if np.size(trajectories) > 0:
+        min_Z = np.min(trajectories[:, 1])
+        max_Z = np.max(trajectories[:, 1])
+        colormap = cm.ScalarMappable(norm=colors.SymLogNorm( min_Z*4, vmin=min_Z, vmax=max_Z), cmap='tab20')
+
+    index = 0
+    x_max = 0
+    min_length = 3
+    if np.size(trajectories) > 0:
+        for trajectory_length in trajectory_data:
+
+            M = trajectories[index, 0]
+            Z = trajectories[index, 1]
+            E = trajectories[index:(trajectory_length + index), 2]
+            x = trajectories[index:(trajectory_length + index), 3]
+            y = trajectories[index:(trajectory_length + index), 4]
+            z = trajectories[index:(trajectory_length + index), 5]
+
+            if np.max(x) > x_max:
+                x_max = np.max(x)
+
+            if plot_origins: points3d(x[0], y[0], z[0], color=colormap.to_rgba(Z)[:3], scale_factor=1)
+
+            if len(x) > min_length: plot3d(x, y, z, color = colormap.to_rgba(Z)[:3], tube_radius=0.5)
+
+            index += trajectory_length
+
+        if plot_final_positions:
+            if np.size(sputtered) > 0:
+                sputtered_colors = [colormap.to_rgba(Z)[:3] for Z in sputtered[:,1]]
+                for x, y, z, c in zip(sputtered[:,3], sputtered[:,4], sputtered[:,5], sputtered_colors):
+                    points3d(x, y, z, color=c, scale_factor=2)
+
+            if np.size(reflected) > 0:
+                reflected_colors = [colormap.to_rgba(Z)[:3] for Z in reflected[:,1]]
+                for x, y, z, c in zip(reflected[:,3], reflected[:,4], reflected[:,5], reflected_colors):
+                    points3d(x, y, z, color=c, scale_factor=2)
+
+            if np.size(deposited) > 0:
+                deposited_colors = [colormap.to_rgba(Z)[:3] for Z in deposited[:,1]]
+                for x, y, z, c in zip(deposited[:,2], deposited[:,3], deposited[:,4], deposited_colors):
+                    points3d(x, y, z, color=c, scale_factor=2)
+
+        if boundary:
+            x = [x_ for (x_, y_) in boundary]
+            y = [y_ for (x_, y_) in boundary]
+            z = [0. for (x_, y_) in boundary]
+            x.append(x[0])
+            y.append(y[0])
+            z.append(z[0])
+            plot3d(x, y, z, color=(0.1, 0.1, 0.1))
+
+        if radius:
+            [phi, theta] = np.mgrid[0:2 * np.pi:64j, 0:np.pi:64j]
+            x = np.cos(phi)*np.sin(theta)
+            y = np.sin(phi)*np.sin(theta)
+            z = np.cos(theta)
+            mesh(radius*x, radius*y, radius*z, color=(0.1,0.7,0.3), opacity=0.2)
+
 
 def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
     thickness, depth, track_trajectories=True, track_recoils=True,
