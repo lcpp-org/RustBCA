@@ -210,8 +210,9 @@ pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asymptoti
 
 pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
     let E = particle.E;
-    let costheta = particle.dir.dot(&normal);
     
+    let costheta = particle.dir.dot(&normal);
+
     let a = (E/(E + Es)).sqrt();
     let b = -(E).sqrt()*costheta;
     let c = (E*costheta.powi(2) + Es).sqrt();

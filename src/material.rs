@@ -332,7 +332,7 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
                 SurfaceBindingModel::PLANAR{..} => {
                     particle::surface_refraction(particle_1, Vector::new(dx/mag, dy/mag, dz/mag), Es);
                 }
-                _ => particle.E += Es;
+                _ => particle_1.E += Es,
             }
         }
     }
@@ -358,7 +358,7 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
                     SurfaceBindingModel::PLANAR{..} => {
                         particle::surface_refraction(particle_1, Vector::new(-dx/mag, -dy/mag, -dz/mag), -Es);
                     }
-                    _ => particle.E += -Es;
+                    _ => particle_1.E += -Es,
                 }
 
             } else {
