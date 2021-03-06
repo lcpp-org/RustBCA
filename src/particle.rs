@@ -211,13 +211,10 @@ pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asymptoti
 pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
     let E = particle.E;
     let costheta = particle.dir.dot(&normal);
-    //println!("costheta: {}", costheta);
-
+    
     let a = (E/(E + Es)).sqrt();
     let b = -(E).sqrt()*costheta;
     let c = (E*costheta.powi(2) + Es).sqrt();
-    //println!("0: {} {} {}", particle.dir.x, particle.dir.y, particle.dir.z);
-    //println!("1: {} {} {}", a, b, c);
 
     let u1x = (E/(E + Es)).sqrt()*particle.dir.x + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.x;
     let u1y = (E/(E + Es)).sqrt()*particle.dir.y + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.y;
@@ -225,8 +222,6 @@ pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
     particle.dir.x = u1x;
     particle.dir.y = u1y;
     particle.dir.z = u1z;
-    //println!("2: {} {} {}", particle.dir.x, particle.dir.y, particle.dir.z);
-
     particle.E += Es;
 }
 
