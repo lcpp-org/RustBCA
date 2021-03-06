@@ -27,7 +27,7 @@ Ec = [ 5.76, 1.0,]
 Z = [ 5, 7,]
 m = [ 10.811, 14,]
 interaction_index = [0, 0]
-surface_binding_model = "AVERAGE"
+surface_binding_model = {"ISOTROPIC"={calculation="TARGET"}}
 bulk_binding_model = "AVERAGE"
 
 [particle_parameters]

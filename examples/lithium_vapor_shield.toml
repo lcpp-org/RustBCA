@@ -63,5 +63,5 @@ Ec = [ 1.0, 1.0 ]
 Z = [ 3, 3 ]
 m = [ 6.94, 6.94 ]
 interaction_index = [ 0, 0 ]
-surface_binding_model = "INDIVIDUAL"
+surface_binding_model = {"PLANAR"={calculation="TARGET"}}
 bulk_binding_model = "INDIVIDUAL"

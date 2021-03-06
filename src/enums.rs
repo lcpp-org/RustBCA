@@ -41,7 +41,7 @@ impl fmt::Display for ElectronicStoppingMode {
 
 /// Mode of surface binding energy calculation.
 #[derive(Deserialize, PartialEq, Clone, Copy)]
-pub enum SurfaceBindingModel {
+pub enum SurfaceBindingCalculation {
     /// Surface binding energies will be determined individually depending only on the particle's `Es`.
     INDIVIDUAL,
     /// Surface binding energies will be a concentration-weighted average of material surface-binding energies, unless `particle.Es == 0` in which case it will be zero.
@@ -50,15 +50,34 @@ pub enum SurfaceBindingModel {
     AVERAGE,
 }
 
+impl fmt::Display for SurfaceBindingCalculation {
+    fn fmt (&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            SurfaceBindingCalculation::INDIVIDUAL => write!(f,
+                "Individual surface binding energies."),
+            SurfaceBindingCalculation::TARGET => write!(f,
+                "Concentration-dependent linear combinaion of target binding energies."),
+            SurfaceBindingCalculation::AVERAGE => write!(f,
+                "Average between particle and concentration-dependent linear combination of target binding energies."),
+        }
+    }
+}
+
+#[derive(Deserialize, PartialEq, Clone, Copy)]
+pub enum SurfaceBindingModel {
+    /// Isotropic surface binding potential - results in no refraction
+    ISOTROPIC{calculation: SurfaceBindingCalculation},
+    /// Planar surface binding potential - particles refract through potential
+    PLANAR{calculation: SurfaceBindingCalculation}
+}
+
 impl fmt::Display for SurfaceBindingModel {
     fn fmt (&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            SurfaceBindingModel::INDIVIDUAL => write!(f,
-                "Individual surface binding energies."),
-            SurfaceBindingModel::TARGET => write!(f,
-                "Concentration-dependent linear combinaion of target binding energies."),
-            SurfaceBindingModel::AVERAGE => write!(f,
-                "Average between particle and concentration-dependent linear combination of target binding energies."),
+            SurfaceBindingModel::ISOTROPIC{..} => write!(f,
+                "Locally isotropic surface binding energy."),
+            SurfaceBindingModel::PLANAR{..} => write!(f,
+                "Locally planar surface binding energy."),
         }
     }
 }

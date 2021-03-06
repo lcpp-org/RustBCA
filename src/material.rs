@@ -184,24 +184,27 @@ impl <T: Geometry + GeometryInput> Material<T> {
         let concentrations = self.geometry.get_concentrations(x, y, z);
 
         match self.surface_binding_model {
-            SurfaceBindingModel::INDIVIDUAL => particle.Es,
+            SurfaceBindingModel::ISOTROPIC{calculation} | SurfaceBindingModel::PLANAR{calculation} => {
+                match calculation {
+                    SurfaceBindingCalculation::INDIVIDUAL => particle.Es,
 
-            SurfaceBindingModel::TARGET => {
-                if particle.Es == 0. {
-                    0.
-                } else {
-                    self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum()
+                    SurfaceBindingCalculation::TARGET => {
+                        if particle.Es == 0. {
+                            0.
+                        } else {
+                            self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum()
+                        }
+                    },
+
+                    SurfaceBindingCalculation::AVERAGE => {
+                        if (particle.Es == 0.) | (self.Es.iter().sum::<f64>() == 0.) {
+                            0.
+                        } else {
+                            0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum::<f64>())
+                        }
+                    },
                 }
-            },
-
-            SurfaceBindingModel::AVERAGE => {
-                if (particle.Es == 0.) | (self.Es.iter().sum::<f64>() == 0.) {
-                    0.
-                } else {
-                    0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum::<f64>())
-                }
-            },
-
+            }
         }
     }
 
@@ -327,9 +330,13 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
             let costheta = dx*cosx/mag + dy*cosy/mag + dz*cosz/mag;
             particle_1.E += Es;
 
-            //Surface refraction through energy barrier via Snell's law
-            let delta_theta = particle::refraction_angle(costheta, E, E + Es);
-            particle::rotate_particle(particle_1, delta_theta, 0.);
+            match material.surface_binding_model {
+                SurfaceBindingModel::PLANAR{..} => {
+                    let delta_theta = particle::refraction_angle(costheta, E, E + Es);
+                    particle::rotate_particle(particle_1, delta_theta, 0.);
+                }
+                _ => ()
+            }
         }
     }
 
@@ -348,9 +355,13 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
 
                 particle_1.E += -Es;
 
-                //Surface refraction via Snell's law
-                let delta_theta = particle::refraction_angle(costheta, E, E - Es);
-                particle::rotate_particle(particle_1, delta_theta, 0.);
+                match material.surface_binding_model {
+                    SurfaceBindingModel::PLANAR{..} => {
+                        let delta_theta = particle::refraction_angle(costheta, E, E + Es);
+                        particle::rotate_particle(particle_1, delta_theta, 0.);
+                    }
+                    _ => ()
+                }
 
             } else {
 
