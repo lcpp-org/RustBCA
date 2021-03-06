@@ -68,7 +68,7 @@ First, an example of 2 keV helium ions at normal incidence on a layered titanium
 
  ![Helium implantation depth distributions at 2 keV in a layered TiO2-Al-Si target.](layered_target.png)
 
- The depth distribution, compared to F-TRIDYN, clearly shows the effect of layer composition on the combined nuclear and electronic stopping of helium.
+ The depth distribution, compared to F-TRIDYN, clearly shows the effect of layer composition and sharp interfaces on the combined nuclear and electronic stopping of helium.
 
  Second, as an example of the capability of RustBCA to handle 2D geometry, the trajectories of 1 keV hydrogen on a circular cross-section of boron-nitride can be simulated.
 
@@ -79,6 +79,8 @@ First, an example of 2 keV helium ions at normal incidence on a layered titanium
 Third, the 2D boron nitride example can be run as a spherical boron nitride dust grain, by running the following command:
 
 `cargo run --release SPHERE examples/boron_nitride_sphere.toml`
+
+The trajectories can be plotted in 3D with mayavi using `do_trajectory_plot_3d()` or in 2D with matplotlib using `do_trajectory_plot()` in `scripts/rustbca.py`.
 
 ![Trajectories of hydrogen, boron, and nitrogen in a 3D boron target. Hydrogen is medium blue, nitrogen yellow, and boron light blue.](sphere_trajectories_bordered.png)
 
