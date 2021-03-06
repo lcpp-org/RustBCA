@@ -84,4 +84,7 @@ The trajectories can be plotted in 3D with mayavi using `do_trajectory_plot_3d()
 
 ![Trajectories of hydrogen, boron, and nitrogen in a 3D boron target. Hydrogen is medium blue, nitrogen yellow, and boron light blue.](sphere_trajectories_bordered.png)
 
+# Acknowledgements
+This work was funded by the U.S. Department of Energy, Office of Fusion Energy Sciences through the Scientific Discovery through Advanced Computing (SciDAC) project on Plasma Surface Interactions 2 (Grant No. DE-SC0018141)
+
 # References
