@@ -38,6 +38,10 @@ impl Vector {
     pub fn add(&self, other: &Vector) -> Vector {
         Vector::new(self.x + other.x, self.y + other.y, self.z + other.z)
     }
+
+    pub fn dot(&self, other: &Vector) -> f64 {
+        self.x*other.x + self.y*other.y + self.z*other.z
+    }
 }
 
 /// Vector4 is a trajectory-tracking object that includes x, y, z, and the current energy.
