@@ -30,18 +30,18 @@ use ndarray::prelude::*;
 #[derive(Serialize)]
 #[cfg(feature = "distributions")]
 pub struct Distributions {
-    energies: Array1<f64>,
-    angles: Array1<f64>,
-    x_range: Array1<f64>,
-    y_range: Array1<f64>,
-    z_range: Array1<f64>,
-    reflected_ead: Array2<usize>,
-    sputtered_ead: Array2<usize>,
-    implanted_x: Array1<usize>,
-    implanted_y: Array1<usize>,
-    implanted_z: Array1<usize>,
-    electronic_energy_loss_x: Array1<f64>,
-    nuclear_energy_loss_x: Array1<f64>,
+    pub energies: Array1<f64>,
+    pub angles: Array1<f64>,
+    pub x_range: Array1<f64>,
+    pub y_range: Array1<f64>,
+    pub z_range: Array1<f64>,
+    pub reflected_ead: Array2<usize>,
+    pub sputtered_ead: Array2<usize>,
+    pub implanted_x: Array1<usize>,
+    pub implanted_y: Array1<usize>,
+    pub implanted_z: Array1<usize>,
+    pub electronic_energy_loss_x: Array1<f64>,
+    pub nuclear_energy_loss_x: Array1<f64>,
 }
 
 #[cfg(feature = "distributions")]

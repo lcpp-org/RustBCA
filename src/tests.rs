@@ -4,6 +4,141 @@ use super::*;
 use float_cmp::*;
 
 #[test]
+#[cfg(feature = "distributions")]
+fn test_distributions() {
+
+    let options = Options {
+        name: "test".to_string(),
+        track_trajectories: false,
+        track_recoils: false,
+        track_recoil_trajectories: false,
+        write_buffer_size: 8000,
+        weak_collision_order: 0,
+        suppress_deep_recoils: false,
+        high_energy_free_flight_paths: false,
+        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
+        mean_free_path_model: MeanFreePathModel::LIQUID,
+        interaction_potential: vec![vec![InteractionPotential::KR_C]],
+        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
+        num_threads: 1,
+        num_chunks: 1,
+        use_hdf5: false,
+        root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}]],
+        track_displacements: false,
+        track_energy_losses: true,
+        energy_min: 0.0,
+        energy_max: 10.0,
+        energy_num: 11,
+        angle_min: 0.0,
+        angle_max: 90.0,
+        angle_num: 11,
+        x_min: 0.0,
+        y_min: -10.0,
+        z_min: -10.0,
+        x_max: 10.0,
+        y_max: 10.0,
+        z_max: 10.0,
+        x_num: 11,
+        y_num: 11,
+        z_num: 11,
+    };
+
+    let output_units = OutputUnits {
+        length_unit: 1.0,
+        energy_unit: 1.0,
+        mass_unit: 1.0,
+    };
+
+    let mass = 1.0;
+    let Z = 1.0;
+    let E = 1.5;
+    let Ec = 0.0;
+    let Es = 0.0;
+    let x = 0.0;
+    let y = 0.0;
+    let z = 0.0;
+    let cosx = 0.0;
+    let cosy = 0.0;
+    let cosz = 0.0;
+    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+
+
+
+    let mut distributions = output::Distributions::new(&options);
+    assert_eq!(distributions.x_range[0], 0.);
+    assert_eq!(distributions.x_range[distributions.x_range.len() - 1], 10.);
+    assert_eq!(distributions.y_range[0], -10.);
+    assert_eq!(distributions.y_range[distributions.y_range.len() - 1], 10.);
+    assert_eq!(distributions.z_range[0], -10.);
+    assert_eq!(distributions.z_range[distributions.z_range.len() - 1], 10.);
+    assert_eq!(distributions.x_range.len(), 11);
+    assert_eq!(distributions.y_range.len(), 11);
+    assert_eq!(distributions.z_range.len(), 11);
+
+    particle.incident = true;
+    particle.stopped = true;
+    particle.pos.x = 0.0;
+    distributions.update(&particle, &output_units, &options, 1);
+    assert_eq!(distributions.implanted_x[0], 1);
+
+    particle.pos.x = 10.0;
+    distributions.update(&particle, &output_units, &options, 1);
+    assert_eq!(distributions.implanted_x[10], 1);
+
+    distributions.update(&particle, &output_units, &options, 1);
+    assert_eq!(distributions.implanted_y[5], 3);
+    assert_eq!(distributions.implanted_z[5], 3);
+
+    particle.incident = false;
+    particle.stopped = false;
+    particle.left = true;
+    particle.E = 0.0;
+    particle.dir.x = -0.999;
+    particle.dir.y = 0.001;
+    particle.dir.z = 0.0;
+    particle.dir.normalize();
+
+    distributions.update(&particle, &output_units, &options, 1);
+    assert_eq!(distributions.sputtered_ead[[0, 0]], 1);
+
+    particle.E = -0.1;
+    distributions.update(&particle, &output_units, &options, 1);
+    assert_eq!(distributions.sputtered_ead[[0, 0]], 1);
+
+    particle.E = 10.0;
+    distributions.update(&particle, &output_units, &options, 1);
+    assert_eq!(distributions.sputtered_ead[[10, 0]], 1);
+
+    particle.dir = Vector::new(-0.707, 0.707, 0.0);
+    particle.dir.normalize();
+    distributions.update(&particle, &output_units, &options, 1);
+    assert_eq!(distributions.sputtered_ead[[10, 5]], 1);
+
+    particle.incident = true;
+    particle.E = 0.0;
+    particle.dir.x = -0.999;
+    particle.dir.y = 0.001;
+    particle.dir.z = 0.0;
+    particle.dir.normalize();
+
+    distributions.update(&particle, &output_units, &options, 1);
+    assert_eq!(distributions.reflected_ead[[0, 0]], 1);
+
+    particle.E = -0.1;
+    distributions.update(&particle, &output_units, &options, 1);
+    assert_eq!(distributions.reflected_ead[[0, 0]], 1);
+
+    particle.E = 10.0;
+    distributions.update(&particle, &output_units, &options, 1);
+    assert_eq!(distributions.reflected_ead[[10, 0]], 1);
+
+    particle.dir = Vector::new(-0.707, 0.707, 0.0);
+    particle.dir.normalize();
+    distributions.update(&particle, &output_units, &options, 1);
+    assert_eq!(distributions.reflected_ead[[10, 5]], 1);
+}
+
+#[test]
 fn test_spherical_geometry() {
     let mass = 1.;
     let Z = 1.;
@@ -442,6 +577,7 @@ fn test_momentum_conservation() {
 
                         let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, x1, y1, z1, cosx, cosy, cosz, false, false, 0);
 
+                        #[cfg(not(feature = "distributions"))]
                         let options = Options {
                             name: "test".to_string(),
                             track_trajectories: false,
@@ -461,6 +597,43 @@ fn test_momentum_conservation() {
                             root_finder: vec![vec![root_finder]],
                             track_displacements: false,
                             track_energy_losses: false,
+                        };
+
+                        #[cfg(feature = "distributions")]
+                        let options = Options {
+                            name: "test".to_string(),
+                            track_trajectories: false,
+                            track_recoils: true,
+                            track_recoil_trajectories: false,
+                            write_buffer_size: 8000,
+                            weak_collision_order: 0,
+                            suppress_deep_recoils: false,
+                            high_energy_free_flight_paths: high_energy_free_flight_paths,
+                            electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
+                            mean_free_path_model: MeanFreePathModel::LIQUID,
+                            interaction_potential: vec![vec![potential]],
+                            scattering_integral: vec![vec![scattering_integral]],
+                            num_threads: 1,
+                            num_chunks: 1,
+                            use_hdf5: false,
+                            root_finder: vec![vec![root_finder]],
+                            track_displacements: false,
+                            track_energy_losses: false,
+                            energy_min: 0.0,
+                            energy_max: 10.0,
+                            energy_num: 11,
+                            angle_min: 0.0,
+                            angle_max: 90.0,
+                            angle_num: 11,
+                            x_min: 0.0,
+                            y_min: -10.0,
+                            z_min: -10.0,
+                            x_max: 10.0,
+                            y_max: 10.0,
+                            z_max: 10.0,
+                            x_num: 11,
+                            y_num: 11,
+                            z_num: 11,
                         };
 
                         let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
@@ -602,6 +775,7 @@ fn test_quadrature() {
     let p = 1.*ANGSTROM;
     let a = interactions::screening_length(Za, Zb, InteractionPotential::KR_C);
 
+    #[cfg(not(feature = "distributions"))]
     let options = Options {
         name: "test".to_string(),
         track_trajectories: false,
@@ -621,6 +795,43 @@ fn test_quadrature() {
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
         track_displacements: false,
         track_energy_losses: false,
+    };
+
+    #[cfg(feature = "distributions")]
+    let options = Options {
+        name: "test".to_string(),
+        track_trajectories: false,
+        track_recoils: true,
+        track_recoil_trajectories: false,
+        write_buffer_size: 8000,
+        weak_collision_order: 0,
+        suppress_deep_recoils: false,
+        high_energy_free_flight_paths: false,
+        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
+        mean_free_path_model: MeanFreePathModel::LIQUID,
+        interaction_potential:  vec![vec![InteractionPotential::KR_C]],
+        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
+        num_threads: 1,
+        num_chunks: 1,
+        use_hdf5: false,
+        root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
+        track_displacements: false,
+        track_energy_losses: false,
+        energy_min: 0.0,
+        energy_max: 10.0,
+        energy_num: 11,
+        angle_min: 0.0,
+        angle_max: 90.0,
+        angle_num: 11,
+        x_min: 0.0,
+        y_min: -10.0,
+        z_min: -10.0,
+        x_max: 10.0,
+        y_max: 10.0,
+        z_max: 10.0,
+        x_num: 11,
+        y_num: 11,
+        z_num: 11,
     };
 
     let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 100, 1E-12).unwrap();
