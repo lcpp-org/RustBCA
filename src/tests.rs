@@ -475,8 +475,11 @@ fn test_surface_refraction() {
     let cosy_new = cosy_new/dir_mag;
     let cosz_new = cosz_new/dir_mag;
 
-    let delta_theta = particle::refraction_angle(cosx, E, E + Es);
-    particle::rotate_particle(&mut particle_1, delta_theta, 0.);
+    //let delta_theta = particle::refraction_angle(cosx, E, E + Es);
+    //particle::rotate_particle(&mut particle_1, delta_theta, 0.);
+
+    let normal = Vector::new(1.0, 0.0, 0.0);
+    particle::surface_refraction(&mut particle_1, normal, Es);
 
     if print_output {
         println!("dir_mag: {}", dir_mag);
@@ -502,17 +505,22 @@ fn test_surface_refraction() {
         println!("{} {} {}", particle_1.dir.x, particle_1.dir.y, particle_1.dir.z);
     }
 
-    let delta_theta = particle::refraction_angle(particle_1.dir.x, particle_1.E, particle_1.E - Es);
-    particle::rotate_particle(&mut particle_1, delta_theta, 0.);
+    //let delta_theta = particle::refraction_angle(particle_1.dir.x, particle_1.E, particle_1.E - Es);
+    //particle::rotate_particle(&mut particle_1, delta_theta, 0.);
+
+    let normal = Vector::new(1.0, 0.0, 0.0);
+    particle::surface_refraction(&mut particle_1, normal, -Es);
+
 
     if print_output {
         println!("{} {} {}", cosx_new, cosy_new, cosz_new);
         println!("{} {} {}", particle_1.dir.x, particle_1.dir.y, particle_1.dir.z);
     }
 
-    assert!(approx_eq!(f64, particle_1.dir.x, cosx_new, epsilon=1E-12));
-    assert!(approx_eq!(f64, particle_1.dir.y, cosy_new, epsilon=1E-12));
-    assert!(approx_eq!(f64, particle_1.dir.z, cosz_new, epsilon=1E-12));
+    assert!(approx_eq!(f64, particle_1.dir.x, cosx_new, epsilon=1E-9));
+    assert!(approx_eq!(f64, particle_1.dir.y, cosy_new, epsilon=1E-9));
+    assert!(approx_eq!(f64, particle_1.dir.z, cosz_new, epsilon=1E-9));
+
 }
 
 #[test]

@@ -326,16 +326,13 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
             let dy = y2 - y;
             let dz = z2 - z;
             let mag = (dx*dx + dy*dy + dz*dz).sqrt();
-
             let costheta = dx*cosx/mag + dy*cosy/mag + dz*cosz/mag;
-            particle_1.E += Es;
 
             match material.surface_binding_model {
                 SurfaceBindingModel::PLANAR{..} => {
-                    let delta_theta = particle::refraction_angle(costheta, E, E + Es);
-                    particle::rotate_particle(particle_1, delta_theta, 0.);
+                    particle::surface_refraction(particle_1, Vector::new(dx/mag, dy/mag, dz/mag), Es);
                 }
-                _ => ()
+                _ => particle_1.E += Es,
             }
         }
     }
@@ -348,19 +345,20 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
         let dz = z2 - z;
         let mag = (dx*dx + dy*dy + dz*dz).sqrt();
         let costheta = dx*cosx/mag + dy*cosy/mag + dz*cosz/mag;
-        let leaving_energy = E*costheta*costheta;
+
+        let leaving_energy = match material.surface_binding_model {
+            SurfaceBindingModel::ISOTROPIC{..} => E,
+            SurfaceBindingModel::PLANAR{..} => E*costheta*costheta,
+        };
 
         if costheta < 0. {
             if leaving_energy > Es {
 
-                particle_1.E += -Es;
-
                 match material.surface_binding_model {
                     SurfaceBindingModel::PLANAR{..} => {
-                        let delta_theta = particle::refraction_angle(costheta, E, E + Es);
-                        particle::rotate_particle(particle_1, delta_theta, 0.);
+                        particle::surface_refraction(particle_1, Vector::new(-dx/mag, -dy/mag, -dz/mag), -Es);
                     }
-                    _ => ()
+                    _ => particle_1.E += -Es,
                 }
 
             } else {
