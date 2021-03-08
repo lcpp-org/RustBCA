@@ -74,11 +74,15 @@ RustBCA includes multiple example input files, under the examples/ folder on the
 
 First, an example of 2 keV helium ions at normal incidence on a layered titanium dioxide, aluminum, and silicon target can be run in 2D with:
 
- `cargo run --release examples/layered_target.toml`
+```
+cargo run --release examples/layered_target.toml
+```
 
  The same example using the 1D layered geometry can be run with:
 
-  `cargo run --release 1D examples/layered_target_1D.toml`
+```
+cargo run --release 1D examples/layered_target_1D.toml
+```
 
  ![Helium implantation depth distributions at 2 keV in a layered TiO2-Al-Si target.](layered_target.png)
 
@@ -88,7 +92,9 @@ First, an example of 2 keV helium ions at normal incidence on a layered titanium
 
  Second, as an example of the capability of RustBCA to handle 2D geometry, the trajectories of 1 keV hydrogen on a circular cross-section of boron-nitride can be simulated.
 
- `cargo run --release examples/boron_nitride.toml`
+```
+cargo run --release examples/boron_nitride.toml
+```
 
  ![Trajectories of hydrogen and mobile boron and nitrogen resulting from 10 1 keV hydrogen ions impacting on a circular cross-section boron-nitride target.](H_B_N.png)
 
@@ -96,7 +102,9 @@ First, an example of 2 keV helium ions at normal incidence on a layered titanium
 
 Third, the 2D boron nitride example can be run as a spherical boron nitride dust grain, by running the following command:
 
-`cargo run --release SPHERE examples/boron_nitride_sphere.toml`
+```
+cargo run --release SPHERE examples/boron_nitride_sphere.toml
+```
 
 The trajectories can be plotted in 3D with mayavi using `do_trajectory_plot_3d()` or in 2D with matplotlib using `do_trajectory_plot()` in `scripts/rustbca.py`.
 
