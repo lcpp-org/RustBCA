@@ -68,7 +68,7 @@ Quantities of interest from RustBCA, including sputtering yields, have been benc
 
 # Examples
 
-RustBCA includes multiple example input files, under the examples/ folder on the directory, as well as discussion of each on the RustBCA github wiki page. Three examples will be summarized here.
+RustBCA includes multiple example input files, under the examples/ folder on the directory, as well as discussion of each on the RustBCA [Wiki](https://github.com/lcpp-org/RustBCA/wiki) page. Three examples will be summarized here.
 
 ## Example 1: Layered Targets
 
