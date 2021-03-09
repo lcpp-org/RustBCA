@@ -184,6 +184,21 @@ impl <T: Geometry + GeometryInput> Material<T> {
         let concentrations = self.geometry.get_concentrations(x, y, z);
 
         match self.surface_binding_model {
+            SurfaceBindingModel::TARGET => {
+                if particle.Es == 0. {
+                    0.
+                } else {
+                    self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum()
+                }
+            },
+            SurfaceBindingModel::INDIVIDUAL => particle.Es,
+            SurfaceBindingModel::AVERAGE => {
+                if (particle.Es == 0.) | (self.Es.iter().sum::<f64>() == 0.) {
+                    0.
+                } else {
+                    0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum::<f64>())
+                }
+            },
             SurfaceBindingModel::ISOTROPIC{calculation} | SurfaceBindingModel::PLANAR{calculation} => {
                 match calculation {
                     SurfaceBindingCalculation::INDIVIDUAL => particle.Es,
@@ -329,10 +344,8 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
             let costheta = dx*cosx/mag + dy*cosy/mag + dz*cosz/mag;
 
             match material.surface_binding_model {
-                SurfaceBindingModel::PLANAR{..} => {
-                    particle::surface_refraction(particle_1, Vector::new(dx/mag, dy/mag, dz/mag), Es);
-                }
-                _ => particle_1.E += Es,
+                SurfaceBindingModel::ISOTROPIC{..} => particle_1.E += Es,
+                _ => particle::surface_refraction(particle_1, Vector::new(dx/mag, dy/mag, dz/mag), Es)
             }
         }
     }
@@ -348,7 +361,7 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
 
         let leaving_energy = match material.surface_binding_model {
             SurfaceBindingModel::ISOTROPIC{..} => E,
-            SurfaceBindingModel::PLANAR{..} => E*costheta*costheta,
+            _ => E*costheta*costheta,
         };
 
         if costheta < 0. {

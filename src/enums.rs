@@ -68,7 +68,11 @@ pub enum SurfaceBindingModel {
     /// Isotropic surface binding potential - results in no refraction
     ISOTROPIC{calculation: SurfaceBindingCalculation},
     /// Planar surface binding potential - particles refract through potential
-    PLANAR{calculation: SurfaceBindingCalculation}
+    PLANAR{calculation: SurfaceBindingCalculation},
+    /// Planar surface binding potential default - particles refract through potential
+    TARGET,
+    INDIVIDUAL,
+    AVERAGE
 }
 
 impl fmt::Display for SurfaceBindingModel {
@@ -78,6 +82,9 @@ impl fmt::Display for SurfaceBindingModel {
                 "Locally isotropic surface binding energy."),
             SurfaceBindingModel::PLANAR{..} => write!(f,
                 "Locally planar surface binding energy."),
+            SurfaceBindingModel::TARGET => write!(f, "Locally planar surface binding energy."),
+            SurfaceBindingModel::INDIVIDUAL =>write!(f, "Locally planar surface binding energy."),
+            SurfaceBindingModel::AVERAGE =>write!(f, "Locally planar surface binding energy."),
         }
     }
 }
