@@ -68,7 +68,11 @@ pub enum SurfaceBindingModel {
     /// Isotropic surface binding potential - results in no refraction
     ISOTROPIC{calculation: SurfaceBindingCalculation},
     /// Planar surface binding potential - particles refract through potential
-    PLANAR{calculation: SurfaceBindingCalculation}
+    PLANAR{calculation: SurfaceBindingCalculation},
+    /// Planar surface binding potential default - particles refract through potential
+    TARGET,
+    INDIVIDUAL,
+    AVERAGE
 }
 
 impl fmt::Display for SurfaceBindingModel {
@@ -78,6 +82,9 @@ impl fmt::Display for SurfaceBindingModel {
                 "Locally isotropic surface binding energy."),
             SurfaceBindingModel::PLANAR{..} => write!(f,
                 "Locally planar surface binding energy."),
+            SurfaceBindingModel::TARGET => write!(f, "Locally planar surface binding energy."),
+            SurfaceBindingModel::INDIVIDUAL =>write!(f, "Locally planar surface binding energy."),
+            SurfaceBindingModel::AVERAGE =>write!(f, "Locally planar surface binding energy."),
         }
     }
 }
@@ -210,6 +217,7 @@ pub enum Rootfinder {
     CPR{n0: usize, nmax: usize, epsilon: f64, complex_threshold: f64, truncation_threshold: f64,
         far_from_zero: f64, interval_limit: f64, derivative_free: bool},
     POLYNOMIAL{complex_threshold: f64},
+    DEFAULTNEWTON,
 }
 
 impl fmt::Display for Rootfinder {
@@ -219,6 +227,7 @@ impl fmt::Display for Rootfinder {
             Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, derivative_free} =>
                 write!(f, "Chebyshev-Proxy Rootfinder with {}-polishing", match derivative_free { true => "Secant", false => "Newton"}),
             Rootfinder::POLYNOMIAL{complex_threshold} => write!(f, "Frobenius Companion Matrix Polynomial Real Rootfinder with a complex tolerance of {}", complex_threshold),
+            Rootfinder::DEFAULTNEWTON => write!(f, "Newton-Raphson Rootfinder with maximum {} iterations and toleance = {}", 100, 1E-3),
         }
     }
 }
