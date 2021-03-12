@@ -1,9 +1,29 @@
 use super::*;
 
 /// Rustbca's internal representation of the particle_parameters input.
+
+
+#[cfg(feature = "hdf5_input")]
 #[derive(Deserialize, Clone)]
 pub struct ParticleParameters {
     pub particle_input_filename: String,
+    pub length_unit: String,
+    pub energy_unit: String,
+    pub mass_unit: String,
+    pub N: Vec<usize>,
+    pub m: Vec<f64>,
+    pub Z: Vec<f64>,
+    pub E: Vec<f64>,
+    pub Ec: Vec<f64>,
+    pub Es: Vec<f64>,
+    pub pos: Vec<(f64, f64, f64)>,
+    pub dir: Vec<(f64, f64, f64)>,
+    pub interaction_index: Vec<usize>
+}
+
+#[cfg(not(feature = "hdf5_input"))]
+#[derive(Deserialize, Clone)]
+pub struct ParticleParameters {
     pub length_unit: String,
     pub energy_unit: String,
     pub mass_unit: String,
@@ -210,7 +230,7 @@ pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asymptoti
 
 pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
     let E = particle.E;
-    
+
     let costheta = particle.dir.dot(&normal);
 
     let a = (E/(E + Es)).sqrt();

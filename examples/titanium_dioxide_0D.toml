@@ -1,7 +1,7 @@
 [options]
-name = "2000.0eV_0.0001deg_He_TiO2"
+name = "10.0"
 track_trajectories = false
-track_recoils = true
+track_recoils = false
 track_recoil_trajectories = false
 write_buffer_size = 8000
 weak_collision_order = 3
@@ -14,7 +14,7 @@ scattering_integral = [["MENDENHALL_WELLER"]]
 use_hdf5 = false
 root_finder = [[{"NEWTON"={max_iterations=100, tolerance=1E-6}}]]
 num_threads = 4
-num_chunks = 10
+num_chunks = 100
 track_displacements = false
 track_energy_losses = false
 energy_min = 0.0
@@ -37,11 +37,11 @@ z_num = 20
 length_unit = "1e-6"
 energy_unit = "EV"
 mass_unit = "AMU"
-N = [ 10000,]
+N = [ 100000,]
 m = [ 4.002602,]
 Z = [ 2,]
 E = [ 2000.0,]
-Ec = [ 1.0,]
+Ec = [ 0.01,]
 Es = [ 0.0,]
 interaction_index = [0]
 pos = [ [ 0.0, 0.0, 0.0,],]
