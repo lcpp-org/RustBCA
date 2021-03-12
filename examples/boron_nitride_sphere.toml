@@ -14,7 +14,7 @@ electronic_stopping_mode = "LOW_ENERGY_NONLOCAL"
 mean_free_path_model = "LIQUID"
 interaction_potential = [["KR_C"]]
 scattering_integral = [["MENDENHALL_WELLER"]]
-root_finder = [[{"NEWTON"={max_iterations=100, tolerance=1E-3}}]]
+root_finder = [["DEFAULTNEWTON"]]
 track_displacements = false
 track_energy_losses = false
 
@@ -25,9 +25,9 @@ Eb = [ 0.0, 0.0,]
 Es = [ 5.76, 0.0,]
 Ec = [ 5.76, 1.0,]
 Z = [ 5, 7,]
-m = [ 10.811, 14,]
+m = [ 10.811, 14.0,]
 interaction_index = [0, 0]
-surface_binding_model = {"ISOTROPIC"={calculation="TARGET"}}
+surface_binding_model = "TARGET"
 bulk_binding_model = "AVERAGE"
 
 [particle_parameters]
