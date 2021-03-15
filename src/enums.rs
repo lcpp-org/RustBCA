@@ -7,6 +7,8 @@ pub enum MaterialType {
     SPHERE(material::Material<sphere::Sphere>),
     #[cfg(feature = "parry")]
     BALL(material::Material<parry::ParryBall>),
+    #[cfg(feature = "parry")]
+    TRIMESH(material::Material<parry::ParryTriMesh>)
 }
 
 #[derive(Deserialize)]
@@ -17,6 +19,8 @@ pub enum GeometryType {
     SPHERE,
     #[cfg(feature = "parry")]
     BALL,
+    #[cfg(feature = "parry")]
+    TRIMESH,
 }
 
 /// Mode of electronic stopping to use.

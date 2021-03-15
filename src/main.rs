@@ -72,7 +72,7 @@ pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
 
 #[cfg(feature = "parry")]
-pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall};
+pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, ParryTriMeshInput, InputParryTriMesh};
 
 fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::ParticleInput>, material: material::Material<T>, options: Options, output_units: OutputUnits) {
 
@@ -166,6 +166,8 @@ fn main() {
             "SPHERE" => GeometryType::SPHERE,
             #[cfg(feature = "parry")]
             "BALL" => GeometryType::BALL,
+            #[cfg(feature = "parry")]
+            "TRIMESH" => GeometryType::TRIMESH,
             _ => panic!("Unimplemented geometry {}.", args[1].clone())
         }),
         _ => panic!("Too many command line arguments. RustBCA accepts 0 (use 'input.toml') 1 (<input file name>) or 2 (<geometry type> <input file name>)"),
@@ -192,6 +194,11 @@ fn main() {
         GeometryType::BALL => {
             let (particle_input_array, material, options, output_units) = input::input::<ParryBall>(input_file);
             physics_loop::<ParryBall>(particle_input_array, material, options, output_units);
+        }
+        #[cfg(feature = "parry")]
+        GeometryType::TRIMESH => {
+            let (particle_input_array, material, options, output_units) = input::input::<ParryTriMesh>(input_file);
+            physics_loop::<ParryTriMesh>(particle_input_array, material, options, output_units);
         }
     }
 }
