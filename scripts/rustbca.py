@@ -136,7 +136,7 @@ def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_fin
         plt.savefig(name+'trajectories_.png')
         plt.close()
 
-def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_final_positions=True, plot_origins=True, radius=None):
+def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_final_positions=True, plot_origins=True, radius=None, cube_length=None):
     '''
     Plots trajectories of ions and recoils from [name]trajectories.output.
     Optionally marks final positions/origins and draws material geometry.
@@ -169,16 +169,17 @@ def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_
 
     index = 0
     x_max = 0
-    min_length = 3
+    min_length = 1
+    scale_factor = 100.0
     if np.size(trajectories) > 0:
         for trajectory_length in trajectory_data:
 
             M = trajectories[index, 0]
             Z = trajectories[index, 1]
             E = trajectories[index:(trajectory_length + index), 2]
-            x = trajectories[index:(trajectory_length + index), 3]
-            y = trajectories[index:(trajectory_length + index), 4]
-            z = trajectories[index:(trajectory_length + index), 5]
+            x = trajectories[index:(trajectory_length + index), 3]*scale_factor
+            y = trajectories[index:(trajectory_length + index), 4]*scale_factor
+            z = trajectories[index:(trajectory_length + index), 5]*scale_factor
 
             if np.max(x) > x_max:
                 x_max = np.max(x)
@@ -193,17 +194,17 @@ def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_
             if np.size(sputtered) > 0:
                 sputtered_colors = [colormap.to_rgba(Z)[:3] for Z in sputtered[:,1]]
                 for x, y, z, c in zip(sputtered[:,3], sputtered[:,4], sputtered[:,5], sputtered_colors):
-                    points3d(x, y, z, color=c, scale_factor=2)
+                    points3d(x*scale_factor, y*scale_factor, z*scale_factor, color=c, scale_factor=2)
 
             if np.size(reflected) > 0:
                 reflected_colors = [colormap.to_rgba(Z)[:3] for Z in reflected[:,1]]
                 for x, y, z, c in zip(reflected[:,3], reflected[:,4], reflected[:,5], reflected_colors):
-                    points3d(x, y, z, color=c, scale_factor=2)
+                    points3d(x*scale_factor, y*scale_factor, z*scale_factor, color=c, scale_factor=2)
 
             if np.size(deposited) > 0:
                 deposited_colors = [colormap.to_rgba(Z)[:3] for Z in deposited[:,1]]
                 for x, y, z, c in zip(deposited[:,2], deposited[:,3], deposited[:,4], deposited_colors):
-                    points3d(x, y, z, color=c, scale_factor=2)
+                    points3d(x*scale_factor, y*scale_factor, z*scale_factor, color=c, scale_factor=2)
 
         if boundary:
             x = [x_ for (x_, y_) in boundary]
@@ -220,6 +221,44 @@ def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_
             y = np.sin(phi)*np.sin(theta)
             z = np.cos(theta)
             mesh(radius*x, radius*y, radius*z, color=(0.1,0.7,0.3), opacity=0.2)
+
+        if cube_length:
+            faces = []
+            
+            xmin = -cube_length/2.*scale_factor
+            xmax = cube_length/2.*scale_factor
+            ymin = -cube_length/2.*scale_factor
+            ymax = cube_length/2.*scale_factor
+            zmin = -cube_length/2.*scale_factor
+            zmax = cube_length/2.*scale_factor
+
+            x,y = np.mgrid[xmin:xmax:3j,ymin:ymax:3j]
+            z = np.ones(y.shape)*zmin
+            faces.append((x,y,z))
+
+            x,y = np.mgrid[xmin:xmax:3j,ymin:ymax:3j]
+            z = np.ones(y.shape)*zmax
+            faces.append((x,y,z))
+
+            x,z = np.mgrid[xmin:xmax:3j,zmin:zmax:3j]
+            y = np.ones(z.shape)*ymin
+            faces.append((x,y,z))
+
+            x,z = np.mgrid[xmin:xmax:3j,zmin:zmax:3j]
+            y = np.ones(z.shape)*ymax
+            faces.append((x,y,z))
+
+            y,z = np.mgrid[ymin:ymax:3j,zmin:zmax:3j]
+            x = np.ones(z.shape)*xmin
+            faces.append((x,y,z))
+
+            y,z = np.mgrid[ymin:ymax:3j,zmin:zmax:3j]
+            x = np.ones(z.shape)*xmax
+            faces.append((x,y,z))
+
+            for grid in faces:
+                x,y,z = grid
+                mesh(x, y, z, opacity=0.4, color=(0.1,0.7,0.3))
 
 
 def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
