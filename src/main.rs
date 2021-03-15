@@ -60,6 +60,9 @@ pub mod consts;
 pub mod structs;
 pub mod sphere;
 
+#[cfg(feature = "parry")]
+pub mod parry;
+
 pub use crate::enums::*;
 pub use crate::consts::*;
 pub use crate::structs::*;
@@ -67,6 +70,9 @@ pub use crate::input::{Input2D, Input1D, Input0D, Options, InputFile, GeometryIn
 pub use crate::output::{OutputUnits};
 pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
+
+#[cfg(feature = "parry")]
+pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall};
 
 fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::ParticleInput>, material: material::Material<T>, options: Options, output_units: OutputUnits) {
 
@@ -158,6 +164,8 @@ fn main() {
             "1D" => GeometryType::MESH1D,
             "2D" => GeometryType::MESH2D,
             "SPHERE" => GeometryType::SPHERE,
+            #[cfg(feature = "parry")]
+            "BALL" => GeometryType::BALL,
             _ => panic!("Unimplemented geometry {}.", args[1].clone())
         }),
         _ => panic!("Too many command line arguments. RustBCA accepts 0 (use 'input.toml') 1 (<input file name>) or 2 (<geometry type> <input file name>)"),
@@ -179,6 +187,11 @@ fn main() {
         GeometryType::SPHERE => {
             let (particle_input_array, material, options, output_units) = input::input::<Sphere>(input_file);
             physics_loop::<Sphere>(particle_input_array, material, options, output_units);
+        },
+        #[cfg(feature = "parry")]
+        GeometryType::BALL => {
+            let (particle_input_array, material, options, output_units) = input::input::<ParryBall>(input_file);
+            physics_loop::<ParryBall>(particle_input_array, material, options, output_units);
         }
     }
 }
