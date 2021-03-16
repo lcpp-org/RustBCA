@@ -215,7 +215,7 @@ impl Geometry for ParryTriMesh {
         let total_density: f64 = densities.iter().sum();
         let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
-        let points = input.vertices.iter().map(|p| Point::new(p[0]*length_unit , p[1]*length_unit , p[2]*length_unit )).collect();
+        let points = input.vertices.iter().map(|p| Point::new(p[0]*length_unit , p[1]*length_unit , p[2]*length_unit)).collect();
         let trimesh = TriMesh::new(points, input.indices.clone());
         let boundary = trimesh.aabb(&Isometry::identity());
 

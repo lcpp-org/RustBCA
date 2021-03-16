@@ -136,7 +136,7 @@ def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_fin
         plt.savefig(name+'trajectories_.png')
         plt.close()
 
-def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_final_positions=True, plot_origins=True, radius=None, cube_length=None):
+def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_final_positions=True, plot_origins=True, radius=None, cube_length=None, input_file=None):
     '''
     Plots trajectories of ions and recoils from [name]trajectories.output.
     Optionally marks final positions/origins and draws material geometry.
@@ -154,7 +154,7 @@ def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_
 
     '''
 
-    from mayavi.mlab import points3d, plot3d, mesh
+    from mayavi.mlab import points3d, plot3d, mesh, triangular_mesh
 
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
@@ -170,7 +170,7 @@ def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_
     index = 0
     x_max = 0
     min_length = 1
-    scale_factor = 100.0
+    scale_factor = 200.0
     if np.size(trajectories) > 0:
         for trajectory_length in trajectory_data:
 
@@ -224,7 +224,7 @@ def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_
 
         if cube_length:
             faces = []
-            
+
             xmin = -cube_length/2.*scale_factor
             xmax = cube_length/2.*scale_factor
             ymin = -cube_length/2.*scale_factor
@@ -259,6 +259,15 @@ def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_
             for grid in faces:
                 x,y,z = grid
                 mesh(x, y, z, opacity=0.4, color=(0.1,0.7,0.3))
+
+        if input_file:
+            input = toml.load(input_file)
+            vertices = input['geometry_input']['vertices']
+            triangles = input['geometry_input']['indices']
+            x = [vertex[0]*scale_factor for vertex in vertices]
+            y = [vertex[1]*scale_factor for vertex in vertices]
+            z = [vertex[2]*scale_factor for vertex in vertices]
+            triangular_mesh(x, y, z, triangles, opacity=0.3, color=(0.1, 0.7, 0.3), representation='surface')
 
 
 def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,

@@ -330,9 +330,16 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
             mfp *= -rand::random::<f64>().ln();
         }
 
+        if !material.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z) {
+            let (x, y, z) = material.geometry.closest_point(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
+            let distance_to = ((x - particle_1.pos.x).powi(2) + (y - particle_1.pos.y).powi(2) + (z - particle_1.pos.z).powi(2)).sqrt();
+            mfp += distance_to;
+        }
+
         for k in 0..(options.weak_collision_order + 1) {
             binary_collision_geometries.push(BinaryCollisionGeometry::new(phis_azimuthal[k], impact_parameters[k], mfp))
         }
+
         return binary_collision_geometries;
     }
 }
