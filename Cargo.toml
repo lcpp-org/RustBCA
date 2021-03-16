@@ -1,6 +1,6 @@
 [package]
 name = "rustBCA"
-version = "0.1.0"
+version = "1.1.0"
 authors = ["Jon Drobny <drobny2@illinois.edu>"]
 edition = "2018"
 
@@ -41,3 +41,4 @@ cpr_rootfinder_intel_mkl = ["rcpr", "intel-mkl-src"]
 distributions = ["ndarray"]
 no_list_output = []
 parry = ["parry3d-f64"]
+accelerated_ions = []
