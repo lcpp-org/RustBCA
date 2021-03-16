@@ -2,6 +2,7 @@ use super::*;
 use parry3d_f64::shape::{Ball, TriMesh};
 use parry3d_f64::query::{PointQuery, Ray, RayCast};
 use parry3d_f64::math::{Isometry, Point, Vector};
+use parry3d_f64::bounding_volume::AABB;
 
 #[derive(Deserialize, Clone)]
 pub struct InputParryBall {
@@ -183,6 +184,7 @@ pub struct ParryTriMesh {
     pub electronic_stopping_correction_factor: f64,
     pub energy_barrier_thickness: f64,
     pub trimesh: TriMesh,
+    pub boundary: AABB,
 }
 
 impl GeometryInput for ParryTriMesh {
@@ -215,6 +217,7 @@ impl Geometry for ParryTriMesh {
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
         let points = input.vertices.iter().map(|p| Point::new(p[0]*length_unit , p[1]*length_unit , p[2]*length_unit )).collect();
         let trimesh = TriMesh::new(points, input.indices.clone());
+        let boundary = trimesh.aabb(&Isometry::identity());
 
         ParryTriMesh {
             densities,
@@ -222,6 +225,7 @@ impl Geometry for ParryTriMesh {
             electronic_stopping_correction_factor,
             energy_barrier_thickness,
             trimesh,
+            boundary,
         }
     }
 
@@ -252,7 +256,7 @@ impl Geometry for ParryTriMesh {
             true
         } else {
             let p = Point::new(x , y , z );
-            let distance = self.trimesh.distance_to_local_point(&p, true);
+            let distance = self.boundary.distance_to_local_point(&p, true);
             //dbg!(distance);
             distance < 10.*self.energy_barrier_thickness
         }
