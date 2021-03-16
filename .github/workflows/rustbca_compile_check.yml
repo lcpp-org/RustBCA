@@ -37,7 +37,7 @@ jobs:
         sudo apt install libhdf5-dev
     - name: Test RustBCA
       run: |
-        cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions
+        cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions,parry3d
     - name: Run Examples
       run: |
         cargo run --release 0D examples/boron_nitride_0D.toml
@@ -48,4 +48,4 @@ jobs:
         ./target/release/rustBCA examples/layered_geometry.toml
         cat 2000.0eV_0.0001deg_He_TiO2_Al_Sisummary.output
         ./target/release/rustBCA SPHERE examples/boron_nitride_sphere.toml
-        
+        cargo run --release --features parry3d TRIMESH examples/tungsten_twist_trimesh.toml

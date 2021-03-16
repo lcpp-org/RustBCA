@@ -427,7 +427,7 @@ impl Geometry for Mesh2D {
     fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
         self.nearest_to(x, y, z).get_densities()
     }
-    
+
     fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
         self.simulation_boundary.contains(&point!(x: x, y: y))
     }
