@@ -1,4 +1,4 @@
-name: rustBCA Compile check
+name: RustBCA Compile check
 
 on:
   push:
@@ -41,11 +41,11 @@ jobs:
     - name: Run Examples
       run: |
         cargo run --release 0D examples/boron_nitride_0D.toml
-        ./target/release/rustBCA 0D examples/titanium_dioxide_0D.toml
-        ./target/release/rustBCA 1D examples/layered_geometry_1D.toml
+        ./target/release/RustBCA 0D examples/titanium_dioxide_0D.toml
+        ./target/release/RustBCA 1D examples/layered_geometry_1D.toml
         cat 2000.0eV_0.0001deg_He_TiO2_Al_Sisummary.output
-        ./target/release/rustBCA examples/boron_nitride.toml
-        ./target/release/rustBCA examples/layered_geometry.toml
+        ./target/release/RustBCA examples/boron_nitride.toml
+        ./target/release/RustBCA examples/layered_geometry.toml
         cat 2000.0eV_0.0001deg_He_TiO2_Al_Sisummary.output
-        ./target/release/rustBCA SPHERE examples/boron_nitride_sphere.toml
+        ./target/release/RustBCA SPHERE examples/boron_nitride_sphere.toml
         cargo run --release --features parry3d TRIMESH examples/tungsten_twist_trimesh.toml
