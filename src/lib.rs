@@ -99,6 +99,7 @@ pub fn simple_bca_py(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64,
 
 pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
 
+    #[cfg(feature = "distributions")]
     let options = Options {
         name: "test".to_string(),
         track_trajectories: false,
@@ -133,6 +134,28 @@ pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1
         x_num: 11,
         y_num: 11,
         z_num: 11,
+    };
+
+    #[cfg(not(feature = "distributions"))]
+    let options = Options {
+        name: "test".to_string(),
+        track_trajectories: false,
+        track_recoils: true,
+        track_recoil_trajectories: false,
+        write_buffer_size: 8000,
+        weak_collision_order: 3,
+        suppress_deep_recoils: false,
+        high_energy_free_flight_paths: false,
+        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
+        mean_free_path_model: MeanFreePathModel::LIQUID,
+        interaction_potential: vec![vec![InteractionPotential::KR_C]],
+        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
+        num_threads: 1,
+        num_chunks: 1,
+        use_hdf5: false,
+        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
+        track_displacements: false,
+        track_energy_losses: false,
     };
 
     let p = particle::Particle {
