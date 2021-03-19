@@ -118,6 +118,21 @@ pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1
         root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
         track_displacements: false,
         track_energy_losses: false,
+        energy_min: 0.0,
+        energy_max: 10.0,
+        energy_num: 11,
+        angle_min: 0.0,
+        angle_max: 90.0,
+        angle_num: 11,
+        x_min: 0.0,
+        y_min: -10.0,
+        z_min: -10.0,
+        x_max: 10.0,
+        y_max: 10.0,
+        z_max: 10.0,
+        x_num: 11,
+        y_num: 11,
+        z_num: 11,
     };
 
     let p = particle::Particle {
