@@ -67,11 +67,7 @@ impl <T: Geometry> Material<T> {
     /// Gets concentrations of triangle that contains or is nearest to (x, y)
     pub fn get_concentrations(&self, x: f64, y: f64, z: f64) -> Vec<f64> {
 
-        let total_number_density: f64 = if self.inside(x, y, z) {
-            self.geometry.get_total_density(x, y, z)
-        } else {
-            self.geometry.get_densities_nearest_to(x, y, z).iter().sum::<f64>()
-        };
+        let total_number_density: f64 = self.geometry.get_total_density(x, y, z);
 
         return self.geometry.get_densities(x, y, z).iter().map(|&i| i / total_number_density).collect();
     }
@@ -96,11 +92,7 @@ impl <T: Geometry> Material<T> {
 
     /// Gets electronic stopping correction factor for LS and OR
     pub fn electronic_stopping_correction_factor(&self, x: f64, y: f64, z: f64) -> f64 {
-        if self.inside(x, y, z) {
-            return self.geometry.get_ck(x, y, z);
-        } else {
-            return self.geometry.get_ck_nearest_to(x, y, z);
-        }
+        return self.geometry.get_ck(x, y, z);
     }
 
     /// Determines the local mean free path from the formula sum(n(x, y))^(-1/3)
@@ -110,20 +102,12 @@ impl <T: Geometry> Material<T> {
 
     /// Total number density of triangle that contains or is nearest to (x, y).
     pub fn total_number_density(&self, x: f64, y: f64, z: f64) -> f64 {
-        if self.inside(x, y, z) {
-            return self.geometry.get_densities(x, y, z).iter().sum::<f64>();
-        } else {
-            return self.geometry.get_densities_nearest_to(x, y, z).iter().sum::<f64>();
-        }
+        self.geometry.get_densities(x, y, z).iter().sum::<f64>()
     }
 
     /// Lists number density of each species of triangle that contains or is nearest to (x, y).
     pub fn number_densities(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
-        if self.inside(x, y, z) {
-            return &self.geometry.get_densities(x, y, z);
-        } else {
-            return &self.geometry.get_densities_nearest_to(x, y, z);
-        }
+        return &self.geometry.get_densities(x, y, z);
     }
 
     /// Determines whether a point (x, y) is inside the energy barrier of the material.

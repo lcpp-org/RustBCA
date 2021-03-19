@@ -85,11 +85,12 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
             let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material, &options);
 
             #[cfg(feature = "accelerated_ions")]
-            if !material.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z) {
+            let distance_to_target = if !material.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z) {
                 let (x, y, z) = material.geometry.closest_point(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
-                let distance_to = ((x - particle_1.pos.x).powi(2) + (y - particle_1.pos.y).powi(2) + (z - particle_1.pos.z).powi(2)).sqrt();
-                mfp += distance_to;
-            }
+                ((x - particle_1.pos.x).powi(2) + (y - particle_1.pos.y).powi(2) + (z - particle_1.pos.z).powi(2)).sqrt()
+            } else {
+                0.
+            };
 
             let mut total_energy_loss = 0.;
             let mut total_asymptotic_deflection = 0.;
@@ -182,8 +183,13 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
             }
 
             //Advance particle in space and track total distance traveled
+            #[cfg(not(feature = "accelerated_ions"))]
             let distance_traveled = particle::particle_advance(&mut particle_1,
                 binary_collision_geometries[0].mfp, total_asymptotic_deflection);
+
+            #[cfg(feature = "accelerated_ions")]
+            let distance_traveled = particle::particle_advance(&mut particle_1,
+                binary_collision_geometries[0].mfp + distance_to_target, total_asymptotic_deflection);
 
             //Subtract total energy from all simultaneous collisions and electronic stopping
             bca::update_particle_energy(&mut particle_1, &material, distance_traveled,
