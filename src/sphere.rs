@@ -8,10 +8,6 @@ pub struct InputSphere {
     pub geometry_input: sphere::SphereInput,
 }
 
-impl GeometryInput for InputSphere {
-    type GeometryInput = sphere::SphereInput;
-}
-
 impl InputFile for InputSphere {
 
     fn new(string: &str) -> InputSphere {
@@ -49,7 +45,7 @@ pub struct Sphere {
     pub energy_barrier_thickness: f64,
 }
 
-impl GeometryInput for Sphere {
+impl GeometryInput for InputSphere {
     type GeometryInput = SphereInput;
 }
 
@@ -57,7 +53,7 @@ impl Geometry for Sphere {
 
     type InputFileFormat = InputSphere;
 
-    fn new(input: &<Self as GeometryInput>::GeometryInput) -> Sphere {
+    fn new(input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Sphere {
 
         let length_unit: f64 = match input.length_unit.as_str() {
             "MICRON" => MICRON,
