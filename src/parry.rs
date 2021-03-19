@@ -106,12 +106,6 @@ impl Geometry for ParryBall {
     fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
         &self.concentrations
     }
-    fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
-        &self.densities
-    }
-    fn get_ck_nearest_to(&self, x: f64, y: f64, z: f64) -> f64 {
-        self.electronic_stopping_correction_factor
-    }
     fn inside(&self, x: f64, y: f64, z: f64) -> bool {
         let p = Point::new(x , y , z );
         self.ball.contains_local_point(&p)
@@ -240,12 +234,6 @@ impl Geometry for ParryTriMesh {
     }
     fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
         &self.concentrations
-    }
-    fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
-        &self.densities
-    }
-    fn get_ck_nearest_to(&self, x: f64, y: f64, z: f64) -> f64 {
-        self.electronic_stopping_correction_factor
     }
     fn inside(&self, x: f64, y: f64, z: f64) -> bool {
         inside_trimesh(&self.trimesh, x, y, z)

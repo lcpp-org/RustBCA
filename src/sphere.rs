@@ -100,12 +100,6 @@ impl Geometry for Sphere {
     fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
         &self.concentrations
     }
-    fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
-        &self.densities
-    }
-    fn get_ck_nearest_to(&self, x: f64, y: f64, z: f64) -> f64 {
-        self.electronic_stopping_correction_factor
-    }
     fn inside(&self, x: f64, y: f64, z: f64) -> bool {
         let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
         r < self.radius

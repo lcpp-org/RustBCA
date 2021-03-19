@@ -486,8 +486,8 @@ fn test_geometry() {
     assert_eq!(material_2D.geometry.get_total_density(0., 0., 0.), material_0D.geometry.get_total_density(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_concentrations(0., 0., 0.), material_0D.geometry.get_concentrations(0., 0., 0.));
     assert_eq!(material_2D.geometry.closest_point(-10., 0., 5.), material_0D.geometry.closest_point(-10., 0., 5.));
-    assert_eq!(material_2D.geometry.get_densities_nearest_to(-10., 0., 5.), material_0D.geometry.get_densities_nearest_to(-10., 0., 5.));
-    assert_eq!(material_2D.geometry.get_ck_nearest_to(-10., 0., 5.), material_0D.geometry.get_ck_nearest_to(-10., 0., 5.));
+    assert_eq!(material_2D.geometry.get_densities(-10., 0., 5.), material_0D.geometry.get_densities(-10., 0., 5.));
+    assert_eq!(material_2D.geometry.get_ck(-10., 0., 5.), material_0D.geometry.get_ck(-10., 0., 5.));
 }
 
 #[test]

@@ -14,8 +14,6 @@ pub trait Geometry: GeometryInput {
     fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64;
     fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64;
     fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64>;
-    fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64>;
-    fn get_ck_nearest_to(&self, x: f64, y: f64, z: f64) -> f64;
     fn inside(&self, x: f64, y: f64, z: f64) -> bool;
     fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool;
     fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool;
@@ -97,12 +95,6 @@ impl Geometry for Mesh0D {
     }
     fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
         &self.concentrations
-    }
-    fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
-        &self.densities
-    }
-    fn get_ck_nearest_to(&self, x: f64, y: f64, z: f64) -> f64 {
-        self.electronic_stopping_correction_factor
     }
     fn inside(&self, x: f64, y: f64, z: f64) -> bool {
         x > 0.0
@@ -260,12 +252,6 @@ impl Geometry for Mesh1D {
             &self.layers[self.layers.len() - 1].concentrations
         }
     }
-    fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
-        self.get_densities(x, y, z)
-    }
-    fn get_ck_nearest_to(&self, x: f64, y: f64, z: f64) -> f64 {
-        self.get_ck(x, y, z)
-    }
     fn inside(&self, x: f64, y: f64, z: f64) -> bool {
         (x > self.top) & (x < self.bottom)
     }
@@ -420,14 +406,6 @@ impl Geometry for Mesh2D {
         }
     }
 
-    fn get_ck_nearest_to(&self, x: f64, y: f64, z: f64) -> f64 {
-        self.nearest_to(x, y, z).get_electronic_stopping_correction_factor()
-    }
-
-    fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
-        self.nearest_to(x, y, z).get_densities()
-    }
-
     fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
         self.simulation_boundary.contains(&point!(x: x, y: y))
     }
@@ -438,37 +416,48 @@ impl Geometry for Mesh2D {
         } else {
             panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
         }
-
     }
 
     /// Find the number densities of the triangle that contains or is nearest to (x, y).
     fn get_densities(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
-        for cell in &self.mesh {
-            if cell.contains(x, y, z) {
-                return &cell.densities;
+        if self.inside(x, y, z) {
+            for cell in &self.mesh {
+                if cell.contains(x, y, z) {
+                    return &cell.densities;
+                }
             }
+            panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
+        } else {
+            self.nearest_to(x, y, z).get_densities()
         }
-        panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
     }
 
     /// Find the number densities of the triangle that contains or is nearest to (x, y).
     fn get_ck(&self, x: f64, y: f64, z: f64) -> f64 {
-        for cell in &self.mesh {
-            if cell.contains(x, y, z) {
-                return cell.electronic_stopping_correction_factor;
+        if self.inside(x, y, z) {
+            for cell in &self.mesh {
+                if cell.contains(x, y, z) {
+                    return cell.electronic_stopping_correction_factor;
+                }
             }
+            panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
+        } else {
+            return self.nearest_to(x, y, z).electronic_stopping_correction_factor;
         }
-        panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
     }
 
     /// Determine the total number density of the triangle that contains or is nearest to (x, y).
     fn get_total_density(&self, x: f64, y: f64, z: f64) -> f64 {
-        for cell in &self.mesh {
-            if cell.contains(x, y, z) {
-                return cell.densities.iter().sum::<f64>();
+        if self.inside(x, y, z) {
+            for cell in &self.mesh {
+                if cell.contains(x, y, z) {
+                    return cell.densities.iter().sum::<f64>();
+                }
             }
+            panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
+        } else {
+            return self.nearest_to(x, y, z).densities.iter().sum::<f64>();
         }
-        panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
     }
 
     /// Find the concentrations of the triangle that contains or is nearest to (x, y).
