@@ -27,7 +27,7 @@ pub struct Material<T: Geometry> {
     pub surface_binding_model: SurfaceBindingModel,
     pub bulk_binding_model: BulkBindingModel
 }
-impl <T: Geometry + GeometryInput> Material<T> {
+impl <T: Geometry> Material<T> {
 
     pub fn new(material_parameters: &MaterialParameters, geometry_input: &<<T as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Material<T> {
 

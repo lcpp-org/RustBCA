@@ -5,7 +5,7 @@ use geo::{Polygon, LineString, Point, point, Closest};
 use geo::algorithm::closest_point::ClosestPoint;
 
 ///Trait for a Geometry object - all forms of geometry must implement these traits to be used
-pub trait Geometry: GeometryInput {
+pub trait Geometry {
 
     type InputFileFormat: InputFile + Clone;
 
@@ -45,15 +45,11 @@ pub struct Mesh0D {
     pub energy_barrier_thickness: f64,
 }
 
-impl GeometryInput for Mesh0D {
-    type GeometryInput = Mesh0DInput;
-}
-
 impl Geometry for Mesh0D {
 
     type InputFileFormat = Input0D;
 
-    fn new(input: &<Self as GeometryInput>::GeometryInput) -> Mesh0D {
+    fn new(input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Mesh0D {
 
         let length_unit: f64 = match input.length_unit.as_str() {
             "MICRON" => MICRON,
@@ -137,10 +133,6 @@ pub struct Mesh1D {
     bottom: f64,
     pub top_energy_barrier_thickness: f64,
     pub bottom_energy_barrier_thickness: f64,
-}
-
-impl GeometryInput for Mesh1D {
-    type GeometryInput = Mesh1DInput;
 }
 
 impl Geometry for Mesh1D {
@@ -326,16 +318,12 @@ impl Mesh2D {
     }
 }
 
-impl GeometryInput for Mesh2D {
-    type GeometryInput = Mesh2DInput;
-}
-
 impl Geometry for Mesh2D {
 
     type InputFileFormat = Input2D;
 
     /// Constructor for Mesh2D object from geometry_input.
-    fn new(geometry_input: &<Self as GeometryInput>::GeometryInput) -> Mesh2D {
+    fn new(geometry_input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Mesh2D {
 
         let triangles = geometry_input.triangles.clone();
         let material_boundary_points = geometry_input.material_boundary_points.clone();

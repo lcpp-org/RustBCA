@@ -172,7 +172,7 @@ pub struct Options {
 }
 
 pub fn input<T: Geometry>(input_file: String) -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits)
-where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static, <T as GeometryInput>::GeometryInput: Clone {
+where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
 
     //Read input file, convert to string, and open with toml
     let mut input_toml = String::new();

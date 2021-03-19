@@ -12,10 +12,6 @@ pub struct InputParryBall {
     pub geometry_input: ParryBallInput,
 }
 
-impl GeometryInput for InputParryBall {
-    type GeometryInput = ParryBallInput;
-}
-
 impl InputFile for InputParryBall {
 
     fn new(string: &str) -> InputParryBall {
@@ -54,7 +50,7 @@ pub struct ParryBall {
     pub ball: Ball,
 }
 
-impl GeometryInput for ParryBall {
+impl GeometryInput for InputParryBall {
     type GeometryInput = ParryBallInput;
 }
 
@@ -62,7 +58,7 @@ impl Geometry for ParryBall {
 
     type InputFileFormat = InputParryBall;
 
-    fn new(input: &<Self as GeometryInput>::GeometryInput) -> ParryBall {
+    fn new(input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> ParryBall {
 
         let length_unit: f64 = match input.length_unit.as_str() {
             "MICRON" => MICRON,
@@ -144,10 +140,6 @@ pub struct InputParryTriMesh {
     pub geometry_input: ParryTriMeshInput,
 }
 
-impl GeometryInput for InputParryTriMesh {
-    type GeometryInput = ParryTriMeshInput;
-}
-
 impl InputFile for InputParryTriMesh {
 
     fn new(string: &str) -> InputParryTriMesh {
@@ -187,7 +179,7 @@ pub struct ParryTriMesh {
     pub boundary: AABB,
 }
 
-impl GeometryInput for ParryTriMesh {
+impl GeometryInput for InputParryTriMesh {
     type GeometryInput = ParryTriMeshInput;
 }
 
@@ -195,7 +187,7 @@ impl Geometry for ParryTriMesh {
 
     type InputFileFormat = InputParryTriMesh;
 
-    fn new(input: &<Self as GeometryInput>::GeometryInput) -> ParryTriMesh {
+    fn new(input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> ParryTriMesh {
 
         let length_unit: f64 = match input.length_unit.as_str() {
             "MICRON" => MICRON,
