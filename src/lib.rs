@@ -70,6 +70,7 @@ pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, 
 #[pymodule]
 pub fn pybca(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(simple_bca_py, m)?)?;
+    m.add_function(wrap_pyfunction!(simple_bca_list_py, m)?)?;
     Ok(())
 }
 
@@ -78,7 +79,6 @@ pub struct OutputBCA {
     len: usize,
     pub particles: *mut [f64; 9],
 }
-
 #[no_mangle]
 pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> OutputBCA {
     let mut output = simple_bca(x, y, z, ux, uy, uz, E1, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2);
@@ -95,6 +95,27 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
 #[pyfunction]
 pub fn simple_bca_py(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
     simple_bca(x, y, z, ux, uy, uz, E1, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
+}
+
+#[pyfunction]
+pub fn simple_bca_list_py(energies: Vec<f64>, usx: Vec<f64>, usy: Vec<f64>, usz: Vec<f64>, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
+
+    assert_eq!(energies.len(), usx.len());
+    assert_eq!(energies.len(), usy.len());
+    assert_eq!(energies.len(), usz.len());
+
+    let x = -2.*(n2*10E30).powf(-1./3.)/SQRTPI*2.;
+    let y = 0.0;
+    let z = 0.0;
+
+    let mut total_output = vec![];
+    for (((E1, ux), uy), uz) in energies.iter().zip(usx).zip(usy).zip(usz) {
+        let output = simple_bca(x, y, z, ux, uy, uz, *E1, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2);
+        for particle in output {
+            total_output.push(particle);
+        }
+    }
+    total_output
 }
 
 pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
