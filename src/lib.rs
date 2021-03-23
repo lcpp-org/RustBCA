@@ -79,6 +79,7 @@ pub struct OutputBCA {
     len: usize,
     pub particles: *mut [f64; 9],
 }
+
 #[no_mangle]
 pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> OutputBCA {
     let mut output = simple_bca(x, y, z, ux, uy, uz, E1, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2);
@@ -104,7 +105,7 @@ pub fn simple_bca_list_py(energies: Vec<f64>, usx: Vec<f64>, usy: Vec<f64>, usz:
     assert_eq!(energies.len(), usy.len());
     assert_eq!(energies.len(), usz.len());
 
-    let x = -2.*(n2*10E30).powf(-1./3.)/SQRTPI*2.;
+    let x = -2.*(n2*10E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -119,6 +120,10 @@ pub fn simple_bca_list_py(energies: Vec<f64>, usx: Vec<f64>, usy: Vec<f64>, usz:
 }
 
 pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
+
+    assert!(E1 > 0.0, "Error: Incident energy cannot be less than or equal to 0.");
+    assert!(Ec1 > 0.0, "Error: Cutoff energy cannot be less than or equal to 0.");
+    assert!(Ec2 > 0.0, "Error: Cutoff energy cannot be less than or equal to 0.");
 
     #[cfg(feature = "distributions")]
     let options = Options {
