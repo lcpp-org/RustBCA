@@ -1,6 +1,6 @@
 [package]
 name = "rustBCA"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Jon Drobny <drobny2@illinois.edu>"]
 edition = "2018"
 
