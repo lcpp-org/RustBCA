@@ -125,7 +125,6 @@ fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Particle
                     }).flatten()
                 );
             }
-            bar.finish();
 
             // Process this chunk of finished particles for output
             for particle in finished_particles {
@@ -150,7 +149,9 @@ fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Particle
         #[cfg(feature = "distributions")]
         distributions.print(&options);
 
+        bar.finish();
         println!("Finished!");
+
 }
 
 fn main() {
