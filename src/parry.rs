@@ -15,7 +15,7 @@ pub struct InputParryBall {
 impl InputFile for InputParryBall {
 
     fn new(string: &str) -> InputParryBall {
-        toml::from_str(string).expect("Could not parse TOML file.")
+        toml::from_str(string).context("Could not parse TOML file. Be sure you are using the correct input file mode (e.g., ./RustBCA SPHERE sphere.toml or RustBCA.exe 0D mesh_0d.toml).").unwrap()
     }
 
     fn get_options(&self) -> &Options{
@@ -137,7 +137,7 @@ pub struct InputParryTriMesh {
 impl InputFile for InputParryTriMesh {
 
     fn new(string: &str) -> InputParryTriMesh {
-        toml::from_str(string).expect("Could not parse TOML file.")
+        toml::from_str(string).context("Could not parse TOML file. Be sure you are using the correct input file mode (e.g., ./RustBCA SPHERE sphere.toml or RustBCA.exe 0D mesh_0d.toml).").unwrap()
     }
 
     fn get_options(&self) -> &Options{
