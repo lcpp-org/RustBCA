@@ -64,7 +64,25 @@ struct OutputBCA {
   double (*particles)[9];
 };
 
+struct InputSimpleBCA {
+  uintptr_t len;
+  // vx vy vz [m/s]
+  double (*velocities)[3];
+  double Z1;
+  double m1;
+  double Ec1;
+  double Es1;
+  double Z2;
+  double m2;
+  double n2;
+  double Ec2;
+  double Es2;
+  double Eb2;
+};
+
 extern "C" {
+
+OutputBCA simple_bca_list_c(InputSimpleBCA input);
 
 OutputBCA simple_bca_c(double x,
                        double y,
