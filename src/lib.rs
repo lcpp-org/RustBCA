@@ -87,8 +87,8 @@ pub struct OutputBCA {
 #[repr(C)]
 pub struct InputSimpleBCA {
     pub len: usize,
-    /// x, y, z, vx, vy, vz
-    pub velocities: *mut [f64; 6],
+    /// vx, vy, vz
+    pub velocities: *mut [f64; 3],
     pub Z1: f64,
     pub m1: f64,
     pub Ec1: f64,
@@ -194,9 +194,9 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
 
     for velocity in velocities {
 
-        let vx = velocity[3];
-        let vy = velocity[4];
-        let vz = velocity[5];
+        let vx = velocity[0];
+        let vy = velocity[1];
+        let vz = velocity[2];
 
         let v = (vx*vx + vy*vy + vz*vz).sqrt();
 
@@ -235,19 +235,22 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
         let output = bca::single_ion_bca(p, &m, &options);
 
         for particle in output {
-            total_output.push(
-                [
-                    particle.Z,
-                    particle.m/AMU,
-                    particle.E/EV,
-                    particle.pos.x/ANGSTROM,
-                    particle.pos.y/ANGSTROM,
-                    particle.pos.z/ANGSTROM,
-                    particle.dir.x,
-                    particle.dir.y,
-                    particle.dir.z
-                ]
-            );
+
+            if (particle.left) | (particle.incident) {
+                total_output.push(
+                    [
+                        particle.Z,
+                        particle.m/AMU,
+                        particle.E/EV,
+                        particle.pos.x/ANGSTROM,
+                        particle.pos.y/ANGSTROM,
+                        particle.pos.z/ANGSTROM,
+                        particle.dir.x,
+                        particle.dir.y,
+                        particle.dir.z
+                    ]
+                );
+            }
         }
     }
 
