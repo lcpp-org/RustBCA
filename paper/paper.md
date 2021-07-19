@@ -75,13 +75,13 @@ RustBCA includes multiple example input files, under the examples/ folder on the
 First, an example of 2 keV helium ions at normal incidence on a layered titanium dioxide, aluminum, and silicon target can be run in 2D with:
 
 ```
-cargo run --release examples/layered_target.toml
+cargo run --release examples/layered_geometry.toml
 ```
 
  The same example using the 1D layered geometry can be run with:
 
 ```
-cargo run --release 1D examples/layered_target_1D.toml
+cargo run --release 1D examples/layered_geometry_1D.toml
 ```
 
  ![Helium implantation depth distributions at 2 keV in a layered TiO2-Al-Si target.](layered_target.png)
