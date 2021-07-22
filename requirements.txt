@@ -1,0 +1,4 @@
+shapely
+toml
+scipy
+matplotlib
