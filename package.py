@@ -45,3 +45,9 @@ class Rustbca(Package):
     def install(self, spec, prefix):
         cargo = which('cargo')
         cargo('build', '--release', '--lib', '--target-dir', prefix)
+        
+        mkdirp(prefix.include)
+        install('RustBCA.h', prefix.include)
+​
+        mkdirp(prefix.lib)
+        install('target/release/liblibRustBCA.so', prefix.lib)
