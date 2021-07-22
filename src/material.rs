@@ -352,7 +352,7 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
             if leaving_energy > Es {
 
                 match material.surface_binding_model {
-                    SurfaceBindingModel::PLANAR{..} => {
+                    SurfaceBindingModel::PLANAR{..} | SurfaceBindingModel::TARGET | SurfaceBindingModel::INDIVIDUAL | SurfaceBindingModel::AVERAGE => {
                         particle::surface_refraction(particle_1, Vector::new(-dx/mag, -dy/mag, -dz/mag), -Es);
                     }
                     _ => particle_1.E += -Es,
