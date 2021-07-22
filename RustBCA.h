@@ -66,7 +66,7 @@ struct OutputBCA {
 
 struct InputSimpleBCA {
   uintptr_t len;
-  // vx vy vz [m/s]
+  /// vx, vy, vz
   double (*velocities)[3];
   double Z1;
   double m1;
@@ -80,9 +80,28 @@ struct InputSimpleBCA {
   double Eb2;
 };
 
+struct InputCompoundBCA {
+  uintptr_t len;
+  /// vx, vy, vz
+  double (*velocities)[3];
+  double Z1;
+  double m1;
+  double Ec1;
+  double Es1;
+  uintptr_t num_species_target;
+  double *Z2;
+  double *m2;
+  double *n2;
+  double *Ec2;
+  double *Es2;
+  double *Eb2;
+};
+
 extern "C" {
 
 OutputBCA simple_bca_list_c(InputSimpleBCA input);
+
+OutputBCA compound_bca_list_c(InputCompoundBCA input);
 
 OutputBCA simple_bca_c(double x,
                        double y,
