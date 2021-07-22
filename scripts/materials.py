@@ -21,6 +21,17 @@ hydrogen = {
     'Es': 1.5,
 }
 
+lithium = {
+    'symbol': 'Li',
+    'name': 'lithium',
+    'Z': 3,
+    'm': 6.941,
+    'Ec': 1.0,
+    'Es': 1.64,
+    'Eb': 0.0,
+    'n': 4.63E28
+}
+
 nitrogen = {
     'symbol': 'N',
     'name': 'nitrogen',

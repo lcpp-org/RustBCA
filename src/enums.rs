@@ -5,6 +5,10 @@ pub enum MaterialType {
     MESH1D(material::Material<geometry::Mesh1D>),
     MESH2D(material::Material<geometry::Mesh2D>),
     SPHERE(material::Material<sphere::Sphere>),
+    #[cfg(feature = "parry3d")]
+    BALL(material::Material<parry::ParryBall>),
+    #[cfg(feature = "parry3d")]
+    TRIMESH(material::Material<parry::ParryTriMesh>)
 }
 
 #[derive(Deserialize)]
@@ -13,6 +17,10 @@ pub enum GeometryType {
     MESH1D,
     MESH2D,
     SPHERE,
+    #[cfg(feature = "parry3d")]
+    BALL,
+    #[cfg(feature = "parry3d")]
+    TRIMESH,
 }
 
 /// Mode of electronic stopping to use.

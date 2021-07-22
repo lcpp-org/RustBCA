@@ -8,14 +8,10 @@ pub struct InputSphere {
     pub geometry_input: sphere::SphereInput,
 }
 
-impl GeometryInput for InputSphere {
-    type GeometryInput = sphere::SphereInput;
-}
-
 impl InputFile for InputSphere {
 
     fn new(string: &str) -> InputSphere {
-        toml::from_str(string).expect("Could not parse TOML file.")
+        toml::from_str(string).context("Could not parse TOML file. Be sure you are using the correct input file mode (e.g., ./RustBCA SPHERE sphere.toml or RustBCA.exe 0D mesh_0d.toml).").unwrap()
     }
 
     fn get_options(&self) -> &Options{
@@ -49,7 +45,7 @@ pub struct Sphere {
     pub energy_barrier_thickness: f64,
 }
 
-impl GeometryInput for Sphere {
+impl GeometryInput for InputSphere {
     type GeometryInput = SphereInput;
 }
 
@@ -57,7 +53,7 @@ impl Geometry for Sphere {
 
     type InputFileFormat = InputSphere;
 
-    fn new(input: &<Self as GeometryInput>::GeometryInput) -> Sphere {
+    fn new(input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Sphere {
 
         let length_unit: f64 = match input.length_unit.as_str() {
             "MICRON" => MICRON,
@@ -99,12 +95,6 @@ impl Geometry for Sphere {
     }
     fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
         &self.concentrations
-    }
-    fn get_densities_nearest_to(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
-        &self.densities
-    }
-    fn get_ck_nearest_to(&self, x: f64, y: f64, z: f64) -> f64 {
-        self.electronic_stopping_correction_factor
     }
     fn inside(&self, x: f64, y: f64, z: f64) -> bool {
         let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();

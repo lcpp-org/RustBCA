@@ -10,8 +10,8 @@ from matplotlib import rcParams, cm
 import matplotlib as mpl
 import matplotlib.colors as colors
 
-from .materials import *
-from .formulas import *
+from materials import *
+from formulas import *
 
 #from generate_ftridyn_input import *
 
@@ -136,7 +136,7 @@ def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_fin
         plt.savefig(name+'trajectories_.png')
         plt.close()
 
-def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_final_positions=True, plot_origins=True, radius=None):
+def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_final_positions=True, plot_origins=True, radius=None, cube_length=None, input_file=None):
     '''
     Plots trajectories of ions and recoils from [name]trajectories.output.
     Optionally marks final positions/origins and draws material geometry.
@@ -154,7 +154,7 @@ def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_
 
     '''
 
-    from mayavi.mlab import points3d, plot3d, mesh
+    from mayavi.mlab import points3d, plot3d, mesh, triangular_mesh
 
     reflected = np.atleast_2d(np.genfromtxt(name+'reflected.output', delimiter=','))
     sputtered = np.atleast_2d(np.genfromtxt(name+'sputtered.output', delimiter=','))
@@ -169,16 +169,17 @@ def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_
 
     index = 0
     x_max = 0
-    min_length = 3
+    min_length = 1
+    scale_factor = 1.0
     if np.size(trajectories) > 0:
         for trajectory_length in trajectory_data:
 
             M = trajectories[index, 0]
             Z = trajectories[index, 1]
             E = trajectories[index:(trajectory_length + index), 2]
-            x = trajectories[index:(trajectory_length + index), 3]
-            y = trajectories[index:(trajectory_length + index), 4]
-            z = trajectories[index:(trajectory_length + index), 5]
+            x = trajectories[index:(trajectory_length + index), 3]*scale_factor
+            y = trajectories[index:(trajectory_length + index), 4]*scale_factor
+            z = trajectories[index:(trajectory_length + index), 5]*scale_factor
 
             if np.max(x) > x_max:
                 x_max = np.max(x)
@@ -193,17 +194,17 @@ def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_
             if np.size(sputtered) > 0:
                 sputtered_colors = [colormap.to_rgba(Z)[:3] for Z in sputtered[:,1]]
                 for x, y, z, c in zip(sputtered[:,3], sputtered[:,4], sputtered[:,5], sputtered_colors):
-                    points3d(x, y, z, color=c, scale_factor=2)
+                    points3d(x*scale_factor, y*scale_factor, z*scale_factor, color=c, scale_factor=2)
 
             if np.size(reflected) > 0:
                 reflected_colors = [colormap.to_rgba(Z)[:3] for Z in reflected[:,1]]
                 for x, y, z, c in zip(reflected[:,3], reflected[:,4], reflected[:,5], reflected_colors):
-                    points3d(x, y, z, color=c, scale_factor=2)
+                    points3d(x*scale_factor, y*scale_factor, z*scale_factor, color=c, scale_factor=2)
 
             if np.size(deposited) > 0:
                 deposited_colors = [colormap.to_rgba(Z)[:3] for Z in deposited[:,1]]
                 for x, y, z, c in zip(deposited[:,2], deposited[:,3], deposited[:,4], deposited_colors):
-                    points3d(x, y, z, color=c, scale_factor=2)
+                    points3d(x*scale_factor, y*scale_factor, z*scale_factor, color=c, scale_factor=2)
 
         if boundary:
             x = [x_ for (x_, y_) in boundary]
@@ -221,6 +222,53 @@ def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_
             z = np.cos(theta)
             mesh(radius*x, radius*y, radius*z, color=(0.1,0.7,0.3), opacity=0.2)
 
+        if cube_length:
+            faces = []
+
+            xmin = -cube_length/2.*scale_factor
+            xmax = cube_length/2.*scale_factor
+            ymin = -cube_length/2.*scale_factor
+            ymax = cube_length/2.*scale_factor
+            zmin = -cube_length/2.*scale_factor
+            zmax = cube_length/2.*scale_factor
+
+            x,y = np.mgrid[xmin:xmax:3j,ymin:ymax:3j]
+            z = np.ones(y.shape)*zmin
+            faces.append((x,y,z))
+
+            x,y = np.mgrid[xmin:xmax:3j,ymin:ymax:3j]
+            z = np.ones(y.shape)*zmax
+            faces.append((x,y,z))
+
+            x,z = np.mgrid[xmin:xmax:3j,zmin:zmax:3j]
+            y = np.ones(z.shape)*ymin
+            faces.append((x,y,z))
+
+            x,z = np.mgrid[xmin:xmax:3j,zmin:zmax:3j]
+            y = np.ones(z.shape)*ymax
+            faces.append((x,y,z))
+
+            y,z = np.mgrid[ymin:ymax:3j,zmin:zmax:3j]
+            x = np.ones(z.shape)*xmin
+            faces.append((x,y,z))
+
+            y,z = np.mgrid[ymin:ymax:3j,zmin:zmax:3j]
+            x = np.ones(z.shape)*xmax
+            faces.append((x,y,z))
+
+            for grid in faces:
+                x,y,z = grid
+                mesh(x, y, z, opacity=0.4, color=(0.1,0.7,0.3))
+
+        if input_file:
+            input = toml.load(input_file)
+            vertices = input['geometry_input']['vertices']
+            triangles = input['geometry_input']['indices']
+            x = [vertex[0]*scale_factor for vertex in vertices]
+            y = [vertex[1]*scale_factor for vertex in vertices]
+            z = [vertex[2]*scale_factor for vertex in vertices]
+            triangular_mesh(x, y, z, triangles, opacity=0.3, color=(0.1, 0.7, 0.3), representation='surface')
+
 
 def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
     thickness, depth, track_trajectories=True, track_recoils=True,
@@ -228,9 +276,9 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
     track_displacements=True, track_energy_losses=True,
     electronic_stopping_mode=LOW_ENERGY_NONLOCAL,
     weak_collision_order=3, ck=1., mean_free_path_model=LIQUID,
-    interaction_potential='"KR_C"', high_energy=False, energy_barrier_thickness=(6.306E10)**(-1/3.),
-    initial_particle_position = -1*ANGSTROM/MICRON, integral='"MENDENHALL_WELLER"',
-    root_finder = '{"NEWTON"={max_iterations=100, tolerance=1e-3}}',
+    interaction_potential="KR_C", high_energy=False, energy_barrier_thickness=(6.306E10)**(-1/3.),
+    initial_particle_position = -1*ANGSTROM/MICRON, integral="MENDENHALL_WELLER",
+    root_finder = "DEFAULTNEWTON",
     delta_x_angstrom=5., uniformly_distributed_ions=False):
 
     '''
@@ -247,7 +295,7 @@ def generate_rustbca_input(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_,
         'suppress_deep_recoils': False,
         'high_energy_free_flight_paths': high_energy,
         'num_threads': 4,
-        'num_chunks': 100,
+        'num_chunks': 10,
         'use_hdf5': False,
         'electronic_stopping_mode': electronic_stopping_mode,
         'mean_free_path_model': mean_free_path_model,
@@ -326,7 +374,7 @@ def plot_distributions_rustbca(name, beam, target,
     incident_energy=1, incident_angle=0,
     max_collision_contours=4, plot_2d_reflected_contours=False,
     collision_contour_significance_threshold=0.1, plot_garrison_contours=False,
-    plot_reflected_energies_by_number_collisions=False,
+    plot_reflected_energies_by_number_collisions=True,
     plot_scattering_energy_curve=False):
 
     '''
@@ -341,7 +389,7 @@ def plot_distributions_rustbca(name, beam, target,
         max_collision_contours (int): number of collision event contours to plot on reflected EAD; default 4
         plot_2d_reflected_contours (bool): whether to plot collision event contours on reflected EAD; default False
         collision_contour_significance_threshold (int): threshold of significance for contour plotting; default 0.1
-        plot_reflected_energies_by_number_collisions (bool): separte reflected energy spectrum into collision number distributions; default False
+        RustBCA.exe (bool): separte reflected energy spectrum into collision number distributions; default False
         plot_scattering_energy_curve (bool): plot bold, translucent white curve showing theoretical single-collision reflected energies; default False
 
     '''
@@ -818,7 +866,7 @@ def run_iead(ions, target, energies, angles, iead, name="default_", N=1):
         'suppress_deep_recoils': False,
         'high_energy_free_flight_paths': False,
         'num_threads': 8,
-        'num_chunks': 100,
+        'num_chunks': 10,
         'use_hdf5': False,
         'electronic_stopping_mode': LOW_ENERGY_LOCAL,
         'mean_free_path_model': LIQUID,
@@ -888,7 +936,7 @@ def run_iead(ions, target, energies, angles, iead, name="default_", N=1):
         toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
     with open(f'{name}.toml', 'a') as file:
         file.write(r'root_finder = [[{"NEWTON"={max_iterations = 100, tolerance=1E-3}}]]')
-    os.system(f'rustBCA.exe {name}.toml')
+    os.system(f'RustBCA.exe {name}.toml')
 
     plot_distributions_rustbca(name, ions, target, incident_energy=np.max(energies))
 
@@ -905,8 +953,8 @@ def run_iead(ions, target, energies, angles, iead, name="default_", N=1):
 
 def beam_target(ions, target, energy, angle, N_=10000, N=1, run_sim=True,
     high_energy=False, integral='"GAUSS_LEGENDRE"',
-    interaction_potential='"ZBL"',
-    root_finder='{"NEWTON"={max_iterations=100, tolerance=1e-6}}', tag=None,
+    interaction_potential='"KR_C"',
+    root_finder='"DEFAULTNEWTON"', tag=None,
     track_trajectories = False,
     plot_trajectories = False,
     plot_distributions = False,
@@ -920,7 +968,7 @@ def beam_target(ions, target, energy, angle, N_=10000, N=1, run_sim=True,
     weak_collision_order=3,
     electronic_stopping_mode=LOW_ENERGY_NONLOCAL,
     uniformly_distributed_ions=False,
-    mean_free_path_model='"LIQUID"'):
+    mean_free_path_model="LIQUID"):
 
     '''
     Simplified generation of a monoenergetic, mono-angular beam on target simulation using rustbca.
@@ -953,7 +1001,7 @@ def beam_target(ions, target, energy, angle, N_=10000, N=1, run_sim=True,
         initial_particle_position = -2.01*pmax, weak_collision_order=weak_collision_order, ck=ck,
         uniformly_distributed_ions=uniformly_distributed_ions, mean_free_path_model=mean_free_path_model)
 
-    if run_sim: os.system(f'rustBCA.exe {name}.toml')
+    if run_sim: os.system(f'RustBCA.exe {name}.toml')
 
     if do_plots:
         if track_energy_losses: plot_energy_loss(name, N*N_, num_bins=100)
@@ -1029,7 +1077,7 @@ def sputtering(ions, target, energies, angle, N_=10000, run_sim=True):
                 electronic_stopping_mode="LOW_ENERGY_EQUIPARTITION", integral=integral,
                 interaction_potential = option)
 
-            if run_sim: os.system(f'rustBCA.exe {name+str(index)+"_"+str(option_index)}.toml')
+            if run_sim: os.system(f'RustBCA.exe {name+str(index)+"_"+str(option_index)}.toml')
 
             sputtered = np.atleast_2d(np.genfromtxt(name+str(index)+'_'+str(option_index)+'sputtered.output', delimiter=','))
             reflected = np.atleast_2d(np.genfromtxt(name+str(index)+'_'+str(option_index)+'reflected.output', delimiter=','))
@@ -1399,23 +1447,209 @@ def helium_on_tungsten_oxide_layer():
         plt.axis([0., 1.5*np.max(d[:,2]), 0., 1.2*np.max(heights)])
         plt.savefig(f'dep_west_1_wo2_w_{j}.png')
 
-def main():
+def generate_rustbca_input_sphere(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
+    radius, displacement, track_trajectories=True, track_recoils=True,
+    track_recoil_trajectories=True, name='test_',
+    track_displacements=True, track_energy_losses=True,
+    electronic_stopping_mode=LOW_ENERGY_NONLOCAL,
+    weak_collision_order=3, ck=1., mean_free_path_model=LIQUID,
+    interaction_potential="KR_C", high_energy=False,
+    integral="MENDENHALL_WELLER",
+    root_finder = "DEFAULTNEWTON",
+    delta_x_angstrom=1., uniformly_distributed_ions=False):
+
+    '''
+    Generates a rustbca input file. Assumes eV, amu, and microns for units.
+    '''
+
+    options = {
+        'name': name,
+        'track_trajectories': track_trajectories,
+        'track_recoils': track_recoils,
+        'track_recoil_trajectories': track_recoil_trajectories,
+        'write_buffer_size': 8000,
+        'weak_collision_order': weak_collision_order,
+        'suppress_deep_recoils': False,
+        'high_energy_free_flight_paths': high_energy,
+        'num_threads': 4,
+        'num_chunks': 10,
+        'use_hdf5': False,
+        'electronic_stopping_mode': electronic_stopping_mode,
+        'mean_free_path_model': mean_free_path_model,
+        'track_displacements': track_displacements,
+        'track_energy_losses': track_energy_losses,
+    }
+
+    material_parameters = {
+        'energy_unit': 'EV',
+        'mass_unit': 'AMU',
+        'Eb': Eb,
+        'Es': Esb,
+        'Ec': Ecb,
+        'Z': Zb,
+        'm': Mb,
+        'interaction_index': [0],
+        'surface_binding_model': "AVERAGE",
+        'bulk_binding_model': "AVERAGE"
+    }
+
+    geometry_input = {
+        'length_unit': 'ANGSTROM',
+        'densities': [n*(ANGSTROM)**3],
+        'electronic_stopping_correction_factor': ck,
+        'radius': radius,
+    }
+
+    cosx = np.cos(theta*np.pi/180.)
+    sinx = np.sin(theta*np.pi/180.)
+    x0 = -np.sqrt(radius**2 - displacement**2)
+    y0 = displacement
+    positions = [(x0, y0, 0.0) for _ in range(N)]
+
+    particle_parameters = {
+        'length_unit': 'ANGSTROM',
+        'energy_unit': 'EV',
+        'mass_unit': 'AMU',
+        'N': [N_ for _ in range(N)],
+        'm': [Ma for _ in range(N)],
+        'Z': [Za for _ in range(N)],
+        'E': [E0 for _ in range(N)],
+        'Ec': [Eca for _ in range(N)],
+        'Es': [Esa for _ in range(N)],
+        'interaction_index': np.zeros(N, dtype=int),
+        'pos': positions,
+        'dir': [(cosx, sinx, 0.) for _ in range(N)],
+        'particle_input_filename': ''
+    }
+
+    input_file = {
+        'material_parameters': material_parameters,
+        'particle_parameters': particle_parameters,
+        'geometry_input': geometry_input,
+        'options': options,
+    }
+
+    with open(f'{name}.toml', 'w') as file:
+        toml.dump(input_file, file, encoder=toml.TomlNumpyEncoder())
+
+    with open(f'{name}.toml', 'a') as file:
+        file.write(f'root_finder = [[{root_finder}]]\n')
+        file.write(f'interaction_potential = [[{interaction_potential}]]\n')
+        file.write(f'scattering_integral =  [[{integral}]]\n')
+
+def test():
     '''
     Here an example usage of beam_target is shown. This code runs rustbca and produces plots.
 
     For helium on copper at 1 keV and 0 degrees angle of incidence,
     all the distributions and trajectories are plotted.
     '''
+    ion = uranium
 
-    energy = 2000
-    angle = 0.00001
-    N = 10000
+    target = uranium
+    Zb = [target['Z']]
+    Mb = [target['m']]
+    n = target['n']
+    Eca = 0.1
+    Ecb = [0.1]
+    Esa = ion['Es']
+    Esb = [target['Es']]
+    Eb = [3.0]
+    Ma = ion['m']
+    Za = ion['Z']
 
-    beam_target(helium, copper, energy, angle, N_=N, N=1, do_plots=True, run_sim=True,
-        plot_trajectories=True, track_trajectories=False, thickness=50, depth=1000.,
-        interaction_potential=r"'KR_C'", track_energy_losses=True, track_displacements=False,
-        uniformly_distributed_ions=True, high_energy=False, electronic_stopping_mode=INTERPOLATED,
-        weak_collision_order=0, plot_distributions=True, mean_free_path_model='LIQUID')
+    s = []
+    r = []
+    energies = np.logspace(1.0, 2.0, 25)
+
+    for E0 in energies:
+
+        N = 1
+        N_ = 10000
+        theta = 0.001
+        radius = 1000.0 #angstrom
+        displacement = 0.0
+
+        generate_rustbca_input_sphere(Zb, Mb, n, Eca, Ecb, Esa, Esb, Eb, Ma, Za, E0, N, N_, theta,
+            radius, displacement, track_trajectories=False, track_recoils=True,
+            track_recoil_trajectories=False, name='test_',
+            track_displacements=True, track_energy_losses=True,
+            electronic_stopping_mode=LOW_ENERGY_NONLOCAL,
+            weak_collision_order=3, ck=1., mean_free_path_model=LIQUID,
+            interaction_potential='"KR_C"', high_energy=False,
+            integral='"MENDENHALL_WELLER"',
+            root_finder = '{"NEWTON"={max_iterations=100, tolerance=1e-3}}',
+            delta_x_angstrom=1., uniformly_distributed_ions=False)
+
+        os.system('cargo run --release SPHERE test_.toml')
+
+        #do_trajectory_plot('test_')
+
+        sputtered = np.atleast_2d(np.genfromtxt('test_sputtered.output', delimiter=','))
+        deposited = np.atleast_2d(np.genfromtxt('test_deposited.output', delimiter=','))
+        reflected = np.atleast_2d(np.genfromtxt('test_reflected.output', delimiter=','))
+
+        breakpoint()
+
+        try:
+            s.append(np.size(sputtered[:,0])/N_*N)
+        except:
+            s.append(0.0)
+
+        try:
+            r.append(np.size(reflected[:,0])/N_*N)
+        except:
+            r.append(0.0)
+
+        plt.figure(2)
+        plt.title(f'Reflected/Transmitted Energies @ {np.round(E0,1)}')
+        plt.xlabel('E [eV]')
+        plt.ylabel('f(E)')
+        plt.hist(reflected[:, 2], bins=25, histtype='step', color='black')
+        plt.show()
+
+    plt.figure(1)
+    plt.plot(energies, s)
+    plt.plot(energies, 1.0 - np.array(r))
+    plt.title(f'{radius} Å Sphere')
+    plt.xlabel('E [eV]')
+    plt.ylabel('Y/R')
+    plt.legend(['Sputtering Yield', 'Sticking Coefficient'])
+    plt.show()
+
+def main():
+    ions = [hydrogen, deuterium, lithium]
+    target = lithium
+    energies = np.logspace(-1, 3, 10)
+    angle = 0.0001
+    number_ions = 100000
+
+    legends = []
+    for ion in ions:
+        sputtering_yield = []
+        reflection_coefficient = []
+
+        for energy in energies:
+            s, r, _ = beam_target(ion, target, energy, angle, N_=number_ions)
+
+            if np.shape(s)[1] > 0:
+                sputtering_yield.append(len(s)/number_ions)
+            else:
+                sputtering_yield.append(0)
+
+            if np.shape(r)[1] > 0:
+                reflection_coefficient.append(len(r)/number_ions)
+            else:
+                reflection_coefficient.append(0.0)
+
+        legends.append(f"{ion['symbol']} on Li Y")
+        plt.loglog(energies, sputtering_yield)
+        legends.append(f"{ion['symbol']} on Li R")
+        plt.loglog(energies, reflection_coefficient, linestyle='--')
+
+    plt.legend(legends)
+    plt.show()
+
 
 if __name__ == '__main__':
     main()

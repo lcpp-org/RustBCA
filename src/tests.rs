@@ -4,6 +4,193 @@ use super::*;
 use float_cmp::*;
 
 #[test]
+#[cfg(feature = "parry3d")]
+fn test_parry_cuboid() {
+    let mass = 1.;
+    let Z = 1.;
+    let E = 10.*EV;
+    let Ec = 1.*EV;
+    let Es = 5.76*EV;
+    let x = 0.;
+    let y = 0.;
+    let z = 0.;
+    let cosx = 1./(2.0_f64).sqrt();
+    let cosy = 1./(2.0_f64).sqrt();
+    let cosz = 0.;
+    let particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+
+    let material_parameters = material::MaterialParameters{
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: vec![0.0, 0.0],
+        Es: vec![2.0, 4.0],
+        Ec: vec![1.0, 1.0],
+        Z: vec![29., 1.],
+        m: vec![63.54, 1.0008],
+        interaction_index: vec![0, 0],
+        surface_binding_model: SurfaceBindingModel::PLANAR{calculation: SurfaceBindingCalculation::TARGET},
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let radius = 1000.*ANGSTROM;
+
+    //cuboid centered at (0, 0, 0) with l=w=h=1 Angstrom
+    let geometry_input = parry::ParryTriMeshInput {
+        length_unit: "ANGSTROM".to_string(),
+        densities: vec![0.03, 0.03],
+        electronic_stopping_correction_factor: 1.0,
+        vertices: vec![
+            [-0.5, -0.5, 0.5],
+            [0.5, -0.5, 0.5],
+            [-0.5, 0.5, 0.5],
+            [0.5, 0.5, 0.5],
+            [-0.5, 0.5, -0.5],
+            [0.5, 0.5, -0.5],
+            [-0.5, -0.5, -0.5],
+            [0.5, -0.5, -0.5],
+        ],
+        indices: vec![
+            [0, 1, 3],
+            [0, 3, 2],
+            [2, 3, 5],
+            [2, 5, 4],
+            [4, 5, 7],
+            [4, 7, 6],
+            [6, 7, 1],
+            [6, 1, 0],
+            [1, 7, 5],
+            [1, 5, 3],
+            [6, 0, 2],
+            [6, 2, 4]
+        ]
+    };
+
+    let mut material_cuboid: material::Material<parry::ParryTriMesh> = material::Material::<parry::ParryTriMesh>::new(&material_parameters, &geometry_input);
+    material_cuboid.geometry.energy_barrier_thickness = 10.*ANGSTROM;
+
+    let surface_binding_energy = material_cuboid.actual_surface_binding_energy(&particle_1, particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
+    assert!(approx_eq!(f64, surface_binding_energy/EV, (2. + 4.)/2., epsilon=1E-24));
+
+    //Test origin is inside
+    assert!(material_cuboid.geometry.inside(0., 0., 0.));
+
+    //Test all outside areas for containment
+    assert!(!material_cuboid.geometry.inside(0., 1., 0.));
+    assert!(!material_cuboid.geometry.inside(0., -1., 0.));
+    assert!(!material_cuboid.geometry.inside(1., 0., 0.));
+    assert!(!material_cuboid.geometry.inside(-1., 0., 0.));
+    assert!(!material_cuboid.geometry.inside(0., 0., -1.));
+    assert!(!material_cuboid.geometry.inside(0., 0., -1.));
+
+    //distance to origin
+    let (x, y, z) = material_cuboid.geometry.closest_point(0., 0., 0.);
+    assert!(approx_eq!(f64, (x.powi(2) + y.powi(2) + z.powi(2)).sqrt(), 0.5*ANGSTROM, epsilon=1E-24));
+
+    //distance to wall should be zero at wall
+    let (x, y, z) = material_cuboid.geometry.closest_point(0.5*ANGSTROM, 0., 0.);
+    assert!(approx_eq!(f64, ((x - 0.5*ANGSTROM).powi(2) + y.powi(2) + z.powi(2)).sqrt(), 0.0, epsilon=1E-24));
+}
+
+#[test]
+#[cfg(feature = "parry3d")]
+fn test_parry_sphere() {
+    let mass = 1.;
+    let Z = 1.;
+    let E = 10.*EV;
+    let Ec = 1.*EV;
+    let Es = 5.76*EV;
+    let x = 0.;
+    let y = 0.;
+    let z = 0.;
+    let cosx = 1./(2.0_f64).sqrt();
+    let cosy = 1./(2.0_f64).sqrt();
+    let cosz = 0.;
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+
+    let material_parameters = material::MaterialParameters{
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: vec![0.0, 0.0],
+        Es: vec![2.0, 4.0],
+        Ec: vec![1.0, 1.0],
+        Z: vec![29., 1.],
+        m: vec![63.54, 1.0008],
+        interaction_index: vec![0, 0],
+        surface_binding_model: SurfaceBindingModel::PLANAR{calculation: SurfaceBindingCalculation::TARGET},
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let radius = 1000.*ANGSTROM;
+
+    let geometry_input_sphere = parry::ParryBallInput {
+        length_unit: "ANGSTROM".to_string(),
+        radius: 1000.0,
+        densities: vec![0.03, 0.03],
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let mut material_sphere: material::Material<parry::ParryBall> = material::Material::<parry::ParryBall>::new(&material_parameters, &geometry_input_sphere);
+    material_sphere.geometry.energy_barrier_thickness = 10.*ANGSTROM;
+
+    particle_1.pos.x = 500.*ANGSTROM;
+    particle_1.pos.y = 0.;
+
+    particle_1.pos_old.x = -1500.*ANGSTROM;
+    particle_1.pos_old.y = 0.;
+
+    let inside_sphere = material_sphere.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
+    let inside_old_sphere = material_sphere.inside(particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos_old.z);
+
+    //println!("{} {}", inside, inside_old);
+    assert!(inside_sphere);
+    assert!(!inside_old_sphere);
+
+    //Test concentration-dependent surface binding energy
+    let surface_binding_energy = material_sphere.actual_surface_binding_energy(&particle_1, particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
+    assert!(approx_eq!(f64, surface_binding_energy/EV, (2. + 4.)/2., epsilon=1E-24));
+
+    assert!(material_sphere.inside_energy_barrier(0., 0., 0.));
+    assert!(material_sphere.inside_simulation_boundary(0., 0., 0.));
+    assert!(material_sphere.inside(0., 0., 0.));
+
+    let ux = 1214.0*ANGSTROM;
+    let uy = 123123.0*ANGSTROM;
+    let uz = 1239.0*ANGSTROM;
+    let r = (ux.powi(2) + uy.powi(2) + uz.powi(2)).sqrt();
+    let R = 1001.0*ANGSTROM;
+    let u = (ux/r*R, uy/r*R, uz/r*R);
+    assert!(!material_sphere.inside(u.0, u.1, u.2));
+    assert!(material_sphere.inside_energy_barrier(u.0, u.1, u.2));
+    assert!(material_sphere.inside_simulation_boundary(u.0, u.1, u.2));
+
+    assert!(material_sphere.inside_energy_barrier(0., 0., 0.));
+    assert!(material_sphere.inside_simulation_boundary(0., 0., 0.));
+    assert!(material_sphere.inside(0., 0., 0.));
+
+    assert!(material_sphere.inside_energy_barrier(-1000.0*ANGSTROM - 1.0*ANGSTROM, 0., 0.));
+    assert!(!material_sphere.inside_energy_barrier(-1000.0*ANGSTROM - 11.0*ANGSTROM, 0., 0.));
+
+    assert!(material_sphere.inside_energy_barrier(0., -1000.0*ANGSTROM - 1.0*ANGSTROM, 0.));
+    assert!(!material_sphere.inside_energy_barrier(0., -1000.0*ANGSTROM - 11.0*ANGSTROM, 0.));
+
+    assert!(material_sphere.inside_energy_barrier(0., 0., -1000.0*ANGSTROM - 1.0*ANGSTROM));
+    assert!(!material_sphere.inside_energy_barrier(0., 0., -1000.0*ANGSTROM - 11.0*ANGSTROM));
+
+    assert!(material_sphere.inside(-1000.0*ANGSTROM + 1.0*ANGSTROM, 0., 0.));
+    assert!(!material_sphere.inside(-1000.0*ANGSTROM - 1.0*ANGSTROM, 0., 0.));
+
+    assert!(material_sphere.inside(0., -1000.0*ANGSTROM + 1.0*ANGSTROM, 0.));
+    assert!(!material_sphere.inside(0., -1000.0*ANGSTROM - 1.0*ANGSTROM, 0.));
+
+    assert!(material_sphere.inside(0., 0., -1000.0*ANGSTROM + 1.0*ANGSTROM));
+    assert!(!material_sphere.inside(0., 0., -1000.0*ANGSTROM - 1.0*ANGSTROM));
+
+    assert!(approx_eq!(f64, material_sphere.closest_point(-2000.*ANGSTROM, 0., 0.).0, (-1000.*ANGSTROM, 0., 0.).0, epsilon=1E-12));
+    assert!(approx_eq!(f64, material_sphere.closest_point(0., -2000.*ANGSTROM, 0.).1, (0., -1000.*ANGSTROM, 0.).1, epsilon=1E-12));
+    assert!(approx_eq!(f64, material_sphere.closest_point(0., 0., -2000.*ANGSTROM).2, (0., 0., -1000.*ANGSTROM).2, epsilon=1E-12));
+}
+
+#[test]
 #[cfg(feature = "distributions")]
 fn test_distributions() {
 
@@ -299,8 +486,8 @@ fn test_geometry() {
     assert_eq!(material_2D.geometry.get_total_density(0., 0., 0.), material_0D.geometry.get_total_density(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_concentrations(0., 0., 0.), material_0D.geometry.get_concentrations(0., 0., 0.));
     assert_eq!(material_2D.geometry.closest_point(-10., 0., 5.), material_0D.geometry.closest_point(-10., 0., 5.));
-    assert_eq!(material_2D.geometry.get_densities_nearest_to(-10., 0., 5.), material_0D.geometry.get_densities_nearest_to(-10., 0., 5.));
-    assert_eq!(material_2D.geometry.get_ck_nearest_to(-10., 0., 5.), material_0D.geometry.get_ck_nearest_to(-10., 0., 5.));
+    assert_eq!(material_2D.geometry.get_densities(-10., 0., 5.), material_0D.geometry.get_densities(-10., 0., 5.));
+    assert_eq!(material_2D.geometry.get_ck(-10., 0., 5.), material_0D.geometry.get_ck(-10., 0., 5.));
 }
 
 #[test]

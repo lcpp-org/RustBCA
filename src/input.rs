@@ -28,7 +28,7 @@ impl GeometryInput for Input2D {
 impl InputFile for Input2D {
 
     fn new(string: &str) -> Input2D {
-        toml::from_str(string).unwrap()
+        toml::from_str(string).context("Could not parse TOML file. Be sure you are using the correct input file mode (e.g., ./RustBCA SPHERE sphere.toml or RustBCA.exe 0D mesh_0d.toml).").unwrap()
     }
 
     fn get_options(&self) -> &Options{
@@ -60,7 +60,7 @@ impl GeometryInput for Input0D {
 impl InputFile for Input0D {
 
     fn new(string: &str) -> Input0D {
-        toml::from_str(string).expect("Could not parse TOML file.")
+        toml::from_str(string).context("Could not parse TOML file. Be sure you are using the correct input file mode (e.g., ./RustBCA SPHERE sphere.toml or RustBCA.exe 0D mesh_0d.toml).").unwrap()
     }
 
     fn get_options(&self) -> &Options{
@@ -92,7 +92,7 @@ impl GeometryInput for Input1D {
 impl InputFile for Input1D {
 
     fn new(string: &str) -> Input1D {
-        toml::from_str(string).expect("Could not parse TOML file.")
+        toml::from_str(string).context("Could not parse TOML file. Be sure you are using the correct input file mode (e.g., ./RustBCA SPHERE sphere.toml or RustBCA.exe 0D mesh_0d.toml).").unwrap()
     }
 
     fn get_options(&self) -> &Options{
@@ -172,7 +172,7 @@ pub struct Options {
 }
 
 pub fn input<T: Geometry>(input_file: String) -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits)
-where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static, <T as GeometryInput>::GeometryInput: Clone {
+where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
 
     //Read input file, convert to string, and open with toml
     let mut input_toml = String::new();
