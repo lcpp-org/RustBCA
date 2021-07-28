@@ -354,6 +354,13 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
     let Es2 = unsafe { slice::from_raw_parts(input.Es2, input.num_species_target).to_vec() };
     let Eb2 = unsafe { slice::from_raw_parts(input.Eb2, input.num_species_target).to_vec() };
 
+    let Z2 = vec![1.0, 1.0];
+    let m2 = vec![1.0, 1.0];
+    let n2 = vec![0.06, 0.05];
+    let Ec2 = vec![1.0, 1.0];
+    let Es2 = vec![1.0, 1.0];
+    let Eb2 = vec![1.0, 1.0];
+
     let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
@@ -366,7 +373,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
         Ec: Ec2,
         Z: Z2,
         m: m2,
-        interaction_index: vec![0],
+        interaction_index: vec![0; input.num_species_target],
         surface_binding_model: SurfaceBindingModel::AVERAGE,
         bulk_binding_model: BulkBindingModel::INDIVIDUAL,
     };
