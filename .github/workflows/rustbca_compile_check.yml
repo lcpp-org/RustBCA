@@ -43,10 +43,10 @@ jobs:
         python3 -c "from libRustBCA.pybca import *; print(simple_bca_py)"
     - name: Test RustBCA
       run: |
-        cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions,parry3d
+        sudo cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions,parry3d
     - name: Run Examples
       run: |
-        cargo run --release 0D examples/boron_nitride_0D.toml
+        sudo cargo run --release 0D examples/boron_nitride_0D.toml
         ./target/release/RustBCA 0D examples/titanium_dioxide_0D.toml
         ./target/release/RustBCA 1D examples/layered_geometry_1D.toml
         cat 2000.0eV_0.0001deg_He_TiO2_Al_Sisummary.output
@@ -54,5 +54,5 @@ jobs:
         ./target/release/RustBCA examples/layered_geometry.toml
         cat 2000.0eV_0.0001deg_He_TiO2_Al_Sisummary.output
         ./target/release/RustBCA SPHERE examples/boron_nitride_sphere.toml
-        cargo run --release --features parry3d TRIMESH examples/tungsten_twist_trimesh.toml
+        sudo cargo run --release --features parry3d TRIMESH examples/tungsten_twist_trimesh.toml
         
