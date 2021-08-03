@@ -35,6 +35,11 @@ jobs:
     - name: Install HDF5 Libraries
       run: |
         sudo apt install libhdf5-dev
+    - name: test Python Bindings
+      run: |
+        suto python3 -m pip install setuptools_rust testresources
+        sudo python3 setup.py install
+        python3 -c "from libRustBCA.pybca import *; print(simple_bca_py)"
     - name: Test RustBCA
       run: |
         cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions,parry3d
@@ -49,3 +54,4 @@ jobs:
         cat 2000.0eV_0.0001deg_He_TiO2_Al_Sisummary.output
         ./target/release/RustBCA SPHERE examples/boron_nitride_sphere.toml
         cargo run --release --features parry3d TRIMESH examples/tungsten_twist_trimesh.toml
+        
