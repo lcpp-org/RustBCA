@@ -21,6 +21,7 @@ jobs:
     - name: Install rust
       run: |
         curl --proto '=https' --tlsv1.2 -sSf -y https://sh.rustup.rs | sh
+        sudo apt-get install rustc
     - name: Install pip for Python-3
       run: |
         sudo apt-get install python3-pip
@@ -35,17 +36,23 @@ jobs:
     - name: Install HDF5 Libraries
       run: |
         sudo apt install libhdf5-dev
+    - name: test Python Bindings
+      run: |
+        sudo python3 -m pip install setuptools_rust testresources
+        sudo python3 setup.py install
+        python3 -c "from libRustBCA.pybca import *; print(simple_bca_py)"
     - name: Test RustBCA
       run: |
-        cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions,parry3d
+        sudo cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions,parry3d
     - name: Run Examples
       run: |
-        cargo run --release 0D examples/boron_nitride_0D.toml
-        ./target/release/RustBCA 0D examples/titanium_dioxide_0D.toml
-        ./target/release/RustBCA 1D examples/layered_geometry_1D.toml
+        sudo cargo run --release 0D examples/boron_nitride_0D.toml
+        sudo ./target/release/RustBCA 0D examples/titanium_dioxide_0D.toml
+        sudo ./target/release/RustBCA 1D examples/layered_geometry_1D.toml
         cat 2000.0eV_0.0001deg_He_TiO2_Al_Sisummary.output
-        ./target/release/RustBCA examples/boron_nitride.toml
-        ./target/release/RustBCA examples/layered_geometry.toml
+        sudo ./target/release/RustBCA examples/boron_nitride.toml
+        sudo ./target/release/RustBCA examples/layered_geometry.toml
         cat 2000.0eV_0.0001deg_He_TiO2_Al_Sisummary.output
-        ./target/release/RustBCA SPHERE examples/boron_nitride_sphere.toml
-        cargo run --release --features parry3d TRIMESH examples/tungsten_twist_trimesh.toml
+        sudo ./target/release/RustBCA SPHERE examples/boron_nitride_sphere.toml
+        sudo cargo run --release --features parry3d TRIMESH examples/tungsten_twist_trimesh.toml
+        

@@ -39,7 +39,9 @@ use std::f64::consts::FRAC_2_SQRT_PI;
 use std::f64::consts::PI;
 use std::f64::consts::SQRT_2;
 
+#[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
 use pyo3::wrap_pyfunction;
 
 //Load internal modules
@@ -70,6 +72,7 @@ pub use crate::sphere::{Sphere, SphereInput, InputSphere};
 #[cfg(feature = "parry3d")]
 pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, ParryTriMeshInput, InputParryTriMesh};
 
+#[cfg(feature = "python")]
 #[pymodule]
 pub fn pybca(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(simple_bca_py, m)?)?;
@@ -467,11 +470,13 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
     }
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn simple_bca_py(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
     simple_bca(x, y, z, ux, uy, uz, E1, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
 }
 
+#[cfg(feature = "python")]
 #[pyfunction]
 pub fn simple_bca_list_py(energies: Vec<f64>, usx: Vec<f64>, usy: Vec<f64>, usz: Vec<f64>, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
 
