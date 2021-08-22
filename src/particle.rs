@@ -18,7 +18,9 @@ pub struct ParticleParameters {
     pub Es: Vec<f64>,
     pub pos: Vec<(f64, f64, f64)>,
     pub dir: Vec<(f64, f64, f64)>,
-    pub interaction_index: Vec<usize>
+    pub interaction_index: Vec<usize>,
+    pub weight: f64,
+    pub tag: i32,
 }
 
 #[cfg(not(feature = "hdf5_input"))]
@@ -35,7 +37,9 @@ pub struct ParticleParameters {
     pub Es: Vec<f64>,
     pub pos: Vec<(f64, f64, f64)>,
     pub dir: Vec<(f64, f64, f64)>,
-    pub interaction_index: Vec<usize>
+    pub interaction_index: Vec<usize>,
+    pub weight: f64,
+    pub tag: i32,
 }
 
 /// HDF5 version of particle input.
@@ -55,6 +59,8 @@ pub struct ParticleInput {
     pub uy: f64,
     pub uz: f64,
     pub interaction_index: usize,
+    pub weight: f64,
+    pub tag: i32,
 }
 
 /// Particle object. Particles in rustbca include incident ions and material atoms.
@@ -82,6 +88,9 @@ pub struct Particle {
     pub number_collision_events: usize,
     pub backreflected: bool,
     pub interaction_index: usize,
+    pub weight: f64,
+    pub tag: i32,
+    pub tracked_vector: Vector,
 }
 impl Particle {
     /// Construct a particle object from input.
@@ -118,6 +127,9 @@ impl Particle {
             number_collision_events: 0,
             backreflected: false,
             interaction_index: input.interaction_index,
+            weight: 1.0,
+            tag: 0,
+            tracked_vector: Vector::new(0.0, 0.0, 0.0),
         }
     }
 
@@ -148,6 +160,9 @@ impl Particle {
             number_collision_events: 0,
             backreflected: false,
             interaction_index,
+            weight: 1.0,
+            tag: 0,
+            tracked_vector: Vector::new(0.0, 0.0, 0.0),
         }
     }
 
