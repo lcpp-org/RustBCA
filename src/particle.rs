@@ -19,8 +19,6 @@ pub struct ParticleParameters {
     pub pos: Vec<(f64, f64, f64)>,
     pub dir: Vec<(f64, f64, f64)>,
     pub interaction_index: Vec<usize>,
-    pub weight: f64,
-    pub tag: i32,
 }
 
 #[cfg(not(feature = "hdf5_input"))]
@@ -38,8 +36,6 @@ pub struct ParticleParameters {
     pub pos: Vec<(f64, f64, f64)>,
     pub dir: Vec<(f64, f64, f64)>,
     pub interaction_index: Vec<usize>,
-    pub weight: f64,
-    pub tag: i32,
 }
 
 /// HDF5 version of particle input.
