@@ -354,7 +354,6 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                             interaction_index: interaction_index,
                             tag: 0,
                             weight: 1.0,
-                            tracked_vector: Vector::new(0.0, 0.0, 0.0),
                         }
                     );
                 }
