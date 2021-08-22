@@ -351,7 +351,9 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                             ux: cosx,
                             uy: cosy,
                             uz: cosz,
-                            interaction_index: interaction_index
+                            interaction_index: interaction_index,
+                            tag: 0,
+                            weight: 1.0,
                         }
                     );
                 }
@@ -395,7 +397,9 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                             ux: cosx,
                             uy: cosy,
                             uz: cosz,
-                            interaction_index
+                            interaction_index,
+                            weight: 1.0,
+                            tag: 0,
                         }
                     );
                 }

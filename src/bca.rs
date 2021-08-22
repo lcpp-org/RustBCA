@@ -377,15 +377,19 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
 
     //Choose recoil Z, M
     let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil);
+    let mut new_particle = particle::Particle::new(
+        M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil,
+        x_recoil, y_recoil, z_recoil,
+        cosx, cosy, cosz,
+        false, options.track_recoil_trajectories, interaction_index
+    );
 
-    return (species_index,
-        particle::Particle::new(
-            M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil,
-            x_recoil, y_recoil, z_recoil,
-            cosx, cosy, cosz,
-            false, options.track_recoil_trajectories, interaction_index
-        )
-    )
+    // Carry through tag, weight, and tracked vector from originating particle
+    new_particle.weight = particle_1.weight;
+    new_particle.tag = particle_1.tag;
+    new_particle.tracked_vector = particle_1.tracked_vector;
+
+    return (species_index, new_particle)
 }
 
 /// Calculate the distance of closest approach of two particles given a particular binary collision geometry.
