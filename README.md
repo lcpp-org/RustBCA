@@ -13,7 +13,10 @@ Generally, [BCA] codes are valid for incident ion energies between approximately
 ~1 eV/nucleon to ~1 GeV/nucleon.
 
 Check out the `RustBCA` [Wiki] for detailed information, installation
-instructions, use cases, examples, and more!
+instructions, use cases, examples, and more. See the RustBCA paper at the
+Journal of Open Source Software by clicking the badge below:
+
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.03298/status.svg)](https://doi.org/10.21105/joss.03298)
 
 ## Getting started
 
