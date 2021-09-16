@@ -28,6 +28,9 @@ use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::BufWriter;
 
+//C integer
+use std::os::raw::c_int;
+
 //standard slice
 use std::slice;
 
@@ -121,6 +124,109 @@ pub struct InputCompoundBCA {
     pub Ec2: *mut f64,
     pub Es2: *mut f64,
     pub Eb2: *mut f64,
+}
+
+#[no_mangle]
+pub extern "C" fn print_integer(i: f64) {
+
+    println!("{}", i);
+}
+
+#[no_mangle]
+pub extern "C" fn reflect_single_ion_c(num_species_target: &mut i32, ux: &mut f64, uy: &mut f64, uz: &mut f64, E1: &mut f64, Z1: &mut f64, m1: &mut f64, Ec1: &mut f64, Es1: &mut f64, Z2: *mut f64, m2: *mut f64, Ec2: *mut f64, Es2: *mut f64, Eb2: *mut f64, n2: *mut f64) {
+
+    assert!(ux*ux + uy*uy + uz*uz <= 1.0);
+    assert!(E1 > 0.0);
+
+    let options = Options {
+        name: "test".to_string(),
+        track_trajectories: false,
+        track_recoil_trajectories: false,
+        track_recoils: false,
+        write_buffer_size: 8000,
+        weak_collision_order: 3,
+        suppress_deep_recoils: false,
+        high_energy_free_flight_paths: false,
+        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
+        mean_free_path_model: MeanFreePathModel::LIQUID,
+        interaction_potential: vec![vec![InteractionPotential::KR_C]],
+        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
+        num_threads: 1,
+        num_chunks: 1,
+        use_hdf5: false,
+        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
+        track_displacements: false,
+        track_energy_losses: false,
+    };
+
+
+    let Z2 = unsafe { slice::from_raw_parts(Z2, *num_species_target as usize).to_vec() };
+    let m2 = unsafe { slice::from_raw_parts(m2, *num_species_target as usize).to_vec() };
+    let n2 = unsafe { slice::from_raw_parts(n2, *num_species_target as usize).to_vec() };
+    let Ec2 = unsafe { slice::from_raw_parts(Ec2, *num_species_target as usize).to_vec() };
+    let Es2 = unsafe { slice::from_raw_parts(Es2, *num_species_target as usize).to_vec() };
+    let Eb2 = unsafe { slice::from_raw_parts(Eb2, *num_species_target as usize).to_vec() };
+
+    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let y = 0.0;
+    let z = 0.0;
+
+    let material_parameters = material::MaterialParameters {
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: Eb2,
+        Es: Es2,
+        Ec: Ec2,
+        Z: Z2,
+        m: m2,
+        interaction_index: vec![0; *num_species_target as usize],
+        surface_binding_model: SurfaceBindingModel::AVERAGE,
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let geometry_input = geometry::Mesh0DInput {
+        length_unit: "ANGSTROM".to_string(),
+        densities: n2,
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
+
+    let p = particle::Particle {
+        m: *m1*AMU,
+        Z: *Z1,
+        E: *E1*EV,
+        Ec: *Ec1*EV,
+        Es: *Es1*EV,
+        pos: Vector::new(x, y, z),
+        dir: Vector::new(*ux, *uy, *uz),
+        pos_origin: Vector::new(x, y, z),
+        pos_old: Vector::new(x, y, z),
+        dir_old: Vector::new(*ux, *uy, *uz),
+        energy_origin: *E1,
+        asymptotic_deflection: 0.0,
+        stopped: false,
+        left: false,
+        incident: true,
+        first_step: true,
+        trajectory: vec![],
+        energies: vec![],
+        track_trajectories: false,
+        number_collision_events: 0,
+        backreflected: false,
+        interaction_index : 0
+    };
+
+    let output = bca::single_ion_bca(p, &m, &options);
+
+    *ux = output[0].dir.x;
+    *uy = output[0].dir.y;
+    *uz = output[0].dir.z;
+    if output[0].pos.x >= 0.0 {
+        *E1 = 0.0
+    } else {
+        *E1 = output[0].E;
+    }
 }
 
 #[no_mangle]
