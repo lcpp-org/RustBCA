@@ -1,4 +1,6 @@
 module rustbca
+
+    use, intrinsic :: iso_c_binding
     
     interface
 
@@ -30,7 +32,20 @@ module rustbca
             real(c_double), intent(in), dimension(*) :: Z2, m2, Ec2, Es2, Eb2, n2
 
         end subroutine reflect_single_ion_c
-        
+
+        function compound_bca_list_fortran(num_incident_ions, ux, uy, uz, E1, &
+            Z1, m1, Ec1, Es1, &
+            num_species_target, Z2, m2, Ec2, Es2, Eb2, n2, &
+            num_emitted_particles) bind(c) result(output)
+
+            use, intrinsic :: iso_c_binding
+            integer(c_int), intent(in) :: num_incident_ions, num_species_target
+            integer(c_int), intent(out) :: num_emitted_particles
+            real(c_double), intent(in), dimension(*) :: ux, uy, uz, E1, Z1, m1, Ec1, Es1
+            real(c_double), intent(in), dimension(*) :: Z2, m2, Ec2, Es2, EB2, n2
+            type(c_ptr) :: output
+        end function compound_bca_list_fortran
+
     end interface
 
     contains
