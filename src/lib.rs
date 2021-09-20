@@ -127,6 +127,7 @@ pub struct InputCompoundBCA {
 }
 
 #[no_mangle]
+#[cfg(not(feature = "distributions"))]
 pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut f64, uy: &mut f64, uz: &mut f64, E1: &mut f64, Z1: &mut f64, m1: &mut f64, Ec1: &mut f64, Es1: &mut f64, Z2: *mut f64, m2: *mut f64, Ec2: *mut f64, Es2: *mut f64, Eb2: *mut f64, n2: *mut f64) {
 
     assert!(E1 > &mut 0.0);
