@@ -71,7 +71,7 @@ plt.show()
 The following features are implemented in `rustBCA`:
 
 * Ion-material interactions for all combinations of incident ion and target species.
-* Infinite, homogeneous targets (Mesh0D), Layered, finite-depth inhomogeneous targets (Mesh1D) and arbitrary 2D geometry and composition through a triangular mesh (Mesh2D).
+* Infinite, homogeneous targets (Mesh0D), Layered, finite-depth inhomogeneous targets (Mesh1D), arbitrary 2D geometry composition through a triangular mesh (Mesh2D), homogeneous spherical geometry (Sphere) and homogeneous, arbitrary triangular mesh geometry (TriMesh).
 * Amorphous Solid/Liquid targets, Gaseous targets, and targets with both solid/liquid and gaseous elements
 * Low energy (< 25 keV/nucleon) electronic stopping modes including:
   * local (Oen-Robinson),
@@ -94,17 +94,19 @@ The following features are implemented in `rustBCA`:
   * or the MAGIC algorithm.
 * Input files use the [TOML] format, making them both human-readable and easily parsable.
 * RustBCA generates user-friendly, context-providing error messages, which help pinpoint the cause of errors and provide suggested fixes to the user.
-* The simulation results are formatted as the ubiquitous `csv` format and include:
+* The simulation results are comma-delimited (`csv` format) and include:
   * the energies and directions of emitted particles (reflected ions and sputtered atoms),
   * the final positions of implanted ions,
-  * and full trajectory tracking for both the incident ions and target atoms.
+  * full trajectory tracking for both the incident ions and target atoms,
+  * and many other parameters such as position of origin of sputtered particles and energy loss along trajectories.
 * Optionally, the code can produce energy-angle and implantation distributions when built with the `--features distributions` flag and disable space-intensive particle list output with `--features no_list_output`.
 
 ## Installation
 
 Without optional features, `rustBCA` should compile with `cargo` alone on
 Windows, MacOS, and Linux systems.
-[HDF5] has been tested on Windows, but version 1.10.6 must be used.
+
+[HDF5] for particle list input has been tested on Windows, but version 1.10.6 must be used.
 [rcpr], the adaptive Chebyshev Proxy Rootfinder with automatic subdivision and
 polynomial rootfinder package for [Rust], has not yet been successfully compiled
 on Windows.
