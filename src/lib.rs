@@ -206,7 +206,10 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
         track_trajectories: false,
         number_collision_events: 0,
         backreflected: false,
-        interaction_index : 0
+        interaction_index : 0,
+        weight: 1.0,
+        tag: 0,
+        tracked_vector: vec![],
     };
 
     let output = bca::single_ion_bca(p, &m, &options);
@@ -555,7 +558,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
 }
 
 #[no_mangle]
-pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, 
+pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track_recoils: &mut bool,
     ux: *mut f64, uy: *mut f64, uz: *mut f64, E1: *mut f64, 
     Z1: *mut f64, m1: *mut f64, Ec1: *mut f64, Es1: *mut f64,
     num_species_target: &mut c_int,
@@ -571,7 +574,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int,
     let options = Options {
         name: "test".to_string(),
         track_trajectories: false,
-        track_recoils: true,
+        track_recoils: *track_recoils,
         track_recoil_trajectories: false,
         write_buffer_size: 8000,
         weak_collision_order: 3,
@@ -608,7 +611,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int,
     let options = Options {
         name: "test".to_string(),
         track_trajectories: false,
-        track_recoils: true,
+        track_recoils: *track_recoils,
         track_recoil_trajectories: false,
         write_buffer_size: 8000,
         weak_collision_order: 3,
@@ -659,7 +662,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int,
         Z: Z2,
         m: m2,
         interaction_index: vec![0; *num_species_target as usize],
-        surface_binding_model: SurfaceBindingModel::AVERAGE,
+        surface_binding_model: SurfaceBindingModel::INDIVIDUAL,
         bulk_binding_model: BulkBindingModel::INDIVIDUAL,
     };
 
@@ -695,7 +698,10 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int,
             track_trajectories: false,
             number_collision_events: 0,
             backreflected: false,
-            interaction_index : 0
+            interaction_index : 0,
+            weight: 1.0,
+            tag: 0,
+            tracked_vector: vec![],
         };
 
         let output = bca::single_ion_bca(p, &m, &options);
@@ -718,7 +724,6 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int,
     }
 
     let len = total_output.len();
-
     let particles = total_output.as_mut_ptr();
 
     std::mem::forget(total_output);
