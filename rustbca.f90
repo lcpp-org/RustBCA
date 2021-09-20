@@ -10,20 +10,20 @@ module rustbca
             !Runs a single ion BCA trajectory with no recoils
             !Args:
             !   num_species_target (integer): number of species in target      
-            !   ux (real): x-direction of incident ion, x-direction of reflected ion
-            !   uy (real): y-direction of incident ion, y-direction of reflected ion
-            !   uz (real): z-direction of incident ion, z-direction of reflected ion
-            !   E1 (real): initial energy of incident ion in eV
-            !   Z1 (real): atomic number of incident ion
-            !   m1 (real): atomic mass of incident ion in eV
-            !   Ec1 (real): cutoff energy of incident ion in eV
-            !   Es1 (real): surface binding energy of incident ion in eV
-            !   Z2 (array(real)): list of atomic numbers of target speciesd
-            !   m2 (array(real)): list of atomic masses of target species in amu
-            !   Ec2 (array(real)): list of cutoff energies of target species in eV
-            !   Es2 (array(real)): list of surface binding energies of target species in eV
-            !   Eb2 (array(real)): list of bulk binding energies of target species in eV
-            !   n2 (array(real)): list of number densities of target species in 1/angstrom^3
+            !   ux (real(c_double)): x-direction of incident ion, x-direction of reflected ion
+            !   uy (real(c_double)): y-direction of incident ion, y-direction of reflected ion
+            !   uz (real(c_double)): z-direction of incident ion, z-direction of reflected ion
+            !   E1 (real(c_double)): initial energy of incident ion in eV
+            !   Z1 (real(c_double)): atomic number of incident ion
+            !   m1 (real(c_double)): atomic mass of incident ion in eV
+            !   Ec1 (real(c_double)): cutoff energy of incident ion in eV
+            !   Es1 (real(c_double)): surface binding energy of incident ion in eV
+            !   Z2 (real(c_double), dimension(:)): list of atomic numbers of target speciesd
+            !   m2 (real(c_double), dimension(:)): list of atomic masses of target species in amu
+            !   Ec2 (real(c_double), dimension(:)): list of cutoff energies of target species in eV
+            !   Es2 (real(c_double), dimension(:)): list of surface binding energies of target species in eV
+            !   Eb2 (real(c_double), dimension(:)): list of bulk binding energies of target species in eV
+            !   n2 (real(c_double), dimension(:)): list of number densities of target species in 1/angstrom^3
 
             use, intrinsic :: iso_c_binding
             real(c_double), intent(inout) :: ux, uy, uz, E1
@@ -37,6 +37,30 @@ module rustbca
             Z1, m1, Ec1, Es1, &
             num_species_target, Z2, m2, Ec2, Es2, Eb2, n2, &
             num_emitted_particles) bind(c) result(output)
+
+            
+            !Runs a homogeneous, flat, compound target BCA with an arbitrary list of ions.
+            !Args:
+            !   num_incident_ion (integer(c_int)): number of incident ions
+            !   track_recoils (logical(c_bool)): whether to generate recoils (disable to turn off sputtering)
+            !   ux (real(c_double), dimension(:)): x-direction of incident ion, x-direction of reflected ion
+            !   uy (real(c_double), dimension(:)): y-direction of incident ion, y-direction of reflected ion
+            !   uz (real(c_double), dimension(:)): z-direction of incident ion, z-direction of reflected ion
+            !   E1 (real(c_double), dimension(:)): initial energy of incident ion in eV
+            !   Z1 (real(c_double), dimension(:)): atomic number of incident ion
+            !   m1 (real(c_double), dimension(:)): atomic mass of incident ion in eV
+            !   Ec1 (real(c_double), dimension(:)): cutoff energy of incident ion in eV
+            !   num_species_target(integer(c_int)): number of species in target
+            !   Es1 (real(c_double), dimension(:)): surface binding energy of incident ion in eV
+            !   Z2 (real(c_double), dimension(:)): list of atomic numbers of target speciesd
+            !   m2 (real(c_double), dimension(:)): list of atomic masses of target species in amu
+            !   Ec2 (real(c_double), dimension(:)): list of cutoff energies of target species in eV
+            !   Es2 (real(c_double), dimension(:)): list of surface binding energies of target species in eV
+            !   Eb2 (real(c_double), dimension(:)): list of bulk binding energies of target species in eV
+            !   n2 (real(c_double), dimension(:)): list of number densities of target species in 1/angstrom^3
+            !   num_emitted_particles (integer(c_int), intent(out)): NOTE THAT THIS IS INTENT(OUT) number of emitted particles in output
+            !Returns:
+            !   output (type(c_ptr)): a c pointer to a 2D array of size (num_emitted_particles, 6) that consists of Z, m, E, ux, uy, uz
 
             use, intrinsic :: iso_c_binding
             logical(c_bool), intent(in) :: track_recoils
@@ -55,10 +79,10 @@ module rustbca
 
             !Rotates a vector in 2D
             !Args:
-            !   ux (real): x-direction
-            !   uy (real): y-direction
-            !   uz (real): z-direction
-            !   alpha (real): local surface angle measured counter-clockwise from x-axis in radians
+            !   ux (real(c_double)): x-direction
+            !   uy (real(c_double)): y-direction
+            !   uz (real(c_double)): z-direction
+            !   alpha (real(c_double)): local surface angle measured counter-clockwise from x-axis in radians
 
             real(8), intent(inout) :: ux, uy, uz
             real(8), intent(in) :: alpha
