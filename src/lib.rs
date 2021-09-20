@@ -209,7 +209,7 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
         interaction_index : 0,
         weight: 1.0,
         tag: 0,
-        tracked_vector: vec![],
+        tracked_vector: Vector::new(),
     };
 
     let output = bca::single_ion_bca(p, &m, &options);
@@ -701,7 +701,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
             interaction_index : 0,
             weight: 1.0,
             tag: 0,
-            tracked_vector: vec![],
+            tracked_vector: Vector::new(),
         };
 
         let output = bca::single_ion_bca(p, &m, &options);
