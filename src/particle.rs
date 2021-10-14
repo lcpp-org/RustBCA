@@ -2,7 +2,6 @@ use super::*;
 
 /// Rustbca's internal representation of the particle_parameters input.
 
-
 #[cfg(feature = "hdf5_input")]
 #[derive(Deserialize, Clone)]
 pub struct ParticleParameters {
@@ -13,11 +12,11 @@ pub struct ParticleParameters {
     pub N: Vec<usize>,
     pub m: Vec<f64>,
     pub Z: Vec<f64>,
-    pub E: Vec<f64>,
+    pub E: Vec<Distributions>,
     pub Ec: Vec<f64>,
     pub Es: Vec<f64>,
-    pub pos: Vec<(f64, f64, f64)>,
-    pub dir: Vec<(f64, f64, f64)>,
+    pub pos: Vec<(Distributions, Distributions, Distributions)>,
+    pub dir: Vec<(Distributions, Distributions, Distributions)>,
     pub interaction_index: Vec<usize>,
 }
 
@@ -30,11 +29,11 @@ pub struct ParticleParameters {
     pub N: Vec<usize>,
     pub m: Vec<f64>,
     pub Z: Vec<f64>,
-    pub E: Vec<f64>,
+    pub E: Vec<Distributions>,
     pub Ec: Vec<f64>,
     pub Es: Vec<f64>,
-    pub pos: Vec<(f64, f64, f64)>,
-    pub dir: Vec<(f64, f64, f64)>,
+    pub pos: Vec<(Distributions, Distributions, Distributions)>,
+    pub dir: Vec<(Distributions, Distributions, Distributions)>,
     pub interaction_index: Vec<usize>,
 }
 

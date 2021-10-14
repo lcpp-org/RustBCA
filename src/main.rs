@@ -43,9 +43,6 @@ use std::f64::consts::FRAC_2_SQRT_PI;
 use std::f64::consts::PI;
 use std::f64::consts::SQRT_2;
 
-//rng
-//use rand::{Rng, thread_rng};
-
 //Load internal modules
 pub mod material;
 pub mod particle;

@@ -14,6 +14,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 rand = "0.8.3"
+rand_distr = "0.4.2"
 toml = "0.5.8"
 anyhow = "1.0.38"
 itertools = "0.10.0"
