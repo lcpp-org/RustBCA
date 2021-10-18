@@ -698,8 +698,8 @@ pub fn newton_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_par
             return Ok(x0);
         }
     }
-    return Err(anyhow!("Numerical error: exceeded maximum number of Newton-Raphson iterations, {}. E: {}; x0: {}; Error: {}; Tolerance: {}",
-        max_iterations, E0, x0, err, tolerance));
+    return Err(anyhow!("Numerical error: exceeded maximum number of Newton-Raphson iterations, {}. E: {} eV; x0: {}; Error: {}; Tolerance: {}; Za: {}; Zb: {}; Ma: {} amu; Mb: {} amu; a: {}; p: {} A",
+        max_iterations, E0/Q, x0, err, tolerance, Za, Zb, Ma/AMU, Mb/AMU, a, impact_parameter/ANGSTROM));
 }
 
 /// Gauss-Mehler quadrature.
