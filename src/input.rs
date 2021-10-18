@@ -1,4 +1,5 @@
 use super::*;
+use rand_distr::{Normal, Distribution, Uniform};
 
 pub trait InputFile: GeometryInput {
     fn new(string: &str) -> Self;
@@ -332,25 +333,53 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                 let Ec = particle_parameters.Ec[particle_index];
                 let Es = particle_parameters.Es[particle_index];
                 let interaction_index = particle_parameters.interaction_index[particle_index];
+
                 let (x, y, z) = particle_parameters.pos[particle_index];
                 let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
-                assert!(cosx < 1.,
-                    "Input error: particle x-direction cannot be exactly equal to 1 to avoid numerical gimbal lock.");
+                
                 for sub_particle_index in 0..N_ {
                     //Add new particle to particle vector
                     particle_input.push(
                         particle::ParticleInput{
                             m: m*mass_unit,
                             Z: Z,
-                            E: E*energy_unit,
+                            E: match E {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*energy_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*energy_unit},
+                                Distributions::POINT(x) => x*energy_unit,
+                            },
                             Ec: Ec*energy_unit,
                             Es: Es*energy_unit,
-                            x: x*length_unit,
-                            y: y*length_unit,
-                            z: z*length_unit,
-                            ux: cosx,
-                            uy: cosy,
-                            uz: cosz,
+                            x: match x {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::POINT(x) => x*length_unit,
+                            },
+                            y: match y {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::POINT(x) => x*length_unit,
+                            },
+                            z: match z {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::POINT(x) => x*length_unit,
+                            },
+                            ux: match cosx {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::POINT(x) => {assert!(x != 1.0, "ux cannot equal exactly 1.0 to prevent gimbal lock"); x*length_unit}
+                            },
+                            uy: match cosy {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::POINT(x) => x*length_unit,
+                            },
+                            uz: match cosz {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::POINT(x) => x*length_unit,
+                            },
                             interaction_index: interaction_index,
                             tag: 0,
                             weight: 1.0,
@@ -379,8 +408,7 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                 let interaction_index = particle_parameters.interaction_index[particle_index];
                 let (x, y, z) = particle_parameters.pos[particle_index];
                 let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
-                assert!(cosx < 1.,
-                    "Input error: particle x-direction cannot be exactly equal to 1 to avoid numerical gimbal lock.");
+
                 for sub_particle_index in 0..N_ {
 
                     //Add new particle to particle vector
@@ -388,18 +416,46 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                         particle::ParticleInput{
                             m: m*mass_unit,
                             Z: Z,
-                            E: E*energy_unit,
+                            E: match E {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*energy_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*energy_unit},
+                                Distributions::POINT(x) => x*energy_unit,
+                            },
                             Ec: Ec*energy_unit,
                             Es: Es*energy_unit,
-                            x: x*length_unit,
-                            y: y*length_unit,
-                            z: z*length_unit,
-                            ux: cosx,
-                            uy: cosy,
-                            uz: cosz,
-                            interaction_index,
-                            weight: 1.0,
+                            x: match x {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::POINT(x) => x*length_unit,
+                            },
+                            y: match y {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::POINT(x) => x*length_unit,
+                            },
+                            z: match z {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::POINT(x) => x*length_unit,
+                            },
+                            ux: match cosx {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::POINT(x) => {assert!(x != 1.0, "ux cannot equal exactly 1.0 to prevent gimbal lock"); x*length_unit},
+                            },
+                            uy: match cosy {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::POINT(x) => x*length_unit,
+                            },
+                            uz: match cosz {
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::POINT(x) => x*length_unit,
+                            },
+                            interaction_index: interaction_index,
                             tag: 0,
+                            weight: 1.0,
                         }
                     );
                 }

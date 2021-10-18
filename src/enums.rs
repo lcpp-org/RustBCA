@@ -11,6 +11,14 @@ pub enum MaterialType {
     TRIMESH(material::Material<parry::ParryTriMesh>)
 }
 
+#[derive(Deserialize, PartialEq, Clone, Copy)]
+#[serde(untagged)]
+pub enum Distributions {
+    UNIFORM{min: f64, max: f64},
+    NORMAL{mean: f64, std: f64},
+    POINT(f64),
+}
+
 #[derive(Deserialize)]
 pub enum GeometryType {
     MESH0D,
