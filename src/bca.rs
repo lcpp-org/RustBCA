@@ -447,6 +447,7 @@ pub fn update_particle_energy<T: Geometry>(particle_1: &mut particle::Particle, 
     recoil_energy: f64, x0: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) {
 
     //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
+    assert!(!recoil_energy.is_nan(), "Numerical error: recoil Energy is NaN. E0 = {} Za = {} Ma = {} x0 = {} Zb = {} delta-x = {}", particle_1.E, particle_1.Z, particle_1.m, x0, strong_collision_Z, distance_traveled);
     particle_1.E -= recoil_energy;
     assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following collision.");
     if particle_1.E < 0. {
