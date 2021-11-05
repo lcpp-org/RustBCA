@@ -24,30 +24,25 @@ from spack import *
 
 
 class Rustbca(Package):
-    """FIXME: Put a proper description of your package here."""
+    """RustBCA: A Binary Collision Approximation code and libraries for simulating ion-material interactions"""
 
-    # FIXME: Add a proper url for your package's homepage here.
     homepage = "https://www.github.com/lcpp-org/RustBCA/wiki"
     url      = "https://github.com/lcpp-org/RustBCA/archive/refs/tags/v1.0.0.tar.gz"
     git      = "https://www.github.com/lcpp-org/RustBCA.git"
 
-    # FIXME: Add a list of GitHub accounts to
-    # notify when the package is updated.
-    # maintainers = ['github_user1', 'github_user2']
+    # maintainers = ['drobnyjt']
 
     version('dev', branch='dev')
-    version('1.0.0', sha256='99dcac7c7a78e6cd17da63a0dcbb3c36bca523ffafbb0425128b0c971b1a6829')
+    version('master', branch='master')
     depends_on('rust')
-
-    # FIXME: Add dependencies if required.
-    # depends_on('foo')
 
     def install(self, spec, prefix):
         cargo = which('cargo')
-        cargo('build', '--release', '--lib', '--target-dir', prefix)
-        
+        cargo('build', '--release', '--lib')
+
         mkdirp(prefix.include)
         install('RustBCA.h', prefix.include)
-​
+
         mkdirp(prefix.lib)
         install('target/release/liblibRustBCA.so', prefix.lib)
+        
