@@ -35,7 +35,7 @@ jobs:
       run: |
         git clone https://github.com/uiri/toml.git
         cd toml
-        sudo python3 setup.py install
+        python3 setup.py install
     - name: Install HDF5 Libraries
       run: |
         sudo apt install libhdf5-dev
