@@ -43,6 +43,8 @@ jobs:
       run: |
         python3 -m pip install setuptools_rust testresources
         python3 setup.py install --root .
+        cp -r usr/local/lib/python3.8/dist-packages/libRustBCA .
+        python3 -c "from libRustBCA.pybca import *;"
     - name: Test RustBCA
       run: |
         sudo cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions,parry3d
