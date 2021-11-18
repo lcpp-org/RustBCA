@@ -47,7 +47,7 @@ jobs:
         python3 -c "from libRustBCA.pybca import *;"
     - name: Test Fortran bindings
       run : |
-        gfortran rustbca.f90 target/release/liblibRustBCA.so
+        gfortran -c rustbca.f90 target/release/liblibRustBCA.so
     - name: Test RustBCA
       run: |
         sudo cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions,parry3d
