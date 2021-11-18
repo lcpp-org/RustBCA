@@ -35,15 +35,15 @@ jobs:
       run: |
         git clone https://github.com/uiri/toml.git
         cd toml
-        python3 setup.py install --root .
+        python3 setup.py install
     - name: Install HDF5 Libraries
       run: |
         sudo apt install libhdf5-dev
     - name: test Python Bindings
       run: |
         python3 -m pip install setuptools_rust testresources
-        python3 setup.py install --root .
-        python3 -c "from libRustBCA.pybca import *; print(simple_bca_py)"
+        python3 setup.py install
+        
     - name: Test RustBCA
       run: |
         sudo cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions,parry3d
