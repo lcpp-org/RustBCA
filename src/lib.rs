@@ -416,7 +416,7 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
         pos_origin: Vector::new(x, y, z),
         pos_old: Vector::new(x, y, z),
         dir_old: Vector::new(*ux, *uy, *uz),
-        energy_origin: *E1,
+        energy_origin: *E1*EV,
         asymptotic_deflection: 0.0,
         stopped: false,
         left: false,
@@ -441,7 +441,7 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
     if output[0].pos.x >= 0.0 {
         *E1 = 0.0
     } else {
-        *E1 = output[0].E;
+        *E1 = output[0].E/EV;
     }
 }
 
