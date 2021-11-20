@@ -47,7 +47,7 @@ jobs:
         python3 -c "from libRustBCA.pybca import *;"
     - name: Test Fortran and C bindings
       run : |
-        gfortran -c examples/rustbca.f90 target/release/liblibRustBCA.so
+        gfortran -c rustbca.f90 target/release/liblibRustBCA.so
         cp examples/RustBCA.c .
         g++ RustBCA.c RustBCA.h target/release/liblibRustBCA.so -I examples
     - name: Test RustBCA
