@@ -70,6 +70,6 @@ program test_rustbca
     call cpu_time(stop)
     write(*,*) "Elapsed time in ions per eV per s: ", (stop - start)/N_ions/1000.0
 
-    call exit(1)
+    !call exit(1)
     
 end program test_rustbca
