@@ -27,7 +27,7 @@ jobs:
         sudo apt-get install rustc
     - name: Install pip for Python-3
       run: |
-        sudo apt-get install python3-pip
+        sudo apt-get install python3-pip python3-dev
     - name: Install Python libraries
       run: |
         python3 -m pip install numpy shapely scipy
