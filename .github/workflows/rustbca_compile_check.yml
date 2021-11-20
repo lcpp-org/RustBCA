@@ -48,7 +48,7 @@ jobs:
     - name: Test Fortran and C bindings
       run : |
         cargo build --release
-        cp examples test_rustbca.f90 .
+        cp examples/test_rustbca.f90 .
         gfortran test_rustbca.f90 rustbca.f90 target/release/liblibRustBCA.so
         cp examples/RustBCA.c .
         g++ RustBCA.c RustBCA.h target/release/liblibRustBCA.so -Iexamples/ -I/usr/include/python3.8
