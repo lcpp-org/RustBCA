@@ -50,7 +50,7 @@ jobs:
         cargo build --release
         gfortran -c rustbca.f90 target/release/liblibRustBCA.so
         cp examples/RustBCA.c .
-        g++ RustBCA.c RustBCA.h target/release/liblibRustBCA.so -I examples /usr/include/python3.8
+        g++ RustBCA.c RustBCA.h target/release/liblibRustBCA.so -Iexamples/ -I/usr/include/python3.8
     - name: Test RustBCA
       run: |
         sudo cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions,parry3d
