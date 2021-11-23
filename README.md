@@ -3,7 +3,8 @@
 `RustBCA` is a general-purpose, high-performance code for simulating
 ion-material interactions using the binary collision approximation ([BCA]),
 written in [Rust]! RustBCA consists of a standalone code and libraries for
-including ion-material interactions in C/C++, Python, and Fortran codes.
+including ion-material interactions in simulations written in C/C++, Python,
+and Fortran.
 
 By discretizing the collision cascade into a sequence of binary collisions,
 [BCA] codes can accurately and efficiently model the prompt interaction
