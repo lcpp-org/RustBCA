@@ -2,7 +2,8 @@
 
 `RustBCA` is a general-purpose, high-performance code for simulating
 ion-material interactions using the binary collision approximation ([BCA]),
-written in [Rust]!
+written in [Rust]! RustBCA consists of a standalone code and libraries for
+including ion-material interactions in C/C++, Python, and Fortran codes.
 
 By discretizing the collision cascade into a sequence of binary collisions,
 [BCA] codes can accurately and efficiently model the prompt interaction
@@ -10,7 +11,7 @@ between an energetic ion and a target material.
 This includes reflection, implantation, and transmission of the incident ion,
 as well as sputtering and displacement damage of the target.
 Generally, [BCA] codes are valid for incident ion energies between approximately
-~1 eV/nucleon to ~1 GeV/nucleon.
+~1 eV/nucleon to <1 GeV/nucleon.
 
 Check out the `RustBCA` [Wiki] for detailed information, installation
 instructions, use cases, examples, and more. See the RustBCA paper at the
@@ -77,7 +78,7 @@ The following features are implemented in `rustBCA`:
   * local (Oen-Robinson),
   * nonlocal (Lindhard-Scharff),
   * and equipartition forms.
-* Biersack-Varelas interpolation is also included for electronic stopping up to ~1 GeV/nucleon.
+* Biersack-Varelas interpolation is also included for electronic stopping up to ~1 GeV/nucleon. Note that high energy physics beyond electronic stopping are not included.
 * Optionally, the Biersack-Haggmark treatment of high-energy free-flight paths between collisions can be included to greatly speed up high-energy simulations (i.e., by neglecting very small angle scattering).
 * A wide range of interaction potentials are provided, including:
   * the Kr-C, ZBL, Lenz-Jensen, and Moliere universal, screened-Coulomb potentials.
@@ -100,6 +101,7 @@ The following features are implemented in `rustBCA`:
   * full trajectory tracking for both the incident ions and target atoms,
   * and many other parameters such as position of origin of sputtered particles and energy loss along trajectories.
 * Optionally, the code can produce energy-angle and implantation distributions when built with the `--features distributions` flag and disable space-intensive particle list output with `--features no_list_output`.
+* Library functions for modeling ion reflection, implantation, and sputtering in C++/C, Python, and Fortran codes.
 
 ## Installation
 
