@@ -13,8 +13,8 @@ use std::{fmt};
 use std::mem::discriminant;
 
 //Error handling crate
-use anyhow::Result;
-use anyhow::*;
+use anyhow::{Result, Context, anyhow};
+//use anyhow::*;
 
 //Serializing/Deserializing crate
 use serde::*;
@@ -787,7 +787,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
 
 #[no_mangle]
 pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track_recoils: &mut bool,
-    ux: *mut f64, uy: *mut f64, uz: *mut f64, E1: *mut f64, 
+    ux: *mut f64, uy: *mut f64, uz: *mut f64, E1: *mut f64,
     Z1: *mut f64, m1: *mut f64, Ec1: *mut f64, Es1: *mut f64,
     num_species_target: &mut c_int,
     Z2: *mut f64, m2: *mut f64, Ec2: *mut f64, Es2: *mut f64, Eb2: *mut f64, n2: *mut f64,
