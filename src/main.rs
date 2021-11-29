@@ -16,8 +16,7 @@ use std::mem::discriminant;
 use indicatif::{ProgressBar, ProgressStyle};
 
 //Error handling crate
-use anyhow::Result;
-use anyhow::*;
+use anyhow::{Result, Context, anyhow};
 
 //Serializing/Deserializing crate
 use serde::*;
