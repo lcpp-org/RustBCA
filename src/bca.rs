@@ -377,15 +377,19 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
 
     //Choose recoil Z, M
     let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil);
+    let mut new_particle = particle::Particle::new(
+        M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil,
+        x_recoil, y_recoil, z_recoil,
+        cosx, cosy, cosz,
+        false, options.track_recoil_trajectories, interaction_index
+    );
 
-    return (species_index,
-        particle::Particle::new(
-            M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil,
-            x_recoil, y_recoil, z_recoil,
-            cosx, cosy, cosz,
-            false, options.track_recoil_trajectories, interaction_index
-        )
-    )
+    // Carry through tag, weight, and tracked vector from originating particle
+    new_particle.weight = particle_1.weight;
+    new_particle.tag = particle_1.tag;
+    new_particle.tracked_vector = particle_1.tracked_vector;
+
+    return (species_index, new_particle)
 }
 
 /// Calculate the distance of closest approach of two particles given a particular binary collision geometry.
@@ -443,6 +447,7 @@ pub fn update_particle_energy<T: Geometry>(particle_1: &mut particle::Particle, 
     recoil_energy: f64, x0: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) {
 
     //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
+    assert!(!recoil_energy.is_nan(), "Numerical error: recoil Energy is NaN. E0 = {} Za = {} Ma = {} x0 = {} Zb = {} delta-x = {}", particle_1.E, particle_1.Z, particle_1.m, x0, strong_collision_Z, distance_traveled);
     particle_1.E -= recoil_energy;
     assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following collision.");
     if particle_1.E < 0. {
@@ -694,8 +699,8 @@ pub fn newton_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_par
             return Ok(x0);
         }
     }
-    return Err(anyhow!("Numerical error: exceeded maximum number of Newton-Raphson iterations, {}. E: {}; x0: {}; Error: {}; Tolerance: {}",
-        max_iterations, E0, x0, err, tolerance));
+    return Err(anyhow!("Numerical error: exceeded maximum number of Newton-Raphson iterations, {}. E: {} eV; x0: {}; Error: {}; Tolerance: {}; Za: {}; Zb: {}; Ma: {} amu; Mb: {} amu; a: {}; p: {} A",
+        max_iterations, E0/Q, x0, err, tolerance, Za, Zb, Ma/AMU, Mb/AMU, a, impact_parameter/ANGSTROM));
 }
 
 /// Gauss-Mehler quadrature.

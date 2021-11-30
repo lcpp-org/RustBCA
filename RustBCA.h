@@ -97,7 +97,37 @@ struct InputCompoundBCA {
   double *Eb2;
 };
 
+struct OutputTaggedBCA {
+  uintptr_t len;
+  double (*particles)[9];
+  double *weights;
+  int32_t *tags;
+};
+
+struct InputTaggedBCA {
+  uintptr_t len;
+  /// x y z
+  double (*positions)[3];
+  /// vx, vy, vz
+  double (*velocities)[3];
+  double Z1;
+  double m1;
+  double Ec1;
+  double Es1;
+  uintptr_t num_species_target;
+  double *Z2;
+  double *m2;
+  double *n2;
+  double *Ec2;
+  double *Es2;
+  double *Eb2;
+  int32_t *tags;
+  double *weights;
+};
+
 extern "C" {
+
+OutputTaggedBCA compound_tagged_bca_list_c(InputTaggedBCA input);
 
 OutputBCA simple_bca_list_c(InputSimpleBCA input);
 

@@ -249,8 +249,6 @@ fn test_distributions() {
     let cosz = 0.0;
     let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
 
-
-
     let mut distributions = output::Distributions::new(&options);
     assert_eq!(distributions.x_range[0], 0.);
     assert_eq!(distributions.x_range[distributions.x_range.len() - 1], 10.);

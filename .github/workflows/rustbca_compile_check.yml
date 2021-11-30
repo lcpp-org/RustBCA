@@ -27,7 +27,7 @@ jobs:
         sudo apt-get install rustc
     - name: Install pip for Python-3
       run: |
-        sudo apt-get install python3-pip
+        sudo apt-get install python3-pip python3-dev
     - name: Install Python libraries
       run: |
         python3 -m pip install numpy shapely scipy
@@ -35,15 +35,25 @@ jobs:
       run: |
         git clone https://github.com/uiri/toml.git
         cd toml
-        sudo python3 setup.py install
+        python3 setup.py install --root .
     - name: Install HDF5 Libraries
       run: |
         sudo apt install libhdf5-dev
     - name: test Python Bindings
       run: |
-        sudo python3 -m pip install setuptools_rust testresources
-        sudo python3 setup.py install
-        python3 -c "from libRustBCA.pybca import *; print(simple_bca_py)"
+        python3 -m pip install setuptools_rust testresources
+        python3 -m pip install .
+        python3 -c "from libRustBCA.pybca import *;"
+    - name: Test Fortran and C bindings
+      run : |
+        cargo build --release
+        cp examples/test_rustbca.f90 .
+        gfortran -c rustbca.f90 target/release/liblibRustBCA.so
+        gfortran test_rustbca.f90 rustbca.f90 target/release/liblibRustBCA.so
+        ./a.out
+        cp examples/RustBCA.c .
+        g++ RustBCA.c RustBCA.h target/release/liblibRustBCA.so -Iexamples/ -I/usr/include/python3.8
+        ./a.out
     - name: Test RustBCA
       run: |
         sudo cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions,parry3d

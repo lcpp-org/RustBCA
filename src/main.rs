@@ -16,8 +16,7 @@ use std::mem::discriminant;
 use indicatif::{ProgressBar, ProgressStyle};
 
 //Error handling crate
-use anyhow::Result;
-use anyhow::*;
+use anyhow::{Result, Context, anyhow};
 
 //Serializing/Deserializing crate
 use serde::*;
@@ -42,9 +41,6 @@ use itertools::izip;
 use std::f64::consts::FRAC_2_SQRT_PI;
 use std::f64::consts::PI;
 use std::f64::consts::SQRT_2;
-
-//rng
-//use rand::{Rng, thread_rng};
 
 //Load internal modules
 pub mod material;

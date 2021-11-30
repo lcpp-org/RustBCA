@@ -2,7 +2,6 @@ use super::*;
 
 /// Rustbca's internal representation of the particle_parameters input.
 
-
 #[cfg(feature = "hdf5_input")]
 #[derive(Deserialize, Clone)]
 pub struct ParticleParameters {
@@ -13,12 +12,12 @@ pub struct ParticleParameters {
     pub N: Vec<usize>,
     pub m: Vec<f64>,
     pub Z: Vec<f64>,
-    pub E: Vec<f64>,
+    pub E: Vec<Distributions>,
     pub Ec: Vec<f64>,
     pub Es: Vec<f64>,
-    pub pos: Vec<(f64, f64, f64)>,
-    pub dir: Vec<(f64, f64, f64)>,
-    pub interaction_index: Vec<usize>
+    pub pos: Vec<(Distributions, Distributions, Distributions)>,
+    pub dir: Vec<(Distributions, Distributions, Distributions)>,
+    pub interaction_index: Vec<usize>,
 }
 
 #[cfg(not(feature = "hdf5_input"))]
@@ -30,12 +29,12 @@ pub struct ParticleParameters {
     pub N: Vec<usize>,
     pub m: Vec<f64>,
     pub Z: Vec<f64>,
-    pub E: Vec<f64>,
+    pub E: Vec<Distributions>,
     pub Ec: Vec<f64>,
     pub Es: Vec<f64>,
-    pub pos: Vec<(f64, f64, f64)>,
-    pub dir: Vec<(f64, f64, f64)>,
-    pub interaction_index: Vec<usize>
+    pub pos: Vec<(Distributions, Distributions, Distributions)>,
+    pub dir: Vec<(Distributions, Distributions, Distributions)>,
+    pub interaction_index: Vec<usize>,
 }
 
 /// HDF5 version of particle input.
@@ -55,6 +54,8 @@ pub struct ParticleInput {
     pub uy: f64,
     pub uz: f64,
     pub interaction_index: usize,
+    pub weight: f64,
+    pub tag: i32,
 }
 
 /// Particle object. Particles in rustbca include incident ions and material atoms.
@@ -82,6 +83,9 @@ pub struct Particle {
     pub number_collision_events: usize,
     pub backreflected: bool,
     pub interaction_index: usize,
+    pub weight: f64,
+    pub tag: i32,
+    pub tracked_vector: Vector,
 }
 impl Particle {
     /// Construct a particle object from input.
@@ -118,6 +122,9 @@ impl Particle {
             number_collision_events: 0,
             backreflected: false,
             interaction_index: input.interaction_index,
+            weight: 1.0,
+            tag: 0,
+            tracked_vector: Vector::new(0.0, 0.0, 0.0),
         }
     }
 
@@ -148,6 +155,9 @@ impl Particle {
             number_collision_events: 0,
             backreflected: false,
             interaction_index,
+            weight: 1.0,
+            tag: 0,
+            tracked_vector: Vector::new(0.0, 0.0, 0.0),
         }
     }
 
