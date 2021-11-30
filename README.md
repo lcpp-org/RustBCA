@@ -2,7 +2,9 @@
 
 `RustBCA` is a general-purpose, high-performance code for simulating
 ion-material interactions using the binary collision approximation ([BCA]),
-written in [Rust]!
+written in [Rust]! RustBCA consists of a standalone code and libraries for
+including ion-material interactions in simulations written in C/C++, Python,
+and Fortran.
 
 By discretizing the collision cascade into a sequence of binary collisions,
 [BCA] codes can accurately and efficiently model the prompt interaction
@@ -10,7 +12,7 @@ between an energetic ion and a target material.
 This includes reflection, implantation, and transmission of the incident ion,
 as well as sputtering and displacement damage of the target.
 Generally, [BCA] codes are valid for incident ion energies between approximately
-~1 eV/nucleon to ~1 GeV/nucleon.
+~1 eV/nucleon to <1 GeV/nucleon.
 
 Check out the `RustBCA` [Wiki] for detailed information, installation
 instructions, use cases, examples, and more. See the RustBCA paper at the
@@ -71,13 +73,13 @@ plt.show()
 The following features are implemented in `rustBCA`:
 
 * Ion-material interactions for all combinations of incident ion and target species.
-* Infinite, homogeneous targets (Mesh0D), Layered, finite-depth inhomogeneous targets (Mesh1D) and arbitrary 2D geometry and composition through a triangular mesh (Mesh2D).
+* Infinite, homogeneous targets (Mesh0D), Layered, finite-depth inhomogeneous targets (Mesh1D), arbitrary 2D geometry composition through a triangular mesh (Mesh2D), homogeneous spherical geometry (Sphere) and homogeneous, arbitrary triangular mesh geometry (TriMesh).
 * Amorphous Solid/Liquid targets, Gaseous targets, and targets with both solid/liquid and gaseous elements
 * Low energy (< 25 keV/nucleon) electronic stopping modes including:
   * local (Oen-Robinson),
   * nonlocal (Lindhard-Scharff),
   * and equipartition forms.
-* Biersack-Varelas interpolation is also included for electronic stopping up to ~1 GeV/nucleon.
+* Biersack-Varelas interpolation is also included for electronic stopping up to ~1 GeV/nucleon. Note that high energy physics beyond electronic stopping are not included.
 * Optionally, the Biersack-Haggmark treatment of high-energy free-flight paths between collisions can be included to greatly speed up high-energy simulations (i.e., by neglecting very small angle scattering).
 * A wide range of interaction potentials are provided, including:
   * the Kr-C, ZBL, Lenz-Jensen, and Moliere universal, screened-Coulomb potentials.
@@ -94,17 +96,20 @@ The following features are implemented in `rustBCA`:
   * or the MAGIC algorithm.
 * Input files use the [TOML] format, making them both human-readable and easily parsable.
 * RustBCA generates user-friendly, context-providing error messages, which help pinpoint the cause of errors and provide suggested fixes to the user.
-* The simulation results are formatted as the ubiquitous `csv` format and include:
+* The simulation results are comma-delimited (`csv` format) and include:
   * the energies and directions of emitted particles (reflected ions and sputtered atoms),
   * the final positions of implanted ions,
-  * and full trajectory tracking for both the incident ions and target atoms.
+  * full trajectory tracking for both the incident ions and target atoms,
+  * and many other parameters such as position of origin of sputtered particles and energy loss along trajectories.
 * Optionally, the code can produce energy-angle and implantation distributions when built with the `--features distributions` flag and disable space-intensive particle list output with `--features no_list_output`.
+* Library functions for modeling ion reflection, implantation, and sputtering in C++/C, Python, and Fortran codes.
 
 ## Installation
 
 Without optional features, `rustBCA` should compile with `cargo` alone on
 Windows, MacOS, and Linux systems.
-[HDF5] has been tested on Windows, but version 1.10.6 must be used.
+
+[HDF5] for particle list input has been tested on Windows, but version 1.10.6 must be used.
 [rcpr], the adaptive Chebyshev Proxy Rootfinder with automatic subdivision and
 polynomial rootfinder package for [Rust], has not yet been successfully compiled
 on Windows.
