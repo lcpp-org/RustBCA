@@ -1,18 +1,19 @@
 # `RustBCA`
 
 `RustBCA` is a general-purpose, high-performance code for simulating
-ion-material interactions using the binary collision approximation ([BCA]),
-written in [Rust]! RustBCA consists of a standalone code and libraries for
-including ion-material interactions in simulations written in C/C++, Python,
+ion-material interactions including sputtering, reflection, and implantation
+using the binary collision approximation ([BCA]), written in [Rust]!
+RustBCA consists of a standalone code and libraries for including
+ion-material interactions in simulations written in C/C++, Python,
 and Fortran.
 
 By discretizing the collision cascade into a sequence of binary collisions,
 [BCA] codes can accurately and efficiently model the prompt interaction
-between an energetic ion and a target material.
-This includes reflection, implantation, and transmission of the incident ion,
-as well as sputtering and displacement damage of the target.
-Generally, [BCA] codes are valid for incident ion energies between approximately
-~1 eV/nucleon to <1 GeV/nucleon.
+between an energetic ion and a target material. This includes reflection,
+implantation, and transmission of the incident ion, s well as sputtering
+and displacement damage of the target. Generally, [BCA] codes can be
+valid for incident ion energies between approximately ~1 eV/nucleon 
+to <1 GeV/nucleon.
 
 Check out the `RustBCA` [Wiki] for detailed information, installation
 instructions, use cases, examples, and more. See the RustBCA paper at the
