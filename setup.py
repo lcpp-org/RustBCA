@@ -11,8 +11,7 @@ setup(
             features=["python"],
             #args=["+nightly", "--edition 2018", "-Z unstable-options"],
             #optional=True,
-            rust_version="1.56.1"
-            
+            #rust_version="1.57.0"
         )
     ],
     # rust extensions are not zip safe, just like C-extensions.
