@@ -110,27 +110,85 @@ impl InputFile for Input1D {
     }
 }
 
+///This helper function is a workaround to issue #368 in serde
+fn default_false() -> bool {
+    false
+}
+
+///This helper function is a workaround to issue #368 in serde
+fn default_true() -> bool {
+    true
+}
+
+///This helper function is a workaround to issue #368 in serde
+fn three() -> usize {
+    3
+}
+
+///This helper function is a workaround to issue #368 in serde
+fn default_buffer_size() -> usize {
+    8192
+}
+
+///This helper function is a workaround to issue #368 in serde
+fn default_electronic_stopping_mode() -> ElectronicStoppingMode {
+    ElectronicStoppingMode::LOW_ENERGY_NONLOCAL
+}
+
+///This helper function is a workaround to issue #368 in serde
+fn default_mean_free_path_model() -> MeanFreePathModel {
+    MeanFreePathModel::LIQUID
+}
+
+///This helper function is a workaround to issue #368 in serde
+fn default_interaction_potential() -> Vec<Vec<InteractionPotential>> {
+    vec![vec![InteractionPotential::KR_C]]
+}
+
+fn default_scattering_integral() -> Vec<Vec<ScatteringIntegral>> {
+    vec![vec![ScatteringIntegral::MENDENHALL_WELLER]]
+}
+
+fn default_rootfinder() -> Vec<Vec<Rootfinder>> {
+    vec![vec![Rootfinder::DEFAULTNEWTON]]
+}
+
 /// Rustbca's internal representation of the simulation-level options.
 #[cfg(not(feature = "distributions"))]
 #[derive(Deserialize, Clone)]
 pub struct Options {
     pub name: String,
+    #[serde(default = "default_false")]
     pub track_trajectories: bool,
+    #[serde(default = "default_true")]
     pub track_recoils: bool,
+    #[serde(default = "default_false")]
     pub track_recoil_trajectories: bool,
+    #[serde(default = "default_buffer_size")]
     pub write_buffer_size: usize,
+    #[serde(default = "three")]
     pub weak_collision_order: usize,
+    #[serde(default = "default_false")]
     pub suppress_deep_recoils: bool,
+    #[serde(default = "default_false")]
     pub high_energy_free_flight_paths: bool,
+    #[serde(default = "default_electronic_stopping_mode")]
     pub electronic_stopping_mode: ElectronicStoppingMode,
+    #[serde(default = "default_mean_free_path_model")]
     pub mean_free_path_model: MeanFreePathModel,
+    #[serde(default = "default_interaction_potential")]
     pub interaction_potential: Vec<Vec<InteractionPotential>>,
+    #[serde(default = "default_scattering_integral")]
     pub scattering_integral: Vec<Vec<ScatteringIntegral>>,
+    #[serde(default = "default_rootfinder")]
     pub root_finder: Vec<Vec<Rootfinder>>,
     pub num_threads: usize,
     pub num_chunks: u64,
+    #[serde(default = "default_false")]
     pub use_hdf5: bool,
+    #[serde(default = "default_false")]
     pub track_displacements: bool,
+    #[serde(default = "default_false")]
     pub track_energy_losses: bool,
 }
 
@@ -138,22 +196,37 @@ pub struct Options {
 #[derive(Deserialize, Clone)]
 pub struct Options {
     pub name: String,
+    #[serde(default = "default_false")]
     pub track_trajectories: bool,
+    #[serde(default = "default_true")]
     pub track_recoils: bool,
+    #[serde(default = "default_false")]
     pub track_recoil_trajectories: bool,
+    #[serde(default = "default_buffer_size")]
     pub write_buffer_size: usize,
+    #[serde(default = "three")]
     pub weak_collision_order: usize,
+    #[serde(default = "default_false")]
     pub suppress_deep_recoils: bool,
+    #[serde(default = "default_false")]
     pub high_energy_free_flight_paths: bool,
+    #[serde(default = "default_electronic_stopping_mode")]
     pub electronic_stopping_mode: ElectronicStoppingMode,
+    #[serde(default = "default_mean_free_path_model")]
     pub mean_free_path_model: MeanFreePathModel,
+    #[serde(default = "default_interaction_potential")]
     pub interaction_potential: Vec<Vec<InteractionPotential>>,
+    #[serde(default = "default_scattering_integral")]
     pub scattering_integral: Vec<Vec<ScatteringIntegral>>,
+    #[serde(default = "default_rootfinder")]
     pub root_finder: Vec<Vec<Rootfinder>>,
     pub num_threads: usize,
     pub num_chunks: u64,
+    #[serde(default = "default_false")]
     pub use_hdf5: bool,
+    #[serde(default = "default_false")]
     pub track_displacements: bool,
+    #[serde(default = "default_false")]
     pub track_energy_losses: bool,
     pub energy_min: f64,
     pub energy_max: f64,
@@ -336,7 +409,7 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
 
                 let (x, y, z) = particle_parameters.pos[particle_index];
                 let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
-                
+
                 for sub_particle_index in 0..N_ {
                     //Add new particle to particle vector
                     particle_input.push(
