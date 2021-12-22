@@ -145,10 +145,12 @@ fn default_interaction_potential() -> Vec<Vec<InteractionPotential>> {
     vec![vec![InteractionPotential::KR_C]]
 }
 
+///This helper function is a workaround to issue #368 in serde
 fn default_scattering_integral() -> Vec<Vec<ScatteringIntegral>> {
     vec![vec![ScatteringIntegral::MENDENHALL_WELLER]]
 }
 
+///This helper function is a workaround to issue #368 in serde
 fn default_rootfinder() -> Vec<Vec<Rootfinder>> {
     vec![vec![Rootfinder::DEFAULTNEWTON]]
 }
@@ -341,7 +343,9 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
 
     //Check that interaction indices are all within interaction matrices
     assert!(material.interaction_index.iter().max().unwrap() < &options.interaction_potential.len(),
-        "Input error: interaction matrix too small for material interaction indices.");
+        "Input error: interaction matrix too small for material interaction indices. If interaction
+        matrix is not specified, interaction_indices should be a vector of as many zeroes as there
+        are material species.");
     assert!(particle_parameters.interaction_index.iter().max().unwrap() < &options.interaction_potential.len(),
         "Input error: interaction matrix too small for particle interaction indices.");
 
@@ -357,7 +361,8 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
         "M" => 1.,
         _ => particle_parameters.length_unit.parse()
             .expect(format!(
-                    "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &particle_parameters.length_unit.as_str()
+                    "Input errror: could nor parse length unit {}. Use a valid float or one of
+                    ANGSTROM, NM, MICRON, CM, MM, M", &particle_parameters.length_unit.as_str()
                 ).as_str()),
     };
 
