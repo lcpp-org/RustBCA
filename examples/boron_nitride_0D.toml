@@ -1,9 +1,7 @@
 [options]
 name = "boron_nitride_"
 weak_collision_order = 0
-num_threads = 1
-num_chunks = 1
-use_hdf5 = false
+num_threads = 4
 
 [material_parameters]
 energy_unit = "EV"
@@ -13,7 +11,6 @@ Es = [ 5.76, 0.0,]
 Ec = [ 1.0, 1.0,]
 Z = [ 5, 7,]
 m = [ 10.811, 14,]
-interaction_index = [0, 0]
 
 [particle_parameters]
 length_unit = "MICRON"
@@ -27,7 +24,6 @@ Ec = [ 1.0 ]
 Es = [ 10.0 ]
 pos = [ [ 0.0, 0.0, 0.0,] ]
 dir = [ [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,] ]
-interaction_index = [ 0 ]
 
 [geometry_input]
 length_unit = "ANGSTROM"
