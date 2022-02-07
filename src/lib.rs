@@ -155,7 +155,8 @@ pub struct OutputTaggedBCA {
     pub len: usize,
     pub particles: *mut [f64; 9],
     pub weights: *mut f64,
-    pub tags: *mut i32
+    pub tags: *mut i32,
+    pub incident: *mut bool,
 }
 
 #[no_mangle]
@@ -164,6 +165,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
     let mut total_output = vec![];
     let mut output_tags = vec![];
     let mut output_weights = vec![];
+    let mut output_incident = vec![];
 
     #[cfg(feature = "distributions")]
     let options = Options {
@@ -326,6 +328,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
                 );
                 output_tags.push(particle.tag);
                 output_weights.push(particle.weight);
+                output_incident.push(particle.incident);
             }
         }
         index += 1;
@@ -335,13 +338,16 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
     let particles = total_output.as_mut_ptr();
     let tags_ptr = output_tags.as_mut_ptr();
     let weights_ptr = output_weights.as_mut_ptr();
+    let incident_ptr = output_incident.as_mut_ptr();
 
     std::mem::forget(total_output);
+
     OutputTaggedBCA {
         len,
         particles,
         tags: tags_ptr,
-        weights: weights_ptr
+        weights: weights_ptr,
+        incident: incident_ptr,
     }
 }
 
