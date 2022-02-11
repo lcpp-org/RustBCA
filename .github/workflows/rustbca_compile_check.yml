@@ -30,7 +30,7 @@ jobs:
         sudo apt-get install python3-pip python3-dev
     - name: Install Python libraries
       run: |
-        python3 -m pip install numpy shapely scipy
+        python3 -m pip install numpy shapely scipy matplotlib
     - name: Install python TOML library from source
       run: |
         git clone https://github.com/uiri/toml.git
