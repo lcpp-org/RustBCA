@@ -102,6 +102,7 @@ struct OutputTaggedBCA {
   double (*particles)[9];
   double *weights;
   int32_t *tags;
+  bool *incident;
 };
 
 struct InputTaggedBCA {
