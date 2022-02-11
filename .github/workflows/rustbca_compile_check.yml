@@ -44,6 +44,7 @@ jobs:
         python3 -m pip install setuptools_rust testresources
         python3 -m pip install .
         python3 -c "from libRustBCA.pybca import *;"
+        python3 examples/test_rustbca.py
     - name: Test Fortran and C bindings
       run : |
         cargo build --release
