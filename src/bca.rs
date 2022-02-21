@@ -268,7 +268,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
 
             ffp = mfp;
             //Cylindrical geometry
-            pmax = mfp/SQRT2PI;
+            pmax = mfp/SQRTPI;
             let mut impact_parameter = Vec::with_capacity(1);
             let random_number = rand::random::<f64>();
             let p = pmax*random_number.sqrt();
