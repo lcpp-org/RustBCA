@@ -1,5 +1,18 @@
 use super::*;
 
+///This helper function is a workaround to issue #368 in serde
+fn default_surface_binding_model() -> SurfaceBindingModel {
+    SurfaceBindingModel::TARGET
+}
+
+fn default_bulk_binding_model() -> BulkBindingModel {
+    BulkBindingModel::INDIVIDUAL
+}
+
+fn default_vec_zero() -> Vec<usize> {
+    vec![0]
+}
+
 /// Holds material input parameters from [material_params].
 #[derive(Deserialize, Clone)]
 pub struct MaterialParameters {
@@ -10,8 +23,11 @@ pub struct MaterialParameters {
     pub Ec: Vec<f64>,
     pub Z: Vec<f64>,
     pub m: Vec<f64>,
+    #[serde(default = "default_vec_zero")]
     pub interaction_index: Vec<usize>,
+    #[serde(default = "default_surface_binding_model")]
     pub surface_binding_model: SurfaceBindingModel,
+    #[serde(default = "default_bulk_binding_model")]
     pub bulk_binding_model: BulkBindingModel
 }
 

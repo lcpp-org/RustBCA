@@ -2,6 +2,10 @@ use super::*;
 
 /// Rustbca's internal representation of the particle_parameters input.
 
+fn default_vec_zero() -> Vec<usize> {
+    vec![0]
+}
+
 #[cfg(feature = "hdf5_input")]
 #[derive(Deserialize, Clone)]
 pub struct ParticleParameters {
@@ -17,6 +21,7 @@ pub struct ParticleParameters {
     pub Es: Vec<f64>,
     pub pos: Vec<(Distributions, Distributions, Distributions)>,
     pub dir: Vec<(Distributions, Distributions, Distributions)>,
+    #[serde(default = "default_vec_zero")]
     pub interaction_index: Vec<usize>,
 }
 
@@ -34,6 +39,7 @@ pub struct ParticleParameters {
     pub Es: Vec<f64>,
     pub pos: Vec<(Distributions, Distributions, Distributions)>,
     pub dir: Vec<(Distributions, Distributions, Distributions)>,
+    #[serde(default = "default_vec_zero")]
     pub interaction_index: Vec<usize>,
 }
 

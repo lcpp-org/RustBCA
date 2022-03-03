@@ -30,7 +30,7 @@ jobs:
         sudo apt-get install python3-pip python3-dev
     - name: Install Python libraries
       run: |
-        python3 -m pip install numpy shapely scipy
+        python3 -m pip install numpy shapely scipy matplotlib
     - name: Install python TOML library from source
       run: |
         git clone https://github.com/uiri/toml.git
@@ -44,6 +44,7 @@ jobs:
         python3 -m pip install setuptools_rust testresources
         python3 -m pip install .
         python3 -c "from libRustBCA.pybca import *;"
+        python3 examples/test_rustbca.py
     - name: Test Fortran and C bindings
       run : |
         cargo build --release

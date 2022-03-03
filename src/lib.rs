@@ -155,7 +155,8 @@ pub struct OutputTaggedBCA {
     pub len: usize,
     pub particles: *mut [f64; 9],
     pub weights: *mut f64,
-    pub tags: *mut i32
+    pub tags: *mut i32,
+    pub incident: *mut bool,
 }
 
 #[no_mangle]
@@ -164,6 +165,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
     let mut total_output = vec![];
     let mut output_tags = vec![];
     let mut output_weights = vec![];
+    let mut output_incident = vec![];
 
     #[cfg(feature = "distributions")]
     let options = Options {
@@ -326,6 +328,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
                 );
                 output_tags.push(particle.tag);
                 output_weights.push(particle.weight);
+                output_incident.push(particle.incident);
             }
         }
         index += 1;
@@ -335,13 +338,16 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
     let particles = total_output.as_mut_ptr();
     let tags_ptr = output_tags.as_mut_ptr();
     let weights_ptr = output_weights.as_mut_ptr();
+    let incident_ptr = output_incident.as_mut_ptr();
 
     std::mem::forget(total_output);
+
     OutputTaggedBCA {
         len,
         particles,
         tags: tags_ptr,
-        weights: weights_ptr
+        weights: weights_ptr,
+        incident: incident_ptr,
     }
 }
 
@@ -975,12 +981,61 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
 }
 
 #[cfg(feature = "python")]
+/// simple_bca_py( x, y, z, ux, uy, uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
+/// --
+///
+/// This function runs a 0D Binary Collision Approximation simulation for the given single incident ion and material.
+/// Args:
+///    x (f64): initial ion position x. Material target is x>0
+///    y (f64): initial ion position y.
+///    z (f64): initial ion position z.
+///    ux (f64): initial ion direction x. ux != 0.0 to avoid gimbal lock
+///    uy (f64): initial ion direction y.
+///    uz (f64): initial ion direction z.
+///    energy (f64): initial ion energy in eV.
+///    Z1 (f64): initial ion atomic number.
+///    m1 (f64): initial ion mass in amu.
+///    Ec1 (f64): ion cutoff energy in eV. If ion energy < Ec1, it stops in the material.
+///    Es1 (f64): ion surface binding energy. Assumed planar.
+///    Z2 (f64): target material atomic number.
+///    m2 (f64): target material mass in amu.
+///    Ec2 (f64): target material cutoff energy in eV. If recoil energy < Ec2, it stops in the material.
+///    Es2 (f64): target atom surface binding energy. Assumed planar.
+///    n2 (f64): target material atomic number density in inverse cubic Angstroms.
+///    Eb2 (f64): target material bulk binding energy in eV.
+/// Returns:
+///    output (NX9 list of f64): each row in the list represents an output particle (implanted,
+///    sputtered, or reflected). Each row consists of:
+///      [Z, m (amu), E (eV), x, y, z, (angstrom), ux, uy, uz]
 #[pyfunction]
 pub fn simple_bca_py(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
     simple_bca(x, y, z, ux, uy, uz, E1, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
 }
 
 #[cfg(feature = "python")]
+/// simple_bca_list_py( energies, ux, uy, uz, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
+/// --
+///
+/// This function runs a 0D Binary Collision Approximation simulation for the given incident ions and material.
+/// Args:
+///    energy (list(f64)): initial energies in eV.
+///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
+///    uy (list(f64)): initial ion directions y.
+///    uz (list(f64)): initial ion directions z.
+///    Z1 (f64): initial ion atomic number.
+///    m1 (f64): initial ion mass in amu.
+///    Ec1 (f64): ion cutoff energy in eV. If ion energy < Ec1, it stops in the material.
+///    Es1 (f64): ion surface binding energy. Assumed planar.
+///    Z2 (f64): target material atomic number.
+///    m2 (f64): target material mass in amu.
+///    Ec2 (f64): target material cutoff energy in eV. If recoil energy < Ec2, it stops in the material.
+///    Es2 (f64): target atom surface binding energy. Assumed planar.
+///    n2 (f64): target material atomic number density in inverse cubic Angstroms.
+///    Eb2 (f64): target material bulk binding energy in eV.
+/// Returns:
+///    output (NX9 list of f64): each row in the list represents an output particle (implanted,
+///    sputtered, or reflected). Each row consists of:
+///      [Z, m (amu), E (eV), x, y, z, (angstrom), ux, uy, uz]
 #[pyfunction]
 pub fn simple_bca_list_py(energies: Vec<f64>, usx: Vec<f64>, usy: Vec<f64>, usz: Vec<f64>, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
 
