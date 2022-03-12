@@ -323,7 +323,6 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
 
     //Actual surface binding energies
     let Es = material.actual_surface_binding_energy(particle_1, x_old, y_old, z_old);
-    //println!("Actual Es: {}", Es);
     let Ec = particle_1.Ec;
 
     let inside_now = material.inside_energy_barrier(x, y, z);
@@ -380,7 +379,6 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
                 particle_1.dir.x = -2.*(costheta)*dx/mag + cosx;
                 particle_1.dir.y = -2.*(costheta)*dy/mag + cosy;
                 particle_1.dir.z = -2.*(costheta)*dz/mag + cosz;
-
                 particle_1.backreflected = true;
             }
         }

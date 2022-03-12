@@ -227,7 +227,6 @@ impl Particle {
 
         //In order to keep average denisty constant, must add back previous asymptotic deflection
         let distance_traveled = mfp + self.asymptotic_deflection - asymptotic_deflection;
-        //let distance_traveled = mfp - asymptotic_deflection;
 
         //dir has been updated, so use previous direction to advance in space
         self.pos.x += self.dir_old.x*distance_traveled;
@@ -244,16 +243,10 @@ impl Particle {
     }
 }
 
-
-
 pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
     let E = particle.E;
 
     let costheta = particle.dir.dot(&normal);
-
-    let a = (E/(E + Es)).sqrt();
-    let b = -(E).sqrt()*costheta;
-    let c = (E*costheta.powi(2) + Es).sqrt();
 
     let u1x = (E/(E + Es)).sqrt()*particle.dir.x + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.x;
     let u1y = (E/(E + Es)).sqrt()*particle.dir.y + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.y;

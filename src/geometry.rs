@@ -97,7 +97,6 @@ impl Geometry for Mesh0D {
     }
 
     fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
-        //println!("x: {} energy_barrier_thickness: {}", x/ANGSTROM, self.energy_barrier_thickness/ANGSTROM);
         x > -10.*self.energy_barrier_thickness
     }
 
