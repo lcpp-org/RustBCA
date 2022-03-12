@@ -984,9 +984,46 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
 #[cfg(feature = "python")]
 ///compound_tagged_bca_list_py(ux, uy,  uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
+/// Args:
+///    energies (list(f64)): initial ion energies in eV.
+///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
+///    uy (list(f64)): initial ion directions y.
+///    uz (list(f64)): initial ion directions z.
+///    Z1 (list(f64)): initial ion atomic numbers.
+///    m1 (list(f64)): initial ion masses in amu.
+///    Ec1 (list(f64)): ion cutoff energies in eV. If ion energy < Ec1, it stops in the material.
+///    Es1 (list(f64)): ion surface binding energies. Assumed planar.
+///    Z2 (list(f64)): target material species atomic numbers.
+///    m2 (list(f64)): target material species masses in amu.
+///    Ec2 (list(f64)): target material species cutoff energies in eV. If recoil energy < Ec2, it stops in the material.
+///    Es2 (list(f64)): target species surface binding energies. Assumed planar.
+///    n2 (list(f64)): target material species atomic number densities in inverse cubic Angstroms.
+///    Eb2 (list(f64)): target material species bulk binding energies in eV.
+/// Returns:
+///    output (NX9 list of f64): each row in the list represents an output particle (implanted,
+///    sputtered, or reflected). Each row consists of:
+///      [Z, m (amu), E (eV), x, y, z, (angstrom), ux, uy, uz]
+///    incident (list(bool)): whether each row of output was an incident ion or originated in the target
 #[pyfunction]
-pub fn compound_bca_list_py(num_species_target: usize, energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, Z1: Vec<f64>, m1: Vec<f64>, Ec1: Vec<f64>, Es1: Vec<f64>, Z2: Vec<f64>, m2: Vec<f64>, Ec2: Vec<f64>, Es2: Vec<f64>, n2: Vec<f64>, Eb2: Vec<f64>) -> Vec<[f64; 6]> {
+pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, Z1: Vec<f64>, m1: Vec<f64>, Ec1: Vec<f64>, Es1: Vec<f64>, Z2: Vec<f64>, m2: Vec<f64>, Ec2: Vec<f64>, Es2: Vec<f64>, n2: Vec<f64>, Eb2: Vec<f64>) -> (Vec<[f64; 9]>, Vec<bool>) {
     let mut total_output = vec![];
+    let mut incident = vec![];
+    let num_species_target = Z2.len();
+    let num_incident_ions = energies.len();
+
+    assert_eq!(ux.len(), num_incident_ions, "Input error: list of x-directions is not the same length as list of incident energies.");
+    assert_eq!(uy.len(), num_incident_ions, "Input error: list of y-directions is not the same length as list of incident energies.");
+    assert_eq!(uz.len(), num_incident_ions, "Input error: list of z-directions is not the same length as list of incident energies.");
+    assert_eq!(Z1.len(), num_incident_ions, "Input error: list of incident atomic numbers is not the same length as list of incident energies.");
+    assert_eq!(m1.len(), num_incident_ions, "Input error: list of incident atomic masses is not the same length as list of incident energies.");
+    assert_eq!(Es1.len(), num_incident_ions, "Input error: list of incident surface binding energies is not the same length as list of incident energies.");
+    assert_eq!(Ec1.len(), num_incident_ions, "Input error: list of incident cutoff energies is not the same length as list of incident energies.");
+
+    assert_eq!(m2.len(), num_species_target, "Input error: list of target atomic masses is not the same length as atomic numbers.");
+    assert_eq!(Ec2.len(), num_species_target, "Input error: list of target cutoff energies is not the same length as atomic numbers.");
+    assert_eq!(Es2.len(), num_species_target, "Input error: list of target surface binding energies is not the same length as atomic numbers.");
+    assert_eq!(Eb2.len(), num_species_target, "Input error: list of target bulk binding energies is not the same length as atomic numbers.");
+    assert_eq!(n2.len(), num_species_target, "Input error: list of target number densities is not the same length as atomic numbers.");
 
     #[cfg(feature = "distributions")]
     let options = Options {
@@ -1107,8 +1144,10 @@ pub fn compound_bca_list_py(num_species_target: usize, energies: Vec<f64>, ux: V
         let output = bca::single_ion_bca(p, &m, &options);
 
         for particle in output {
-
             if (particle.left) | (particle.incident) {
+
+                incident.push(particle.incident);
+
                 if particle.stopped {
                     energy_out = 0.
                 } else {
@@ -1119,6 +1158,9 @@ pub fn compound_bca_list_py(num_species_target: usize, energies: Vec<f64>, ux: V
                         particle.Z,
                         particle.m/AMU,
                         energy_out,
+                        particle.pos.x,
+                        particle.pos.y,
+                        particle.pos.z,
                         particle.dir.x,
                         particle.dir.y,
                         particle.dir.z,
@@ -1128,7 +1170,7 @@ pub fn compound_bca_list_py(num_species_target: usize, energies: Vec<f64>, ux: V
         }
         index += 1;
     }
-    total_output
+    (total_output, incident)
 }
 
 #[cfg(feature = "python")]

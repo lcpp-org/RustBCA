@@ -83,7 +83,7 @@ pub struct Particle {
     pub left: bool,
     pub incident: bool,
     pub first_step: bool,
-    pub trajectory: Vec<Vector4>,
+    pub trajectory: Vec<TrajectoryElement>,
     pub energies: Vec<EnergyLoss>,
     pub track_trajectories: bool,
     pub number_collision_events: usize,
@@ -122,7 +122,7 @@ impl Particle {
             left: false,
             incident: true,
             first_step: true,
-            trajectory: vec![Vector4::new(input.E, input.x, input.y, input.z)],
+            trajectory: vec![TrajectoryElement::new(input.E, input.x, input.y, input.z)],
             energies: vec![],
             track_trajectories: options.track_trajectories,
             number_collision_events: 0,
@@ -170,7 +170,7 @@ impl Particle {
     /// If `track_trajectories`, add the current (E, x, y, z) to the trajectory.
     pub fn add_trajectory(&mut self) {
         if self.track_trajectories {
-            self.trajectory.push(Vector4 {E: self.E, x: self.pos.x, y: self.pos.y, z: self.pos.z});
+            self.trajectory.push(TrajectoryElement {E: self.E, x: self.pos.x, y: self.pos.y, z: self.pos.z});
         }
     }
 
@@ -190,59 +190,61 @@ impl Particle {
             self.m*speed*self.dir.z,
         )
     }
-}
 
-/// Rotate a particle by a deflection psi at an azimuthal angle phi.
-pub fn rotate_particle(particle_1: &mut particle::Particle, psi: f64, phi: f64) {
-    let cosx: f64 = particle_1.dir.x;
-    let cosy: f64 = particle_1.dir.y;
-    let cosz: f64 = particle_1.dir.z;
-    let cphi: f64 = phi.cos();
-    let sphi: f64 = phi.sin();
-    let sa = (1. - cosx*cosx).sqrt();
+    /// Rotate a particle by a deflection psi at an azimuthal angle phi.
+    pub fn rotate(&mut self, psi: f64, phi: f64) {
+        let cosx: f64 = self.dir.x;
+        let cosy: f64 = self.dir.y;
+        let cosz: f64 = self.dir.z;
+        let cphi: f64 = phi.cos();
+        let sphi: f64 = phi.sin();
+        let sa = (1. - cosx*cosx).sqrt();
 
-    //Particle direction update formulas from original TRIDYN paper, see Moeller and Eckstein 1988
-    let cpsi: f64 = psi.cos();
-    let spsi: f64 = psi.sin();
-    let cosx_new: f64 = cpsi*cosx + spsi*cphi*sa;
-    let cosy_new: f64 = cpsi*cosy - spsi/sa*(cphi*cosx*cosy - sphi*cosz);
-    let cosz_new: f64 = cpsi*cosz - spsi/sa*(cphi*cosx*cosz + sphi*cosy);
+        //Particle direction update formulas from original TRIDYN paper, see Moeller and Eckstein 1988
+        let cpsi: f64 = psi.cos();
+        let spsi: f64 = psi.sin();
+        let cosx_new: f64 = cpsi*cosx + spsi*cphi*sa;
+        let cosy_new: f64 = cpsi*cosy - spsi/sa*(cphi*cosx*cosy - sphi*cosz);
+        let cosz_new: f64 = cpsi*cosz - spsi/sa*(cphi*cosx*cosz + sphi*cosy);
 
-    let dir_new = Vector {x: cosx_new, y: cosy_new, z: cosz_new};
+        let dir_new = Vector {x: cosx_new, y: cosy_new, z: cosz_new};
 
-    particle_1.dir.assign(&dir_new);
-    particle_1.dir.normalize();
-}
-
-/// Push particle in space according to previous direction and return the distance traveled.
-pub fn particle_advance(particle_1: &mut particle::Particle, mfp: f64, asymptotic_deflection: f64) -> f64 {
-
-    if particle_1.E > particle_1.Ec {
-        particle_1.add_trajectory();
+        self.dir.assign(&dir_new);
+        self.dir.normalize();
     }
 
-    //Update previous position
-    particle_1.pos_old.x = particle_1.pos.x;
-    particle_1.pos_old.y = particle_1.pos.y;
-    particle_1.pos_old.z = particle_1.pos.z;
+    /// Push particle in space according to previous direction and return the distance traveled.
+    pub fn advance(&mut self, mfp: f64, asymptotic_deflection: f64) -> f64 {
 
-    //In order to keep average denisty constant, must add back previous asymptotic deflection
-    let distance_traveled = mfp + particle_1.asymptotic_deflection - asymptotic_deflection;
-    //let distance_traveled = mfp - asymptotic_deflection;
+        if self.E > self.Ec {
+            self.add_trajectory();
+        }
 
-    //dir has been updated, so use previous direction to advance in space
-    particle_1.pos.x += particle_1.dir_old.x*distance_traveled;
-    particle_1.pos.y += particle_1.dir_old.y*distance_traveled;
-    particle_1.pos.z += particle_1.dir_old.z*distance_traveled;
-    particle_1.asymptotic_deflection = asymptotic_deflection;
+        //Update previous position
+        self.pos_old.x = self.pos.x;
+        self.pos_old.y = self.pos.y;
+        self.pos_old.z = self.pos.z;
 
-    //Update previous direction
-    particle_1.dir_old.x = particle_1.dir.x;
-    particle_1.dir_old.y = particle_1.dir.y;
-    particle_1.dir_old.z = particle_1.dir.z;
+        //In order to keep average denisty constant, must add back previous asymptotic deflection
+        let distance_traveled = mfp + self.asymptotic_deflection - asymptotic_deflection;
+        //let distance_traveled = mfp - asymptotic_deflection;
 
-    return distance_traveled;
+        //dir has been updated, so use previous direction to advance in space
+        self.pos.x += self.dir_old.x*distance_traveled;
+        self.pos.y += self.dir_old.y*distance_traveled;
+        self.pos.z += self.dir_old.z*distance_traveled;
+        self.asymptotic_deflection = asymptotic_deflection;
+
+        //Update previous direction
+        self.dir_old.x = self.dir.x;
+        self.dir_old.y = self.dir.y;
+        self.dir_old.z = self.dir.z;
+
+        return distance_traveled;
+    }
 }
+
+
 
 pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
     let E = particle.E;

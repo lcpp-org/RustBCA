@@ -134,10 +134,10 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                     total_asymptotic_deflection += binary_collision_result.asymptotic_deflection;
 
                     //Rotate particle 1, 2 by lab frame scattering angles
-                    particle::rotate_particle(&mut particle_1, binary_collision_result.psi,
+                    particle_1.rotate(binary_collision_result.psi,
                         binary_collision_geometry.phi_azimuthal);
 
-                    particle::rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
+                    particle_2.rotate(-binary_collision_result.psi_recoil,
                         binary_collision_geometry.phi_azimuthal);
 
                     particle_2.dir_old.x = particle_2.dir.x;
@@ -184,11 +184,11 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
 
             //Advance particle in space and track total distance traveled
             #[cfg(not(feature = "accelerated_ions"))]
-            let distance_traveled = particle::particle_advance(&mut particle_1,
+            let distance_traveled = particle_1.advance(
                 binary_collision_geometries[0].mfp, total_asymptotic_deflection);
 
             #[cfg(feature = "accelerated_ions")]
-            let distance_traveled = particle::particle_advance(&mut particle_1,
+            let distance_traveled = particle_1.advance(
                 binary_collision_geometries[0].mfp + distance_to_target - material.geometry.get_energy_barrier_thickness(), total_asymptotic_deflection);
 
             //Subtract total energy from all simultaneous collisions and electronic stopping

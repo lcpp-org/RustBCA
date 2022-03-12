@@ -44,18 +44,18 @@ impl Vector {
     }
 }
 
-/// Vector4 is a trajectory-tracking object that includes x, y, z, and the current energy.
+/// TrajectoryElement is a trajectory-tracking object that includes x, y, z, and the current energy.
 #[derive(Clone)]
-pub struct Vector4 {
+pub struct TrajectoryElement {
     pub E: f64,
     pub x: f64,
     pub y: f64,
     pub z: f64,
 }
 
-impl Vector4 {
-    pub fn new(E: f64, x: f64, y: f64, z: f64) -> Vector4 {
-        Vector4 {
+impl TrajectoryElement {
+    pub fn new(E: f64, x: f64, y: f64, z: f64) -> TrajectoryElement {
+        TrajectoryElement {
             E,
             x,
             y,
