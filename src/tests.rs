@@ -660,9 +660,6 @@ fn test_surface_refraction() {
     let cosy_new = cosy_new/dir_mag;
     let cosz_new = cosz_new/dir_mag;
 
-    //let delta_theta = particle::refraction_angle(cosx, E, E + Es);
-    //particle::rotate_particle(&mut particle_1, delta_theta, 0.);
-
     let normal = Vector::new(1.0, 0.0, 0.0);
     particle::surface_refraction(&mut particle_1, normal, Es);
 
@@ -689,9 +686,6 @@ fn test_surface_refraction() {
     if print_output {
         println!("{} {} {}", particle_1.dir.x, particle_1.dir.y, particle_1.dir.z);
     }
-
-    //let delta_theta = particle::refraction_angle(particle_1.dir.x, particle_1.E, particle_1.E - Es);
-    //particle::rotate_particle(&mut particle_1, delta_theta, 0.);
 
     let normal = Vector::new(1.0, 0.0, 0.0);
     particle::surface_refraction(&mut particle_1, normal, -Es);
@@ -856,10 +850,10 @@ fn test_momentum_conservation() {
                         particle_2.E = binary_collision_result.recoil_energy - material_1.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
 
                         //Rotate particle 1, 2 by lab frame scattering angles
-                        particle::rotate_particle(&mut particle_1, binary_collision_result.psi,
+                        particle_1.rotate(binary_collision_result.psi,
                             binary_collision_geometries[0].phi_azimuthal);
 
-                        particle::rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
+                        particle_2.rotate(-binary_collision_result.psi_recoil,
                             binary_collision_geometries[0].phi_azimuthal);
 
                         //Subtract total energy from all simultaneous collisions and electronic stopping
@@ -894,7 +888,7 @@ fn test_momentum_conservation() {
 }
 
 #[test]
-fn test_rotate_particle() {
+fn test_rotate() {
     let mass = 1.;
     let Z = 1.;
     let E = 1.;
@@ -912,18 +906,18 @@ fn test_rotate_particle() {
     let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     //Check that rotation in 2D works
-    particle::rotate_particle(&mut particle, psi, phi);
+    particle.rotate(psi, phi);
     assert!(approx_eq!(f64, particle.dir.x, 0., epsilon = 1E-12), "particle.dir.x: {} Should be ~0.", particle.dir.x);
     assert!(approx_eq!(f64, particle.dir.y, 1., epsilon = 1E-12), "particle.dir.y: {} Should be ~1.", particle.dir.y);
 
     //Check that rotating back by negative psi returns to the previous values
-    particle::rotate_particle(&mut particle, -psi, phi);
+    particle.rotate(-psi, phi);
     assert!(approx_eq!(f64, particle.dir.x, cosx, epsilon = 1E-12), "particle.dir.x: {} Should be ~{}", particle.dir.x, cosx);
     assert!(approx_eq!(f64, particle.dir.y, cosy, epsilon = 1E-12), "particle.dir.y: {} Should be ~{}", particle.dir.y, cosy);
 
     //Check that azimuthal rotation by 180 degrees works correctly
     let phi = PI;
-    particle::rotate_particle(&mut particle, psi, phi);
+    particle.rotate(psi, phi);
     assert!(approx_eq!(f64, particle.dir.x, 1., epsilon = 1E-12), "particle.dir.x: {} Should be ~1.", particle.dir.x);
     assert!(approx_eq!(f64, particle.dir.y, 0., epsilon = 1E-12), "particle.dir.y: {} Should be ~0.", particle.dir.y);
 
@@ -950,7 +944,7 @@ fn test_particle_advance() {
 
     let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
 
-    let distance_traveled = particle::particle_advance(&mut particle, mfp, asymptotic_deflection);
+    let distance_traveled = particle.advance(mfp, asymptotic_deflection);
 
     assert_eq!(particle.pos.x, (1. - 0.5)*cosx);
     assert_eq!(particle.pos.y, (1. - 0.5)*cosy);

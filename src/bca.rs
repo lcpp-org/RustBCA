@@ -75,9 +75,6 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
 
         //Remove particle from top of vector as particle_1
         let mut particle_1 = particles.pop().unwrap();
-
-        //println!("Particle start Z: {} E: {} ({}, {}, {})", particle_1.Z, particle_1.E/Q, particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM);
-
         //BCA loop
         while !particle_1.stopped & !particle_1.left {
 
@@ -114,8 +111,6 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                             particle_1.pos.x, particle_2.pos.x, &binary_collision_geometry))
                         .unwrap();
 
-                    //println!("{}", binary_collision_result);
-
                     //Only use 0th order collision for local electronic stopping
                     if k == 0 {
                         normalized_distance_of_closest_approach = binary_collision_result.normalized_distance_of_closest_approach;
@@ -127,17 +122,14 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                     particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                     particle_2.energy_origin = particle_2.E;
 
-                    //Accumulate asymptotic deflections for primary particle
+                    //Accumulate energy losses and asymptotic deflections for primary particle
                     total_energy_loss += binary_collision_result.recoil_energy;
-
-                    //total_deflection_angle += psi;
                     total_asymptotic_deflection += binary_collision_result.asymptotic_deflection;
 
-                    //Rotate particle 1, 2 by lab frame scattering angles
-                    particle::rotate_particle(&mut particle_1, binary_collision_result.psi,
+                    particle_1.rotate(binary_collision_result.psi,
                         binary_collision_geometry.phi_azimuthal);
 
-                    particle::rotate_particle(&mut particle_2, -binary_collision_result.psi_recoil,
+                    particle_2.rotate(-binary_collision_result.psi_recoil,
                         binary_collision_geometry.phi_azimuthal);
 
                     particle_2.dir_old.x = particle_2.dir.x;
@@ -184,20 +176,17 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
 
             //Advance particle in space and track total distance traveled
             #[cfg(not(feature = "accelerated_ions"))]
-            let distance_traveled = particle::particle_advance(&mut particle_1,
+            let distance_traveled = particle_1.advance(
                 binary_collision_geometries[0].mfp, total_asymptotic_deflection);
 
             #[cfg(feature = "accelerated_ions")]
-            let distance_traveled = particle::particle_advance(&mut particle_1,
+            let distance_traveled = particle_1.advance(
                 binary_collision_geometries[0].mfp + distance_to_target - material.geometry.get_energy_barrier_thickness(), total_asymptotic_deflection);
 
             //Subtract total energy from all simultaneous collisions and electronic stopping
             bca::update_particle_energy(&mut particle_1, &material, distance_traveled,
                 total_energy_loss, normalized_distance_of_closest_approach, strong_collision_Z,
                 strong_collision_index, &options);
-            //println!("Particle finished collision loop Z: {} E: {} ({}, {}, {})", particle_1.Z, particle_1.E/Q, particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM);
-
-            //println!("{} {} {}", energy_0/EV, energy_1/EV, (energy_1 - energy_0)/EV);
 
             //Check boundary conditions on leaving and stopping
             material::boundary_condition_planar(&mut particle_1, &material);
@@ -205,7 +194,6 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
             //Set particle index to topmost particle
             particle_index = particles.len();
         }
-        //println!("Particle stopped or left Z: {} E: {} ({}, {}, {})", particle_1.Z, particle_1.E/Q, particle_1.pos.x/ANGSTROM, particle_1.pos.y/ANGSTROM, particle_1.pos.z/ANGSTROM);
         particle_output.push(particle_1);
     }
     particle_output

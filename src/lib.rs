@@ -80,6 +80,7 @@ pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, 
 pub fn pybca(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(simple_bca_py, m)?)?;
     m.add_function(wrap_pyfunction!(simple_bca_list_py, m)?)?;
+    m.add_function(wrap_pyfunction!(compound_bca_list_py, m)?)?;
     Ok(())
 }
 
@@ -978,6 +979,198 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
         len,
         particles
     }
+}
+
+#[cfg(feature = "python")]
+///compound_tagged_bca_list_py(ux, uy,  uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
+/// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
+/// Args:
+///    energies (list(f64)): initial ion energies in eV.
+///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
+///    uy (list(f64)): initial ion directions y.
+///    uz (list(f64)): initial ion directions z.
+///    Z1 (list(f64)): initial ion atomic numbers.
+///    m1 (list(f64)): initial ion masses in amu.
+///    Ec1 (list(f64)): ion cutoff energies in eV. If ion energy < Ec1, it stops in the material.
+///    Es1 (list(f64)): ion surface binding energies. Assumed planar.
+///    Z2 (list(f64)): target material species atomic numbers.
+///    m2 (list(f64)): target material species masses in amu.
+///    Ec2 (list(f64)): target material species cutoff energies in eV. If recoil energy < Ec2, it stops in the material.
+///    Es2 (list(f64)): target species surface binding energies. Assumed planar.
+///    n2 (list(f64)): target material species atomic number densities in inverse cubic Angstroms.
+///    Eb2 (list(f64)): target material species bulk binding energies in eV.
+/// Returns:
+///    output (NX9 list of f64): each row in the list represents an output particle (implanted,
+///    sputtered, or reflected). Each row consists of:
+///      [Z, m (amu), E (eV), x, y, z, (angstrom), ux, uy, uz]
+///    incident (list(bool)): whether each row of output was an incident ion or originated in the target
+#[pyfunction]
+pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, Z1: Vec<f64>, m1: Vec<f64>, Ec1: Vec<f64>, Es1: Vec<f64>, Z2: Vec<f64>, m2: Vec<f64>, Ec2: Vec<f64>, Es2: Vec<f64>, n2: Vec<f64>, Eb2: Vec<f64>) -> (Vec<[f64; 9]>, Vec<bool>) {
+    let mut total_output = vec![];
+    let mut incident = vec![];
+    let num_species_target = Z2.len();
+    let num_incident_ions = energies.len();
+
+    assert_eq!(ux.len(), num_incident_ions, "Input error: list of x-directions is not the same length as list of incident energies.");
+    assert_eq!(uy.len(), num_incident_ions, "Input error: list of y-directions is not the same length as list of incident energies.");
+    assert_eq!(uz.len(), num_incident_ions, "Input error: list of z-directions is not the same length as list of incident energies.");
+    assert_eq!(Z1.len(), num_incident_ions, "Input error: list of incident atomic numbers is not the same length as list of incident energies.");
+    assert_eq!(m1.len(), num_incident_ions, "Input error: list of incident atomic masses is not the same length as list of incident energies.");
+    assert_eq!(Es1.len(), num_incident_ions, "Input error: list of incident surface binding energies is not the same length as list of incident energies.");
+    assert_eq!(Ec1.len(), num_incident_ions, "Input error: list of incident cutoff energies is not the same length as list of incident energies.");
+
+    assert_eq!(m2.len(), num_species_target, "Input error: list of target atomic masses is not the same length as atomic numbers.");
+    assert_eq!(Ec2.len(), num_species_target, "Input error: list of target cutoff energies is not the same length as atomic numbers.");
+    assert_eq!(Es2.len(), num_species_target, "Input error: list of target surface binding energies is not the same length as atomic numbers.");
+    assert_eq!(Eb2.len(), num_species_target, "Input error: list of target bulk binding energies is not the same length as atomic numbers.");
+    assert_eq!(n2.len(), num_species_target, "Input error: list of target number densities is not the same length as atomic numbers.");
+
+    #[cfg(feature = "distributions")]
+    let options = Options {
+        name: "test".to_string(),
+        track_trajectories: false,
+        track_recoils: true,
+        track_recoil_trajectories: false,
+        write_buffer_size: 8000,
+        weak_collision_order: 3,
+        suppress_deep_recoils: true,
+        high_energy_free_flight_paths: true,
+        electronic_stopping_mode: ElectronicStoppingMode::LOW_ENERGY_NONLOCAL,
+        mean_free_path_model: MeanFreePathModel::LIQUID,
+        interaction_potential: vec![vec![InteractionPotential::KR_C]],
+        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
+        num_threads: 1,
+        num_chunks: 1,
+        use_hdf5: false,
+        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
+        track_displacements: false,
+        track_energy_losses: false,
+        energy_min: 0.0,
+        energy_max: 10.0,
+        energy_num: 11,
+        angle_min: 0.0,
+        angle_max: 90.0,
+        angle_num: 11,
+        x_min: 0.0,
+        y_min: -10.0,
+        z_min: -10.0,
+        x_max: 10.0,
+        y_max: 10.0,
+        z_max: 10.0,
+        x_num: 11,
+        y_num: 11,
+        z_num: 11,
+    };
+
+    #[cfg(not(feature = "distributions"))]
+    let options = Options {
+        name: "test".to_string(),
+        track_trajectories: false,
+        track_recoils: true,
+        track_recoil_trajectories: false,
+        write_buffer_size: 8000,
+        weak_collision_order: 3,
+        suppress_deep_recoils: true,
+        high_energy_free_flight_paths: false,
+        electronic_stopping_mode: ElectronicStoppingMode::LOW_ENERGY_NONLOCAL,
+        mean_free_path_model: MeanFreePathModel::LIQUID,
+        interaction_potential: vec![vec![InteractionPotential::KR_C]],
+        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
+        num_threads: 1,
+        num_chunks: 1,
+        use_hdf5: false,
+        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
+        track_displacements: false,
+        track_energy_losses: false,
+    };
+
+    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let y = 0.0;
+    let z = 0.0;
+
+    let material_parameters = material::MaterialParameters {
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: Eb2,
+        Es: Es2,
+        Ec: Ec2,
+        Z: Z2,
+        m: m2,
+        interaction_index: vec![0; num_species_target],
+        surface_binding_model: SurfaceBindingModel::INDIVIDUAL,
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let geometry_input = geometry::Mesh0DInput {
+        length_unit: "ANGSTROM".to_string(),
+        densities: n2,
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
+
+    let mut index: usize = 0;
+    for (((((((E1_, ux_), uy_), uz_), Z1_), Ec1_), Es1_), m1_) in energies.iter().zip(ux).zip(uy).zip(uz).zip(Z1).zip(Ec1).zip(Es1).zip(m1) {
+
+        let mut energy_out;
+        let p = particle::Particle {
+            m: m1_*AMU,
+            Z: Z1_,
+            E: E1_*EV,
+            Ec: Ec1_*EV,
+            Es: Es1_*EV,
+            pos: Vector::new(x, y, z),
+            dir: Vector::new(ux_, uy_, uz_),
+            pos_origin: Vector::new(x, y, z),
+            pos_old: Vector::new(x, y, z),
+            dir_old: Vector::new(ux_, uy_, uz_),
+            energy_origin: E1_*EV,
+            asymptotic_deflection: 0.0,
+            stopped: false,
+            left: false,
+            incident: true,
+            first_step: true,
+            trajectory: vec![],
+            energies: vec![],
+            track_trajectories: false,
+            number_collision_events: 0,
+            backreflected: false,
+            interaction_index : 0,
+            weight: 0.0,
+            tag: 0,
+            tracked_vector: Vector::new(0., 0., 0.),
+        };
+
+        let output = bca::single_ion_bca(p, &m, &options);
+
+        for particle in output {
+            if (particle.left) | (particle.incident) {
+
+                incident.push(particle.incident);
+
+                if particle.stopped {
+                    energy_out = 0.
+                } else {
+                    energy_out = particle.E/EV
+                }
+                total_output.push(
+                    [
+                        particle.Z,
+                        particle.m/AMU,
+                        energy_out,
+                        particle.pos.x,
+                        particle.pos.y,
+                        particle.pos.z,
+                        particle.dir.x,
+                        particle.dir.y,
+                        particle.dir.z,
+                    ]
+                );
+            }
+        }
+        index += 1;
+    }
+    (total_output, incident)
 }
 
 #[cfg(feature = "python")]
