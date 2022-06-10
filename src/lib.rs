@@ -232,9 +232,9 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
     let Ec2 = unsafe { slice::from_raw_parts(input.Ec2, input.num_species_target).to_vec() };
     let Es2 = unsafe { slice::from_raw_parts(input.Es2, input.num_species_target).to_vec() };
     let Eb2 = unsafe { slice::from_raw_parts(input.Eb2, input.num_species_target).to_vec() };
-    let positions = unsafe { slice::from_raw_parts(input.positions, input.num_species_target).to_vec() };
-    let tags = unsafe { slice::from_raw_parts(input.tags, input.num_species_target).to_vec() };
-    let weights = unsafe { slice::from_raw_parts(input.weights, input.num_species_target).to_vec() };
+    let positions = unsafe { slice::from_raw_parts(input.positions, input.len).to_vec() };
+    let tags = unsafe { slice::from_raw_parts(input.tags, input.len).to_vec() };
+    let weights = unsafe { slice::from_raw_parts(input.weights, input.len).to_vec() };
 
     let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
     let y = 0.0;
@@ -277,7 +277,6 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
         let ux = vx/v;
         let uy = vy/v;
         let uz = vz/v;
-
         let p = particle::Particle {
             m: input.m1*AMU,
             Z: input.Z1,
