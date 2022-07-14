@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import sys
 import os
 #This should allow the script to find materials and formulas from anywhere
-sys.path.append(os.path.dirname(__file__)+'../scripts')
+sys.path.append(os.path.dirname(__file__)+'/../scripts')
 sys.path.append('scripts')
 from materials import *
 from formulas import *
