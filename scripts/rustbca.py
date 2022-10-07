@@ -132,7 +132,7 @@ def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_fin
         plt.ylabel('y [um]')
         plt.title(name+' Trajectories')
         plt.axis('square')
-        plt.savefig(name+'trajectories_.png')
+        plt.savefig(name+'trajectories.png')
         if show: plt.show()
         plt.close()
 
