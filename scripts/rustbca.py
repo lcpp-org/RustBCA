@@ -132,8 +132,8 @@ def do_trajectory_plot(name, thickness=None, depth=None, boundary=None, plot_fin
         plt.ylabel('y [um]')
         plt.title(name+' Trajectories')
         plt.axis('square')
-        if show: plt.show()
         plt.savefig(name+'trajectories_.png')
+        if show: plt.show()
         plt.close()
 
 def do_trajectory_plot_3d(name, thickness=None, depth=None, boundary=None, plot_final_positions=True, plot_origins=True, radius=None, cube_length=None, input_file=None):
