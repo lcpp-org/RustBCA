@@ -58,6 +58,7 @@ impl Geometry for Sphere {
         let length_unit: f64 = match input.length_unit.as_str() {
             "MICRON" => MICRON,
             "CM" => CM,
+            "MM" => MM,
             "ANGSTROM" => ANGSTROM,
             "NM" => NM,
             "M" => 1.,

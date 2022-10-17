@@ -52,6 +52,7 @@ impl Geometry for Mesh0D {
         let length_unit: f64 = match input.length_unit.as_str() {
             "MICRON" => MICRON,
             "CM" => CM,
+            "MM" => MM,
             "ANGSTROM" => ANGSTROM,
             "NM" => NM,
             "M" => 1.,
@@ -142,6 +143,7 @@ impl Geometry for Mesh1D {
         let length_unit: f64 = match geometry_input.length_unit.as_str() {
             "MICRON" => MICRON,
             "CM" => CM,
+            "MM" => MM,
             "ANGSTROM" => ANGSTROM,
             "NM" => NM,
             "M" => 1.,
@@ -323,6 +325,7 @@ impl Geometry for Mesh2D {
         let length_unit: f64 = match geometry_input.length_unit.as_str() {
             "MICRON" => MICRON,
             "CM" => CM,
+            "MM" => MM,
             "ANGSTROM" => ANGSTROM,
             "NM" => NM,
             "M" => 1.,
