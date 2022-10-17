@@ -1174,13 +1174,13 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
 }
 
 #[cfg(feature = "python")]
-///compound_bca_list_1D_py(ux, uy,  uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, Eb2 n2, dx)
+///compound_bca_list_1D_py(ux, uy,  uz, energies, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, Eb2 n2, dx)
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
 /// Args:
-///    energies (list(f64)): initial ion energies in eV.
 ///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
 ///    uy (list(f64)): initial ion directions y.
 ///    uz (list(f64)): initial ion directions z.
+///    energies (list(f64)): initial ion energies in eV.
 ///    Z1 (list(f64)): initial ion atomic numbers.
 ///    m1 (list(f64)): initial ion masses in amu.
 ///    Ec1 (list(f64)): ion cutoff energies in eV. If ion energy < Ec1, it stops in the material.
