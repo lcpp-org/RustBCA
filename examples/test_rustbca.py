@@ -81,7 +81,7 @@ def main():
     print(f'RustBCA R: {len(reflected[:, 0])/number_ions} Thomas R: {thomas}')
     print(f'Time per ion: {delta_time/number_ions*1e3} us/{ion["symbol"]}')
 
-    #layered target version
+    #Next up is the layered target version. I'll add a 50 Angstrom layer of W-H to the top of the target.
 
     #1 keV is above the He on W sputtering threshold of ~150 eV
     energies_eV = 1000.0*np.ones(number_ions)
@@ -96,6 +96,8 @@ def main():
 
     print(f'Running RustBCA for {number_ions} {ion["symbol"]} ions on {target["symbol"]} with hydrogenated layer at {energies_eV[0]/1000.} keV...')
     print(f'This may take several minutes.')
+    #Not the different argument order; when a breaking change is due, this will
+    #be back-ported to the other bindings as well for consistency.
     output, incident, stopped = compound_bca_list_1D_py(
         ux, uy, uz, energies_eV, [ion['Z']]*number_ions,
         [ion['m']]*number_ions, [ion['Ec']]*number_ions, [ion['Es']]*number_ions, [target['Z'], 1.0], [target['m'], 1.008],
@@ -121,6 +123,7 @@ def main():
     heights, _, _ = plt.hist(x[np.logical_and(incident, stopped)], bins=100, density=True, histtype='step')
     plt.plot([50.0, 50.0], [0.0, np.max(heights)*1.1])
     plt.gca().set_ylim([0.0, np.max(heights)*1.1])
+    
     plt.show()
 
 if __name__ == '__main__':
