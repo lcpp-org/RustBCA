@@ -9,11 +9,6 @@ edition = "2018"
 name = "RustBCA"
 path = "src/main.rs"
 
-[[bin]]
-name = "RustBCAGUI"
-path = "src/gui.rs"
-required-features = ["gui"]
-
 [lib]
 name = "libRustBCA"
 path = "src/lib.rs"
@@ -62,4 +57,3 @@ no_list_output = []
 parry3d = ["parry3d-f64"]
 accelerated_ions = []
 python = ["pyo3"]
-gui = ["egui"]
