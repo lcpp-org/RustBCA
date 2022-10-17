@@ -8,7 +8,6 @@ pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
         InteractionPotential::MORSE{D, alpha, r0} => (alpha*r0 - (2.0_f64).ln())/alpha,
         InteractionPotential::WW => 50.*ANGSTROM,
         _ => 10.*ANGSTROM,
-        //_ => panic!("Input error: potential never crosses zero for r > 0. Consider using the Newton rootfinder.")
     }
 
 }

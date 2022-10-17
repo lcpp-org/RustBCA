@@ -63,6 +63,7 @@ impl Geometry for ParryBall {
         let length_unit: f64 = match input.length_unit.as_str() {
             "MICRON" => MICRON,
             "CM" => CM,
+            "MM" => MM,
             "ANGSTROM" => ANGSTROM,
             "NM" => NM,
             "M" => 1.,
@@ -186,6 +187,7 @@ impl Geometry for ParryTriMesh {
         let length_unit: f64 = match input.length_unit.as_str() {
             "MICRON" => MICRON,
             "CM" => CM,
+            "MM" => MM,
             "ANGSTROM" => ANGSTROM,
             "NM" => NM,
             "M" => 1.,

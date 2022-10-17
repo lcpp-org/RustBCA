@@ -15,6 +15,8 @@ pub const MICRON: f64 = 1E-6;
 pub const NM: f64 = 1E-9;
 /// One centimeter in meters.
 pub const CM: f64 = 1E-2;
+/// One milimter in meters.
+pub const MM: f64 = 1E-3;
 /// Vacuum permitivity in Farads/meter.
 pub const EPS0: f64 = 8.8541878128E-12;
 /// Bohr radius in meters.
