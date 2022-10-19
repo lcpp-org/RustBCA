@@ -74,6 +74,8 @@ pub use crate::sphere::{Sphere, SphereInput, InputSphere};
 
 #[cfg(feature = "parry3d")]
 pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, ParryTriMeshInput, InputParryTriMesh};
+#[cfg(feature = "parry3d")]
+pub use parry3d_f64::na::{Point3, Vector3, Matrix3, Rotation3};
 
 #[cfg(feature = "python")]
 #[pymodule]
@@ -82,6 +84,8 @@ pub fn pybca(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(simple_bca_list_py, m)?)?;
     m.add_function(wrap_pyfunction!(compound_bca_list_py, m)?)?;
     m.add_function(wrap_pyfunction!(compound_bca_list_1D_py, m)?)?;
+    #[cfg(feature = "parry3d")]
+    m.add_function(wrap_pyfunction!(rotate_given_surface_normal_py, m)?)?;
     Ok(())
 }
 
@@ -1585,4 +1589,59 @@ pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1
             particle.dir.z
         ]
     ).collect()
+}
+
+#[cfg(feature = "parry3d")]
+#[no_mangle]
+pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
+    const DELTA: f64 = 1e-9;
+    let RUSTBCA_DIRECTION: Vector3::<f64> = Vector3::<f64>::new(1.0, 0.0, 0.0);
+
+    let into_surface = Vector3::new(-nx, -ny, -nz);
+    let direction = Vector3::new(*ux, *uy, *uz);
+
+    //Rotation to local RustBCA coordinates from global
+    //Here's how this works: a rotation matrix is found that maps the rustbca
+    //into-the-surface vector (1.0, 0.0, 0.0) onto the local into-the-surface vector (negative normal w.r.t. ray origin).
+    //That rotation is then applied to the particle direction, and can be undone later.
+    //Algorithm is from here:
+    //https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/180436#180436
+    let v: Vector3<f64> = into_surface.cross(&RUSTBCA_DIRECTION);
+    let c = into_surface.dot(&RUSTBCA_DIRECTION);
+    let vx = Matrix3::<f64>::new(0.0, -v.z, v.y, v.z, 0.0, -v.x, -v.y, v.x, 0.0);
+    let rotation_matrix = if c != -1.0 {
+        Matrix3::identity() + vx + vx*vx/(1. + c)
+    } else {
+        //If c == -1.0, the correct rotation should simply be a 180 degree rotation
+        //around a non-x axis; y is chosen arbitrarily
+        Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
+    };
+    
+    let incident = rotation_matrix*direction;
+
+    // ux must not be exactly 1.0 to avoid gimbal lock in RustBCA
+    // simple_bca does not normalize direction before proceeding, must be done manually
+    *ux = incident.x + DELTA;
+    assert!(
+        *ux > 0.0, "Error: RustBCA initial direction out of surface. Please check surface normals and incident direction. n = ({}, {}, {}) u = ({}, {}, {})",
+        nx, ny, nz, ux, uy, uz
+    );
+
+    *uy = incident.y - DELTA;
+    *uz = incident.z;
+    let mag = (ux.powf(2.) + uy.powf(2.) + uz.powf(2.)).sqrt();
+
+    *ux /= mag;
+    *uy /= mag;
+    *uz /= mag;
+}
+
+#[cfg(all(feature = "python", feature = "parry3d"))]
+#[pyfunction]
+pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+    let mut ux = ux;
+    let mut uy = uy;
+    let mut uz = uz;
+    rotate_given_surface_normal(nx, ny, nz, &mut ux, &mut uy, &mut uz);
+    (ux, uy, uz)
 }

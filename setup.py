@@ -8,7 +8,7 @@ setup(
         RustExtension(
             "libRustBCA.pybca",
             binding=Binding.PyO3,
-            features=["python"],
+            features=["python", "parry3d"],
             #args=["+nightly", "--edition 2018", "-Z unstable-options"],
             #optional=True,
             #rust_version="1.57.0"
