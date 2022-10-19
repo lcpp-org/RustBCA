@@ -1639,6 +1639,19 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 #[cfg(all(feature = "python", feature = "parry3d"))]
 #[pyfunction]
 pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+    /// rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
+    /// --
+    ///
+    /// This function runs a 0D Binary Collision Approximation simulation for the given incident ions and material.
+    /// Args:
+    ///     nx (f64): surface normal in global frame x-component.
+    ///     ny (f64): surface normal in global frame y-component.
+    ///     nz (f64): surface normal in global frame z-component.
+    ///     ux (f64): particle direction in global frame x-component.
+    ///     uy (f64): particle direction in global frame normal y-component.
+    ///     uz (f64): particle direction in global frame normal z-component.
+    /// Returns:
+    ///    direction (f64, f64, f64): direction vector of particle in RustBCA coordinates.
     let mut ux = ux;
     let mut uy = uy;
     let mut uz = uz;
