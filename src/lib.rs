@@ -1253,13 +1253,21 @@ pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f6
 }
 
 #[cfg(feature = "python")]
-pub fn unpack(python_float: &PyAny) -> f64 {
+/// A helper function to unpack a python float from a python any.
+fn unpack(python_float: &PyAny) -> f64 {
     python_float.downcast::<PyFloat>().expect("Error unpacking Python float to f64. Check values.").value()
 }
 
 #[cfg(feature = "python")]
 #[pyfunction]
-///
+/// sputteirng_yield(ion, target, energy, angle, num_samples)
+/// A routine the calculates the sputtering yield in atoms per ion of energetic ions incident upon materials using RustBCA.
+/// Args:
+///     ion: a dictionary with the keys Z (atomic number), m (atomic mass in AMU), Ec (cutoff energy in eV), Es (surface binding energy in eV)
+///     target: a dictionary with the keys Z, m, Ec, Es, Eb (bulk binding energy in eV), n2 (number density in 1/m3)
+///     energy: the incident energy of the ion in eV
+///     angle: incident angle of the ion in degrees from surface normal
+///     num_samples: number of ion trajectories to run; precision will go as 1/sqrt(N)
 pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> f64 {
 
     const DELTA: f64 = 1e-6; 
@@ -1358,8 +1366,18 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 
 #[cfg(feature = "python")]
 #[pyfunction]
-///
-pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> f64 {
+/// reflection_coefficient(ion, target, energy, angle, num_samples)
+/// A routine the calculates the reflection coefficient of energetic ions incident upon materials using RustBCA.
+/// Args:
+///     ion: a dictionary with the keys Z (atomic number), m (atomic mass in AMU), Ec (cutoff energy in eV), Es (surface binding energy in eV)
+///     target: a dictionary with the keys Z, m, Ec, Es, Eb (bulk binding energy in eV), n2 (number density in 1/m3)
+///     energy: the incident energy of the ion in eV
+///     angle: incident angle of the ion in degrees from surface normal
+///     num_samples: number of ion trajectories to run; precision will go as 1/sqrt(N)
+/// Returns:
+///     R_N (f64): reflection coefficient (number of particles reflected / number of incident particles)
+///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
+pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
 
     const DELTA: f64 = 1e-6; 
 
@@ -1411,6 +1429,7 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
     let x = -m.geometry.energy_barrier_thickness;
 
     let num_reflected = Mutex::new(0);
+    let energy_reflected = Mutex::new(0.0);
 
     (0..num_samples as u64).into_par_iter().for_each( |index| {
         let p = particle::Particle {
@@ -1447,9 +1466,13 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
             if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && particle.incident {
                 let mut num_reflected = num_reflected.lock().unwrap();
                 *num_reflected += 1;
+                let mut energy_reflected = energy_reflected.lock().unwrap();
+                *energy_reflected += particle.E;
             }
         }
     });
     let num_reflected = *num_reflected.lock().unwrap();
-    num_reflected as f64 / num_samples as f64 
+    let energy_reflected = *energy_reflected.lock().unwrap();
+
+    (num_reflected as f64 / num_samples as f64, energy_reflected / EV / energy / num_samples as f64)
 }

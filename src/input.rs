@@ -218,7 +218,7 @@ impl Options {
         Options {
             name: "default".to_string(),
             track_trajectories: false,
-            track_recoils: false,
+            track_recoils: track_recoils,
             track_recoil_trajectories: false,
             write_buffer_size: default_buffer_size(),
             weak_collision_order: three(),
@@ -298,7 +298,7 @@ impl Options {
     pub fn default_options(track_recoils: bool) -> Options {
         Options {
             name: "default".to_string(),
-            track_trajectories: false,
+            track_trajectories: track_recoils,
             track_recoils: false,
             track_recoil_trajectories: false,
             write_buffer_size: default_buffer_size(),
