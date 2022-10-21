@@ -8,7 +8,6 @@ src/bca.rs
 src/consts.rs
 src/enums.rs
 src/geometry.rs
-src/gui.rs
 src/input.rs
 src/interactions.rs
 src/lib.rs

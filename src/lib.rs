@@ -12,9 +12,14 @@ extern crate intel_mkl_src;
 use std::{fmt};
 use std::mem::discriminant;
 
+//Parallelization - currently only used in python library functions
+#[cfg(feature = "python")]
+use rayon::prelude::*;
+#[cfg(feature = "python")]
+use rayon::*;
+
 //Error handling crate
 use anyhow::{Result, Context, anyhow};
-//use anyhow::*;
 
 //Serializing/Deserializing crate
 use serde::*;
@@ -33,6 +38,9 @@ use std::os::raw::c_int;
 
 //standard slice
 use std::slice;
+//Mutex for multithreading in ergonomic Python library functions
+#[cfg(feature = "python")]
+use std::sync::Mutex;
 
 //itertools
 use itertools::izip;
@@ -46,6 +54,8 @@ use std::f64::consts::SQRT_2;
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
 use pyo3::wrap_pyfunction;
+#[cfg(feature = "python")]
+use pyo3::types::*;
 
 //Load internal modules
 pub mod material;
@@ -84,6 +94,8 @@ pub fn pybca(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(simple_bca_list_py, m)?)?;
     m.add_function(wrap_pyfunction!(compound_bca_list_py, m)?)?;
     m.add_function(wrap_pyfunction!(compound_bca_list_1D_py, m)?)?;
+    m.add_function(wrap_pyfunction!(sputtering_yield, m)?)?;
+    m.add_function(wrap_pyfunction!(reflection_coefficient, m)?)?;
     #[cfg(feature = "parry3d")]
     m.add_function(wrap_pyfunction!(rotate_given_surface_normal_py, m)?)?;
     Ok(())
@@ -173,64 +185,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
     let mut output_weights = vec![];
     let mut output_incident = vec![];
 
-    #[cfg(feature = "distributions")]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-        energy_min: 0.0,
-        energy_max: 10.0,
-        energy_num: 11,
-        angle_min: 0.0,
-        angle_max: 90.0,
-        angle_num: 11,
-        x_min: 0.0,
-        y_min: -10.0,
-        z_min: -10.0,
-        x_max: 10.0,
-        y_max: 10.0,
-        z_max: 10.0,
-        x_num: 11,
-        y_num: 11,
-        z_num: 11,
-    };
-
-    #[cfg(not(feature = "distributions"))]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-    };
+    let options = Options::default_options(true);
 
     let Z2 = unsafe { slice::from_raw_parts(input.Z2, input.num_species_target).to_vec() };
     let m2 = unsafe { slice::from_raw_parts(input.m2, input.num_species_target).to_vec() };
@@ -358,31 +313,11 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
 
 
 #[no_mangle]
-#[cfg(not(feature = "distributions"))]
 pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut f64, uy: &mut f64, uz: &mut f64, E1: &mut f64, Z1: &mut f64, m1: &mut f64, Ec1: &mut f64, Es1: &mut f64, Z2: *mut f64, m2: *mut f64, Ec2: *mut f64, Es2: *mut f64, Eb2: *mut f64, n2: *mut f64) {
 
     assert!(E1 > &mut 0.0);
 
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoil_trajectories: false,
-        track_recoils: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-    };
+    let options = Options::default_options(false);
 
     let Z2 = unsafe { slice::from_raw_parts(Z2, *num_species_target as usize).to_vec() };
     let m2 = unsafe { slice::from_raw_parts(m2, *num_species_target as usize).to_vec() };
@@ -465,64 +400,7 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
 
     let mut total_output = vec![];
 
-    #[cfg(feature = "distributions")]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-        energy_min: 0.0,
-        energy_max: 10.0,
-        energy_num: 11,
-        angle_min: 0.0,
-        angle_max: 90.0,
-        angle_num: 11,
-        x_min: 0.0,
-        y_min: -10.0,
-        z_min: -10.0,
-        x_max: 10.0,
-        y_max: 10.0,
-        z_max: 10.0,
-        x_num: 11,
-        y_num: 11,
-        z_num: 11,
-    };
-
-    #[cfg(not(feature = "distributions"))]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-    };
+    let options = Options::default_options(true);
 
     let material_parameters = material::MaterialParameters {
         energy_unit: "EV".to_string(),
@@ -627,64 +505,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
 
     let mut total_output = vec![];
 
-    #[cfg(feature = "distributions")]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-        energy_min: 0.0,
-        energy_max: 10.0,
-        energy_num: 11,
-        angle_min: 0.0,
-        angle_max: 90.0,
-        angle_num: 11,
-        x_min: 0.0,
-        y_min: -10.0,
-        z_min: -10.0,
-        x_max: 10.0,
-        y_max: 10.0,
-        z_max: 10.0,
-        x_num: 11,
-        y_num: 11,
-        z_num: 11,
-    };
-
-    #[cfg(not(feature = "distributions"))]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-    };
+    let options = Options::default_options(true);
 
     let Z2 = unsafe { slice::from_raw_parts(input.Z2, input.num_species_target).to_vec() };
     let m2 = unsafe { slice::from_raw_parts(input.m2, input.num_species_target).to_vec() };
@@ -809,64 +630,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
 
     let mut total_output = vec![];
 
-    #[cfg(feature = "distributions")]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: *track_recoils,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-        energy_min: 0.0,
-        energy_max: 10.0,
-        energy_num: 11,
-        angle_min: 0.0,
-        angle_max: 90.0,
-        angle_num: 11,
-        x_min: 0.0,
-        y_min: -10.0,
-        z_min: -10.0,
-        x_max: 10.0,
-        y_max: 10.0,
-        z_max: 10.0,
-        x_num: 11,
-        y_num: 11,
-        z_num: 11,
-    };
-
-    #[cfg(not(feature = "distributions"))]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: *track_recoils,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-    };
+    let options = Options::default_options(*track_recoils);
 
     let ux = unsafe { slice::from_raw_parts(ux, *num_incident_ions as usize).to_vec() };
     let uy = unsafe { slice::from_raw_parts(uy, *num_incident_ions as usize).to_vec() };
@@ -1029,64 +793,7 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
     assert_eq!(Eb2.len(), num_species_target, "Input error: list of target bulk binding energies is not the same length as atomic numbers.");
     assert_eq!(n2.len(), num_species_target, "Input error: list of target number densities is not the same length as atomic numbers.");
 
-    #[cfg(feature = "distributions")]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: true,
-        high_energy_free_flight_paths: true,
-        electronic_stopping_mode: ElectronicStoppingMode::LOW_ENERGY_NONLOCAL,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-        energy_min: 0.0,
-        energy_max: 10.0,
-        energy_num: 11,
-        angle_min: 0.0,
-        angle_max: 90.0,
-        angle_num: 11,
-        x_min: 0.0,
-        y_min: -10.0,
-        z_min: -10.0,
-        x_max: 10.0,
-        y_max: 10.0,
-        z_max: 10.0,
-        x_num: 11,
-        y_num: 11,
-        z_num: 11,
-    };
-
-    #[cfg(not(feature = "distributions"))]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: true,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::LOW_ENERGY_NONLOCAL,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-    };
+    let options = Options::default_options(true);
 
     let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
     let y = 0.0;
@@ -1229,65 +936,7 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
     assert_eq!(n2[0].len(), num_species, "Input error: first layer species list of target number densities is not the same length as atomic numbers.");
     assert_eq!(dx.len(), num_layers_target, "Input error: number of layer thicknesses not the same as number of layers in atomic densities list.");
 
-    #[cfg(feature = "distributions")]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: true,
-        high_energy_free_flight_paths: true,
-        electronic_stopping_mode: ElectronicStoppingMode::LOW_ENERGY_NONLOCAL,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-        energy_min: 0.0,
-        energy_max: 10.0,
-        energy_num: 11,
-        angle_min: 0.0,
-        angle_max: 90.0,
-        angle_num: 11,
-        x_min: 0.0,
-        y_min: -10.0,
-        z_min: -10.0,
-        x_max: 10.0,
-        y_max: 10.0,
-        z_max: 10.0,
-        x_num: 11,
-        y_num: 11,
-        z_num: 11,
-    };
-
-    #[cfg(not(feature = "distributions"))]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: true,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::LOW_ENERGY_NONLOCAL,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-    };
-
+    let options = Options::default_options(true);
     let y = 0.0;
     let z = 0.0;
 
@@ -1466,64 +1115,7 @@ pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1
     assert!(Ec1 > 0.0, "Error: Cutoff energy Ec1 cannot be less than or equal to 0.");
     assert!(Ec2 > 0.0, "Error: Cutoff energy Ec2 cannot be less than or equal to 0.");
 
-    #[cfg(feature = "distributions")]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-        energy_min: 0.0,
-        energy_max: 10.0,
-        energy_num: 11,
-        angle_min: 0.0,
-        angle_max: 90.0,
-        angle_num: 11,
-        x_min: 0.0,
-        y_min: -10.0,
-        z_min: -10.0,
-        x_max: 10.0,
-        y_max: 10.0,
-        z_max: 10.0,
-        x_num: 11,
-        y_num: 11,
-        z_num: 11,
-    };
-
-    #[cfg(not(feature = "distributions"))]
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 3,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential: vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::DEFAULTNEWTON]],
-        track_displacements: false,
-        track_energy_losses: false,
-    };
+    let options = Options::default_options(true);
 
     let p = particle::Particle {
         m: m1*AMU,
@@ -1658,4 +1250,206 @@ pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f6
     let mut uz = uz;
     rotate_given_surface_normal(nx, ny, nz, &mut ux, &mut uy, &mut uz);
     (ux, uy, uz)
+}
+
+#[cfg(feature = "python")]
+pub fn unpack(python_float: &PyAny) -> f64 {
+    python_float.downcast::<PyFloat>().expect("Error unpacking Python float to f64. Check values.").value()
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+///
+pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> f64 {
+
+    const DELTA: f64 = 1e-6; 
+
+    let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
+    let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
+    let Ec1 = unpack(ion.get_item("Ec").expect("Cannot get ion cutoff energy from dictionary. Ensure ion['Ec'] exists."));
+    let Es1 = unpack(ion.get_item("Es").expect("Cannot get ion surface binding energy from dictionary. Ensure ion['Es'] exists."));
+
+    let Z2 = unpack(target.get_item("Z").expect("Cannot get target Z from dictionary. Ensure target['Z'] exists."));
+    let m2 = unpack(target.get_item("m").expect("Cannot get target mass from dictionary. Ensure target['m'] exists."));
+    let Ec2 = unpack(target.get_item("Ec").expect("Cannot get target cutoff energy from dictionary. Ensure target['Ec'] exists."));
+    let Es2 = unpack(target.get_item("Es").expect("Cannot get target surface binding energy from dictionary. Ensure target['Es'] exists."));
+    let Eb2 = unpack(target.get_item("Eb").expect("Cannot get target bulk binding energy from dictionary. Ensure target['Eb'] exists."));
+    let n2 = unpack(target.get_item("n").expect("Cannot get target density from dictionary. Ensure target['n'] exists."));
+
+    let options = Options::default_options(true);
+
+    let y = 0.0;
+    let z = 0.0;
+
+    let ux = (angle/180.0*PI).cos() - DELTA;
+    let uy = (angle/180.0*PI).sin() + DELTA;
+    let uz = 0.0;
+
+    let mut direction = Vector::new(ux, uy, uz);
+    direction.normalize();
+
+    let material_parameters = material::MaterialParameters {
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: vec![Eb2],
+        Es: vec![Es2],
+        Ec: vec![Ec2],
+        Z: vec![Z2],
+        m: vec![m2],
+        interaction_index: vec![0],
+        surface_binding_model: SurfaceBindingModel::AVERAGE,
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let geometry_input = geometry::Mesh0DInput {
+        length_unit: "M".to_string(),
+        densities: vec![n2],
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
+
+    let x = -m.geometry.energy_barrier_thickness;
+
+    let num_sputtered = Mutex::new(0);
+
+    (0..num_samples as u64).into_par_iter().for_each( |index| {
+
+        let p = particle::Particle {
+            m: m1*AMU,
+            Z: Z1,
+            E: energy*EV,
+            Ec: Ec1*EV,
+            Es: Es1*EV,
+            pos: Vector::new(x, y, z),
+            dir: direction,
+            pos_origin: Vector::new(x, y, z),
+            pos_old: Vector::new(x, y, z),
+            dir_old: direction,
+            energy_origin: energy*EV,
+            asymptotic_deflection: 0.0,
+            stopped: false,
+            left: false,
+            incident: true,
+            first_step: true,
+            trajectory: vec![],
+            energies: vec![],
+            track_trajectories: false,
+            number_collision_events: 0,
+            backreflected: false,
+            interaction_index : 0,
+            weight: 1.0,
+            tag: 0,
+            tracked_vector: Vector::new(0.0, 0.0, 0.0),
+        };
+
+        let output = bca::single_ion_bca(p, &m, &options);
+
+        for particle in output {
+            if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && (!particle.incident) {
+                let mut num_sputtered = num_sputtered.lock().unwrap();
+                *num_sputtered += 1;
+            }
+        }
+    });
+    let num_sputtered = *num_sputtered.lock().unwrap();
+    num_sputtered as f64 / num_samples as f64 
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+///
+pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> f64 {
+
+    const DELTA: f64 = 1e-6; 
+
+    let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
+    let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
+    let Ec1 = unpack(ion.get_item("Ec").expect("Cannot get ion cutoff energy from dictionary. Ensure ion['Ec'] exists."));
+    let Es1 = unpack(ion.get_item("Es").expect("Cannot get ion surface binding energy from dictionary. Ensure ion['Es'] exists."));
+
+    let Z2 = unpack(target.get_item("Z").expect("Cannot get target Z from dictionary. Ensure target['Z'] exists."));
+    let m2 = unpack(target.get_item("m").expect("Cannot get target mass from dictionary. Ensure target['m'] exists."));
+    let Ec2 = unpack(target.get_item("Ec").expect("Cannot get target cutoff energy from dictionary. Ensure target['Ec'] exists."));
+    let Es2 = unpack(target.get_item("Es").expect("Cannot get target surface binding energy from dictionary. Ensure target['Es'] exists."));
+    let Eb2 = unpack(target.get_item("Eb").expect("Cannot get target bulk binding energy from dictionary. Ensure target['Eb'] exists."));
+    let n2 = unpack(target.get_item("n").expect("Cannot get target density from dictionary. Ensure target['n'] exists."));
+
+    let options = Options::default_options(false);
+
+    let y = 0.0;
+    let z = 0.0;
+
+    let ux = (angle/180.0*PI).cos() - DELTA;
+    let uy = (angle/180.0*PI).sin() + DELTA;
+    let uz = 0.0;
+
+    let mut direction = Vector::new(ux, uy, uz);
+    direction.normalize();
+
+    let material_parameters = material::MaterialParameters {
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: vec![Eb2],
+        Es: vec![Es2],
+        Ec: vec![Ec2],
+        Z: vec![Z2],
+        m: vec![m2],
+        interaction_index: vec![0],
+        surface_binding_model: SurfaceBindingModel::AVERAGE,
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let geometry_input = geometry::Mesh0DInput {
+        length_unit: "M".to_string(),
+        densities: vec![n2],
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
+
+    let x = -m.geometry.energy_barrier_thickness;
+
+    let num_reflected = Mutex::new(0);
+
+    (0..num_samples as u64).into_par_iter().for_each( |index| {
+        let p = particle::Particle {
+            m: m1*AMU,
+            Z: Z1,
+            E: energy*EV,
+            Ec: Ec1*EV,
+            Es: Es1*EV,
+            pos: Vector::new(x, y, z),
+            dir: direction,
+            pos_origin: Vector::new(x, y, z),
+            pos_old: Vector::new(x, y, z),
+            dir_old: direction,
+            energy_origin: energy*EV,
+            asymptotic_deflection: 0.0,
+            stopped: false,
+            left: false,
+            incident: true,
+            first_step: true,
+            trajectory: vec![],
+            energies: vec![],
+            track_trajectories: false,
+            number_collision_events: 0,
+            backreflected: false,
+            interaction_index : 0,
+            weight: 1.0,
+            tag: 0,
+            tracked_vector: Vector::new(0.0, 0.0, 0.0),
+        };
+
+        let output = bca::single_ion_bca(p, &m, &options);
+
+        for particle in output {
+            if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && particle.incident {
+                let mut num_reflected = num_reflected.lock().unwrap();
+                *num_reflected += 1;
+            }
+        }
+    });
+    let num_reflected = *num_reflected.lock().unwrap();
+    num_reflected as f64 / num_samples as f64 
 }
