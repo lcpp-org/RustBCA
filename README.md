@@ -23,8 +23,28 @@ Journal of Open Source Software by clicking the badge below:
 
 ## Getting started
 
-For those eager to get started, try running one of the examples in the
-`rustBCA` directory. Note that to automatically manipulate input files and reproduce the plots located on the [Wiki], these require several optional, but common,
+The easiest way to get started is with the ergonomic Python functions currently on the development branch. Follow these steps to install, build, and run simple RustBCA simulations for sputtering yields and reflection coefficients:
+```
+git clone https://github.com/lcpp-org/rustbca
+cd rustbca
+git checkout dev
+python -m pip install .
+python
+Python 3.9.6 (tags/v3.9.6:db3ff76, Jun 28 2021, 15:26:21) [MSC v.1929 64 bit (AMD64)] on win32
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from libRustBCA.pybca import *; from scripts.materials import *
+>>> angle = 0.0 # deg
+>>> energy = 1000.0 # eV
+>>> num_samples = 10000
+>>> sputtering_yield(argon, tungsten, energy, angle, num_samples)
+1.0398
+>>> reflection_coefficient(argon, tungsten, energy, angle, num_samples)
+(0.3294, 0.10230906775743769) # (reflection coefficient, energy reflection coefficient)
+>>>
+```
+
+For those eager to get started with the standalone code, try running one of the examples in the
+`RustBCA/examples` directory. Note that to automatically manipulate input files and reproduce the plots located on the [Wiki], these require several optional, but common,
 [Python] packages (`matplotlib`, `numpy`, `scipy`, `shapely`, and `toml`).
 
 ### H trajectories and collision cascades in a boron nitride dust grain
@@ -107,7 +127,7 @@ The following features are implemented in `rustBCA`:
 
 ## Installation
 
-Without optional features, `rustBCA` should compile with `cargo` alone on
+Without optional features, `RustBCA` should compile with `cargo` alone on
 Windows, MacOS, and Linux systems.
 
 [HDF5] for particle list input has been tested on Windows, but version 1.10.6 must be used.
@@ -166,7 +186,7 @@ sudo apt-get install gcc gfortran build-essential cmake liblapack-dev libblas-de
 ```bash
 sudo apt-get install cargo
 ```
-9. Build `rustBCA`:
+9. Build `RustBCA`:
 ```bash
 git clone https://github.com/lcpp-org/rustBCA
 cd rustBCA
@@ -216,7 +236,7 @@ If the [rcpr] is desired, it's probably also a good idea to install the followin
 sudo dnf install gcc gcc-gfortran cmake lapack lapack-devel blas blas-devel
 ```
 
-Building `rustBCA` is straightforward and can be done using:
+Building `RustBCA` is straightforward, and can be done using:
 
 ```bash
 git clone https://github.com/lcpp-org/rustBCA
@@ -229,20 +249,21 @@ automatically during the build.
 
 ## Usage
 
-To use `rustBCA`, modify the `input.toml` file, which is used to configure each
+To use `RustBCA`, modify the `input.toml` file, which is used to configure each
 simulation.
 To run a simulation, execute:
 
 ```bash
-./rustBCA
+./RustBCA
 ```
 
-with `input.toml` in the same directory as `rustBCA`.
-Alternatively, `rustBCA` accepts the name of a`.toml` input file as a single
+with `input.toml` in the same directory as `RustBCA`.
+Alternatively, `RustBCA` accepts the name of a`.toml` input file as a single
 command line argument:
 
 ```bash
-./rustBCA /path/to/input.toml
+./
+RustBCA /path/to/input.toml
 ```
 
 For further details, have a look at
