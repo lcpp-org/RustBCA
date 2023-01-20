@@ -821,36 +821,21 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
     let mut index: usize = 0;
-    for (((((((E1_, ux_), uy_), uz_), Z1_), Ec1_), Es1_), m1_) in energies.iter().zip(ux).zip(uy).zip(uz).zip(Z1).zip(Ec1).zip(Es1).zip(m1) {
+    for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {
 
         let mut energy_out;
-        let p = particle::Particle {
-            m: m1_*AMU,
-            Z: Z1_,
-            E: E1_*EV,
-            Ec: Ec1_*EV,
-            Es: Es1_*EV,
-            pos: Vector::new(x, y, z),
-            dir: Vector::new(ux_, uy_, uz_),
-            pos_origin: Vector::new(x, y, z),
-            pos_old: Vector::new(x, y, z),
-            dir_old: Vector::new(ux_, uy_, uz_),
-            energy_origin: E1_*EV,
-            asymptotic_deflection: 0.0,
-            stopped: false,
-            left: false,
-            incident: true,
-            first_step: true,
-            trajectory: vec![],
-            energies: vec![],
-            track_trajectories: false,
-            number_collision_events: 0,
-            backreflected: false,
-            interaction_index : 0,
-            weight: 0.0,
-            tag: 0,
-            tracked_vector: Vector::new(0., 0., 0.),
-        };
+
+        let p = particle::Particle::default_incident(
+            m1_,
+            Z1_,
+            energy,
+            Ec1_,
+            Es1_,
+            x,
+            ux_,
+            uy_,
+            uz_
+        );
 
         let output = bca::single_ion_bca(p, &m, &options);
 
@@ -914,7 +899,6 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
     let mut total_output = vec![];
     let mut incident = vec![];
     let mut stopped = vec![];
-
     let num_layers_target = n2.len();
     let num_species = Z2.len();
     let num_incident_ions = energies.len();
@@ -965,39 +949,22 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
     let x = -m.geometry.top_energy_barrier_thickness/2.;
 
     let mut index: usize = 0;
-    for (((((((E1_, ux_), uy_), uz_), Z1_), Ec1_), Es1_), m1_) in energies.iter().zip(ux).zip(uy).zip(uz).zip(Z1).zip(Ec1).zip(Es1).zip(m1) {
 
-        let mut dir = Vector::new(ux_, uy_, uz_);
-        dir.normalize();
+    for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {();
 
         let mut energy_out;
-        let p = particle::Particle {
-            m: m1_*AMU,
-            Z: Z1_,
-            E: E1_*EV,
-            Ec: Ec1_*EV,
-            Es: Es1_*EV,
-            pos: Vector::new(x, y, z),
-            dir: dir,
-            pos_origin: Vector::new(x, y, z),
-            pos_old: Vector::new(x, y, z),
-            dir_old: dir,
-            energy_origin: E1_*EV,
-            asymptotic_deflection: 0.0,
-            stopped: false,
-            left: false,
-            incident: true,
-            first_step: true,
-            trajectory: vec![],
-            energies: vec![],
-            track_trajectories: false,
-            number_collision_events: 0,
-            backreflected: false,
-            interaction_index : 0,
-            weight: 0.0,
-            tag: 0,
-            tracked_vector: Vector::new(0., 0., 0.),
-        };
+
+        let p = particle::Particle::default_incident(
+            m1_,
+            Z1_,
+            energy,
+            Ec1_,
+            Es1_,
+            x,
+            ux_,
+            uy_,
+            uz_
+        );
 
         let output = bca::single_ion_bca(p, &m, &options);
 
@@ -1293,9 +1260,6 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
     let uy = (angle/180.0*PI).sin() + DELTA;
     let uz = 0.0;
 
-    let mut direction = Vector::new(ux, uy, uz);
-    direction.normalize();
-
     let material_parameters = material::MaterialParameters {
         energy_unit: "EV".to_string(),
         mass_unit: "AMU".to_string(),
@@ -1323,33 +1287,17 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 
     (0..num_samples as u64).into_par_iter().for_each( |index| {
 
-        let p = particle::Particle {
-            m: m1*AMU,
-            Z: Z1,
-            E: energy*EV,
-            Ec: Ec1*EV,
-            Es: Es1*EV,
-            pos: Vector::new(x, y, z),
-            dir: direction,
-            pos_origin: Vector::new(x, y, z),
-            pos_old: Vector::new(x, y, z),
-            dir_old: direction,
-            energy_origin: energy*EV,
-            asymptotic_deflection: 0.0,
-            stopped: false,
-            left: false,
-            incident: true,
-            first_step: true,
-            trajectory: vec![],
-            energies: vec![],
-            track_trajectories: false,
-            number_collision_events: 0,
-            backreflected: false,
-            interaction_index : 0,
-            weight: 1.0,
-            tag: 0,
-            tracked_vector: Vector::new(0.0, 0.0, 0.0),
-        };
+        let p = particle::Particle::default_incident(
+            m1,
+            Z1,
+            energy,
+            Ec1,
+            Es1,
+            x,
+            ux,
+            uy,
+            uz
+        );
 
         let output = bca::single_ion_bca(p, &m, &options);
 
@@ -1432,34 +1380,19 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
     let energy_reflected = Mutex::new(0.0);
 
     (0..num_samples as u64).into_par_iter().for_each( |index| {
-        let p = particle::Particle {
-            m: m1*AMU,
-            Z: Z1,
-            E: energy*EV,
-            Ec: Ec1*EV,
-            Es: Es1*EV,
-            pos: Vector::new(x, y, z),
-            dir: direction,
-            pos_origin: Vector::new(x, y, z),
-            pos_old: Vector::new(x, y, z),
-            dir_old: direction,
-            energy_origin: energy*EV,
-            asymptotic_deflection: 0.0,
-            stopped: false,
-            left: false,
-            incident: true,
-            first_step: true,
-            trajectory: vec![],
-            energies: vec![],
-            track_trajectories: false,
-            number_collision_events: 0,
-            backreflected: false,
-            interaction_index : 0,
-            weight: 1.0,
-            tag: 0,
-            tracked_vector: Vector::new(0.0, 0.0, 0.0),
-        };
 
+        let p = particle::Particle::default_incident(
+            m1,
+            Z1,
+            energy,
+            Ec1,
+            Es1,
+            x,
+            ux,
+            uy,
+            uz
+        );
+        
         let output = bca::single_ion_bca(p, &m, &options);
 
         for particle in output {
