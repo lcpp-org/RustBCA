@@ -98,6 +98,7 @@ pub fn pybca(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(reflection_coefficient, m)?)?;
     #[cfg(feature = "parry3d")]
     m.add_function(wrap_pyfunction!(rotate_given_surface_normal_py, m)?)?;
+    m.add_function(wrap_pyfunction!(rotate_back_py, m)?)?;
     Ok(())
 }
 
@@ -1217,6 +1218,49 @@ pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f6
     let mut uz = uz;
     rotate_given_surface_normal(nx, ny, nz, &mut ux, &mut uy, &mut uz);
     (ux, uy, uz)
+}
+
+#[cfg(all(feature = "python", feature = "parry3d"))]
+#[pyfunction]
+/// rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
+/// --
+///
+/// This function runs a 0D Binary Collision Approximation simulation for the given incident ions and material.
+/// Args:
+///     nx (f64): surface normal in global frame x-component.
+///     ny (f64): surface normal in global frame y-component.
+///     nz (f64): surface normal in global frame z-component.
+///     ux (f64): particle direction in RustBCA frame x-component.
+///     uy (f64): particle direction in RustBCA frame normal y-component.
+///     uz (f64): particle direction in RustBCA frame normal z-component.
+/// Returns:
+///    direction (f64, f64, f64): direction vector of particle in global coordinates.
+pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+    let RUSTBCA_DIRECTION: Vector3::<f64> = Vector3::<f64>::new(1.0, 0.0, 0.0);
+
+    let into_surface = Vector3::new(-nx, -ny, -nz);
+    let direction = Vector3::new(ux, uy, uz);
+
+    //Rotation to local RustBCA coordinates from global
+    //Here's how this works: a rotation matrix is found that maps the rustbca
+    //into-the-surface vector (1.0, 0.0, 0.0) onto the local into-the-surface vector (negative normal w.r.t. ray origin).
+    //That rotation is then applied to the particle direction, and can be undone later.
+    //Algorithm is from here:
+    //https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/180436#180436
+    let v: Vector3<f64> = into_surface.cross(&RUSTBCA_DIRECTION);
+    let c = into_surface.dot(&RUSTBCA_DIRECTION);
+    let vx = Matrix3::<f64>::new(0.0, -v.z, v.y, v.z, 0.0, -v.x, -v.y, v.x, 0.0);
+    let rotation_matrix = if c != -1.0 {
+        Matrix3::identity() + vx + vx*vx/(1. + c)
+    } else {
+        //If c == -1.0, the correct rotation should simply be a 180 degree rotation
+        //around a non-x axis; y is chosen arbitrarily
+        Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
+    };
+
+    let u = rotation_matrix.transpose()*direction;
+
+    (u.x, u.y, u.z)
 }
 
 #[cfg(feature = "python")]
