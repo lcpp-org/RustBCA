@@ -42,6 +42,7 @@ jobs:
     - name: test Python Bindings
       run: |
         python3 -m pip install setuptools_rust testresources setuptools wheel
+        python3 -m pip install --upgrade pip setuptools wheel
         python3 -m pip install .
         python3 -c "from libRustBCA.pybca import *;"
         python3 examples/test_rustbca.py
