@@ -6,7 +6,7 @@ setup(
     version="1.3.0",
     rust_extensions=[
         RustExtension(
-            "libRustBCA.pybca",
+            "libRustBCA",
             binding=Binding.PyO3,
             features=["python", "parry3d"],
             #args=["+nightly", "--edition 2018", "-Z unstable-options"],

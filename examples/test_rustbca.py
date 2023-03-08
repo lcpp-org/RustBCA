@@ -31,7 +31,6 @@ def main():
     print(f'Energy reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_E}')
 
 
-
     #For smooth distributions and good statistics, you should use at least 10k ions
     number_ions = 100000
 
