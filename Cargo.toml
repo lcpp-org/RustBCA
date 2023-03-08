@@ -1,18 +1,13 @@
 [package]
 name = "RustBCA"
-version = "1.2.0"
+version = "1.3.0"
 default-run = "RustBCA"
-authors = ["Jon Drobny <drobny2@illinois.edu>"]
+authors = ["Jon Drobny <drobny2@illinois.edu>", "Jon Drobny <jdrobny@tae.com>"]
 edition = "2018"
 
 [[bin]]
 name = "RustBCA"
 path = "src/main.rs"
-
-[[bin]]
-name = "RustBCAGUI"
-path = "src/gui.rs"
-required-features = ["gui"]
 
 [lib]
 name = "libRustBCA"
@@ -62,4 +57,3 @@ no_list_output = []
 parry3d = ["parry3d-f64"]
 accelerated_ions = []
 python = ["pyo3"]
-gui = ["egui"]
