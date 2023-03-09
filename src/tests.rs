@@ -455,9 +455,10 @@ fn test_geometry() {
 
     let geometry_input_2D = geometry::Mesh2DInput {
         length_unit: "ANGSTROM".to_string(),
-        triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
+        points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
+        triangles: vec![(0, 1, 2), (0, 2, 3)],
         densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
-        material_boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
+        boundary: vec![0, 1, 2, 3],
         simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
         energy_barrier_thickness: 10.,
         electronic_stopping_correction_factors: vec![1.0, 1.0],
@@ -521,9 +522,10 @@ fn test_surface_binding_energy_barrier() {
 
     let geometry_input_2D = geometry::Mesh2DInput {
         length_unit: "ANGSTROM".to_string(),
-        triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
+        points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
+        triangles: vec![(0, 1, 2), (0, 2, 3)],
         densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
-        material_boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
+        boundary: vec![0, 1, 2, 3],
         simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
         energy_barrier_thickness: 10.,
         electronic_stopping_correction_factors: vec![1.0, 1.0],
@@ -745,9 +747,10 @@ fn test_momentum_conservation() {
         let depth: f64 = 1000.;
         let geometry_input = geometry::Mesh2DInput {
             length_unit: "ANGSTROM".to_string(),
-            triangles: vec![(0., depth, 0., thickness/2., thickness/2., -thickness/2.), (depth, depth, 0., thickness/2., -thickness/2., -thickness/2.)],
+            triangles: vec![(0, 1, 2), (0, 2, 3)],
+            points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
             densities: vec![vec![0.06306], vec![0.06306]],
-            material_boundary_points: vec![(0., thickness/2.), (depth, thickness/2.), (depth, -thickness/2.), (0., -thickness/2.), (0., thickness/2.)],
+            boundary: vec![0, 1, 2, 3],
             simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
             electronic_stopping_correction_factors: vec![0.0, 0.0],
             energy_barrier_thickness: 0.,
