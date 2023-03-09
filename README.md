@@ -10,7 +10,7 @@ and Fortran.
 By discretizing the collision cascade into a sequence of binary collisions,
 [BCA] codes can accurately and efficiently model the prompt interaction
 between an energetic ion and a target material. This includes reflection,
-implantation, and transmission of the incident ion, s well as sputtering
+implantation, and transmission of the incident ion, as well as sputtering
 and displacement damage of the target. Generally, [BCA] codes can be
 valid for incident ion energies between approximately ~1 eV/nucleon 
 to <1 GeV/nucleon.
@@ -23,11 +23,12 @@ Journal of Open Source Software by clicking the badge below:
 
 ## Getting started
 
-The easiest way to get started is with the ergonomic Python functions currently on the development branch. Follow these steps to install, build, and run simple RustBCA simulations for sputtering yields and reflection coefficients:
+The easiest way to get started is with the ergonomic Python functions.
+Follow these steps to install, build, and run simple RustBCA simulations
+for sputtering yields and reflection coefficients:
 ```
 git clone https://github.com/lcpp-org/rustbca
 cd rustbca
-git checkout dev
 python -m pip install .
 python
 Python 3.9.6 (tags/v3.9.6:db3ff76, Jun 28 2021, 15:26:21) [MSC v.1929 64 bit (AMD64)] on win32
@@ -44,7 +45,8 @@ Type "help", "copyright", "credits" or "license" for more information.
 ```
 
 For those eager to get started with the standalone code, try running one of the examples in the
-`RustBCA/examples` directory. Note that to automatically manipulate input files and reproduce the plots located on the [Wiki], these require several optional, but common,
+`RustBCA/examples` directory. Note that to automatically manipulate input files and reproduce
+the plots located on the [Wiki], these require several optional, but common,
 [Python] packages (`matplotlib`, `numpy`, `scipy`, `shapely`, and `toml`).
 
 ### H trajectories and collision cascades in a boron nitride dust grain
@@ -94,17 +96,17 @@ plt.show()
 The following features are implemented in `rustBCA`:
 
 * Ion-material interactions for all combinations of incident ion and target species.
-* Infinite, homogeneous targets (Mesh0D), Layered, finite-depth inhomogeneous targets (Mesh1D), arbitrary 2D geometry composition through a triangular mesh (Mesh2D), homogeneous spherical geometry (Sphere) and homogeneous, arbitrary triangular mesh geometry (TriMesh).
+* Infinite, homogeneous targets (Mesh0D), Layered, finite-depth inhomogeneous targets (Mesh1D), arbitrary 2D composition through a triangular mesh (Mesh2D), homogeneous spherical geometry (Sphere) and homogeneous 3D triangular mesh geometry (TriMesh).
 * Amorphous Solid/Liquid targets, Gaseous targets, and targets with both solid/liquid and gaseous elements
 * Low energy (< 25 keV/nucleon) electronic stopping modes including:
   * local (Oen-Robinson),
   * nonlocal (Lindhard-Scharff),
-  * and equipartition forms.
+  * and equipartition
 * Biersack-Varelas interpolation is also included for electronic stopping up to ~1 GeV/nucleon. Note that high energy physics beyond electronic stopping are not included.
 * Optionally, the Biersack-Haggmark treatment of high-energy free-flight paths between collisions can be included to greatly speed up high-energy simulations (i.e., by neglecting very small angle scattering).
 * A wide range of interaction potentials are provided, including:
   * the Kr-C, ZBL, Lenz-Jensen, and Moliere universal, screened-Coulomb potentials.
-  * the Lennard-Jones 12-6, Lennard-Jones 6.5-6, and Morse attractive-repulsive potentials.
+  * the Lennard-Jones 12-6 and Morse attractive-repulsive potentials.
 * Solving the distance-of-closest-approach problem is achieved using:
   * the Newton-Raphson method for simple root-finding,
   * or, for attractive-repulsive potentials, an Adaptive Chebyshev Proxy Rootfinder with Automatic Subdivision algorithm and a Polynomial root-finding algorithm are provided through the [rcpr] crate.
@@ -249,7 +251,7 @@ automatically during the build.
 
 ## Usage
 
-To use `RustBCA`, modify the `input.toml` file, which is used to configure each
+To use `RustBCA`, modify an `input.toml` file, which is used to configure each
 simulation.
 To run a simulation, execute:
 
