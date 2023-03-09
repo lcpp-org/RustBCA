@@ -32,7 +32,7 @@ python -m pip install .
 python
 Python 3.9.6 (tags/v3.9.6:db3ff76, Jun 28 2021, 15:26:21) [MSC v.1929 64 bit (AMD64)] on win32
 Type "help", "copyright", "credits" or "license" for more information.
->>> from libRustBCA.pybca import *; from scripts.materials import *
+>>> from libRustBCA import *; from scripts.materials import *
 >>> angle = 0.0 # deg
 >>> energy = 1000.0 # eV
 >>> num_samples = 10000
