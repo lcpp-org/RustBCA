@@ -269,8 +269,9 @@ impl Geometry for Mesh1D {
 #[derive(Deserialize, Clone)]
 pub struct Mesh2DInput {
     pub length_unit: String,
-    pub triangles: Vec<(f64, f64, f64, f64, f64, f64)>,
-    pub material_boundary_points: Vec<(f64, f64)>,
+    pub triangles: Vec<(usize, usize, usize)>,
+    pub points: Vec<(f64, f64)>,
+    pub boundary: Vec<usize>,
     pub simulation_boundary_points: Vec<(f64, f64)>,
     pub densities: Vec<Vec<f64>>,
     pub electronic_stopping_correction_factors: Vec<f64>,
@@ -313,7 +314,9 @@ impl Geometry for Mesh2D {
     fn new(geometry_input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Mesh2D {
 
         let triangles = geometry_input.triangles.clone();
-        let material_boundary_points = geometry_input.material_boundary_points.clone();
+        let points = geometry_input.points.clone();
+        let material_boundary_point_indices = geometry_input.boundary.clone();
+
         let simulation_boundary_points = geometry_input.simulation_boundary_points.clone();
         let electronic_stopping_correction_factors = geometry_input.electronic_stopping_correction_factors.clone();
 
@@ -348,6 +351,31 @@ impl Geometry for Mesh2D {
 
         assert_eq!(triangles.len(), densities.len(), "Input error: coordinates and data of unequal length.");
 
+
+        for ((triangle, densities), ck) in triangles.iter().zip(densities).zip(electronic_stopping_correction_factors) {
+
+            let x1 = points[triangle.0].0;
+            let x2 = points[triangle.1].0;
+            let x3 = points[triangle.2].0;
+            let y1 = points[triangle.0].1;
+            let y2 = points[triangle.1].1;
+            let y3 = points[triangle.2].1;
+
+            let coordinate_set_converted = (
+                x1*length_unit,
+                x2*length_unit,
+                x3*length_unit,
+                y1*length_unit,
+                y2*length_unit,
+                y3*length_unit,
+            );
+            let total_density: f64 = densities.iter().sum();
+            let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
+
+            cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));
+        }
+
+        /*
         for ((coordinate_set, densities), ck) in triangles.iter().zip(densities).zip(electronic_stopping_correction_factors) {
             let coordinate_set_converted = (
                 coordinate_set.0*length_unit,
@@ -363,10 +391,13 @@ impl Geometry for Mesh2D {
 
             cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));
         }
+        */
 
-        let mut boundary_points_converted = Vec::with_capacity(material_boundary_points.len());
-        for (x, y) in material_boundary_points.iter() {
-            boundary_points_converted.push((x*length_unit, y*length_unit));
+
+
+        let mut boundary_points_converted = Vec::with_capacity(material_boundary_point_indices.len());
+        for index in material_boundary_point_indices.iter() {
+            boundary_points_converted.push((points[*index].0*length_unit, points[*index].1*length_unit));
         }
         let boundary: Polygon<f64> = Polygon::new(LineString::from(boundary_points_converted), vec![]);
 
@@ -624,7 +655,7 @@ impl Triangle2D {
         for segment in &self.segments {
             let length_2 = (segment.2 - segment.0)*(segment.2 - segment.0) + (segment.3 - segment.1)*(segment.3 - segment.1);
 
-            assert!(length_2 != 0., "Geometry error: mesh contains triangle with zero-length side.");
+            assert!(length_2 != 0., "Geometry error: mesh contains triangle with zero-length side. (x1, y1), (x2, y2) = ({}, {}) ({}, {})", segment.0, segment.2, segment.1, segment.3);
 
             let u = ((x - segment.0)*(segment.2 - segment.0) + (y - segment.1)*(segment.3 - segment.1))/length_2;
 

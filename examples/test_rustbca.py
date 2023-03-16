@@ -1,4 +1,4 @@
-from libRustBCA.pybca import *
+from libRustBCA import *
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
@@ -17,6 +17,19 @@ def main():
 
     #tungsten Eb = 0 is a 'worst-case' - accepted literature value is 3 eV
     target['Eb'] = 3.0
+
+    energy = 2500.0 #eV
+    angle = 0.0 #degrees
+    num_samples = 1000
+    #For automatic control, libRustBCA offers two helpful functions for the sputtering yield and reflection coefficients
+    Y = sputtering_yield(ion, target, energy, angle, num_samples)
+    
+    print(f'Sputtering yield for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {Y} at/ion. Yamamura predicts { np.round(yamamura(ion, target, energy),3)} at/ion.')
+
+    R_N, R_E = reflection_coefficient(ion, target, energy, angle, num_samples)
+    print(f'Particle reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
+    print(f'Energy reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_E}')
+
 
     #For smooth distributions and good statistics, you should use at least 10k ions
     number_ions = 100000

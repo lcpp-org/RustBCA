@@ -166,6 +166,45 @@ impl Particle {
             tracked_vector: Vector::new(0.0, 0.0, 0.0),
         }
     }
+    
+    /// Particle constructor from simplified input.
+    pub fn default_incident(m_amu: f64, Z: f64, E_eV: f64, Ec_eV: f64, Es_eV: f64, x: f64, dirx: f64, diry: f64, dirz: f64) -> Particle {
+        let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
+
+        let y = 0.;
+        let z = 0.;
+
+        assert!((dirx/dir_mag).abs() < 1.0 - f64::EPSILON, "Input error: incident direction cannot round to exactly (1, 0, 0) due to gimbal lock. Use a non-zero y-component.");
+        assert!(E_eV > 0., "Input error: incident energy {}; must be greater than zero.", E_eV);
+
+        Particle {
+            m: m_amu*AMU,
+            Z: Z,
+            E: E_eV*EV,
+            Ec: Ec_eV*EV,
+            Es: Es_eV*EV,
+            pos: Vector::new(x, y, z),
+            dir: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
+            pos_old: Vector::new(x, y, z),
+            dir_old: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
+            pos_origin: Vector::new(x, y, z),
+            energy_origin: E_eV,
+            asymptotic_deflection: 0.,
+            stopped: false,
+            left: false,
+            incident: true,
+            first_step: true,
+            trajectory: vec![],
+            energies: vec![EnergyLoss::new(0., 0., x, y, z)],
+            track_trajectories: false,
+            number_collision_events: 0,
+            backreflected: false,
+            interaction_index: 0,
+            weight: 1.0,
+            tag: 0,
+            tracked_vector: Vector::new(0.0, 0.0, 0.0),
+        }
+    }
 
     /// If `track_trajectories`, add the current (E, x, y, z) to the trajectory.
     pub fn add_trajectory(&mut self) {

@@ -212,6 +212,32 @@ pub struct Options {
     pub track_energy_losses: bool,
 }
 
+#[cfg(not(feature = "distributions"))]
+impl Options {
+    pub fn default_options(track_recoils: bool) -> Options {
+        Options {
+            name: "default".to_string(),
+            track_trajectories: false,
+            track_recoils: track_recoils,
+            track_recoil_trajectories: false,
+            write_buffer_size: default_buffer_size(),
+            weak_collision_order: three(),
+            suppress_deep_recoils: false,
+            high_energy_free_flight_paths: false,
+            electronic_stopping_mode: default_electronic_stopping_mode(),
+            mean_free_path_model: default_mean_free_path_model(),
+            interaction_potential: default_interaction_potential(),
+            scattering_integral: default_scattering_integral(),
+            root_finder: default_rootfinder(),
+            num_threads: 1,
+            num_chunks: 1,
+            use_hdf5: false,
+            track_displacements: false,
+            track_energy_losses: false
+        }
+    }
+}
+
 #[cfg(feature = "distributions")]
 #[derive(Deserialize, Clone)]
 pub struct Options {
@@ -240,7 +266,9 @@ pub struct Options {
     pub scattering_integral: Vec<Vec<ScatteringIntegral>>,
     #[serde(default = "default_rootfinder")]
     pub root_finder: Vec<Vec<Rootfinder>>,
+    #[serde(default = "one_usize")]
     pub num_threads: usize,
+    #[serde(default = "one_u64")]
     pub num_chunks: u64,
     #[serde(default = "default_false")]
     pub use_hdf5: bool,
@@ -263,6 +291,47 @@ pub struct Options {
     pub x_num: usize,
     pub y_num: usize,
     pub z_num: usize,
+}
+
+#[cfg(feature = "distributions")]
+impl Options {
+    pub fn default_options(track_recoils: bool) -> Options {
+        Options {
+            name: "default".to_string(),
+            track_trajectories: track_recoils,
+            track_recoils: false,
+            track_recoil_trajectories: false,
+            write_buffer_size: default_buffer_size(),
+            weak_collision_order: three(),
+            suppress_deep_recoils: false,
+            high_energy_free_flight_paths: false,
+            electronic_stopping_mode: default_electronic_stopping_mode(),
+            mean_free_path_model: default_mean_free_path_model(),
+            interaction_potential: default_interaction_potential(),
+            scattering_integral: default_scattering_integral(),
+            root_finder: default_rootfinder(),
+            num_threads: 1,
+            num_chunks: 1,
+            use_hdf5: false,
+            track_displacements: false,
+            track_energy_losses: false,
+            energy_min: 0.0,
+            energy_max: 0.0,
+            energy_num: 0,
+            angle_min: 0.0,
+            angle_max: 0.0,
+            angle_num: 0,
+            x_min: 0.0,
+            y_min: 0.0,
+            z_min: 0.0,
+            x_max: 0.0,
+            y_max: 0.0,
+            z_max: 0.0,
+            x_num: 0,
+            y_num: 0,
+            z_num: 0,
+        }
+    }
 }
 
 pub fn input<T: Geometry>(input_file: String) -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits)

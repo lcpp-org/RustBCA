@@ -3,12 +3,12 @@ from setuptools_rust import Binding, RustExtension
 
 setup(
     name="RustBCA",
-    version="1.3.0",
+    version="2.0.0",
     rust_extensions=[
         RustExtension(
-            "libRustBCA.pybca",
+            "libRustBCA",
             binding=Binding.PyO3,
-            features=["python"],
+            features=["python", "parry3d"],
             #args=["+nightly", "--edition 2018", "-Z unstable-options"],
             #optional=True,
             #rust_version="1.57.0"

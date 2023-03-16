@@ -1,7 +1,7 @@
 titanium = {
     'symbol': 'Ti',
     'name': 'titanium',
-    'Z': 22,
+    'Z': 22.0,
     'm': 47.867,
     'Es': 4.84,
     'Ec': 3.5,
@@ -15,7 +15,7 @@ titanium = {
 hydrogen = {
     'symbol': 'H',
     'name': 'hydrogen',
-    'Z': 1,
+    'Z': 1.0,
     'm': 1.008,
     'Ec': 0.95,
     'Es': 1.5,
@@ -24,7 +24,7 @@ hydrogen = {
 lithium = {
     'symbol': 'Li',
     'name': 'lithium',
-    'Z': 3,
+    'Z': 3.0,
     'm': 6.941,
     'Ec': 1.0,
     'Es': 1.64,
@@ -35,8 +35,8 @@ lithium = {
 nitrogen = {
     'symbol': 'N',
     'name': 'nitrogen',
-    'Z': 7,
-    'm': 14,
+    'Z': 7.0,
+    'm': 14.0,
     'n': 5.4E25,
     'Es': 0.,
     'Eb': 0.,
@@ -47,8 +47,8 @@ nitrogen = {
 deuterium = {
     'symbol': 'D',
     'name': 'deuterium',
-    'Z': 1,
-    'm': 2,
+    'Z': 1.0,
+    'm': 2.0,
     'Ec': 0.1,
     'Es': 1.5,
 }
@@ -56,7 +56,7 @@ deuterium = {
 helium = {
     'symbol': 'He',
     'name': 'helium',
-    'Z': 2,
+    'Z': 2.0,
     'm': 4.002602,
     'Ec': 1.0,
     'Es': 0.
@@ -65,7 +65,7 @@ helium = {
 beryllium = {
     'symbol': 'Be',
     'name': 'beryllium',
-    'Z': 4,
+    'Z': 4.0,
     'm': 9.012182,
     'n': 1.2347E29,
     'Es': 3.31,
@@ -79,7 +79,7 @@ beryllium = {
 uranium = {
     'symbol': 'U',
     'name': 'uranium',
-    'Z': 92,
+    'Z': 92.0,
     'm': 237.048166,
     'n': 5.195E28,
     'Es': 5.19,
@@ -91,7 +91,7 @@ uranium = {
 lead = {
     'symbol': 'Pb',
     'name': 'lead',
-    'Z': 82,
+    'Z': 82.0,
     'm': 207.2,
     'n': 3.299E28,
     'Es': 2.03,
@@ -103,7 +103,7 @@ lead = {
 boron = {
     'symbol': 'B',
     'name': 'boron',
-    'Z': 5,
+    'Z': 5.0,
     'm': 10.811,
     'n': 1.309E29,
     'Es': 5.76,
@@ -117,7 +117,7 @@ boron = {
 arsenic = {
     'symbol': 'As',
     'name': 'arsenic',
-    'Z': 33,
+    'Z': 33.0,
     'm': 74.921595,
     'n': 4.603E28,
     'Es': 3.12,
@@ -131,7 +131,7 @@ arsenic = {
 neon = {
     'symbol': 'Ne',
     'name': 'neon',
-    'Z': 10,
+    'Z': 10.0,
     'm': 20.1797,
     'Ec': 1.0,
     'Es': 0.
@@ -140,7 +140,7 @@ neon = {
 krypton = {
     'symbol': 'Kr',
     'name': 'krypton',
-    'Z': 36,
+    'Z': 36.0,
     'm': 83.80,
     'Ec': 1.0,
     'Es': 0.
@@ -149,7 +149,7 @@ krypton = {
 silicon = {
     'symbol': 'Si',
     'name': 'silicon',
-    'Z': 14,
+    'Z': 14.0,
     'm': 28.08553,
     'n': 4.90E28,
     'Es': 4.72,
@@ -163,7 +163,7 @@ silicon = {
 argon = {
     'symbol': 'Ar',
     'name': 'argon',
-    'Z': 18,
+    'Z': 18.0,
     'm': 39.948,
     'Ec': 1.0,
     'Es': 0.
@@ -172,7 +172,7 @@ argon = {
 oxygen = {
     'symbol': 'O',
     'name': 'oxygen',
-    'Z': 8,
+    'Z': 8.0,
     'm': 15.9994,
     'Eb': 2.58,
     'Ec': 2.0,
@@ -183,7 +183,7 @@ oxygen = {
 aluminum = {
     'symbol': 'Al',
     'name': 'aluminum',
-    'Z': 13,
+    'Z': 13.0,
     'm': 26.98,
     'n': 6.022E28,
     'Es': 3.39, #Eckstein (1991) p. 80
@@ -195,7 +195,7 @@ aluminum = {
 ytterbium = {
     'symbol': 'Yb',
     'name': 'ytterbium',
-    'Z': 70,
+    'Z': 70.0,
     'm': 173.04,
     'n': 2.424E28,
     'Eb': 1.58,
@@ -207,7 +207,7 @@ ytterbium = {
 copper = {
     'symbol': 'Cu',
     'name': 'copper',
-    'Z': 29,
+    'Z': 29.0,
     'm': 63.546,
     'n': 8.491E28,
     'Es': (4.65 + 4.26 + 4.62)/3., #Eckstein (1991) p. 80
@@ -221,7 +221,7 @@ copper = {
 tungsten = {
     'symbol': 'W',
     'name': 'tungsten',
-    'Z': 74,
+    'Z': 74.0,
     'm': 183.84,
     'n': 6.306E28,
     'Es': 8.79,
@@ -235,7 +235,7 @@ tungsten = {
 gold = {
     'symbol': 'Au',
     'name': 'gold',
-    'Z': 79,
+    'Z': 79.0,
     'm': 196.97,
     'n': 5.901E28,
     'Es': 3.79,
@@ -247,7 +247,7 @@ gold = {
 nickel = {
     'symbol': 'Ni',
     'name': 'nickel',
-    'Z': 28,
+    'Z': 28.0,
     'm': 58.69,
     'n': 9.14E28,
     'Es': (5.61 + 5.11 + 5.55)/3., #Eckstein (1991) p. 80
@@ -259,7 +259,7 @@ nickel = {
 cesium = {
     'symbol': 'Cs',
     'name': 'cesium',
-    'Z': 55,
+    'Z': 55.0,
     'm': 132.905,
     'Ec': 0.8,
     'Es': 0.8,
@@ -268,7 +268,7 @@ cesium = {
 xenon = {
     'symbol': 'Xe',
     'name': 'xenon',
-    'Z': 54,
+    'Z': 54.0,
     'm': 131.293,
     'Ec': 1.0,
     'Es': 0.
