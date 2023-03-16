@@ -69,4 +69,5 @@ jobs:
         cat 2000.0eV_0.0001deg_He_TiO2_Al_Sisummary.output
         ./target/release/RustBCA SPHERE examples/boron_nitride_sphere.toml
         cargo run --release --features parry3d TRIMESH examples/tungsten_twist_trimesh.toml
+        ./target/release/RustBCA examples/boron_nitride_wire.toml
         
