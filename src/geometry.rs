@@ -655,7 +655,7 @@ impl Triangle2D {
         for segment in &self.segments {
             let length_2 = (segment.2 - segment.0)*(segment.2 - segment.0) + (segment.3 - segment.1)*(segment.3 - segment.1);
 
-            assert!(length_2 != 0., "Geometry error: mesh contains triangle with zero-length side.");
+            assert!(length_2 != 0., "Geometry error: mesh contains triangle with zero-length side. (x1, y1), (x2, y2) = ({}, {}) ({}, {})", segment.0, segment.2, segment.1, segment.3);
 
             let u = ((x - segment.0)*(segment.2 - segment.0) + (y - segment.1)*(segment.3 - segment.1))/length_2;
 
