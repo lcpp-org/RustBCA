@@ -11,6 +11,21 @@ from formulas import *
 import time
 
 def main():
+
+    nx = -0.707106
+    ny = -0.707106
+    nz = 0.0
+
+    ux = 1.0
+    uy = 0.0
+    uz = 0.0
+
+    print(f'Before rotation: ({ux}, {uy}, {uz})')
+    ux, uy, uz = rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
+    print(f'After rotation: ({ux}, {uy}, {uz})')
+    ux, uy, uz = rotate_back_py(nx, ny, nz, ux, uy, uz)
+    print(f'After rotation back: ({ux}, {uy}, {uz})')
+    
     #scripts/materials.py has a number of potential ions and targets
     ion = helium
     target = tungsten
@@ -23,13 +38,12 @@ def main():
     num_samples = 1000
     #For automatic control, libRustBCA offers two helpful functions for the sputtering yield and reflection coefficients
     Y = sputtering_yield(ion, target, energy, angle, num_samples)
-    
+
     print(f'Sputtering yield for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {Y} at/ion. Yamamura predicts { np.round(yamamura(ion, target, energy),3)} at/ion.')
 
     R_N, R_E = reflection_coefficient(ion, target, energy, angle, num_samples)
     print(f'Particle reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
     print(f'Energy reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_E}')
-
 
     #For smooth distributions and good statistics, you should use at least 10k ions
     number_ions = 100000
@@ -136,7 +150,7 @@ def main():
     heights, _, _ = plt.hist(x[np.logical_and(incident, stopped)], bins=100, density=True, histtype='step')
     plt.plot([50.0, 50.0], [0.0, np.max(heights)*1.1])
     plt.gca().set_ylim([0.0, np.max(heights)*1.1])
-    
+
     plt.show()
 
 if __name__ == '__main__':
