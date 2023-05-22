@@ -48,7 +48,7 @@ jobs:
         python3 examples/test_rustbca.py
     - name: Test Fortran and C bindings
       run : |
-        cargo build --release
+        cargo build --release --lib --features parry3d
         cp examples/test_rustbca.f90 .
         gfortran -c rustbca.f90 target/release/liblibRustBCA.so
         gfortran test_rustbca.f90 rustbca.f90 target/release/liblibRustBCA.so
