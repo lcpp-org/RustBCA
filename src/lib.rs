@@ -1250,7 +1250,7 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
         //around a non-x axis; y is chosen arbitrarily
         Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
     };
-    
+
     let incident = rotation_matrix*direction;
 
     // ux must not be exactly 1.0 to avoid gimbal lock in RustBCA
@@ -1275,7 +1275,7 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 /// rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
 /// --
 ///
-/// This function runs a 0D Binary Collision Approximation simulation for the given incident ions and material.
+/// This function takes a particle direction and a normal vector and rotates from simulation to RustBCA coordinates.
 /// Args:
 ///     nx (f64): surface normal in global frame x-component.
 ///     ny (f64): surface normal in global frame y-component.
@@ -1286,7 +1286,6 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 /// Returns:
 ///    direction (f64, f64, f64): direction vector of particle in RustBCA coordinates.
 pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
-
     let mut ux = ux;
     let mut uy = uy;
     let mut uz = uz;
@@ -1294,26 +1293,13 @@ pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f6
     (ux, uy, uz)
 }
 
-#[cfg(all(feature = "python", feature = "parry3d"))]
-#[pyfunction]
-/// rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
-/// --
-///
-/// This function runs a 0D Binary Collision Approximation simulation for the given incident ions and material.
-/// Args:
-///     nx (f64): surface normal in global frame x-component.
-///     ny (f64): surface normal in global frame y-component.
-///     nz (f64): surface normal in global frame z-component.
-///     ux (f64): particle direction in RustBCA frame x-component.
-///     uy (f64): particle direction in RustBCA frame normal y-component.
-///     uz (f64): particle direction in RustBCA frame normal z-component.
-/// Returns:
-///    direction (f64, f64, f64): direction vector of particle in global coordinates.
-pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+#[cfg(feature = "parry3d")]
+#[no_mangle]
+pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
     let RUSTBCA_DIRECTION: Vector3::<f64> = Vector3::<f64>::new(1.0, 0.0, 0.0);
 
     let into_surface = Vector3::new(-nx, -ny, -nz);
-    let direction = Vector3::new(ux, uy, uz);
+    let direction = Vector3::new(*ux, *uy, *uz);
 
     //Rotation to local RustBCA coordinates from global
     //Here's how this works: a rotation matrix is found that maps the rustbca
@@ -1334,7 +1320,32 @@ pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (
 
     let u = rotation_matrix.transpose()*direction;
 
-    (u.x, u.y, u.z)
+    *ux = u.x;
+    *uy = u.y;
+    *uz = u.z;
+}
+
+#[cfg(all(feature = "python", feature = "parry3d"))]
+#[pyfunction]
+/// rotate_back_py(nx, ny, nz, ux, uy, uz)
+/// --
+///
+/// This function takes a particle direction and a normal vector and rotates from RustBCA to simulation coordinates.
+/// Args:
+///     nx (f64): surface normal in global frame x-component.
+///     ny (f64): surface normal in global frame y-component.
+///     nz (f64): surface normal in global frame z-component.
+///     ux (f64): particle direction in RustBCA frame x-component.
+///     uy (f64): particle direction in RustBCA frame normal y-component.
+///     uz (f64): particle direction in RustBCA frame normal z-component.
+/// Returns:
+///    direction (f64, f64, f64): direction vector of particle in global coordinates.
+pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+    let mut ux = ux;
+    let mut uy = uy;
+    let mut uz = uz;
+    rotate_back(nx, ny, nz, &mut ux, &mut uy, &mut uz);
+    (ux, uy, uz)
 }
 
 #[cfg(feature = "python")]
@@ -1357,7 +1368,7 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
-    const DELTA: f64 = 1e-6; 
+    const DELTA: f64 = 1e-6;
 
     let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
     let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
@@ -1429,7 +1440,7 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
         }
     });
     let num_sputtered = *num_sputtered.lock().unwrap();
-    num_sputtered as f64 / num_samples as f64 
+    num_sputtered as f64 / num_samples as f64
 }
 
 #[cfg(feature = "python")]
@@ -1447,7 +1458,7 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
 pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
 
-    const DELTA: f64 = 1e-6; 
+    const DELTA: f64 = 1e-6;
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
@@ -1514,7 +1525,7 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
             uy,
             uz
         );
-        
+
         let output = bca::single_ion_bca(p, &m, &options);
 
         for particle in output {
