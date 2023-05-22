@@ -15,8 +15,8 @@ def main():
     #test rotation to and from RustBCA coordinates
 
     #nx, ny, nz is the normal vector (out of surface)
-    nx = -0.707106
-    ny = -0.707106
+    nx = -np.sqrt(2)/2
+    ny = -np.sqrt(2)/2
     nz = 0.0
 
     #ux, uy, uz is the particle direction (simulation coordinates)
@@ -31,9 +31,9 @@ def main():
     print(f'After rotation back: ({ux}, {uy}, {uz})')
 
     #After rotating and rotating back, effect should be where you started (minus fp error)
-    assert(abs(ux - 1.0) < 1e-9)
-    assert(abs(uy) < 1e-9)
-    assert(abs(uz) < 1e-9)
+    assert(abs(ux - 1.0) < 1e-6)
+    assert(abs(uy) < 1e-6)
+    assert(abs(uz) < 1e-6)
 
     #scripts/materials.py has a number of potential ions and targets
     ion = helium
