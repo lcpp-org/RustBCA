@@ -336,7 +336,7 @@ fn test_spherical_geometry() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let material_parameters = material::MaterialParameters{
         energy_unit: "EV".to_string(),
@@ -344,6 +344,7 @@ fn test_spherical_geometry() {
         Eb: vec![0.0, 0.0],
         Es: vec![2.0, 4.0],
         Ec: vec![1.0, 1.0],
+        Ed: vec![0.0, 0.0],
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
@@ -435,7 +436,7 @@ fn test_geometry() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let material_parameters = material::MaterialParameters{
         energy_unit: "EV".to_string(),
@@ -443,6 +444,7 @@ fn test_geometry() {
         Eb: vec![0.0, 0.0],
         Es: vec![2.0, 4.0],
         Ec: vec![1.0, 1.0],
+        Ed: vec![0.0, 0.0],
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
@@ -502,7 +504,7 @@ fn test_surface_binding_energy_barrier() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let material_parameters = material::MaterialParameters{
         energy_unit: "EV".to_string(),
@@ -510,6 +512,7 @@ fn test_surface_binding_energy_barrier() {
         Eb: vec![0.0, 0.0],
         Es: vec![2.0, 4.0],
         Ec: vec![1.0, 1.0],
+        Ed: vec![0.0, 0.0],
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
@@ -647,7 +650,7 @@ fn test_surface_refraction() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     //Test particle entering material and gaining energy
 
@@ -736,6 +739,7 @@ fn test_momentum_conservation() {
             Eb: vec![0.0],
             Es: vec![Es2],
             Ec: vec![Ec2],
+            Ed: vec![0.0],
             Z: vec![Z2],
             m: vec![m2],
             interaction_index: vec![0],
@@ -765,7 +769,7 @@ fn test_momentum_conservation() {
 
                         println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
 
-                        let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, x1, y1, z1, cosx, cosy, cosz, false, false, 0);
+                        let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, 0.0, x1, y1, z1, cosx, cosy, cosz, false, false, 0);
 
                         #[cfg(not(feature = "distributions"))]
                         let options = Options {
@@ -897,6 +901,7 @@ fn test_rotate() {
     let E = 1.;
     let Ec = 1.;
     let Es = 1.;
+    let Ed = 0.0;
     let x = 0.;
     let y = 0.;
     let z = 0.;
@@ -906,7 +911,7 @@ fn test_rotate() {
     let psi = -PI/4.;
     let phi = 0.;
 
-    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     //Check that rotation in 2D works
     particle.rotate(psi, phi);
@@ -936,6 +941,7 @@ fn test_particle_advance() {
     let E = 1.;
     let Ec = 1.;
     let Es = 1.;
+    let Ed = 0.0;
     let x = 0.;
     let y = 0.;
     let z = 0.;
@@ -945,7 +951,7 @@ fn test_particle_advance() {
     let mfp = 1.;
     let asymptotic_deflection = 0.5;
 
-    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let distance_traveled = particle.advance(mfp, asymptotic_deflection);
 

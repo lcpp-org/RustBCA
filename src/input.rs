@@ -368,6 +368,10 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
         material.interaction_index = vec![0; material.m.len()];
     }
 
+    if material.Ed.len() <= 1 {
+        material.Ed = vec![material.Ed[0]; material.m.len()];
+    }
+
     //Check that incompatible options are not on simultaneously
     if options.high_energy_free_flight_paths {
         assert!(options.electronic_stopping_mode == ElectronicStoppingMode::INTERPOLATED,

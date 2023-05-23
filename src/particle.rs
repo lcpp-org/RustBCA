@@ -72,6 +72,7 @@ pub struct Particle {
     pub E: f64,
     pub Ec: f64,
     pub Es: f64,
+    pub Ed: f64,
     pub pos: Vector,
     pub dir: Vector,
     pub pos_old: Vector,
@@ -111,6 +112,7 @@ impl Particle {
             E: input.E,
             Ec: input.Ec,
             Es: input.Es,
+            Ed: 0.0,
             pos: Vector::new(input.x, input.y, input.z),
             dir: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
             pos_old: Vector::new(input.x, input.y, input.z),
@@ -135,7 +137,7 @@ impl Particle {
     }
 
     /// Particle constructor from raw inputs.
-    pub fn new(m: f64, Z: f64, E: f64, Ec: f64, Es: f64, x: f64, y: f64, z: f64, dirx: f64, diry: f64, dirz: f64, incident: bool, track_trajectories: bool, interaction_index: usize) -> Particle {
+    pub fn new(m: f64, Z: f64, E: f64, Ec: f64, Es: f64, Ed: f64, x: f64, y: f64, z: f64, dirx: f64, diry: f64, dirz: f64, incident: bool, track_trajectories: bool, interaction_index: usize) -> Particle {
         let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
 
         Particle {
@@ -144,6 +146,7 @@ impl Particle {
             E,
             Ec,
             Es,
+            Ed,
             pos: Vector::new(x, y, z),
             dir: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
             pos_old: Vector::new(x, y, z),
@@ -166,7 +169,7 @@ impl Particle {
             tracked_vector: Vector::new(0.0, 0.0, 0.0),
         }
     }
-    
+
     /// Particle constructor from simplified input.
     pub fn default_incident(m_amu: f64, Z: f64, E_eV: f64, Ec_eV: f64, Es_eV: f64, x: f64, dirx: f64, diry: f64, dirz: f64) -> Particle {
         let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
@@ -183,6 +186,7 @@ impl Particle {
             E: E_eV*EV,
             Ec: Ec_eV*EV,
             Es: Es_eV*EV,
+            Ed: 0.0,
             pos: Vector::new(x, y, z),
             dir: Vector::new(dirx/dir_mag, diry/dir_mag, dirz/dir_mag),
             pos_old: Vector::new(x, y, z),

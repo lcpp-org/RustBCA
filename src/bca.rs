@@ -364,9 +364,9 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     let z_recoil: f64 = z + mfp*cosz + impact_parameter*(sinphi*cosy - cosphi*cosx*cosz)/sinx;
 
     //Choose recoil Z, M
-    let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil);
+    let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, Ed_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil);
     let mut new_particle = particle::Particle::new(
-        M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil,
+        M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil, Ed_recoil,
         x_recoil, y_recoil, z_recoil,
         cosx, cosy, cosz,
         false, options.track_recoil_trajectories, interaction_index
