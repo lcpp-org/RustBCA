@@ -17,7 +17,7 @@ fn test_parry_cuboid() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let material_parameters = material::MaterialParameters{
         energy_unit: "EV".to_string(),
@@ -25,6 +25,7 @@ fn test_parry_cuboid() {
         Eb: vec![0.0, 0.0],
         Es: vec![2.0, 4.0],
         Ec: vec![1.0, 1.0],
+        Ed: vec![0.0, 0.0],
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
@@ -105,7 +106,7 @@ fn test_parry_sphere() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let material_parameters = material::MaterialParameters{
         energy_unit: "EV".to_string(),
@@ -113,6 +114,7 @@ fn test_parry_sphere() {
         Eb: vec![0.0, 0.0],
         Es: vec![2.0, 4.0],
         Ec: vec![1.0, 1.0],
+        Ed: vec![0.0, 0.0],
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
@@ -247,7 +249,7 @@ fn test_distributions() {
     let cosx = 0.0;
     let cosy = 0.0;
     let cosz = 0.0;
-    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let mut distributions = output::Distributions::new(&options);
     assert_eq!(distributions.x_range[0], 0.);
