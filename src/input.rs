@@ -49,6 +49,42 @@ impl InputFile for Input2D {
     }
 }
 
+/// Rustbca's internal representation of an input file for homogeneous 2D meshes.
+#[derive(Deserialize, Clone)]
+pub struct InputHomogeneous2D {
+    pub options: Options,
+    pub material_parameters: material::MaterialParameters,
+    pub particle_parameters: particle::ParticleParameters,
+    pub geometry_input: geometry::HomogeneousMesh2DInput,
+}
+
+impl GeometryInput for InputHomogeneous2D {
+    type GeometryInput = geometry::HomogeneousMesh2DInput;
+}
+
+impl InputFile for InputHomogeneous2D {
+
+    fn new(string: &str) -> InputHomogeneous2D {
+        toml::from_str(string).context(
+            "Could not parse TOML file. Be sure you are using the correct input file mode (e.g.,
+            ./RustBCA SPHERE sphere.toml or RustBCA.exe 0D mesh_0d.toml)."
+        ).unwrap()
+    }
+
+    fn get_options(&self) -> &Options{
+        &self.options
+    }
+    fn get_material_parameters(&self) -> &material::MaterialParameters{
+        &self.material_parameters
+    }
+    fn get_particle_parameters(&self) -> &particle::ParticleParameters{
+        &self.particle_parameters
+    }
+    fn get_geometry_input(&self) -> &Self::GeometryInput{
+        &self.geometry_input
+    }
+}
+
 #[derive(Deserialize, Clone)]
 pub struct Input0D {
     pub options: Options,

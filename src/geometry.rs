@@ -265,6 +265,111 @@ impl Geometry for Mesh1D {
     }
 }
 
+#[derive(Deserialize, Clone)]
+pub struct HomogeneousMesh2DInput {
+    pub length_unit: String,
+    pub points: Vec<(f64, f64)>,
+    pub simulation_boundary_points: Vec<(f64, f64)>,
+    pub densities: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64
+}
+
+#[derive(Clone)]
+pub struct HomogeneousMesh2D {
+    pub boundary: Polygon<f64>,
+    pub simulation_boundary: Polygon<f64>,
+    pub energy_barrier_thickness: f64,
+    pub densities: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64,
+    pub concentrations: Vec<f64>
+}
+
+impl Geometry for HomogeneousMesh2D {
+
+    type InputFileFormat = InputHomogeneous2D;
+
+    fn new(input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Self {
+        let length_unit: f64 = match input.length_unit.as_str() {
+            "MICRON" => MICRON,
+            "CM" => CM,
+            "MM" => MM,
+            "ANGSTROM" => ANGSTROM,
+            "NM" => NM,
+            "M" => 1.,
+            _ => input.length_unit.parse()
+                .expect(format!(
+                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M",
+                        &input.length_unit.as_str()
+                    ).as_str()),
+        };
+
+        let boundary_points_converted: Vec<(f64, f64)> = input.points.iter().map(|(x, y)| (x*length_unit, y*length_unit)).collect();
+        let simulation_boundary_points_converted: Vec<(f64, f64)> = input.simulation_boundary_points.iter().map(|(x, y)| (x*length_unit, y*length_unit)).collect();
+
+        let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
+
+        let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
+
+        let total_density: f64 = densities.iter().sum();
+
+        let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
+
+        let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
+
+        HomogeneousMesh2D {
+            densities,
+            simulation_boundary: Polygon::new(LineString::from(simulation_boundary_points_converted), vec![]),
+            boundary:  Polygon::new(LineString::from(boundary_points_converted), vec![]),
+            electronic_stopping_correction_factor,
+            energy_barrier_thickness,
+            concentrations
+        }
+    }
+
+    fn get_densities(&self,  x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.densities
+    }
+
+    fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64 {
+        self.electronic_stopping_correction_factor
+    }
+
+    fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64 {
+        self.densities.iter().sum::<f64>()
+    }
+
+    fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.concentrations
+    }
+
+    fn inside(&self, x: f64, y: f64, z: f64) -> bool {
+        self.boundary.contains(&point!(x: x, y: y))
+    }
+
+    fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
+        self.simulation_boundary.contains(&point!(x: x, y: y))
+    }
+    fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
+        if self.inside(x, y, z) {
+            true
+        } else {
+            if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+                let distance = ((x - p.x()).powf(2.) +  (y - p.y()).powf(2.)).sqrt();
+                return distance < self.energy_barrier_thickness
+            } else {
+                panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
+            }
+        }
+    }
+    fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+            (p.x(), p.y(), z)
+        } else {
+            panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
+        }
+    }
+}
+
 /// Object that contains raw mesh input data.
 #[derive(Deserialize, Clone)]
 pub struct Mesh2DInput {
