@@ -304,6 +304,7 @@ impl Geometry for HomogeneousMesh2D {
         };
 
         let boundary_points_converted: Vec<(f64, f64)> = input.points.iter().map(|(x, y)| (x*length_unit, y*length_unit)).collect();
+
         let simulation_boundary_points_converted: Vec<(f64, f64)> = input.simulation_boundary_points.iter().map(|(x, y)| (x*length_unit, y*length_unit)).collect();
 
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
@@ -316,10 +317,14 @@ impl Geometry for HomogeneousMesh2D {
 
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
 
+        let boundary = Polygon::new(LineString::from(boundary_points_converted), vec![]);
+
+        let simulation_boundary =  Polygon::new(LineString::from(simulation_boundary_points_converted), vec![]);
+
         HomogeneousMesh2D {
             densities,
-            simulation_boundary: Polygon::new(LineString::from(simulation_boundary_points_converted), vec![]),
-            boundary:  Polygon::new(LineString::from(boundary_points_converted), vec![]),
+            simulation_boundary,
+            boundary,
             electronic_stopping_correction_factor,
             energy_barrier_thickness,
             concentrations
@@ -355,7 +360,9 @@ impl Geometry for HomogeneousMesh2D {
         } else {
             if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
                 let distance = ((x - p.x()).powf(2.) +  (y - p.y()).powf(2.)).sqrt();
-                return distance < self.energy_barrier_thickness
+                distance < self.energy_barrier_thickness
+            } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+                true
             } else {
                 panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
             }
@@ -364,6 +371,8 @@ impl Geometry for HomogeneousMesh2D {
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
         if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
             (p.x(), p.y(), z)
+        } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+            return (p.x(), p.y(), z)
         } else {
             panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
         }
@@ -538,6 +547,8 @@ impl Geometry for Mesh2D {
 
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
         if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+            (p.x(), p.y(), z)
+        } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
             (p.x(), p.y(), z)
         } else {
             panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
