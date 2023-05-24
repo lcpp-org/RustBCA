@@ -13,13 +13,13 @@ Z = [ 5, 7,]
 m = [ 10.811, 14,]
 
 [particle_parameters]
-length_unit = "MICRON"
+length_unit = "ANGSTROM"
 energy_unit = "EV"
 mass_unit = "AMU"
 N = [ 10000 ]
 m = [ 1.008 ]
 Z = [ 1 ]
-E = [ 1000.0 ]
+E = [ 5000.0 ]
 Ec = [ 1.0 ]
 Es = [ 10.0 ]
 pos = [ [ 0.0, 0.0, 0.0,] ]
