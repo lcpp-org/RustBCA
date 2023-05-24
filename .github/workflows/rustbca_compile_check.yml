@@ -70,6 +70,6 @@ jobs:
         ./target/release/RustBCA SPHERE examples/boron_nitride_sphere.toml
         cargo run --release --features parry3d TRIMESH examples/tungsten_twist_trimesh.toml
         ./target/release/RustBCA examples/boron_nitride_wire.toml
-        cat boron_nitride_wire_summary.output
+        cat boron_nitride_summary.output
         ./target/release/RustBCA HOMOGENEOUS examples/boron_nitride_wire_homogeneous.toml
-        cat boron_nitride_wire_h_summary.output
+        cat boron_nitride_h_summary.output
