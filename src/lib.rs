@@ -77,7 +77,7 @@ pub mod parry;
 pub use crate::enums::*;
 pub use crate::consts::*;
 pub use crate::structs::*;
-pub use crate::input::{Input2D, Input1D, Input0D, Options, InputFile, GeometryInput};
+pub use crate::input::{Input2D, InputHomogeneous2D, Input1D, Input0D, Options, InputFile, GeometryInput};
 pub use crate::output::{OutputUnits};
 pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};

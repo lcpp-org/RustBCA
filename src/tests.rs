@@ -468,6 +468,22 @@ fn test_geometry() {
         electronic_stopping_correction_factors: vec![1.0, 1.0],
     };
 
+    let geometry_input_homogeneous_2D = geometry::HomogeneousMesh2DInput {
+        length_unit: "ANGSTROM".to_string(),
+        points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
+        densities: vec![0.03, 0.03],
+        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
+        electronic_stopping_correction_factor: 1.0,
+    };
+
+    let geometry_input_1D = geometry::Mesh1DInput {
+        length_unit: "ANGSTROM".to_string(),
+        densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
+        layer_thicknesses: vec![thickness/2., thickness/2.],
+        electronic_stopping_correction_factors: vec![1.0, 1.0, 1.0]
+
+    };
+
     let geometry_input_0D = geometry::Mesh0DInput {
         length_unit: "ANGSTROM".to_string(),
         densities: vec![0.03, 0.03],
@@ -475,6 +491,8 @@ fn test_geometry() {
     };
 
     let material_2D: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input_2D);
+    let material_homogeneous_2D: material::Material<geometry::HomogeneousMesh2D> = material::Material::<geometry::HomogeneousMesh2D>::new(&material_parameters, &geometry_input_homogeneous_2D);
+    let material_1D: material::Material<geometry::Mesh1D> = material::Material::<geometry::Mesh1D>::new(&material_parameters, &geometry_input_1D);
     let mut material_0D: material::Material<geometry::Mesh0D> = material::Material::<geometry::Mesh0D>::new(&material_parameters, &geometry_input_0D);
     material_0D.geometry.energy_barrier_thickness = 10.*ANGSTROM;
 
@@ -484,6 +502,15 @@ fn test_geometry() {
     particle_1.pos_old.x = -500.*ANGSTROM;
     particle_1.pos_old.y = 0.;
 
+    assert!(material_2D.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z));
+    assert!(!material_2D.inside(particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos_old.z));
+
+    assert!(material_homogeneous_2D.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z));
+    assert!(!material_homogeneous_2D.inside(particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos_old.z));
+
+    assert!(material_0D.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z));
+    assert!(!material_0D.inside(particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos_old.z));
+
     assert_eq!(material_2D.geometry.get_ck(0., 0., 0.), material_0D.geometry.get_ck(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_densities(0., 0., 0.), material_0D.geometry.get_densities(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_total_density(0., 0., 0.), material_0D.geometry.get_total_density(0., 0., 0.));
@@ -491,6 +518,14 @@ fn test_geometry() {
     assert_eq!(material_2D.geometry.closest_point(-10., 0., 5.), material_0D.geometry.closest_point(-10., 0., 5.));
     assert_eq!(material_2D.geometry.get_densities(-10., 0., 5.), material_0D.geometry.get_densities(-10., 0., 5.));
     assert_eq!(material_2D.geometry.get_ck(-10., 0., 5.), material_0D.geometry.get_ck(-10., 0., 5.));
+
+    assert_eq!(material_2D.geometry.get_ck(0., 0., 0.), material_homogeneous_2D.geometry.get_ck(0., 0., 0.));
+    assert_eq!(material_2D.geometry.get_densities(0., 0., 0.), material_homogeneous_2D.geometry.get_densities(0., 0., 0.));
+    assert_eq!(material_2D.geometry.get_total_density(0., 0., 0.), material_homogeneous_2D.geometry.get_total_density(0., 0., 0.));
+    assert_eq!(material_2D.geometry.get_concentrations(0., 0., 0.), material_homogeneous_2D.geometry.get_concentrations(0., 0., 0.));
+    assert_eq!(material_2D.geometry.closest_point(-10., 0., 5.), material_homogeneous_2D.geometry.closest_point(-10., 0., 5.));
+    assert_eq!(material_2D.geometry.get_densities(-10., 0., 5.), material_homogeneous_2D.geometry.get_densities(-10., 0., 5.));
+    assert_eq!(material_2D.geometry.get_ck(-10., 0., 5.), material_homogeneous_2D.geometry.get_ck(-10., 0., 5.));
 }
 
 #[test]

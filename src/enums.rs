@@ -8,7 +8,8 @@ pub enum MaterialType {
     #[cfg(feature = "parry3d")]
     BALL(material::Material<parry::ParryBall>),
     #[cfg(feature = "parry3d")]
-    TRIMESH(material::Material<parry::ParryTriMesh>)
+    TRIMESH(material::Material<parry::ParryTriMesh>),
+    HOMOGENEOUS2D(material::Material<geometry::HomogeneousMesh2D>)
 }
 
 #[derive(Deserialize, PartialEq, Clone, Copy)]
@@ -29,6 +30,7 @@ pub enum GeometryType {
     BALL,
     #[cfg(feature = "parry3d")]
     TRIMESH,
+    HOMOGENEOUS2D,
 }
 
 /// Mode of electronic stopping to use.
