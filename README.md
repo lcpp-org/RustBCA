@@ -21,6 +21,13 @@ Journal of Open Source Software by clicking the badge below:
 
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.03298/status.svg)](https://doi.org/10.21105/joss.03298)
 
+Selected citations of RustBCA as of 5/24/23:
+* [Simulation of liquid lithium divertor geometry using SOLPS-ITER](https://doi.org/10.1109/TPS.2022.3166402), JD Lore et al. (2022)
+* [Characterizing W sources in the all-W wall, all-RF WEST tokamak environment](https://doi.org/10.1088/1361-6587/ac8acc), CC Klepper et al. (2022)
+* [hPIC2: A hardware-accelerated, hybrid particle-in-cell code for dynamic plasma-material interactions](https://doi.org/10.1016/j.cpc.2022.108569), LT Meredith et al. (2023)
+* [Global sensitivity analysis of a coupled multiphysics model to predict surface evolution in fusion plasma–surface interactions](https://doi.org/10.1016/j.commatsci.2023.112229), P. Robbe et al. (2023)
+* [Modeling the effect of nitrogen recycling on the erosion and leakage of tungsten impurities from the SAS-VW divertor in DIII-D during nitrogen gas injection](https://doi.org/10.1016/j.nme.2022.101254), MS Parsons et al. (2023)
+
 ## Getting started
 
 The easiest way to get started is with the ergonomic Python functions.
@@ -93,7 +100,7 @@ plt.show()
 
 ## Features
 
-The following features are implemented in `rustBCA`:
+The following features are implemented in `RustBCA`:
 
 * Ion-material interactions for all combinations of incident ion and target species.
 * Infinite, homogeneous targets (Mesh0D), Layered, finite-depth inhomogeneous targets (Mesh1D), arbitrary 2D composition through a triangular mesh (Mesh2D), homogeneous spherical geometry (Sphere) and homogeneous 3D triangular mesh geometry (TriMesh).
@@ -232,7 +239,7 @@ sudo dnf install python3-numpy python3-scipy python3-matplotlib python3-toml pyt
 
 or, alternatively, using `pip3`.
 
-If the [rcpr] is desired, it's probably also a good idea to install the following:
+If desired, RustBCA can be built with [rcpr] to simulate attractive-repuslive interaction potentials; rcpr requires (at least) the following:
 
 ```bash
 sudo dnf install gcc gcc-gfortran cmake lapack lapack-devel blas blas-devel
@@ -260,12 +267,17 @@ To run a simulation, execute:
 ```
 
 with `input.toml` in the same directory as `RustBCA`.
+
 Alternatively, `RustBCA` accepts the name of a`.toml` input file as a single
-command line argument:
+command line argument.
 
 ```bash
-./
-RustBCA /path/to/input.toml
+./RustBCA /path/to/input.toml
+```
+
+Additionally, `RustBCA` accepts an input file type (one of: `0D`, `1D`, `2D`, `TRIMESH`, `SPHERE` - see the wiki for more details):
+```bash
+./RustBCA 0D /path/to/input.toml
 ```
 
 For further details, have a look at
