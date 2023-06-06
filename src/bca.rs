@@ -1,6 +1,6 @@
 use super::*;
 
-#[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+#[cfg(feature = "cpr_rootfinder")]
 use rcpr::chebyshev::*;
 
 /// Geometrical quantities of binary collision.
@@ -401,7 +401,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
             options.root_finder[particle_1.interaction_index][particle_2.interaction_index]
         } else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-6}};
 
-    #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+    #[cfg(feature = "cpr_rootfinder")]
     match root_finder {
         Rootfinder::POLYNOMIAL{complex_threshold} => polynomial_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, complex_threshold)
             .with_context(|| format!("Numerical error: Polynomial rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
@@ -418,7 +418,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
             .unwrap(),
     }
 
-    #[cfg(not(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl")))]
+    #[cfg(not(feature = "cpr_rootfinder"))]
     match root_finder {
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
@@ -569,7 +569,7 @@ fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f6
         .unwrap()).sum::<f64>()
 }
 
-#[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+#[cfg(feature = "cpr_rootfinder")]
 /// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an inverse-polynomial interaction potential (e.g., Lennard-Jones) for a given impact parameter and incident energy `E0`.
 /// Slightly complex roots with an imaginary part smaller than `polynom_complex_threshold` are considered real roots.
 pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
@@ -592,7 +592,7 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
     }
 }
 
-#[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+#[cfg(feature = "cpr_rootfinder")]
 /// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an arbitrary interaction potential (e.g., Morse) for a given impact parameter and incident energy `E0` using the Chebyshev-Proxy Root-Finder method.
 ///
 /// # Args:

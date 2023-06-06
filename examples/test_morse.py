@@ -72,7 +72,7 @@ def run_morse_potential(energy, index, num_samples=10000, run_sim=True):
     with open(f'morse_{index}.toml', 'w') as file:
         file.write(input_file)
 
-    if run_sim: os.system(f'cargo run --release --features cpr_rootfinder_netlib 0D morse_{index}.toml')
+    if run_sim: os.system(f'cargo run --release --features cpr_rootfinder 0D morse_{index}.toml')
 
     reflected_list = np.atleast_2d(np.genfromtxt(f'morse_{index}reflected.output', delimiter=','))
     if np.size(reflected_list) > 0:

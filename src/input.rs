@@ -435,7 +435,7 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
     for ((interaction_potentials, scattering_integrals), root_finders) in options.interaction_potential.iter().zip(options.scattering_integral.clone()).zip(options.root_finder.clone()) {
         for ((interaction_potential, scattering_integral), root_finder) in interaction_potentials.iter().zip(scattering_integrals).zip(root_finders) {
 
-            if cfg!(not(any(feature="cpr_rootfinder_openblas", feature="cpr_rootfinder_netlib", feature="cpr_rootfinder_intel_mkl",))) {
+            if cfg!(not(feature="cpr_rootfinder")) {
                 assert!( match root_finder {
                     Rootfinder::POLYNOMIAL{..} => false,
                     Rootfinder::CPR{..} => false,
