@@ -632,13 +632,13 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     let upper_bound = impact_parameter + interactions::crossing_point_doca(interaction_potential);
 
     let roots = match derivative_free {
-        true => find_roots_with_secant_polishing(&g, &f, 0., upper_bound,
+        true => find_roots_with_secant_polishing(&g, &f, 1e-15, upper_bound,
             n0, epsilon, nmax, complex_threshold,
             truncation_threshold, interval_limit, far_from_zero),
 
         false => {
             let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
-            find_roots_with_newton_polishing(&g, &f, &df, 0., upper_bound,
+            find_roots_with_newton_polishing(&g, &f, &df, 1e-15, upper_bound,
             n0, epsilon, nmax, complex_threshold,
             truncation_threshold, interval_limit, far_from_zero)
         }
@@ -715,7 +715,7 @@ pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     //Since this is legacy code I don't think I will clean this up
     let C_ = match  interaction_potential {
         InteractionPotential::MOLIERE => vec![ 0.6743, 0.009611, 0.005175, 6.314, 10.0 ],
-        InteractionPotential::KR_C => vec![ 0.7887, 0.01166, 00.006913, 17.16, 10.79 ],
+        InteractionPotential::KR_C => vec![ 0.7887, 0.01166, 0.006913, 17.16, 10.79 ],
         InteractionPotential::ZBL => vec![ 0.99229, 0.011615, 0.0071222, 9.3066, 14.813 ],
         InteractionPotential::TRIDYN => vec![1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
         _ => panic!("Input error: unimplemented interaction potential {} for MAGIC algorithm. Use a screened Coulomb potential.",  interaction_potential)
