@@ -2,13 +2,6 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
-#[cfg(feature = "cpr_rootfinder_openblas")]
-extern crate openblas_src;
-#[cfg(feature = "cpr_rootfinder_netlib")]
-extern crate netlib_src;
-#[cfg(feature = "cpr_rootfinder_intel_mkl")]
-extern crate intel_mkl_src;
-
 use std::{fmt};
 use std::mem::discriminant;
 

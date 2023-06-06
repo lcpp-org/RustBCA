@@ -25,9 +25,6 @@ geo = {version = "0.25", optional = false}
 indicatif = {version = "0.15.0", features=["rayon"]}
 serde = { version = "1.0.123", features = ["derive"] }
 hdf5 = {version = "0.7.1", optional = true}
-openblas-src = {version  = "0.10.8", optional = true}
-netlib-src = {version  = "0.8", optional = true}
-intel-mkl-src = {version = "0.8.1", optional = true}
 rcpr = { git = "https://github.com/drobnyjt/rcpr", optional = true, branch="pure_rust"}
 ndarray = {version = "0.14.0", features = ["serde"], optional = true}
 parry3d-f64 = {optional = true, version="0.2.0"}
@@ -49,9 +46,9 @@ debug = false
 
 [features]
 hdf5_input = ["hdf5"]
-cpr_rootfinder_openblas = ["rcpr", "openblas-src"]
-cpr_rootfinder_netlib = ["rcpr", "netlib-src"]
-cpr_rootfinder_intel_mkl = ["rcpr", "intel-mkl-src"]
+cpr_rootfinder_openblas = ["rcpr"]
+cpr_rootfinder_netlib = ["rcpr"]
+cpr_rootfinder_intel_mkl = ["rcpr"]
 distributions = ["ndarray"]
 no_list_output = []
 parry3d = ["parry3d-f64"]
