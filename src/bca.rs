@@ -1,6 +1,6 @@
 use super::*;
 
-#[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+#[cfg(feature = "cpr_rootfinder")]
 use rcpr::chebyshev::*;
 
 /// Geometrical quantities of binary collision.
@@ -401,7 +401,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
             options.root_finder[particle_1.interaction_index][particle_2.interaction_index]
         } else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-6}};
 
-    #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+    #[cfg(feature = "cpr_rootfinder")]
     match root_finder {
         Rootfinder::POLYNOMIAL{complex_threshold} => polynomial_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, complex_threshold)
             .with_context(|| format!("Numerical error: Polynomial rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
@@ -418,7 +418,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
             .unwrap(),
     }
 
-    #[cfg(not(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl")))]
+    #[cfg(not(feature = "cpr_rootfinder"))]
     match root_finder {
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
@@ -569,7 +569,7 @@ fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f6
         .unwrap()).sum::<f64>()
 }
 
-#[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+#[cfg(feature = "cpr_rootfinder")]
 /// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an inverse-polynomial interaction potential (e.g., Lennard-Jones) for a given impact parameter and incident energy `E0`.
 /// Slightly complex roots with an imaginary part smaller than `polynom_complex_threshold` are considered real roots.
 pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
@@ -592,7 +592,7 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
     }
 }
 
-#[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+#[cfg(feature = "cpr_rootfinder")]
 /// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an arbitrary interaction potential (e.g., Morse) for a given impact parameter and incident energy `E0` using the Chebyshev-Proxy Root-Finder method.
 ///
 /// # Args:
@@ -632,13 +632,13 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     let upper_bound = impact_parameter + interactions::crossing_point_doca(interaction_potential);
 
     let roots = match derivative_free {
-        true => find_roots_with_secant_polishing(&g, &f, 0., upper_bound,
+        true => find_roots_with_secant_polishing(&g, &f, 1e-15, upper_bound,
             n0, epsilon, nmax, complex_threshold,
             truncation_threshold, interval_limit, far_from_zero),
 
         false => {
             let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
-            find_roots_with_newton_polishing(&g, &f, &df, 0., upper_bound,
+            find_roots_with_newton_polishing(&g, &f, &df, 1e-15, upper_bound,
             n0, epsilon, nmax, complex_threshold,
             truncation_threshold, interval_limit, far_from_zero)
         }
@@ -715,7 +715,7 @@ pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     //Since this is legacy code I don't think I will clean this up
     let C_ = match  interaction_potential {
         InteractionPotential::MOLIERE => vec![ 0.6743, 0.009611, 0.005175, 6.314, 10.0 ],
-        InteractionPotential::KR_C => vec![ 0.7887, 0.01166, 00.006913, 17.16, 10.79 ],
+        InteractionPotential::KR_C => vec![ 0.7887, 0.01166, 0.006913, 17.16, 10.79 ],
         InteractionPotential::ZBL => vec![ 0.99229, 0.011615, 0.0071222, 9.3066, 14.813 ],
         InteractionPotential::TRIDYN => vec![1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
         _ => panic!("Input error: unimplemented interaction potential {} for MAGIC algorithm. Use a screened Coulomb potential.",  interaction_potential)

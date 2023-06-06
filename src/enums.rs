@@ -171,7 +171,9 @@ pub enum InteractionPotential {
     /// Tungsten-tungsten cubic spline potential (Following Bjorkas et al.)
     WW,
     /// Unscreened Coulombic interatomic potential between ions with charges Za and Zb.
-    COULOMB{Za: f64, Zb: f64}
+    COULOMB{Za: f64, Zb: f64},
+    /// Morse potential that smoothly interpolates to Kr-C at short ranges.
+    KRC_MORSE{D: f64, alpha: f64, r0: f64, k: f64, x0: f64}
 }
 
 impl fmt::Display for InteractionPotential {
@@ -186,7 +188,8 @@ impl fmt::Display for InteractionPotential {
             InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => write!(f, "Lennard-Jones 6.5-6 Potential with sigma = {} A, epsilon = {} eV", sigma/ANGSTROM, epsilon/EV),
             InteractionPotential::MORSE{D, alpha, r0} => write!(f, "Morse potential with D = {} eV, alpha = {} 1/A, and r0 = {} A", D/EV, alpha*ANGSTROM, r0/ANGSTROM),
             InteractionPotential::WW => write!(f, "W-W cubic spline interaction potential."),
-            InteractionPotential::COULOMB{Za, Zb} => write!(f, "Coulombic interaction with Za = {} and Zb = {}", Za, Zb)
+            InteractionPotential::COULOMB{Za, Zb} => write!(f, "Coulombic interaction with Za = {} and Zb = {}", Za, Zb),
+            InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => write!(f, "Morse potential with D = {} eV, alpha = {} 1/A, and r0 = {} A with short-range Kr-C with interpolation width k = {} 1/A and transition point x0 = {} A", D/EV, alpha*ANGSTROM, r0/ANGSTROM, k*ANGSTROM, x0/ANGSTROM),
         }
     }
 }

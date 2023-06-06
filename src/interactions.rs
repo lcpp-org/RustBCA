@@ -12,6 +12,10 @@ pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
 
 }
 
+fn sigmoid(x: f64, k: f64, x0: f64) -> f64 {
+    1./(1. + (-k*(x - x0)).exp())
+}
+
 /// Interaction potential between two particles a and b at a distance `r`.
 pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
@@ -23,15 +27,18 @@ pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_poten
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             lennard_jones_65_6(r, sigma, epsilon)
-        }
+        },
         InteractionPotential::MORSE{D, alpha, r0} => {
             morse(r, D, alpha, r0)
-        }
+        },
         InteractionPotential::WW => {
             tungsten_tungsten_cubic_spline(r)
-        }
+        },
         InteractionPotential::COULOMB{Za, Zb} => {
             coulomb(r, Za, Zb)
+        },
+        InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
+            krc_morse(r, a, Za, Zb, D, alpha, r0, k, x0)
         }
     }
 }
@@ -40,7 +47,7 @@ pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_poten
 pub fn energy_threshold_single_root(interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential{
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => f64::INFINITY,
-        InteractionPotential::MORSE{..} => f64::INFINITY,
+        InteractionPotential::MORSE{..} | InteractionPotential::KRC_MORSE{..} => f64::INFINITY,
         InteractionPotential::WW => f64::INFINITY,
         InteractionPotential::COULOMB{..} => f64::INFINITY,
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => 0.,
@@ -93,6 +100,9 @@ pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, r
         InteractionPotential::WW => {
             doca_tungsten_tungsten_cubic_spline(r, impact_parameter, relative_energy)
         },
+        InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
+            doca_krc_morse(r, impact_parameter, relative_energy, a, Za, Zb, D, alpha, r0, k, x0)
+        },
         InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
     }
 }
@@ -117,6 +127,9 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
         },
         InteractionPotential::MORSE{D, alpha, r0} => {
             doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
+        },
+        InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
+            doca_krc_morse(r, impact_parameter, relative_energy, a, Za, Zb, D, alpha, r0, k, x0)
         },
         InteractionPotential::WW => {
             doca_tungsten_tungsten_cubic_spline(r, impact_parameter, relative_energy)
@@ -145,6 +158,9 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
         InteractionPotential::WW => {
             1.
         },
+        InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
+            1./(1. + (r*alpha).powi(2))
+        }
         InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
     }
 }
@@ -239,6 +255,7 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
         InteractionPotential::MORSE{D, alpha, r0} => alpha,
         InteractionPotential::COULOMB{Za: Z1, Zb: Z2} => 0.88534*A0/(Z1.powf(0.23) + Z2.powf(0.23)),
+        InteractionPotential::KRC_MORSE{..} => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
     }
 }
 
@@ -283,9 +300,19 @@ pub fn morse(r: f64, D: f64, alpha: f64, r0: f64) -> f64 {
     D*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp())
 }
 
+/// Kr-C + Morse potential with sigmoid interpolation at crossing point of two potentials
+pub fn krc_morse(r: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, k: f64, x0: f64) -> f64 {
+    sigmoid(r, k, x0)*morse(r, D, alpha, r0) + sigmoid(r, -k, x0)*screened_coulomb(r, a, Za, Zb, InteractionPotential::KR_C)
+}
+
 /// Distance of closest approach function for Morse potential.
 pub fn doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, alpha: f64, r0: f64) -> f64 {
     (r*alpha).powi(2) - (r*alpha).powi(2)*D/relative_energy*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp()) - (impact_parameter*alpha).powi(2)
+}
+
+/// Distance of closest approach function for Morse potential.
+pub fn doca_krc_morse(r: f64, impact_parameter: f64, relative_energy: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, k: f64, x0: f64) -> f64 {
+    (r*alpha).powi(2) - (r*alpha).powi(2)/relative_energy*krc_morse(r, a, Za, Zb, D, alpha, r0, k, x0) - (impact_parameter*alpha).powi(2)
 }
 
 /// First derivative w.r.t. `r` of the distance of closest approach function for Morse potential.
@@ -433,7 +460,7 @@ pub fn first_screening_radius(interaction_potential: InteractionPotential) -> f6
         InteractionPotential::TRIDYN => 0.278544,
         InteractionPotential::LENNARD_JONES_12_6{..} => 1.,
         InteractionPotential::LENNARD_JONES_65_6{..} => 1.,
-        InteractionPotential::MORSE{..} => 1.,
+        InteractionPotential::MORSE{..} | InteractionPotential::KRC_MORSE{..} => 1.,
         InteractionPotential::WW => 1.,
         InteractionPotential::COULOMB{..} => 0.3,
     }
