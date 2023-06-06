@@ -25,7 +25,7 @@ geo = {version = "0.25", optional = false}
 indicatif = {version = "0.15.0", features=["rayon"]}
 serde = { version = "1.0.163", features = ["derive"] }
 hdf5 = {version = "0.7.1", optional = true}
-rcpr = { git = "https://github.com/drobnyjt/rcpr", optional = true, branch="pure_rust"}
+rcpr = { git = "https://github.com/drobnyjt/rcpr", optional = true}
 ndarray = {version = "0.14.0", features = ["serde"], optional = true}
 parry3d-f64 = {optional = true, version="0.2.0"}
 
