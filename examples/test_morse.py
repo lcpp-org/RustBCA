@@ -10,7 +10,7 @@ from materials import *
 from formulas import *
 
 #Corrections to hydrogen to enable low-E simualtions and to match literature Es for H on Ni
-hydrogen['Ec'] = 0.001
+hydrogen['Ec'] = 0.1
 hydrogen['Es'] = 2.5
 
 #This function simply contains an entire input file as a multi-line f-string to modify some inputs.
@@ -29,8 +29,8 @@ def run_morse_potential(energy, index, num_samples=10000, run_sim=True):
     electronic_stopping_mode = "LOW_ENERGY_NONLOCAL"
     mean_free_path_model = "LIQUID"
     interaction_potential = [[{{"MORSE"={{D=5.4971E-20, r0=2.782E-10, alpha=1.4198E10}}}}]]
-    scattering_integral = [[{{"GAUSS_MEHLER"={{n_points = 100}}}}]]
-    root_finder = [[{{"CPR"={{n0=2, nmax=100, epsilon=1E-6, complex_threshold=1E-12, truncation_threshold=1E-12, far_from_zero=1E6, interval_limit=1E-16, derivative_free=false}}}}]]
+    scattering_integral = [["GAUSS_LEGENDRE"]]
+    root_finder = [[{{"CPR"={{n0=2, nmax=100, epsilon=1E-9, complex_threshold=1E-3, truncation_threshold=1E-9, far_from_zero=1E9, interval_limit=1E-12, derivative_free=true}}}}]]
     use_hdf5 = false
     num_threads = 4
     num_chunks = 10
@@ -119,7 +119,7 @@ plt.semilogx(energies, r_benchmark, marker='^', linestyle='', label='Exp.')
 num_energies = 15
 energies = np.logspace(-1, 3, num_energies)
 run_sim = True
-num_samples = 1000
+num_samples = 100
 R_N = np.zeros(num_energies)
 R_E = np.zeros(num_energies)
 
@@ -130,12 +130,11 @@ plt.semilogx(energies, R_N, label='R_N Morse H-Ni, Es=2.5eV', color='purple')
 
 
 #Plotting RustBCA data points, using the ergonomic helper function reflection_coefficient().
-energies = np.logspace(-1, 4, 40)
-r_rustbca = np.array([reflection_coefficient(hydrogen, nickel, energy, 0.0, 10000) for energy in energies])
+energies = np.logspace(-1, 4, 25)
+r_rustbca = np.array([reflection_coefficient(hydrogen, nickel, energy, 0.0, 1000) for energy in energies])
 r_n = r_rustbca[:, 0]
 r_e = r_rustbca[:, 1]
 plt.semilogx(energies, r_n, label='R_N, Default Settings', color='black')
-
 
 r_thomas = [thomas_reflection(hydrogen, nickel, energy) for energy in energies]
 plt.semilogx(energies, r_thomas, label='Thomas', color='red', linestyle='--')
@@ -144,5 +143,5 @@ plt.legend()
 plt.title('Reflection Coefficients H+ on Ni')
 plt.xlabel('E [eV]')
 plt.ylabel('R')
-
+plt.show()
 plt.savefig('Morse.png')

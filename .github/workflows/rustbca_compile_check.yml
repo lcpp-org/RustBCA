@@ -58,7 +58,7 @@ jobs:
         ./a.out
     - name: Test RustBCA
       run: |
-        cargo test --features cpr_rootfinder_netlib,hdf5_input,distributions,parry3d
+        cargo test --features cpr_rootfinder,hdf5_input,distributions,parry3d
     - name: Run Examples
       run: |
         cargo run --release 0D examples/boron_nitride_0D.toml
