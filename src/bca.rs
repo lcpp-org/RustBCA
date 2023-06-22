@@ -121,9 +121,10 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                     //Energy transfer to recoil
                     particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                     particle_2.energy_origin = particle_2.E;
+                    particle_1.E -= binary_collision_result.recoil_energy;
 
                     //Accumulate energy losses and asymptotic deflections for primary particle
-                    total_energy_loss += binary_collision_result.recoil_energy;
+                    //total_energy_loss += binary_collision_result.recoil_energy;
                     total_asymptotic_deflection += binary_collision_result.asymptotic_deflection;
 
                     particle_1.rotate(binary_collision_result.psi,
@@ -185,7 +186,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
 
             //Subtract total energy from all simultaneous collisions and electronic stopping
             bca::update_particle_energy(&mut particle_1, &material, distance_traveled,
-                total_energy_loss, normalized_distance_of_closest_approach, strong_collision_Z,
+                0., normalized_distance_of_closest_approach, strong_collision_Z,
                 strong_collision_index, &options);
 
             //Check boundary conditions on leaving and stopping
