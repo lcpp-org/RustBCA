@@ -141,6 +141,10 @@ fn three() -> usize {
     3
 }
 
+fn zero_usize() -> usize{
+    0
+}
+
 ///This helper function is a workaround to issue #368 in serde
 fn default_buffer_size() -> usize {
     8192
@@ -221,7 +225,7 @@ impl Options {
             track_recoils: track_recoils,
             track_recoil_trajectories: false,
             write_buffer_size: default_buffer_size(),
-            weak_collision_order: three(),
+            weak_collision_order: zero_usize(),
             suppress_deep_recoils: false,
             high_energy_free_flight_paths: false,
             electronic_stopping_mode: default_electronic_stopping_mode(),
@@ -302,7 +306,7 @@ impl Options {
             track_recoils: false,
             track_recoil_trajectories: false,
             write_buffer_size: default_buffer_size(),
-            weak_collision_order: three(),
+            weak_collision_order: zero_usize(),
             suppress_deep_recoils: false,
             high_energy_free_flight_paths: false,
             electronic_stopping_mode: default_electronic_stopping_mode(),
