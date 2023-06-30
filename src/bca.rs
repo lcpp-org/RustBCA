@@ -472,9 +472,9 @@ pub fn update_particle_energy<T: Geometry>(particle_1: &mut particle::Particle, 
             particle_1.E = 0.;
         }
 
-        particle_1.energy_loss(&options, recoil_energy, delta_energy);
+        particle_1.update_energy_loss_tracker(&options, recoil_energy, delta_energy);
     } else if recoil_energy > 0. {
-        particle_1.energy_loss(&options, recoil_energy, 0.);
+        particle_1.update_energy_loss_tracker(&options, recoil_energy, 0.);
     }
 }
 

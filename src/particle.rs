@@ -211,14 +211,14 @@ impl Particle {
     }
 
     /// If `track_trajectories`, add the current (E, x, y, z) to the trajectory.
-    pub fn add_trajectory(&mut self) {
+    pub fn update_trajectory_tracker(&mut self) {
         if self.track_trajectories {
             self.trajectory.push(TrajectoryElement {E: self.E, x: self.pos.x, y: self.pos.y, z: self.pos.z});
         }
     }
 
     /// If `track_energy_losses`, add the most recent electronic and nuclear energy loss terms and (x, y, z) to the energy loss tracker.
-    pub fn energy_loss(&mut self, options: &Options, En: f64, Ee: f64) {
+    pub fn update_energy_loss_tracker(&mut self, options: &Options, En: f64, Ee: f64) {
         if self.incident & options.track_energy_losses {
             self.energies.push(EnergyLoss {Ee, En, x: self.pos.x, y: self.pos.y, z: self.pos.z});
         }
@@ -260,7 +260,7 @@ impl Particle {
     pub fn advance(&mut self, mfp: f64, asymptotic_deflection: f64) -> f64 {
 
         if self.E > self.Ec {
-            self.add_trajectory();
+            self.update_trajectory_tracker();
         }
 
         //Update previous position
