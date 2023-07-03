@@ -1,6 +1,6 @@
 [package]
 name = "RustBCA"
-version = "2.1.0"
+version = "2.0.1"
 default-run = "RustBCA"
 authors = ["Jon Drobny <drobny2@illinois.edu>", "Jon Drobny <jdrobny@tae.com>"]
 edition = "2021"
