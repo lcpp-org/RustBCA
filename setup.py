@@ -3,7 +3,7 @@ from setuptools_rust import Binding, RustExtension
 
 setup(
     name="RustBCA",
-    version="2.0.1",
+    version="2.1.0",
     rust_extensions=[
         RustExtension(
             "libRustBCA",
