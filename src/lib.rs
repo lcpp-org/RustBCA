@@ -2,13 +2,6 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
-#[cfg(feature = "cpr_rootfinder_openblas")]
-extern crate openblas_src;
-#[cfg(feature = "cpr_rootfinder_netlib")]
-extern crate netlib_src;
-#[cfg(feature = "cpr_rootfinder_intel_mkl")]
-extern crate intel_mkl_src;
-
 use std::{fmt};
 use std::mem::discriminant;
 
@@ -77,7 +70,7 @@ pub mod parry;
 pub use crate::enums::*;
 pub use crate::consts::*;
 pub use crate::structs::*;
-pub use crate::input::{Input2D, Input1D, Input0D, Options, InputFile, GeometryInput};
+pub use crate::input::{Input2D, InputHomogeneous2D, Input1D, Input0D, Options, InputFile, GeometryInput};
 pub use crate::output::{OutputUnits};
 pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
@@ -208,6 +201,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; input.num_species_target],
         Z: Z2,
         m: m2,
         interaction_index: vec![0; input.num_species_target],
@@ -245,6 +239,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
             E: E1,
             Ec: input.Ec1*EV,
             Es: input.Es1*EV,
+            Ed: 0.0,
             pos: Vector::new(x, y, z),
             dir: Vector::new(ux, uy, uz),
             pos_origin: Vector::new(x, y, z),
@@ -337,6 +332,7 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; *num_species_target as usize],
         Z: Z2,
         m: m2,
         interaction_index: vec![0; *num_species_target as usize],
@@ -358,6 +354,7 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
         E: *E1*EV,
         Ec: *Ec1*EV,
         Es: *Es1*EV,
+        Ed: 0.0,
         pos: Vector::new(x, y, z),
         dir: Vector::new(*ux, *uy, *uz),
         pos_origin: Vector::new(x, y, z),
@@ -409,6 +406,7 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
         Eb: vec![input.Eb2],
         Es: vec![input.Es2],
         Ec: vec![input.Ec2],
+        Ed: vec![0.0; input.len],
         Z: vec![input.Z2],
         m: vec![input.m2],
         interaction_index: vec![0],
@@ -446,6 +444,7 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
             E: E1,
             Ec: input.Ec1*EV,
             Es: input.Es1*EV,
+            Ed: 0.0,
             pos: Vector::new(x, y, z),
             dir: Vector::new(ux, uy, uz),
             pos_origin: Vector::new(x, y, z),
@@ -525,6 +524,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; input.num_species_target],
         Z: Z2,
         m: m2,
         interaction_index: vec![0; input.num_species_target],
@@ -562,6 +562,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
             E: E1,
             Ec: input.Ec1*EV,
             Es: input.Es1*EV,
+            Ed: 0.0,
             pos: Vector::new(x, y, z),
             dir: Vector::new(ux, uy, uz),
             pos_origin: Vector::new(x, y, z),
@@ -663,6 +664,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; *num_species_target as usize],
         Z: Z2,
         m: m2,
         interaction_index: vec![0; *num_species_target as usize],
@@ -686,6 +688,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
             E: *E1_*EV,
             Ec: Ec1_*EV,
             Es: Es1_*EV,
+            Ed: 0.0,
             pos: Vector::new(x, y, z),
             dir: Vector::new(ux_, uy_, uz_),
             pos_origin: Vector::new(x, y, z),
@@ -806,6 +809,7 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; num_species_target],
         Z: Z2,
         m: m2,
         interaction_index: vec![0; num_species_target],
@@ -931,6 +935,7 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; num_species],
         Z: Z2,
         m: m2,
         interaction_index: vec![0; num_species],
@@ -1091,6 +1096,7 @@ pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1
         E: E1*EV,
         Ec: Ec1*EV,
         Es: Es1*EV,
+        Ed: 0.0,
         pos: Vector::new(x, y, z),
         dir: Vector::new(ux, uy, uz),
         pos_origin: Vector::new(x, y, z),
@@ -1119,6 +1125,7 @@ pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1
         Eb: vec![Eb2],
         Es: vec![Es2],
         Ec: vec![Ec2],
+        Ed: vec![0.0],
         Z: vec![Z2],
         m: vec![m2],
         interaction_index: vec![0],
@@ -1165,6 +1172,7 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
         E: E1*EV,
         Ec: Ec1*EV,
         Es: Es1*EV,
+        Ed: 0.0,
         pos: Vector::new(x, y, z),
         dir: Vector::new(ux, uy, uz),
         pos_origin: Vector::new(x, y, z),
@@ -1193,6 +1201,7 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; Z2.len()],
         Z: Z2,
         m: m2,
         interaction_index: vec![0],
@@ -1250,7 +1259,7 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
         //around a non-x axis; y is chosen arbitrarily
         Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
     };
-    
+
     let incident = rotation_matrix*direction;
 
     // ux must not be exactly 1.0 to avoid gimbal lock in RustBCA
@@ -1275,7 +1284,7 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 /// rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
 /// --
 ///
-/// This function runs a 0D Binary Collision Approximation simulation for the given incident ions and material.
+/// This function takes a particle direction and a normal vector and rotates from simulation to RustBCA coordinates.
 /// Args:
 ///     nx (f64): surface normal in global frame x-component.
 ///     ny (f64): surface normal in global frame y-component.
@@ -1286,7 +1295,6 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 /// Returns:
 ///    direction (f64, f64, f64): direction vector of particle in RustBCA coordinates.
 pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
-
     let mut ux = ux;
     let mut uy = uy;
     let mut uz = uz;
@@ -1294,26 +1302,13 @@ pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f6
     (ux, uy, uz)
 }
 
-#[cfg(all(feature = "python", feature = "parry3d"))]
-#[pyfunction]
-/// rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
-/// --
-///
-/// This function runs a 0D Binary Collision Approximation simulation for the given incident ions and material.
-/// Args:
-///     nx (f64): surface normal in global frame x-component.
-///     ny (f64): surface normal in global frame y-component.
-///     nz (f64): surface normal in global frame z-component.
-///     ux (f64): particle direction in RustBCA frame x-component.
-///     uy (f64): particle direction in RustBCA frame normal y-component.
-///     uz (f64): particle direction in RustBCA frame normal z-component.
-/// Returns:
-///    direction (f64, f64, f64): direction vector of particle in global coordinates.
-pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+#[cfg(feature = "parry3d")]
+#[no_mangle]
+pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
     let RUSTBCA_DIRECTION: Vector3::<f64> = Vector3::<f64>::new(1.0, 0.0, 0.0);
 
     let into_surface = Vector3::new(-nx, -ny, -nz);
-    let direction = Vector3::new(ux, uy, uz);
+    let direction = Vector3::new(*ux, *uy, *uz);
 
     //Rotation to local RustBCA coordinates from global
     //Here's how this works: a rotation matrix is found that maps the rustbca
@@ -1334,7 +1329,32 @@ pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (
 
     let u = rotation_matrix.transpose()*direction;
 
-    (u.x, u.y, u.z)
+    *ux = u.x;
+    *uy = u.y;
+    *uz = u.z;
+}
+
+#[cfg(all(feature = "python", feature = "parry3d"))]
+#[pyfunction]
+/// rotate_back_py(nx, ny, nz, ux, uy, uz)
+/// --
+///
+/// This function takes a particle direction and a normal vector and rotates from RustBCA to simulation coordinates.
+/// Args:
+///     nx (f64): surface normal in global frame x-component.
+///     ny (f64): surface normal in global frame y-component.
+///     nz (f64): surface normal in global frame z-component.
+///     ux (f64): particle direction in RustBCA frame x-component.
+///     uy (f64): particle direction in RustBCA frame normal y-component.
+///     uz (f64): particle direction in RustBCA frame normal z-component.
+/// Returns:
+///    direction (f64, f64, f64): direction vector of particle in global coordinates.
+pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+    let mut ux = ux;
+    let mut uy = uy;
+    let mut uz = uz;
+    rotate_back(nx, ny, nz, &mut ux, &mut uy, &mut uz);
+    (ux, uy, uz)
 }
 
 #[cfg(feature = "python")]
@@ -1355,7 +1375,9 @@ fn unpack(python_float: &PyAny) -> f64 {
 ///     num_samples: number of ion trajectories to run; precision will go as 1/sqrt(N)
 pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> f64 {
 
-    const DELTA: f64 = 1e-6; 
+    assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
+
+    const DELTA: f64 = 1e-6;
 
     let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
     let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
@@ -1374,8 +1396,8 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
     let y = 0.0;
     let z = 0.0;
 
-    let ux = (angle/180.0*PI).cos() - DELTA;
-    let uy = (angle/180.0*PI).sin() + DELTA;
+    let ux = (angle/180.0*PI).cos() + DELTA;
+    let uy = (angle/180.0*PI).sin() - DELTA;
     let uz = 0.0;
 
     let material_parameters = material::MaterialParameters {
@@ -1384,6 +1406,7 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
         Eb: vec![Eb2],
         Es: vec![Es2],
         Ec: vec![Ec2],
+        Ed: vec![0.0],
         Z: vec![Z2],
         m: vec![m2],
         interaction_index: vec![0],
@@ -1427,7 +1450,7 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
         }
     });
     let num_sputtered = *num_sputtered.lock().unwrap();
-    num_sputtered as f64 / num_samples as f64 
+    num_sputtered as f64 / num_samples as f64
 }
 
 #[cfg(feature = "python")]
@@ -1445,7 +1468,9 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
 pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
 
-    const DELTA: f64 = 1e-6; 
+    const DELTA: f64 = 1e-6;
+
+    assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
     let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
     let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
@@ -1464,8 +1489,8 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
     let y = 0.0;
     let z = 0.0;
 
-    let ux = (angle/180.0*PI).cos() - DELTA;
-    let uy = (angle/180.0*PI).sin() + DELTA;
+    let ux = (angle/180.0*PI).cos() + DELTA;
+    let uy = (angle/180.0*PI).sin() - DELTA;
     let uz = 0.0;
 
     let mut direction = Vector::new(ux, uy, uz);
@@ -1477,6 +1502,7 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
         Eb: vec![Eb2],
         Es: vec![Es2],
         Ec: vec![Ec2],
+        Ed: vec![0.0],
         Z: vec![Z2],
         m: vec![m2],
         interaction_index: vec![0],
@@ -1510,7 +1536,7 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
             uy,
             uz
         );
-        
+
         let output = bca::single_ion_bca(p, &m, &options);
 
         for particle in output {

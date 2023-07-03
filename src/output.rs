@@ -340,7 +340,7 @@ pub fn output_lists(output_list_streams: &mut OutputListStreams, particle: parti
     let energy_unit = output_units.energy_unit;
     let mass_unit = output_units.mass_unit;
 
-    if !particle.incident & options.track_displacements {
+    if !particle.incident & options.track_displacements & (particle.energy_origin > particle.Ed) {
         writeln!(
             output_list_streams.displacements_file_stream, "{},{},{},{},{},{},{},{},{}",
             particle.m/mass_unit, particle.Z, particle.energy_origin/energy_unit,

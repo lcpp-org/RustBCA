@@ -13,6 +13,10 @@ fn default_vec_zero() -> Vec<usize> {
     vec![0]
 }
 
+fn default_vec_float_zero() -> Vec<f64> {
+    vec![0.0]
+}
+
 /// Holds material input parameters from [material_params].
 #[derive(Deserialize, Clone)]
 pub struct MaterialParameters {
@@ -21,6 +25,8 @@ pub struct MaterialParameters {
     pub Eb: Vec<f64>,
     pub Es: Vec<f64>,
     pub Ec: Vec<f64>,
+    #[serde(default = "default_vec_float_zero")]
+    pub Ed: Vec<f64>,
     pub Z: Vec<f64>,
     pub m: Vec<f64>,
     #[serde(default = "default_vec_zero")]
@@ -38,6 +44,7 @@ pub struct Material<T: Geometry> {
     pub Eb: Vec<f64>,
     pub Es: Vec<f64>,
     pub Ec: Vec<f64>,
+    pub Ed: Vec<f64>,
     pub interaction_index: Vec<usize>,
     pub geometry: Box<T>,
     pub surface_binding_model: SurfaceBindingModel,
@@ -73,6 +80,7 @@ impl <T: Geometry> Material<T> {
             Eb: material_parameters.Eb.iter().map(|&i| i*energy_unit).collect(),
             Es: material_parameters.Es.iter().map(|&i| i*energy_unit).collect(),
             Ec: material_parameters.Ec.iter().map(|&i| i*energy_unit).collect(),
+            Ed: material_parameters.Ed.iter().map(|&i| i*energy_unit).collect(),
             interaction_index: material_parameters.interaction_index.clone(),
             surface_binding_model: material_parameters.surface_binding_model,
             bulk_binding_model: material_parameters.bulk_binding_model,
@@ -235,13 +243,13 @@ impl <T: Geometry> Material<T> {
     }
 
     ///Choose the parameters of a target atom as a concentration-weighted random draw from the species in the triangle that contains or is nearest to (x, y).
-    pub fn choose(&self, x: f64, y: f64, z: f64) -> (usize, f64, f64, f64, f64, usize) {
+    pub fn choose(&self, x: f64, y: f64, z: f64) -> (usize, f64, f64, f64, f64, f64, usize) {
         let random_number: f64 = rand::random::<f64>();
         let cumulative_concentrations = self.get_cumulative_concentrations(x, y, z);
 
         for (component_index, cumulative_concentration) in cumulative_concentrations.iter().enumerate() {
             if random_number < *cumulative_concentration {
-                return (component_index, self.Z[component_index], self.m[component_index], self.Ec[component_index], self.Es[component_index], self.interaction_index[component_index]);
+                return (component_index, self.Z[component_index], self.m[component_index], self.Ec[component_index], self.Es[component_index], self.Ed[component_index], self.interaction_index[component_index]);
             }
         }
         panic!("Input error: method choose() operation failed to choose a valid species. Check densities.");
@@ -395,12 +403,12 @@ pub fn boundary_condition_planar<T: Geometry>(particle_1: &mut particle::Particl
 
     if !material.inside_simulation_boundary(x, y, z) {
         particle_1.left = true;
-        particle_1.add_trajectory();
+        particle_1.update_trajectory_tracker();
     }
 
     if (E < Ec) & !particle_1.left & material.inside_energy_barrier(x, y, z) {
         particle_1.stopped = true;
-        particle_1.add_trajectory();
+        particle_1.update_trajectory_tracker();
     }
 
     if !particle_1.stopped & !particle_1.left {

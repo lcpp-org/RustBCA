@@ -2,12 +2,14 @@
 name = "boron_nitride_"
 weak_collision_order = 0
 num_threads = 4
+track_displacements = true
 
 [material_parameters]
 energy_unit = "EV"
 mass_unit = "AMU"
 Eb = [ 0.0, 0.0,]
 Es = [ 5.76, 0.0,]
+Ed = [25.0, 25.0]
 Ec = [ 1.0, 1.0,]
 Z = [ 5, 7,]
 m = [ 10.811, 14,]

@@ -17,7 +17,7 @@ fn test_parry_cuboid() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let material_parameters = material::MaterialParameters{
         energy_unit: "EV".to_string(),
@@ -25,6 +25,7 @@ fn test_parry_cuboid() {
         Eb: vec![0.0, 0.0],
         Es: vec![2.0, 4.0],
         Ec: vec![1.0, 1.0],
+        Ed: vec![0.0, 0.0],
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
@@ -105,7 +106,7 @@ fn test_parry_sphere() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let material_parameters = material::MaterialParameters{
         energy_unit: "EV".to_string(),
@@ -113,6 +114,7 @@ fn test_parry_sphere() {
         Eb: vec![0.0, 0.0],
         Es: vec![2.0, 4.0],
         Ec: vec![1.0, 1.0],
+        Ed: vec![0.0, 0.0],
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
@@ -247,7 +249,7 @@ fn test_distributions() {
     let cosx = 0.0;
     let cosy = 0.0;
     let cosz = 0.0;
-    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let mut distributions = output::Distributions::new(&options);
     assert_eq!(distributions.x_range[0], 0.);
@@ -336,7 +338,7 @@ fn test_spherical_geometry() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let material_parameters = material::MaterialParameters{
         energy_unit: "EV".to_string(),
@@ -344,6 +346,7 @@ fn test_spherical_geometry() {
         Eb: vec![0.0, 0.0],
         Es: vec![2.0, 4.0],
         Ec: vec![1.0, 1.0],
+        Ed: vec![0.0, 0.0],
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
@@ -435,7 +438,7 @@ fn test_geometry() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let material_parameters = material::MaterialParameters{
         energy_unit: "EV".to_string(),
@@ -443,6 +446,7 @@ fn test_geometry() {
         Eb: vec![0.0, 0.0],
         Es: vec![2.0, 4.0],
         Ec: vec![1.0, 1.0],
+        Ed: vec![0.0, 0.0],
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
@@ -464,6 +468,22 @@ fn test_geometry() {
         electronic_stopping_correction_factors: vec![1.0, 1.0],
     };
 
+    let geometry_input_homogeneous_2D = geometry::HomogeneousMesh2DInput {
+        length_unit: "ANGSTROM".to_string(),
+        points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
+        densities: vec![0.03, 0.03],
+        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
+        electronic_stopping_correction_factor: 1.0,
+    };
+
+    let geometry_input_1D = geometry::Mesh1DInput {
+        length_unit: "ANGSTROM".to_string(),
+        densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
+        layer_thicknesses: vec![thickness/2., thickness/2.],
+        electronic_stopping_correction_factors: vec![1.0, 1.0, 1.0]
+
+    };
+
     let geometry_input_0D = geometry::Mesh0DInput {
         length_unit: "ANGSTROM".to_string(),
         densities: vec![0.03, 0.03],
@@ -471,6 +491,8 @@ fn test_geometry() {
     };
 
     let material_2D: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input_2D);
+    let material_homogeneous_2D: material::Material<geometry::HomogeneousMesh2D> = material::Material::<geometry::HomogeneousMesh2D>::new(&material_parameters, &geometry_input_homogeneous_2D);
+    let material_1D: material::Material<geometry::Mesh1D> = material::Material::<geometry::Mesh1D>::new(&material_parameters, &geometry_input_1D);
     let mut material_0D: material::Material<geometry::Mesh0D> = material::Material::<geometry::Mesh0D>::new(&material_parameters, &geometry_input_0D);
     material_0D.geometry.energy_barrier_thickness = 10.*ANGSTROM;
 
@@ -480,6 +502,15 @@ fn test_geometry() {
     particle_1.pos_old.x = -500.*ANGSTROM;
     particle_1.pos_old.y = 0.;
 
+    assert!(material_2D.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z));
+    assert!(!material_2D.inside(particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos_old.z));
+
+    assert!(material_homogeneous_2D.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z));
+    assert!(!material_homogeneous_2D.inside(particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos_old.z));
+
+    assert!(material_0D.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z));
+    assert!(!material_0D.inside(particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos_old.z));
+
     assert_eq!(material_2D.geometry.get_ck(0., 0., 0.), material_0D.geometry.get_ck(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_densities(0., 0., 0.), material_0D.geometry.get_densities(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_total_density(0., 0., 0.), material_0D.geometry.get_total_density(0., 0., 0.));
@@ -487,6 +518,14 @@ fn test_geometry() {
     assert_eq!(material_2D.geometry.closest_point(-10., 0., 5.), material_0D.geometry.closest_point(-10., 0., 5.));
     assert_eq!(material_2D.geometry.get_densities(-10., 0., 5.), material_0D.geometry.get_densities(-10., 0., 5.));
     assert_eq!(material_2D.geometry.get_ck(-10., 0., 5.), material_0D.geometry.get_ck(-10., 0., 5.));
+
+    assert_eq!(material_2D.geometry.get_ck(0., 0., 0.), material_homogeneous_2D.geometry.get_ck(0., 0., 0.));
+    assert_eq!(material_2D.geometry.get_densities(0., 0., 0.), material_homogeneous_2D.geometry.get_densities(0., 0., 0.));
+    assert_eq!(material_2D.geometry.get_total_density(0., 0., 0.), material_homogeneous_2D.geometry.get_total_density(0., 0., 0.));
+    assert_eq!(material_2D.geometry.get_concentrations(0., 0., 0.), material_homogeneous_2D.geometry.get_concentrations(0., 0., 0.));
+    assert_eq!(material_2D.geometry.closest_point(-10., 0., 5.), material_homogeneous_2D.geometry.closest_point(-10., 0., 5.));
+    assert_eq!(material_2D.geometry.get_densities(-10., 0., 5.), material_homogeneous_2D.geometry.get_densities(-10., 0., 5.));
+    assert_eq!(material_2D.geometry.get_ck(-10., 0., 5.), material_homogeneous_2D.geometry.get_ck(-10., 0., 5.));
 }
 
 #[test]
@@ -502,7 +541,7 @@ fn test_surface_binding_energy_barrier() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let material_parameters = material::MaterialParameters{
         energy_unit: "EV".to_string(),
@@ -510,6 +549,7 @@ fn test_surface_binding_energy_barrier() {
         Eb: vec![0.0, 0.0],
         Es: vec![2.0, 4.0],
         Ec: vec![1.0, 1.0],
+        Ed: vec![0.0, 0.0],
         Z: vec![29., 1.],
         m: vec![63.54, 1.0008],
         interaction_index: vec![0, 0],
@@ -647,7 +687,7 @@ fn test_surface_refraction() {
     let cosx = 1./(2.0_f64).sqrt();
     let cosy = 1./(2.0_f64).sqrt();
     let cosz = 0.;
-    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     //Test particle entering material and gaining energy
 
@@ -736,6 +776,7 @@ fn test_momentum_conservation() {
             Eb: vec![0.0],
             Es: vec![Es2],
             Ec: vec![Ec2],
+            Ed: vec![0.0],
             Z: vec![Z2],
             m: vec![m2],
             interaction_index: vec![0],
@@ -765,7 +806,7 @@ fn test_momentum_conservation() {
 
                         println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
 
-                        let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, x1, y1, z1, cosx, cosy, cosz, false, false, 0);
+                        let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, 0.0, x1, y1, z1, cosx, cosy, cosz, false, false, 0);
 
                         #[cfg(not(feature = "distributions"))]
                         let options = Options {
@@ -860,8 +901,9 @@ fn test_momentum_conservation() {
                             binary_collision_geometries[0].phi_azimuthal);
 
                         //Subtract total energy from all simultaneous collisions and electronic stopping
-                        bca::update_particle_energy(&mut particle_1, &material_1, 0.,
-                            binary_collision_result.recoil_energy, 0., particle_2.Z, species_index, &options);
+                        particle_1.E += -binary_collision_result.recoil_energy;
+                        bca::subtract_electronic_stopping_energy(&mut particle_1, &material_1, 0.,
+                            0., particle_2.Z, species_index, &options);
 
                         let mom1_1 = particle_1.get_momentum();
                         let mom2_1 = particle_2.get_momentum();
@@ -897,6 +939,7 @@ fn test_rotate() {
     let E = 1.;
     let Ec = 1.;
     let Es = 1.;
+    let Ed = 0.0;
     let x = 0.;
     let y = 0.;
     let z = 0.;
@@ -906,7 +949,7 @@ fn test_rotate() {
     let psi = -PI/4.;
     let phi = 0.;
 
-    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     //Check that rotation in 2D works
     particle.rotate(psi, phi);
@@ -936,6 +979,7 @@ fn test_particle_advance() {
     let E = 1.;
     let Ec = 1.;
     let Es = 1.;
+    let Ed = 0.0;
     let x = 0.;
     let y = 0.;
     let z = 0.;
@@ -945,7 +989,7 @@ fn test_particle_advance() {
     let mfp = 1.;
     let asymptotic_deflection = 0.5;
 
-    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
 
     let distance_traveled = particle.advance(mfp, asymptotic_deflection);
 
@@ -1027,8 +1071,8 @@ fn test_quadrature() {
     let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 100, 1E-12).unwrap();
 
     //If cpr_rootfinder is enabled, compare Newton to CPR - they should be nearly identical
-    #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
-    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 2, 1000, 1E-13, 1E-16, 1E-18, 1E6, 1E-18, false) {
+    #[cfg(feature = "cpr_rootfinder")]
+    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 2, 10000, 1E-6, 1E-6, 1E-9, 1E9, 1E-13, false) {
         println!("CPR: {} Newton: {}", x0_cpr, x0_newton);
         assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-3));
     };

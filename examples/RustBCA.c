@@ -50,5 +50,42 @@ int main(int argc, char * argv[]) {
   std::cout << "Particle 2 E [eV]: ";
   std::cout << output.particles[1][2];
   std::cout << std::endl;
+
+  double nx = -0.707106;
+  double ny = -0.707106;
+  double nz = 0.0;
+
+  double ux = 1.0;
+  double uy = 0.0;
+  double uz = 0.0;
+
+  std::cout << "Before rotation: ";
+  std::cout << ux;
+  std::cout << ", ";
+  std::cout << uy;
+  std::cout << ", ";
+  std::cout << uz;
+  std::cout << std::endl;
+
+  rotate_given_surface_normal(nx, ny, nz, &ux, &uy, &uz);
+
+  std::cout << "After rotation: ";
+  std::cout << ux;
+  std::cout << ", ";
+  std::cout << uy;
+  std::cout << ", ";
+  std::cout << uz;
+  std::cout << std::endl;
+
+  rotate_back(nx, ny, nz, &ux, &uy, &uz);
+
+  std::cout << "After rotation back: ";
+  std::cout << ux;
+  std::cout << ", ";
+  std::cout << uy;
+  std::cout << ", ";
+  std::cout << uz;
+  std::cout << std::endl;
+
   return 0;
 }
