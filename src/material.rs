@@ -403,12 +403,12 @@ pub fn boundary_condition_planar<T: Geometry>(particle_1: &mut particle::Particl
 
     if !material.inside_simulation_boundary(x, y, z) {
         particle_1.left = true;
-        particle_1.add_trajectory();
+        particle_1.update_trajectory_tracker();
     }
 
     if (E < Ec) & !particle_1.left & material.inside_energy_barrier(x, y, z) {
         particle_1.stopped = true;
-        particle_1.add_trajectory();
+        particle_1.update_trajectory_tracker();
     }
 
     if !particle_1.stopped & !particle_1.left {

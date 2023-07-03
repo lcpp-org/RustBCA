@@ -901,8 +901,9 @@ fn test_momentum_conservation() {
                             binary_collision_geometries[0].phi_azimuthal);
 
                         //Subtract total energy from all simultaneous collisions and electronic stopping
-                        bca::update_particle_energy(&mut particle_1, &material_1, 0.,
-                            binary_collision_result.recoil_energy, 0., particle_2.Z, species_index, &options);
+                        particle_1.E += -binary_collision_result.recoil_energy;
+                        bca::subtract_electronic_stopping_energy(&mut particle_1, &material_1, 0.,
+                            0., particle_2.Z, species_index, &options);
 
                         let mom1_1 = particle_1.get_momentum();
                         let mom2_1 = particle_2.get_momentum();

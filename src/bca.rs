@@ -89,7 +89,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                 0.
             };
 
-            let mut total_energy_loss = 0.;
+            let mut total_energy_lost_to_recoils = 0.;
             let mut total_asymptotic_deflection = 0.;
             let mut normalized_distance_of_closest_approach = 0.;
             let mut strong_collision_Z = 0.;
@@ -123,7 +123,8 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                     particle_2.energy_origin = particle_2.E;
 
                     //Accumulate energy losses and asymptotic deflections for primary particle
-                    total_energy_loss += binary_collision_result.recoil_energy;
+                    particle_1.E += -binary_collision_result.recoil_energy;
+                    total_energy_lost_to_recoils += binary_collision_result.recoil_energy;
                     total_asymptotic_deflection += binary_collision_result.asymptotic_deflection;
 
                     particle_1.rotate(binary_collision_result.psi,
@@ -184,9 +185,10 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                 binary_collision_geometries[0].mfp + distance_to_target - material.geometry.get_energy_barrier_thickness(), total_asymptotic_deflection);
 
             //Subtract total energy from all simultaneous collisions and electronic stopping
-            bca::update_particle_energy(&mut particle_1, &material, distance_traveled,
-                total_energy_loss, normalized_distance_of_closest_approach, strong_collision_Z,
+            let energy_lost_to_electronic_stopping = bca::subtract_electronic_stopping_energy(&mut particle_1, &material, distance_traveled,
+                normalized_distance_of_closest_approach, strong_collision_Z,
                 strong_collision_index, &options);
+            particle_1.update_energy_loss_tracker(&options, total_energy_lost_to_recoils, energy_lost_to_electronic_stopping);
 
             //Check boundary conditions on leaving and stopping
             material::boundary_condition_planar(&mut particle_1, &material);
@@ -431,16 +433,10 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
 }
 
 /// Update a particle's energy following nuclear and electronic interactions of a single BCA step.
-pub fn update_particle_energy<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>, distance_traveled: f64,
-    recoil_energy: f64, x0: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) {
+pub fn subtract_electronic_stopping_energy<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>, distance_traveled: f64,
+    x0: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) -> f64 {
 
-    //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
-    assert!(!recoil_energy.is_nan(), "Numerical error: recoil Energy is NaN. E0 = {} Za = {} Ma = {} x0 = {} Zb = {} delta-x = {}", particle_1.E, particle_1.Z, particle_1.m, x0, strong_collision_Z, distance_traveled);
-    particle_1.E -= recoil_energy;
     assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following collision.");
-    if particle_1.E < 0. {
-        particle_1.E = 0.;
-    }
 
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
@@ -452,7 +448,7 @@ pub fn update_particle_energy<T: Geometry>(particle_1: &mut particle::Particle, 
         let electronic_stopping_powers = material.electronic_stopping_cross_sections(particle_1, options.electronic_stopping_mode);
         let n = material.number_densities(x, y, z);
 
-        let delta_energy = match options.electronic_stopping_mode {
+        let delta_energy_electronic = match options.electronic_stopping_mode {
             ElectronicStoppingMode::INTERPOLATED => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
             ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
             ElectronicStoppingMode::LOW_ENERGY_LOCAL => oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, interaction_potential),
@@ -465,16 +461,15 @@ pub fn update_particle_energy<T: Geometry>(particle_1: &mut particle::Particle, 
             },
         };
 
-        particle_1.E += -delta_energy;
+        particle_1.E += -delta_energy_electronic;
         //Make sure particle energy doesn't become negative again
         assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following electronic stopping.");
         if particle_1.E < 0. {
             particle_1.E = 0.;
         }
-
-        particle_1.energy_loss(&options, recoil_energy, delta_energy);
-    } else if recoil_energy > 0. {
-        particle_1.energy_loss(&options, recoil_energy, 0.);
+        delta_energy_electronic
+    } else {
+        0.0
     }
 }
 
