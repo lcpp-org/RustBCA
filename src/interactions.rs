@@ -40,6 +40,10 @@ pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_poten
         InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
             krc_morse(r, a, Za, Zb, D, alpha, r0, k, x0)
         }
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            four_eight(r, a, Za, Zb, alpha, beta)
+        }
+
     }
 }
 
@@ -48,6 +52,7 @@ pub fn energy_threshold_single_root(interaction_potential: InteractionPotential)
     match interaction_potential{
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => f64::INFINITY,
         InteractionPotential::MORSE{..} | InteractionPotential::KRC_MORSE{..} => f64::INFINITY,
+        InteractionPotential::FOUR_EIGHT{..} => f64::INFINITY
         InteractionPotential::WW => f64::INFINITY,
         InteractionPotential::COULOMB{..} => f64::INFINITY,
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => 0.,
@@ -103,6 +108,9 @@ pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, r
         InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
             doca_krc_morse(r, impact_parameter, relative_energy, a, Za, Zb, D, alpha, r0, k, x0)
         },
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            doca_four_eight(r, impact_parameter, relative_energy, alpha, beta)
+        }
         InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
     }
 }
@@ -131,6 +139,9 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
         InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
             doca_krc_morse(r, impact_parameter, relative_energy, a, Za, Zb, D, alpha, r0, k, x0)
         },
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            doca_four_eight(alpha, beta)
+        }
         InteractionPotential::WW => {
             doca_tungsten_tungsten_cubic_spline(r, impact_parameter, relative_energy)
         },
@@ -152,6 +163,10 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
             let n = 6.;
             1./(1. + (r/sigma).powf(n))
         },
+        InteractionPotential::FOUR_EIGHT{_, beta} => {
+            let n = 8.;
+            1./(1. + r.powf(8)/beta)
+        }
         InteractionPotential::MORSE{D, alpha, r0} => {
             1./(1. + (r*alpha).powi(2))
         }
@@ -256,10 +271,12 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
         InteractionPotential::MORSE{D, alpha, r0} => alpha,
         InteractionPotential::COULOMB{Za: Z1, Zb: Z2} => 0.88534*A0/(Z1.powf(0.23) + Z2.powf(0.23)),
         InteractionPotential::KRC_MORSE{..} => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
+        InteractionPotential::FOUR_EIGHT{..} =>0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
     }
 }
 
 /// Coefficients of inverse-polynomial interaction potentials.
+/// Note: these go in order of decreasing orders of r, e.g., [r^n, r^n-1, r^n-2, ... r, 1].
 pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> Vec<f64> {
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
@@ -268,6 +285,9 @@ pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, inte
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             vec![1., 0., 0., 0., -impact_parameter.powi(2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon*sigma.powf(6.)/relative_energy, -4.*epsilon*sigma.powf(6.5)/relative_energy]
         },
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            vec![1., 0., -impact_parameter.powi(2)., 0., alpha/relative_energy, 0., 0., 0., -beta/relative_energy,]
+        }
         _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder.")
     }
 }
