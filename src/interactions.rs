@@ -280,36 +280,54 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
 pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> Vec<f64> {
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
-            vec![1., 0., -impact_parameter.powi(2), 0., 0., 0., 4.*epsilon*sigma.powf(6.)/relative_energy, 0., 0., 0., 0., 0., -4.*epsilon*sigma.powf(12.)/relative_energy]
+            let impact_parameteter_angstroms = impact_parameter/ANGSTROM;
+            let epsilon_ev = epsilon/EV;
+            let sigma_angstroms = sigma/ANGSTROM;
+            let relative_energy_ev = relative_energy/EV;
+            vec![1., 0., -impact_parameteter_angstroms.powi(2), 0., 0., 0., 4.*epsilon_ev*sigma_angstroms.powf(6.)/relative_energy_ev, 0., 0., 0., 0., 0., -4.*epsilon_ev*sigma_angstroms.powf(12.)/relative_energy_ev]
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
-            vec![1., 0., 0., 0., -impact_parameter.powi(2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon*sigma.powf(6.)/relative_energy, -4.*epsilon*sigma.powf(6.5)/relative_energy]
+            let impact_parameteter_angstroms = impact_parameter/ANGSTROM;
+            let epsilon_ev = epsilon/EV;
+            let sigma_angstroms = sigma/ANGSTROM;
+            let relative_energy_ev = relative_energy/EV;
+            vec![1., 0., 0., 0., -impact_parameteter_angstroms.powi(2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon_ev*sigma_angstroms.powf(6.)/relative_energy, -4.*epsilon_ev*sigma_angstroms.powf(6.5)/relative_energy_ev]
         },
         InteractionPotential::FOUR_EIGHT{alpha, beta} => {
-            vec![1., 0., -impact_parameter.powi(2), 0., alpha/relative_energy, 0., 0., 0., -beta/relative_energy,]
+            //Note: I've transformed to angstroms here to help the rootfinder with numerical issues.
+            //The units on alpha [m^4 J] and beta [m^8 J] make them unreasonably small to use numerically.
+            let alpha_angstroms4_joule = alpha/ANGSTROM.powi(4);
+            let beta_angstroms8_joule = beta/ANGSTROM.powi(8);
+            let impact_parameteter_angstroms = impact_parameter/ANGSTROM;
+            vec![1., 0., -(impact_parameteter_angstroms).powi(2), 0., alpha_angstroms4_joule/relative_energy, 0., 0., 0., -beta_angstroms8_joule/relative_energy,]
         }
         _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder.")
     }
 }
 
-/// Inverse-polynomial interaction potentials transformation to remove singularities for the CPR root-finder.
+/// Inverse-polynomial interaction potentials transformation to reduce numercial issues for the polynomial rootfinder.
 /// This is for if, for example, you have non-integer powers and need to multiply by a factor to get to integer powers.
 /// E.g., the 6.5-6 potential needs to be squared (x*x) giving you a 13th order polynomial in polynomial_coefficients().
 pub fn inverse_transform(x: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
-        InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::FOUR_EIGHT{..} => {
-            x
+        InteractionPotential::LENNARD_JONES_12_6{..} => {
+            x*ANGSTROM
         },
         InteractionPotential::LENNARD_JONES_65_6{..} => {
             x*x
         },
+        | InteractionPotential::FOUR_EIGHT{..} => {
+            x*ANGSTROM
+        }
         _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder transformation.")
     }
 }
 
 /// Four-Eight potential (Born repulsion)
 pub fn four_eight(r: f64, alpha: f64, beta: f64) -> f64 {
-    -alpha/r.powi(4) + beta/r.powi(8)
+    let a = alpha.powf(1./4.);
+    let b = beta.powf(1./8.);
+    -(a/r).powi(4) + (b/r).powi(8)
 }
 
 /// Lennard-Jones 12-6
@@ -334,7 +352,10 @@ pub fn krc_morse(r: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, 
 
 /// Distance of closest approach function for four-eight potential (Born repulsion)
 pub fn doca_four_eight(r: f64, impact_parameter: f64, relative_energy: f64, alpha: f64, beta: f64) -> f64 {
-    r.powi(8) + alpha/relative_energy*r.powi(4) - beta/relative_energy - impact_parameter.powi(2)*r.powi(6)
+    let a = alpha.powf(1./4.);
+    let b = beta.powf(1./8.);
+    let b4 = beta.sqrt();
+    (r/b).powf(8.) - (-(a*r/b/b) + 1.)/relative_energy - (impact_parameter*r.powf(3.)/b4)
 }
 
 /// Distance of closest approach function for Morse potential.

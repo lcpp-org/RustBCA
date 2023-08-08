@@ -576,7 +576,21 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
 
     let coefficients = interactions::polynomial_coefficients(relative_energy, impact_parameter, interaction_potential);
     let roots = real_polynomial_roots(coefficients.clone(), polynom_complex_threshold).unwrap();
+
+    /*
+    println!("p={}", impact_parameter/ANGSTROM);
+
+    for coefficient in &coefficients {
+        println!("{}", {coefficient});
+    }
+
+    for root in &roots {
+        println!("{} A", {root});
+    }
+    */
+
     let max_root = roots.iter().cloned().fold(f64::NAN, f64::max);
+
     let inverse_transformed_root = interactions::inverse_transform(max_root, interaction_potential);
 
     if roots.is_empty() || inverse_transformed_root.is_nan() {
