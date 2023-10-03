@@ -3,7 +3,7 @@
 `RustBCA` is a general-purpose, high-performance code for simulating
 ion-material interactions including sputtering, reflection, and implantation
 using the binary collision approximation ([BCA]), written in [Rust]!
-RustBCA consists of a standalone code and libraries for including
+RustBCA includes a standalone version and libraries for including
 ion-material interactions in simulations written in C/C++, Python,
 and Fortran.
 
@@ -13,7 +13,8 @@ between an energetic ion and a target material. This includes reflection,
 implantation, and transmission of the incident ion, as well as sputtering
 and displacement damage of the target. Generally, [BCA] codes can be
 valid for incident ion energies between approximately ~1 eV/nucleon 
-to <1 GeV/nucleon.
+to <1 GeV/nucleon. Improvements to RustBCA have been shown to expand the 
+regime of validity for some quantities even lower than 1 eV/nucleon.
 
 Check out the `RustBCA` [Wiki] for detailed information, installation
 instructions, use cases, examples, and more. See the RustBCA paper at the
@@ -53,7 +54,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 
 For those eager to get started with the standalone code, try running one of the examples in the
 `RustBCA/examples` directory. Note that to automatically manipulate input files and reproduce
-the plots located on the [Wiki], these require several optional, but common,
+the plots located on the [Wiki], these may require some optional
 [Python] packages (`matplotlib`, `numpy`, `scipy`, `shapely`, and `toml`).
 
 ### H trajectories and collision cascades in a boron nitride dust grain
@@ -103,14 +104,14 @@ plt.show()
 The following features are implemented in `RustBCA`:
 
 * Ion-material interactions for all combinations of incident ion and target species.
-* Infinite, homogeneous targets (Mesh0D), Layered, finite-depth inhomogeneous targets (Mesh1D), arbitrary 2D composition through a triangular mesh (Mesh2D), homogeneous spherical geometry (Sphere) and homogeneous 3D triangular mesh geometry (TriMesh).
+* Infinite, homogeneous targets (Mesh0D), Layered, finite-depth inhomogeneous targets (Mesh1D), arbitrary 2D composition through a triangular mesh (Mesh2D), fast homogeneous 2D geometry (Homogeneous2D), homogeneous spherical geometry (Sphere), and homogeneous 3D triangular mesh geometry (TriMesh).
 * Amorphous Solid/Liquid targets, Gaseous targets, and targets with both solid/liquid and gaseous elements
 * Low energy (< 25 keV/nucleon) electronic stopping modes including:
   * local (Oen-Robinson),
   * nonlocal (Lindhard-Scharff),
   * and equipartition
-* Biersack-Varelas interpolation is also included for electronic stopping up to ~1 GeV/nucleon. Note that high energy physics beyond electronic stopping are not included.
-* Optionally, the Biersack-Haggmark treatment of high-energy free-flight paths between collisions can be included to greatly speed up high-energy simulations (i.e., by neglecting very small angle scattering).
+* Biersack-Varelas interpolation is also included for electronic stopping up to ~1 GeV/nucleon. Note that high energy physics beyond electronic stopping are not included, and that Biersack-Varelas may not be as accurate as other methods.
+* Biersack-Haggmark treatment of high-energy free-flight paths between collisions can be included to greatly speed up high-energy simulations (i.e., by neglecting very small angle scattering).
 * A wide range of interaction potentials are provided, including:
   * the Kr-C, ZBL, Lenz-Jensen, and Moliere universal, screened-Coulomb potentials.
   * the Lennard-Jones 12-6 and Morse attractive-repulsive potentials.
@@ -123,12 +124,13 @@ The following features are implemented in `RustBCA`:
   * Gauss-Mehler quadrature,
   * Gauss-Legendre quadrature,
   * Mendenall-Weller quadrature,
-  * or the MAGIC algorithm.
+  * or the MAGIC algorithm (for certain screened Coulomb potentials only).
 * Input files use the [TOML] format, making them both human-readable and easily parsable.
 * RustBCA generates user-friendly, context-providing error messages, which help pinpoint the cause of errors and provide suggested fixes to the user.
 * The simulation results are comma-delimited (`csv` format) and include:
   * the energies and directions of emitted particles (reflected ions and sputtered atoms),
   * the final positions of implanted ions,
+  * displacements,
   * full trajectory tracking for both the incident ions and target atoms,
   * and many other parameters such as position of origin of sputtered particles and energy loss along trajectories.
 * Optionally, the code can produce energy-angle and implantation distributions when built with the `--features distributions` flag and disable space-intensive particle list output with `--features no_list_output`.
@@ -140,11 +142,6 @@ Without optional features, `RustBCA` should compile with `cargo` alone on
 Windows, MacOS, and Linux systems.
 
 [HDF5] for particle list input has been tested on Windows, but version 1.10.6 must be used.
-[rcpr], the adaptive Chebyshev Proxy Rootfinder with automatic subdivision and
-polynomial rootfinder package for [Rust], has not yet been successfully compiled
-on Windows.
-However, it can be compiled on the Windows Subsystem for Linux (WSL) and, likely,
-on Ubuntu for Windows or Cygwin.
 
 #### Manual Dependences
 
@@ -191,17 +188,17 @@ python3 setup.py install
 ```bash
 sudo apt-get install gcc gfortran build-essential cmake liblapack-dev libblas-dev liblapacke-dev
 ```
-8. Install `cargo`:
+8. (Optional - should come with rustup) Install `cargo`:
 ```bash
 sudo apt-get install cargo
 ```
 9. Build `RustBCA`:
 ```bash
 git clone https://github.com/lcpp-org/rustBCA
-cd rustBCA
+cd RustBCA
 cargo build --release
 ```
-10. (Optional) Build `rustBCA` with optional dependencies, `hdf5` and/or `rcpr` (with your choice of backend: `openblas`, `netlib`, or `intel-mkl`):
+10. (Optional) Build `RustBCA` with optional dependencies, `hdf5` and/or `rcpr` (with your choice of backend: `openblas`, `netlib`, or `intel-mkl`):
 ```bash
 cargo build --release --features cpr_rootfinder_netlib,hdf5_input
 cargo build --release --features cpr_rootfinder_openblas,hdf5_input
@@ -221,7 +218,7 @@ cargo test --features cpr_rootfinder_intel_mkl
 
 ### Detailed instructions for Fedora 33
 
-Most of the ingredients for building `rustBCA` and running the [Python] helper
+Most of the ingredients for building `RustBCA` and running the [Python] helper
 scripts are available natively in the Fedora software repository, so the setup
 is relatively painless.
 
@@ -282,7 +279,7 @@ Additionally, `RustBCA` accepts an input file type (one of: `0D`, `1D`, `2D`, `T
 
 For further details, have a look at
 [Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files)
-on the `rustBCA` [Wiki] for usage instructions.
+on the `RustBCA` [Wiki] for usage instructions.
 Also have a look at the examples on the [Wiki] for writing `.toml` input files.
 
 [BCA]: https://en.wikipedia.org/wiki/Binary_collision_approximation
