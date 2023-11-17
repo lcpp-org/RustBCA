@@ -5,6 +5,10 @@
 use std::{fmt};
 use std::mem::discriminant;
 
+use std::alloc::{alloc, dealloc, Layout};
+use std::mem::align_of;
+use std::ptr::null_mut;
+
 //Parallelization - currently only used in python library functions
 #[cfg(feature = "python")]
 use rayon::prelude::*;
@@ -172,6 +176,23 @@ pub struct OutputTaggedBCA {
 }
 
 #[no_mangle]
+pub extern "C" fn drop_output_tagged_bca(output: OutputTaggedBCA) {
+    let length = output.len;
+
+    let particles_layout = Layout::from_size_align(length, align_of::<[f64; 9]>()).unwrap();
+    let weights_layout = Layout::from_size_align(length, align_of::<f64>()).unwrap();
+    let tags_layout = Layout::from_size_align(length, align_of::<i32>()).unwrap();
+    let incident_layout = Layout::from_size_align(length, align_of::<bool>()).unwrap();
+
+    unsafe {
+        dealloc(output.particles as *mut u8, particles_layout);
+        dealloc(output.weights as *mut u8, weights_layout);
+        dealloc(output.tags as *mut u8, tags_layout);
+        dealloc(output.incident as *mut u8, incident_layout);
+    };
+}
+
+#[no_mangle]
 pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTaggedBCA {
 
     let mut total_output = vec![];
@@ -297,6 +318,9 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
     let incident_ptr = output_incident.as_mut_ptr();
 
     std::mem::forget(total_output);
+    std::mem::forget(output_tags);
+    std::mem::forget(output_weights);
+    std::mem::forget(output_incident);
 
     OutputTaggedBCA {
         len,
