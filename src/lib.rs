@@ -5,6 +5,9 @@
 use std::{fmt};
 use std::mem::discriminant;
 
+use std::alloc::{dealloc, Layout};
+use std::mem::align_of;
+
 //Parallelization - currently only used in python library functions
 #[cfg(feature = "python")]
 use rayon::prelude::*;
@@ -95,12 +98,6 @@ pub fn libRustBCA(py: Python, m: &PyModule) -> PyResult<()> {
     Ok(())
 }
 
-#[repr(C)]
-pub struct OutputBCA {
-    pub len: usize,
-    pub particles: *mut [f64; 9],
-}
-
 #[derive(Debug)]
 #[repr(C)]
 pub struct InputSimpleBCA {
@@ -161,6 +158,12 @@ pub struct InputTaggedBCA {
     pub weights: *mut f64,
 }
 
+#[repr(C)]
+pub struct OutputBCA {
+    pub len: usize,
+    pub particles: *mut [f64; 9],
+}
+
 #[derive(Debug)]
 #[repr(C)]
 pub struct OutputTaggedBCA {
@@ -169,6 +172,34 @@ pub struct OutputTaggedBCA {
     pub weights: *mut f64,
     pub tags: *mut i32,
     pub incident: *mut bool,
+}
+
+#[no_mangle]
+pub extern "C" fn drop_output_tagged_bca(output: OutputTaggedBCA) {
+    let length = output.len;
+
+    let particles_layout = Layout::from_size_align(length, align_of::<[f64; 9]>()).unwrap();
+    let weights_layout = Layout::from_size_align(length, align_of::<f64>()).unwrap();
+    let tags_layout = Layout::from_size_align(length, align_of::<i32>()).unwrap();
+    let incident_layout = Layout::from_size_align(length, align_of::<bool>()).unwrap();
+
+    unsafe {
+        dealloc(output.particles as *mut u8, particles_layout);
+        dealloc(output.weights as *mut u8, weights_layout);
+        dealloc(output.tags as *mut u8, tags_layout);
+        dealloc(output.incident as *mut u8, incident_layout);
+    };
+}
+
+#[no_mangle]
+pub extern "C" fn drop_output_bca(output: OutputBCA) {
+    let length = output.len;
+
+    let particles_layout = Layout::from_size_align(length, align_of::<[f64; 9]>()).unwrap();
+
+    unsafe {
+        dealloc(output.particles as *mut u8, particles_layout);
+    };
 }
 
 #[no_mangle]
@@ -297,6 +328,9 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
     let incident_ptr = output_incident.as_mut_ptr();
 
     std::mem::forget(total_output);
+    std::mem::forget(output_tags);
+    std::mem::forget(output_weights);
+    std::mem::forget(output_incident);
 
     OutputTaggedBCA {
         len,

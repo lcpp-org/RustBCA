@@ -130,6 +130,10 @@ extern "C" {
 
 OutputTaggedBCA compound_tagged_bca_list_c(InputTaggedBCA input);
 
+void drop_output_tagged_bca(OutputTaggedBCA output);
+
+void drop_output_bca(OutputBCA output);
+
 void reflect_single_ion_c(int *num_species_target,
                           double *ux,
                           double *uy,

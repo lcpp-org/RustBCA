@@ -51,6 +51,8 @@ int main(int argc, char * argv[]) {
   std::cout << output.particles[1][2];
   std::cout << std::endl;
 
+  drop_output_tagged_bca(output);
+
   double nx = -0.707106;
   double ny = -0.707106;
   double nz = 0.0;
