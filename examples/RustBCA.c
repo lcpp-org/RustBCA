@@ -4,6 +4,7 @@
 
 int main(int argc, char * argv[]) {
   OutputTaggedBCA output;
+  OutputBCA output;
   double velocities[2][3] = {{500000.0, 0.1, 0.0}, {500000.0, 0.1, 0.0}};
   double positions[2][3] = {{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}};
   int tags[2] = {0, 1};
@@ -51,6 +52,8 @@ int main(int argc, char * argv[]) {
   std::cout << output.particles[1][2];
   std::cout << std::endl;
 
+  drop_output_tagged_bca(output);
+  
   double nx = -0.707106;
   double ny = -0.707106;
   double nz = 0.0;

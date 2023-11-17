@@ -5,9 +5,8 @@
 use std::{fmt};
 use std::mem::discriminant;
 
-use std::alloc::{alloc, dealloc, Layout};
+use std::alloc::{dealloc, Layout};
 use std::mem::align_of;
-use std::ptr::null_mut;
 
 //Parallelization - currently only used in python library functions
 #[cfg(feature = "python")]
@@ -99,12 +98,6 @@ pub fn libRustBCA(py: Python, m: &PyModule) -> PyResult<()> {
     Ok(())
 }
 
-#[repr(C)]
-pub struct OutputBCA {
-    pub len: usize,
-    pub particles: *mut [f64; 9],
-}
-
 #[derive(Debug)]
 #[repr(C)]
 pub struct InputSimpleBCA {
@@ -165,6 +158,12 @@ pub struct InputTaggedBCA {
     pub weights: *mut f64,
 }
 
+#[repr(C)]
+pub struct OutputBCA {
+    pub len: usize,
+    pub particles: *mut [f64; 9],
+}
+
 #[derive(Debug)]
 #[repr(C)]
 pub struct OutputTaggedBCA {
@@ -189,6 +188,17 @@ pub extern "C" fn drop_output_tagged_bca(output: OutputTaggedBCA) {
         dealloc(output.weights as *mut u8, weights_layout);
         dealloc(output.tags as *mut u8, tags_layout);
         dealloc(output.incident as *mut u8, incident_layout);
+    };
+}
+
+#[no_mangle]
+pub extern "C" fn drop_output_bca(output: OutputBCA) {
+    let length = output.len;
+
+    let particles_layout = Layout::from_size_align(length, align_of::<[f64; 9]>()).unwrap();
+
+    unsafe {
+        dealloc(output.particles as *mut u8, particles_layout);
     };
 }
 
