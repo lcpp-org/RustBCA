@@ -178,28 +178,33 @@ pub struct OutputTaggedBCA {
 pub extern "C" fn drop_output_tagged_bca(output: OutputTaggedBCA) {
     let length = output.len;
 
-    let particles_layout = Layout::from_size_align(length, align_of::<[f64; 9]>()).unwrap();
-    let weights_layout = Layout::from_size_align(length, align_of::<f64>()).unwrap();
-    let tags_layout = Layout::from_size_align(length, align_of::<i32>()).unwrap();
-    let incident_layout = Layout::from_size_align(length, align_of::<bool>()).unwrap();
+    if length > 0 {
 
-    unsafe {
-        dealloc(output.particles as *mut u8, particles_layout);
-        dealloc(output.weights as *mut u8, weights_layout);
-        dealloc(output.tags as *mut u8, tags_layout);
-        dealloc(output.incident as *mut u8, incident_layout);
-    };
+        let particles_layout = Layout::from_size_align(length, align_of::<[f64; 9]>()).unwrap();
+        let weights_layout = Layout::from_size_align(length, align_of::<f64>()).unwrap();
+        let tags_layout = Layout::from_size_align(length, align_of::<i32>()).unwrap();
+        let incident_layout = Layout::from_size_align(length, align_of::<bool>()).unwrap();
+
+        unsafe {
+            dealloc(output.particles as *mut u8, particles_layout);
+            dealloc(output.weights as *mut u8, weights_layout);
+            dealloc(output.tags as *mut u8, tags_layout);
+            dealloc(output.incident as *mut u8, incident_layout);
+        };
+    }
 }
 
 #[no_mangle]
 pub extern "C" fn drop_output_bca(output: OutputBCA) {
     let length = output.len;
 
-    let particles_layout = Layout::from_size_align(length, align_of::<[f64; 9]>()).unwrap();
+    if length > 0 {
+        let particles_layout = Layout::from_size_align(length, align_of::<[f64; 9]>()).unwrap();
 
-    unsafe {
-        dealloc(output.particles as *mut u8, particles_layout);
-    };
+        unsafe {
+            dealloc(output.particles as *mut u8, particles_layout);
+        };
+    }
 }
 
 #[no_mangle]
