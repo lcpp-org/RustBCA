@@ -58,9 +58,6 @@ program test_rustbca
     write(*,*) "Elapsed time in seconds per ion per eV: ", (stop - start)/N_ions/1000.0
 
     deallocate(bca_output_f)
-    deallocate(ux, uy, uz, E, Z1, m1, Ec1, Es1)
-
-    !write(*,*) bca_output_f
 
     call cpu_time(start)
     do i = 0, N_ions
@@ -74,6 +71,6 @@ program test_rustbca
     call cpu_time(stop)
     write(*,*) "Elapsed time in ions per eV per s: ", (stop - start)/N_ions/1000.0
 
-    !call exit(1)
+    deallocate(ux, uy, uz, E, Z1, m1, Ec1, Es1)
 
 end program test_rustbca
