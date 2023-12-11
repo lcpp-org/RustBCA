@@ -60,7 +60,6 @@ program test_rustbca
     deallocate(bca_output_f)
     deallocate(ux, uy, uz, E, Z1, m1, Ec1, Es1)
 
-    call exit(1)
     !write(*,*) bca_output_f
 
     call cpu_time(start)
