@@ -92,8 +92,10 @@ pub fn libRustBCA(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(compound_bca_list_1D_py, m)?)?;
     m.add_function(wrap_pyfunction!(sputtering_yield, m)?)?;
     m.add_function(wrap_pyfunction!(reflection_coefficient, m)?)?;
+    m.add_function(wrap_pyfunction!(reflect_single_ion_py, m)?)?;
     #[cfg(feature = "parry3d")]
     m.add_function(wrap_pyfunction!(rotate_given_surface_normal_py, m)?)?;
+    #[cfg(feature = "parry3d")]
     m.add_function(wrap_pyfunction!(rotate_back_py, m)?)?;
     Ok(())
 }
@@ -345,7 +347,6 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
         incident: incident_ptr,
     }
 }
-
 
 #[no_mangle]
 pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut f64, uy: &mut f64, uz: &mut f64, E1: &mut f64, Z1: &mut f64, m1: &mut f64, Ec1: &mut f64, Es1: &mut f64, Z2: *mut f64, m2: *mut f64, Ec2: *mut f64, Es2: *mut f64, Eb2: *mut f64, n2: *mut f64) {
@@ -657,7 +658,6 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
     }
 }
 
-
 #[no_mangle]
 pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track_recoils: &mut bool,
     ux: *mut f64, uy: *mut f64, uz: *mut f64, E1: *mut f64,
@@ -911,6 +911,96 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
         index += 1;
     }
     (total_output, incident)
+}
+
+#[cfg(feature = "python")]
+///reflect_single_ion_py(ion, target, vx, vy, vz)
+///Performs a single BCA ion trajectory in target material with specified incident velocity.
+///Args:
+///    ion (dict): dictionary that defines ion parameters; examples can be found in scripts/materials.py.
+///    target (dict): dictionary that defines target parameterrs; examples can be found in scripts/materials.py.
+///    vx, vy, vz (float): initial x, y, and z velocity in m/s.
+///Returns:
+///    vx, vy, vz (float): final x, y, and z velocity in m/s. When ion implants in material, vx, vy, and vz will all be zero.
+#[pyfunction]
+pub fn reflect_single_ion_py(ion: &PyDict, target: &PyDict, vx: f64, vy: f64, vz: f64) -> (f64, f64, f64){
+
+    let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
+    let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
+    let Ec1 = unpack(ion.get_item("Ec").expect("Cannot get ion cutoff energy from dictionary. Ensure ion['Ec'] exists."));
+    let Es1 = unpack(ion.get_item("Es").expect("Cannot get ion surface binding energy from dictionary. Ensure ion['Es'] exists."));
+
+    let Z2 = unpack(target.get_item("Z").expect("Cannot get target Z from dictionary. Ensure target['Z'] exists."));
+    let m2 = unpack(target.get_item("m").expect("Cannot get target mass from dictionary. Ensure target['m'] exists."));
+    let Ec2 = unpack(target.get_item("Ec").expect("Cannot get target cutoff energy from dictionary. Ensure target['Ec'] exists."));
+    let Es2 = unpack(target.get_item("Es").expect("Cannot get target surface binding energy from dictionary. Ensure target['Es'] exists."));
+    let Eb2 = unpack(target.get_item("Eb").expect("Cannot get target bulk binding energy from dictionary. Ensure target['Eb'] exists."));
+    let n2 = unpack(target.get_item("n").expect("Cannot get target density from dictionary. Ensure target['n'] exists."));
+
+    assert!(vx > 0.0, "Input error: vx must be greater than zero for incident particles to hit surface at x=0.");
+
+    let options = Options::default_options(false);
+
+    let velocity2 = vx.powf(2.) + vy.powf(2.) + vz.powf(2.); //m/s
+    let energy_eV = 0.5*m1*AMU*velocity2/EV; //EV
+
+    let ux = vx/velocity2.sqrt();
+    let uy = vy/velocity2.sqrt();
+    let uz = vz/velocity2.sqrt();
+
+    let material_parameters = material::MaterialParameters {
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: vec![Eb2],
+        Es: vec![Es2],
+        Ec: vec![Ec2],
+        Ed: vec![0.0],
+        Z: vec![Z2],
+        m: vec![m2],
+        interaction_index: vec![0],
+        surface_binding_model: SurfaceBindingModel::AVERAGE,
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let geometry_input = geometry::Mesh0DInput {
+        length_unit: "M".to_string(),
+        densities: vec![n2],
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
+
+    let x = -m.geometry.energy_barrier_thickness;
+    let y = 0.0;
+    let z = 0.0;
+
+    let p = particle::Particle::default_incident(
+        m1,
+        Z1,
+        energy_eV,
+        Ec1,
+        Es1,
+        x,
+        ux,
+        uy,
+        uz
+    );
+
+    let output = bca::single_ion_bca(p, &m, &options);
+
+    let reflected_energy = output[0].E; //Joules
+
+    let reflected_velocity = (2.*reflected_energy/(m1*AMU)).sqrt(); //m/s
+
+    let vx2 = output[0].dir.x*reflected_velocity;
+    let vy2 = output[0].dir.y*reflected_velocity;
+    let vz2 = output[0].dir.z*reflected_velocity;
+
+    if output[0].E > 0.0 && output[0].dir.x < 0.0 && output[0].left && output[0].incident {
+        (vx2, vy2, vz2)
+    } else {
+        (0.0, 0.0, 0.0)
+    }
 }
 
 #[cfg(feature = "python")]
