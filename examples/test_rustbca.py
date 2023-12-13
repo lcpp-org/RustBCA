@@ -37,6 +37,7 @@ def main():
 
     #scripts/materials.py has a number of potential ions and targets
     ion = helium
+    ion['Eb'] = 0.0
     target = tungsten
 
     #tungsten Eb = 0 is a 'worst-case' - accepted literature value is 3 eV
@@ -53,6 +54,10 @@ def main():
     R_N, R_E = reflection_coefficient(ion, target, energy, angle, num_samples)
     print(f'Particle reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
     print(f'Energy reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_E}')
+
+    R_N, R_E = compound_reflection_coefficient(ion, [target, ion], [target['n'], 0.1*target['n']], energy, angle, num_samples)
+    print(f'Particle reflection coefficient for {ion["symbol"]} on {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
+    print(f'Energy reflection coefficient for {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_E}')
 
     #For smooth distributions and good statistics, you should use at least 10k ions
     number_ions = 100000
