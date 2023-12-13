@@ -59,8 +59,16 @@ def main():
     print(f'Particle reflection coefficient for {ion["symbol"]} on {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
     print(f'Energy reflection coefficient for {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_E}')
 
+    vx0 = 1e5
+    vy0 = 1e5
+    vz0 = 0.0
+    vx1, vy1, vz1 = reflect_single_ion_py(ion, target, vx0, vy0, vz0)
+
+    print(f'(vx, vy, vz) before reflection: ({vx0}, {vy0}, {vz0})')
+    print(f'(vx, vy, vz) after reflection: ({vx1}, {vy1}, {vz1})')
+
     #For smooth distributions and good statistics, you should use at least 10k ions
-    number_ions = 100000
+    number_ions = 10000
 
     #1 keV is above the He on W sputtering threshold of ~150 eV
     energies_eV = 1000.0*np.ones(number_ions)
