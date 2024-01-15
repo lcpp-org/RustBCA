@@ -10,7 +10,6 @@ fn test_polynom() {
     use rcpr::chebyshev::*;
     let interaction_potential = InteractionPotential::FOUR_EIGHT{alpha: 1., beta: 1.};
     let coefficients = interactions::polynomial_coefficients(1., 1., interaction_potential);
-    println!("{} {} {}", coefficients[0], coefficients[4], coefficients[8]);
     let roots = real_polynomial_roots(coefficients.clone(), 1e-9).unwrap();
 
     let max_root = roots.iter().cloned().fold(f64::NAN, f64::max);
