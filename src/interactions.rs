@@ -280,18 +280,19 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
 pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> Vec<f64> {
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
-            let impact_parameteter_angstroms = impact_parameter/ANGSTROM;
+            let impact_parameter_angstroms = impact_parameter/ANGSTROM;
             let epsilon_ev = epsilon/EV;
             let sigma_angstroms = sigma/ANGSTROM;
             let relative_energy_ev = relative_energy/EV;
-            vec![1., 0., -impact_parameteter_angstroms.powi(2), 0., 0., 0., 4.*epsilon_ev*sigma_angstroms.powf(6.)/relative_energy_ev, 0., 0., 0., 0., 0., -4.*epsilon_ev*sigma_angstroms.powf(12.)/relative_energy_ev]
+            //vec![1., 0., -impact_parameter.powi(2), 0., 0., 0., 4.*epsilon_ev*sigma.powf(6.)/relative_energy_ev, 0., 0., 0., 0., 0., -4.*epsilon_ev*sigma.powf(12.)/relative_energy_ev]
+            vec![1.0, -impact_parameter.powi(2), 0.0, 4.*epsilon_ev*sigma.powf(6.)/relative_energy_ev, 0.0, 0.0, -4.*epsilon_ev*sigma.powf(12.)/relative_energy_ev]
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
-            let impact_parameteter_angstroms = impact_parameter/ANGSTROM;
+            let impact_parameter_angstroms = impact_parameter/ANGSTROM;
             let epsilon_ev = epsilon/EV;
             let sigma_angstroms = sigma/ANGSTROM;
             let relative_energy_ev = relative_energy/EV;
-            vec![1., 0., 0., 0., -impact_parameteter_angstroms.powi(2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon_ev*sigma_angstroms.powf(6.)/relative_energy, -4.*epsilon_ev*sigma_angstroms.powf(6.5)/relative_energy_ev]
+            vec![1., 0., 0., 0., -impact_parameter.powi(2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon_ev*sigma.powf(6.)/relative_energy_ev, -4.*epsilon_ev*sigma.powf(6.5)/relative_energy_ev]
         },
         InteractionPotential::FOUR_EIGHT{alpha, beta} => {
             //Note: I've transformed to angstroms here to help the rootfinder with numerical issues.
@@ -299,7 +300,7 @@ pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, inte
             let alpha_angstroms4_joule = alpha/ANGSTROM.powi(4);
             let beta_angstroms8_joule = beta/ANGSTROM.powi(8);
             let impact_parameteter_angstroms = impact_parameter/ANGSTROM;
-            vec![1., 0., -(impact_parameteter_angstroms).powi(2), 0., alpha_angstroms4_joule/relative_energy, 0., 0., 0., -beta_angstroms8_joule/relative_energy,]
+            vec![1., -(impact_parameteter_angstroms).powi(2), alpha_angstroms4_joule/relative_energy, 0., -beta_angstroms8_joule/relative_energy,]
         }
         _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder.")
     }
@@ -311,13 +312,13 @@ pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, inte
 pub fn inverse_transform(x: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{..} => {
-            x*ANGSTROM
+            x.sqrt()
         },
         InteractionPotential::LENNARD_JONES_65_6{..} => {
             x*x
         },
         | InteractionPotential::FOUR_EIGHT{..} => {
-            x*ANGSTROM
+            x.sqrt()*ANGSTROM
         }
         _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder transformation.")
     }
