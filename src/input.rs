@@ -450,6 +450,7 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
 
             assert!(
                 match (interaction_potential, root_finder) {
+                    (InteractionPotential::FOUR_EIGHT{..}, Rootfinder::POLYNOMIAL{..}) => true,
                     (InteractionPotential::LENNARD_JONES_12_6{..}, Rootfinder::CPR{..}) => true,
                     (InteractionPotential::LENNARD_JONES_12_6{..}, Rootfinder::POLYNOMIAL{..}) => true,
                     (InteractionPotential::LENNARD_JONES_12_6{..}, _) => false,

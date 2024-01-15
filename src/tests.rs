@@ -3,6 +3,21 @@ use super::*;
 #[cfg(test)]
 use float_cmp::*;
 
+
+#[test]
+#[cfg(feature = "cpr_rootfinder")]
+fn test_polynom() {
+    use rcpr::chebyshev::*;
+    let interaction_potential = InteractionPotential::FOUR_EIGHT{alpha: 1., beta: 1.};
+    let coefficients = interactions::polynomial_coefficients(1., 1., interaction_potential);
+    println!("{} {} {}", coefficients[0], coefficients[4], coefficients[8]);
+    let roots = real_polynomial_roots(coefficients.clone(), 1e-9).unwrap();
+
+    let max_root = roots.iter().cloned().fold(f64::NAN, f64::max);
+    println!("{}", max_root);
+    let inverse_transformed_root = interactions::inverse_transform(max_root, interaction_potential);
+}
+
 #[test]
 #[cfg(feature = "parry3d")]
 fn test_parry_cuboid() {
@@ -1072,7 +1087,7 @@ fn test_quadrature() {
 
     //If cpr_rootfinder is enabled, compare Newton to CPR - they should be nearly identical
     #[cfg(feature = "cpr_rootfinder")]
-    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 2, 10000, 1E-6, 1E-6, 1E-9, 1E9, 1E-13, false) {
+    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 2, 10000, 1E-6, 1E-6, 1E-9, 1E9, 1E-13, true) {
         println!("CPR: {} Newton: {}", x0_cpr, x0_newton);
         assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-3));
     };

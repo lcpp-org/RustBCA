@@ -173,7 +173,9 @@ pub enum InteractionPotential {
     /// Unscreened Coulombic interatomic potential between ions with charges Za and Zb.
     COULOMB{Za: f64, Zb: f64},
     /// Morse potential that smoothly interpolates to Kr-C at short ranges.
-    KRC_MORSE{D: f64, alpha: f64, r0: f64, k: f64, x0: f64}
+    KRC_MORSE{D: f64, alpha: f64, r0: f64, k: f64, x0: f64},
+    /// Born repulsive potential.
+    FOUR_EIGHT{alpha: f64, beta: f64}
 }
 
 impl fmt::Display for InteractionPotential {
@@ -190,6 +192,7 @@ impl fmt::Display for InteractionPotential {
             InteractionPotential::WW => write!(f, "W-W cubic spline interaction potential."),
             InteractionPotential::COULOMB{Za, Zb} => write!(f, "Coulombic interaction with Za = {} and Zb = {}", Za, Zb),
             InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => write!(f, "Morse potential with D = {} eV, alpha = {} 1/A, and r0 = {} A with short-range Kr-C with interpolation width k = {} 1/A and transition point x0 = {} A", D/EV, alpha*ANGSTROM, r0/ANGSTROM, k*ANGSTROM, x0/ANGSTROM),
+            InteractionPotential::FOUR_EIGHT{alpha, beta} => write!(f, "Inverse polynomial potential with beta/r^8 (beta = {} A) Born repulsive term and alpha/r^4 (alpha = {} A) attractive term. Used to describe hydrogen interactions with transition metals.", alpha/ANGSTROM, beta/ANGSTROM),
         }
     }
 }

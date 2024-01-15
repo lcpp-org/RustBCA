@@ -12,6 +12,29 @@ titanium = {
     's': 2.5
 }
 
+carbon = {
+    'symbol': 'C',
+    'name': 'carbon',
+    'Z': 6,
+    'm': 12.011,
+    'n': 1.1331E29,
+    'Es': 7.37,
+    'Ec': 1.0,
+    'Eb': 3.0,
+}
+
+chromium = {
+ 'symbol': 'Cr',
+ 'name': 'chromium',
+ 'Z': 24,
+ 'm': 51.9961,
+ 'Es': 4.10,
+ 'Ed': 28.0,
+ 'Ec': 3.0,
+ 'Eb': 3.0,
+ 'n': 8.327E28
+}
+
 hydrogen = {
     'symbol': 'H',
     'name': 'hydrogen',
