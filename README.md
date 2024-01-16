@@ -13,8 +13,9 @@ between an energetic ion and a target material. This includes reflection,
 implantation, and transmission of the incident ion, as well as sputtering
 and displacement damage of the target. Generally, [BCA] codes can be
 valid for incident ion energies between approximately ~1 eV/nucleon 
-to <1 GeV/nucleon. Improvements to RustBCA have been shown to expand the 
-regime of validity for some quantities even lower than 1 eV/nucleon.
+to <1 GeV/nucleon. Improvements to RustBCA have expanded the regime
+of validity for some quantities, such as reflection coefficients, below 
+1 eV/nucleon.
 
 Check out the `RustBCA` [Wiki] for detailed information, installation
 instructions, use cases, examples, and more. See the RustBCA paper at the
@@ -28,6 +29,7 @@ Selected citations of RustBCA as of 5/24/23:
 * [hPIC2: A hardware-accelerated, hybrid particle-in-cell code for dynamic plasma-material interactions](https://doi.org/10.1016/j.cpc.2022.108569), LT Meredith et al. (2023)
 * [Global sensitivity analysis of a coupled multiphysics model to predict surface evolution in fusion plasma–surface interactions](https://doi.org/10.1016/j.commatsci.2023.112229), P. Robbe et al. (2023)
 * [Modeling the effect of nitrogen recycling on the erosion and leakage of tungsten impurities from the SAS-VW divertor in DIII-D during nitrogen gas injection](https://doi.org/10.1016/j.nme.2022.101254), MS Parsons et al. (2023)
+* [Enabling attractive-repulsive potentials in binary-collision-approximation monte-carlo codes for ion-surface interactions](https://doi.org/10.1088/2053-1591/ad1262), J Drobny and D Curreli (2023)
 
 ## Getting started
 
@@ -116,8 +118,8 @@ The following features are implemented in `RustBCA`:
   * the Kr-C, ZBL, Lenz-Jensen, and Moliere universal, screened-Coulomb potentials.
   * the Lennard-Jones 12-6 and Morse attractive-repulsive potentials.
 * Solving the distance-of-closest-approach problem is achieved using:
-  * the Newton-Raphson method for simple root-finding,
-  * or, for attractive-repulsive potentials, an Adaptive Chebyshev Proxy Rootfinder with Automatic Subdivision algorithm and a Polynomial root-finding algorithm are provided through the [rcpr] crate.
+  * the Newton-Raphson method for purely repulsive potentials,
+  * or, for attractive-repulsive potentials, an Adaptive Chebyshev Proxy Rootfinder with Automatic Subdivision algorithm and a polynomial root-finding algorithm are provided through [rcpr].
 * Multiple interaction potentials can be used in a single simulation for any number of potentials/species.
   * For example, the He-W interaction can be specified using a Lennard-Jones 12-6 potential, while the W-W interaction can be defined using a Kr-C potential.
 * The scattering integral can be calculated using:
@@ -154,7 +156,7 @@ Windows, MacOS, and Linux systems.
 #### Optional Dependencies
 
 * [HDF5] libraries
-* [rcpr], a CPR and polynomial rootfinder, required for using attractive-repulsive interaction potentials such as Lennard-Jones or Morse. It may require additional software (see below).
+* [rcpr], a CPR and polynomial rootfinder, required for using attractive-repulsive interaction potentials such as Lennard-Jones or Morse.
 * For manipulating input files and running associated scripts, the following are required:
   * [Python] 3.6+
   * The [Python] libraries: `numpy`, `matplotlib`, `toml` (must build from source), `shapely`, and `scipy`.
