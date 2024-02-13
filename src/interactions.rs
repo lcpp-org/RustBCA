@@ -12,6 +12,10 @@ pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
 
 }
 
+fn sigmoid(x: f64, k: f64, x0: f64) -> f64 {
+    1./(1. + (-k*(x - x0)).exp())
+}
+
 /// Interaction potential between two particles a and b at a distance `r`.
 pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
@@ -23,16 +27,23 @@ pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_poten
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             lennard_jones_65_6(r, sigma, epsilon)
-        }
+        },
         InteractionPotential::MORSE{D, alpha, r0} => {
             morse(r, D, alpha, r0)
-        }
+        },
         InteractionPotential::WW => {
             tungsten_tungsten_cubic_spline(r)
-        }
+        },
         InteractionPotential::COULOMB{Za, Zb} => {
             coulomb(r, Za, Zb)
+        },
+        InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
+            krc_morse(r, a, Za, Zb, D, alpha, r0, k, x0)
         }
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            four_eight(r, alpha, beta)
+        }
+
     }
 }
 
@@ -40,7 +51,8 @@ pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_poten
 pub fn energy_threshold_single_root(interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential{
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => f64::INFINITY,
-        InteractionPotential::MORSE{..} => f64::INFINITY,
+        InteractionPotential::MORSE{..} | InteractionPotential::KRC_MORSE{..} => f64::INFINITY,
+        InteractionPotential::FOUR_EIGHT{..} => f64::INFINITY,
         InteractionPotential::WW => f64::INFINITY,
         InteractionPotential::COULOMB{..} => f64::INFINITY,
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => 0.,
@@ -93,6 +105,12 @@ pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, r
         InteractionPotential::WW => {
             doca_tungsten_tungsten_cubic_spline(r, impact_parameter, relative_energy)
         },
+        InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
+            doca_krc_morse(r, impact_parameter, relative_energy, a, Za, Zb, D, alpha, r0, k, x0)
+        },
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            doca_four_eight(r, impact_parameter, relative_energy, alpha, beta)
+        }
         InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
     }
 }
@@ -118,6 +136,12 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
         InteractionPotential::MORSE{D, alpha, r0} => {
             doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
         },
+        InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
+            doca_krc_morse(r, impact_parameter, relative_energy, a, Za, Zb, D, alpha, r0, k, x0)
+        },
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            doca_four_eight(r, impact_parameter, relative_energy, alpha, beta)
+        }
         InteractionPotential::WW => {
             doca_tungsten_tungsten_cubic_spline(r, impact_parameter, relative_energy)
         },
@@ -139,12 +163,19 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
             let n = 6.;
             1./(1. + (r/sigma).powf(n))
         },
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            let n = 8.;
+            1./(1. + r.powi(8)/beta)
+        }
         InteractionPotential::MORSE{D, alpha, r0} => {
             1./(1. + (r*alpha).powi(2))
         }
         InteractionPotential::WW => {
             1.
         },
+        InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
+            1./(1. + (r*alpha).powi(2))
+        }
         InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
     }
 }
@@ -239,33 +270,65 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
         InteractionPotential::MORSE{D, alpha, r0} => alpha,
         InteractionPotential::COULOMB{Za: Z1, Zb: Z2} => 0.88534*A0/(Z1.powf(0.23) + Z2.powf(0.23)),
+        InteractionPotential::KRC_MORSE{..} => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
+        InteractionPotential::FOUR_EIGHT{..} =>0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
     }
 }
 
 /// Coefficients of inverse-polynomial interaction potentials.
+/// Note: these go in order of decreasing orders of r, e.g., [r^n, r^n-1, r^n-2, ... r, 1].
 pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> Vec<f64> {
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
-            vec![1., 0., -impact_parameter.powi(2), 0., 0., 0., 4.*epsilon*sigma.powf(6.)/relative_energy, 0., 0., 0., 0., 0., -4.*epsilon*sigma.powf(12.)/relative_energy]
+            let impact_parameter_angstroms = impact_parameter/ANGSTROM;
+            let epsilon_ev = epsilon/EV;
+            let sigma_angstroms = sigma/ANGSTROM;
+            let relative_energy_ev = relative_energy/EV;
+            //vec![1., 0., -impact_parameter.powi(2), 0., 0., 0., 4.*epsilon_ev*sigma.powf(6.)/relative_energy_ev, 0., 0., 0., 0., 0., -4.*epsilon_ev*sigma.powf(12.)/relative_energy_ev]
+            vec![1.0, -impact_parameter.powi(2), 0.0, 4.*epsilon_ev*sigma.powf(6.)/relative_energy_ev, 0.0, 0.0, -4.*epsilon_ev*sigma.powf(12.)/relative_energy_ev]
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
-            vec![1., 0., 0., 0., -impact_parameter.powi(2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon*sigma.powf(6.)/relative_energy, -4.*epsilon*sigma.powf(6.5)/relative_energy]
+            let impact_parameter_angstroms = impact_parameter/ANGSTROM;
+            let epsilon_ev = epsilon/EV;
+            let sigma_angstroms = sigma/ANGSTROM;
+            let relative_energy_ev = relative_energy/EV;
+            vec![1., 0., 0., 0., -impact_parameter.powi(2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon_ev*sigma.powf(6.)/relative_energy_ev, -4.*epsilon_ev*sigma.powf(6.5)/relative_energy_ev]
         },
+        InteractionPotential::FOUR_EIGHT{alpha, beta} => {
+            //Note: I've transformed to angstroms here to help the rootfinder with numerical issues.
+            //The units on alpha [m^4 J] and beta [m^8 J] make them unreasonably small to use numerically.
+            let alpha_angstroms4_joule = alpha/ANGSTROM.powi(4);
+            let beta_angstroms8_joule = beta/ANGSTROM.powi(8);
+            let impact_parameteter_angstroms = impact_parameter/ANGSTROM;
+            vec![1., -(impact_parameteter_angstroms).powi(2), alpha_angstroms4_joule/relative_energy, 0., -beta_angstroms8_joule/relative_energy,]
+        }
         _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder.")
     }
 }
 
-/// Inverse-polynomial interaction potentials transformation to remove singularities for the CPR root-finder.
+/// Inverse-polynomial interaction potentials transformation to reduce numercial issues for the polynomial rootfinder.
+/// This is for if, for example, you have non-integer powers and need to multiply by a factor to get to integer powers.
+/// E.g., the 6.5-6 potential needs to be squared (x*x) giving you a 13th order polynomial in polynomial_coefficients().
 pub fn inverse_transform(x: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{..} => {
-            x
+            x.sqrt()
         },
         InteractionPotential::LENNARD_JONES_65_6{..} => {
             x*x
         },
+        | InteractionPotential::FOUR_EIGHT{..} => {
+            x.sqrt()*ANGSTROM
+        }
         _ => panic!("Input error: non-polynomial interaction potential used with polynomial root-finder transformation.")
     }
+}
+
+/// Four-Eight potential (Born repulsion)
+pub fn four_eight(r: f64, alpha: f64, beta: f64) -> f64 {
+    let a = alpha.powf(1./4.);
+    let b = beta.powf(1./8.);
+    -(a/r).powi(4) + (b/r).powi(8)
 }
 
 /// Lennard-Jones 12-6
@@ -283,9 +346,27 @@ pub fn morse(r: f64, D: f64, alpha: f64, r0: f64) -> f64 {
     D*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp())
 }
 
+/// Kr-C + Morse potential with sigmoid interpolation at crossing point of two potentials
+pub fn krc_morse(r: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, k: f64, x0: f64) -> f64 {
+    sigmoid(r, k, x0)*morse(r, D, alpha, r0) + sigmoid(r, -k, x0)*screened_coulomb(r, a, Za, Zb, InteractionPotential::KR_C)
+}
+
+/// Distance of closest approach function for four-eight potential (Born repulsion)
+pub fn doca_four_eight(r: f64, impact_parameter: f64, relative_energy: f64, alpha: f64, beta: f64) -> f64 {
+    let a = alpha.powf(1./4.);
+    let b = beta.powf(1./8.);
+    let b4 = beta.sqrt();
+    (r/b).powf(8.) - (-(a*r/b/b) + 1.)/relative_energy - (impact_parameter*r.powf(3.)/b4)
+}
+
 /// Distance of closest approach function for Morse potential.
 pub fn doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, alpha: f64, r0: f64) -> f64 {
     (r*alpha).powi(2) - (r*alpha).powi(2)*D/relative_energy*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp()) - (impact_parameter*alpha).powi(2)
+}
+
+/// Distance of closest approach function for Morse potential.
+pub fn doca_krc_morse(r: f64, impact_parameter: f64, relative_energy: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, k: f64, x0: f64) -> f64 {
+    (r*alpha).powi(2) - (r*alpha).powi(2)/relative_energy*krc_morse(r, a, Za, Zb, D, alpha, r0, k, x0) - (impact_parameter*alpha).powi(2)
 }
 
 /// First derivative w.r.t. `r` of the distance of closest approach function for Morse potential.
@@ -433,8 +514,9 @@ pub fn first_screening_radius(interaction_potential: InteractionPotential) -> f6
         InteractionPotential::TRIDYN => 0.278544,
         InteractionPotential::LENNARD_JONES_12_6{..} => 1.,
         InteractionPotential::LENNARD_JONES_65_6{..} => 1.,
-        InteractionPotential::MORSE{..} => 1.,
+        InteractionPotential::MORSE{..} | InteractionPotential::KRC_MORSE{..} => 1.,
         InteractionPotential::WW => 1.,
         InteractionPotential::COULOMB{..} => 0.3,
+        InteractionPotential::FOUR_EIGHT{..} => 1.,
     }
 }

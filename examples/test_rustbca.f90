@@ -15,7 +15,7 @@ program test_rustbca
     logical(c_bool) :: track_recoils
 
     !Initial ion conditions
-    N_ions = 100000
+    N_ions = 1000
     allocate(ux(N_ions), uy(N_ions), uz(N_ions), E(N_ions), Z1(N_ions), m1(N_ions), Ec1(N_ions), Es1(N_ions))
     ux(:) = 0.999
     uy(:) = sqrt(1.0 - 0.999*0.999)
@@ -52,11 +52,12 @@ program test_rustbca
         num_species_target, Z2, m2, Ec2, Es2, Eb2, n2, &
         num_emitted_particles)
     call c_f_pointer(bca_output_c, bca_output_f, [num_emitted_particles, 6])
+
     call cpu_time(stop)
 
     write(*,*) "Elapsed time in seconds per ion per eV: ", (stop - start)/N_ions/1000.0
 
-    !write(*,*) bca_output_f
+    deallocate(bca_output_f)
 
     call cpu_time(start)
     do i = 0, N_ions
@@ -70,6 +71,6 @@ program test_rustbca
     call cpu_time(stop)
     write(*,*) "Elapsed time in ions per eV per s: ", (stop - start)/N_ions/1000.0
 
-    !call exit(1)
-    
+    deallocate(ux, uy, uz, E, Z1, m1, Ec1, Es1)
+
 end program test_rustbca

@@ -1,6 +1,6 @@
 use super::*;
 
-#[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+#[cfg(feature = "cpr_rootfinder")]
 use rcpr::chebyshev::*;
 
 /// Geometrical quantities of binary collision.
@@ -89,7 +89,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                 0.
             };
 
-            let mut total_energy_loss = 0.;
+            let mut total_energy_lost_to_recoils = 0.;
             let mut total_asymptotic_deflection = 0.;
             let mut normalized_distance_of_closest_approach = 0.;
             let mut strong_collision_Z = 0.;
@@ -123,7 +123,8 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                     particle_2.energy_origin = particle_2.E;
 
                     //Accumulate energy losses and asymptotic deflections for primary particle
-                    total_energy_loss += binary_collision_result.recoil_energy;
+                    particle_1.E += -binary_collision_result.recoil_energy;
+                    total_energy_lost_to_recoils += binary_collision_result.recoil_energy;
                     total_asymptotic_deflection += binary_collision_result.asymptotic_deflection;
 
                     particle_1.rotate(binary_collision_result.psi,
@@ -184,9 +185,10 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                 binary_collision_geometries[0].mfp + distance_to_target - material.geometry.get_energy_barrier_thickness(), total_asymptotic_deflection);
 
             //Subtract total energy from all simultaneous collisions and electronic stopping
-            bca::update_particle_energy(&mut particle_1, &material, distance_traveled,
-                total_energy_loss, normalized_distance_of_closest_approach, strong_collision_Z,
+            let energy_lost_to_electronic_stopping = bca::subtract_electronic_stopping_energy(&mut particle_1, &material, distance_traveled,
+                normalized_distance_of_closest_approach, strong_collision_Z,
                 strong_collision_index, &options);
+            particle_1.update_energy_loss_tracker(&options, total_energy_lost_to_recoils, energy_lost_to_electronic_stopping);
 
             //Check boundary conditions on leaving and stopping
             material::boundary_condition_planar(&mut particle_1, &material);
@@ -364,9 +366,9 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     let z_recoil: f64 = z + mfp*cosz + impact_parameter*(sinphi*cosy - cosphi*cosx*cosz)/sinx;
 
     //Choose recoil Z, M
-    let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil);
+    let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, Ed_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil);
     let mut new_particle = particle::Particle::new(
-        M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil,
+        M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil, Ed_recoil,
         x_recoil, y_recoil, z_recoil,
         cosx, cosy, cosz,
         false, options.track_recoil_trajectories, interaction_index
@@ -401,7 +403,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
             options.root_finder[particle_1.interaction_index][particle_2.interaction_index]
         } else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-6}};
 
-    #[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+    #[cfg(feature = "cpr_rootfinder")]
     match root_finder {
         Rootfinder::POLYNOMIAL{complex_threshold} => polynomial_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, complex_threshold)
             .with_context(|| format!("Numerical error: Polynomial rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
@@ -418,7 +420,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
             .unwrap(),
     }
 
-    #[cfg(not(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl")))]
+    #[cfg(not(feature = "cpr_rootfinder"))]
     match root_finder {
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
@@ -431,16 +433,10 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
 }
 
 /// Update a particle's energy following nuclear and electronic interactions of a single BCA step.
-pub fn update_particle_energy<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>, distance_traveled: f64,
-    recoil_energy: f64, x0: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) {
+pub fn subtract_electronic_stopping_energy<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>, distance_traveled: f64,
+    x0: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) -> f64 {
 
-    //If particle energy  drops below zero before electronic stopping calcualtion, it produces NaNs
-    assert!(!recoil_energy.is_nan(), "Numerical error: recoil Energy is NaN. E0 = {} Za = {} Ma = {} x0 = {} Zb = {} delta-x = {}", particle_1.E, particle_1.Z, particle_1.m, x0, strong_collision_Z, distance_traveled);
-    particle_1.E -= recoil_energy;
     assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following collision.");
-    if particle_1.E < 0. {
-        particle_1.E = 0.;
-    }
 
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
@@ -452,7 +448,7 @@ pub fn update_particle_energy<T: Geometry>(particle_1: &mut particle::Particle, 
         let electronic_stopping_powers = material.electronic_stopping_cross_sections(particle_1, options.electronic_stopping_mode);
         let n = material.number_densities(x, y, z);
 
-        let delta_energy = match options.electronic_stopping_mode {
+        let delta_energy_electronic = match options.electronic_stopping_mode {
             ElectronicStoppingMode::INTERPOLATED => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
             ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
             ElectronicStoppingMode::LOW_ENERGY_LOCAL => oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, interaction_potential),
@@ -465,16 +461,15 @@ pub fn update_particle_energy<T: Geometry>(particle_1: &mut particle::Particle, 
             },
         };
 
-        particle_1.E += -delta_energy;
+        particle_1.E += -delta_energy_electronic;
         //Make sure particle energy doesn't become negative again
         assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following electronic stopping.");
         if particle_1.E < 0. {
             particle_1.E = 0.;
         }
-
-        particle_1.energy_loss(&options, recoil_energy, delta_energy);
-    } else if recoil_energy > 0. {
-        particle_1.energy_loss(&options, recoil_energy, 0.);
+        delta_energy_electronic
+    } else {
+        0.0
     }
 }
 
@@ -569,7 +564,7 @@ fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f6
         .unwrap()).sum::<f64>()
 }
 
-#[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+#[cfg(feature = "cpr_rootfinder")]
 /// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an inverse-polynomial interaction potential (e.g., Lennard-Jones) for a given impact parameter and incident energy `E0`.
 /// Slightly complex roots with an imaginary part smaller than `polynom_complex_threshold` are considered real roots.
 pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
@@ -581,7 +576,21 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
 
     let coefficients = interactions::polynomial_coefficients(relative_energy, impact_parameter, interaction_potential);
     let roots = real_polynomial_roots(coefficients.clone(), polynom_complex_threshold).unwrap();
+
+    /*
+    println!("p={}", impact_parameter/ANGSTROM);
+
+    for coefficient in &coefficients {
+        println!("{}", {coefficient});
+    }
+
+    for root in &roots {
+        println!("{} A", {root});
+    }
+    */
+
     let max_root = roots.iter().cloned().fold(f64::NAN, f64::max);
+
     let inverse_transformed_root = interactions::inverse_transform(max_root, interaction_potential);
 
     if roots.is_empty() || inverse_transformed_root.is_nan() {
@@ -592,7 +601,7 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
     }
 }
 
-#[cfg(any(feature = "cpr_rootfinder_openblas", feature = "cpr_rootfinder_netlib", feature = "cpr_rootfinder_intel_mkl"))]
+#[cfg(feature = "cpr_rootfinder")]
 /// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an arbitrary interaction potential (e.g., Morse) for a given impact parameter and incident energy `E0` using the Chebyshev-Proxy Root-Finder method.
 ///
 /// # Args:
@@ -632,13 +641,13 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     let upper_bound = impact_parameter + interactions::crossing_point_doca(interaction_potential);
 
     let roots = match derivative_free {
-        true => find_roots_with_secant_polishing(&g, &f, 0., upper_bound,
+        true => find_roots_with_secant_polishing(&g, &f, 1e-15, upper_bound,
             n0, epsilon, nmax, complex_threshold,
             truncation_threshold, interval_limit, far_from_zero),
 
         false => {
             let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
-            find_roots_with_newton_polishing(&g, &f, &df, 0., upper_bound,
+            find_roots_with_newton_polishing(&g, &f, &df, 1e-15, upper_bound,
             n0, epsilon, nmax, complex_threshold,
             truncation_threshold, interval_limit, far_from_zero)
         }
@@ -715,7 +724,7 @@ pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     //Since this is legacy code I don't think I will clean this up
     let C_ = match  interaction_potential {
         InteractionPotential::MOLIERE => vec![ 0.6743, 0.009611, 0.005175, 6.314, 10.0 ],
-        InteractionPotential::KR_C => vec![ 0.7887, 0.01166, 00.006913, 17.16, 10.79 ],
+        InteractionPotential::KR_C => vec![ 0.7887, 0.01166, 0.006913, 17.16, 10.79 ],
         InteractionPotential::ZBL => vec![ 0.99229, 0.011615, 0.0071222, 9.3066, 14.813 ],
         InteractionPotential::TRIDYN => vec![1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
         _ => panic!("Input error: unimplemented interaction potential {} for MAGIC algorithm. Use a screened Coulomb potential.",  interaction_potential)

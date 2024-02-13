@@ -1,7 +1,7 @@
 module rustbca
 
     use, intrinsic :: iso_c_binding
-    
+
     interface
 
         subroutine reflect_single_ion_c(num_species_target, ux, uy, uz, E1, &
@@ -9,7 +9,7 @@ module rustbca
 
             !Runs a single ion BCA trajectory with no recoils
             !Args:
-            !   num_species_target (integer): number of species in target      
+            !   num_species_target (integer): number of species in target
             !   ux (real(c_double)): x-direction of incident ion, x-direction of reflected ion
             !   uy (real(c_double)): y-direction of incident ion, y-direction of reflected ion
             !   uz (real(c_double)): z-direction of incident ion, z-direction of reflected ion
@@ -33,12 +33,28 @@ module rustbca
 
         end subroutine reflect_single_ion_c
 
+        subroutine rotate_given_surface_normal(nx, ny, nz, ux, uy, uz) bind(c)
+
+          use, intrinsic :: iso_c_binding
+          real(c_double), intent(in) :: nx, ny, nz
+          real(c_double), intent(inout) :: ux, uy, uz
+
+        end subroutine rotate_given_surface_normal
+
+        subroutine rotate_back(nx, ny, nz, ux, uy, uz) bind(c)
+
+          use, intrinsic :: iso_c_binding
+          real(c_double), intent(in) :: nx, ny, nz
+          real(c_double), intent(inout) :: ux, uy, uz
+
+        end subroutine rotate_back
+
         function compound_bca_list_fortran(num_incident_ions, track_recoils, ux, uy, uz, E1, &
             Z1, m1, Ec1, Es1, &
             num_species_target, Z2, m2, Ec2, Es2, Eb2, n2, &
             num_emitted_particles) bind(c) result(output)
 
-            
+
             !Runs a homogeneous, flat, compound target BCA with an arbitrary list of ions.
             !Args:
             !   num_incident_ion (integer(c_int)): number of incident ions

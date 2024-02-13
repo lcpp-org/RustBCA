@@ -2,15 +2,11 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
-#[cfg(feature = "cpr_rootfinder_openblas")]
-extern crate openblas_src;
-#[cfg(feature = "cpr_rootfinder_netlib")]
-extern crate netlib_src;
-#[cfg(feature = "cpr_rootfinder_intel_mkl")]
-extern crate intel_mkl_src;
-
 use std::{fmt};
 use std::mem::discriminant;
+
+use std::alloc::{dealloc, Layout};
+use std::mem::align_of;
 
 //Parallelization - currently only used in python library functions
 #[cfg(feature = "python")]
@@ -77,7 +73,7 @@ pub mod parry;
 pub use crate::enums::*;
 pub use crate::consts::*;
 pub use crate::structs::*;
-pub use crate::input::{Input2D, Input1D, Input0D, Options, InputFile, GeometryInput};
+pub use crate::input::{Input2D, InputHomogeneous2D, Input1D, Input0D, Options, InputFile, GeometryInput};
 pub use crate::output::{OutputUnits};
 pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
@@ -96,16 +92,13 @@ pub fn libRustBCA(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(compound_bca_list_1D_py, m)?)?;
     m.add_function(wrap_pyfunction!(sputtering_yield, m)?)?;
     m.add_function(wrap_pyfunction!(reflection_coefficient, m)?)?;
+    m.add_function(wrap_pyfunction!(compound_reflection_coefficient, m)?)?;
+    m.add_function(wrap_pyfunction!(reflect_single_ion_py, m)?)?;
     #[cfg(feature = "parry3d")]
     m.add_function(wrap_pyfunction!(rotate_given_surface_normal_py, m)?)?;
+    #[cfg(feature = "parry3d")]
     m.add_function(wrap_pyfunction!(rotate_back_py, m)?)?;
     Ok(())
-}
-
-#[repr(C)]
-pub struct OutputBCA {
-    pub len: usize,
-    pub particles: *mut [f64; 9],
 }
 
 #[derive(Debug)]
@@ -168,6 +161,12 @@ pub struct InputTaggedBCA {
     pub weights: *mut f64,
 }
 
+#[repr(C)]
+pub struct OutputBCA {
+    pub len: usize,
+    pub particles: *mut [f64; 9],
+}
+
 #[derive(Debug)]
 #[repr(C)]
 pub struct OutputTaggedBCA {
@@ -176,6 +175,39 @@ pub struct OutputTaggedBCA {
     pub weights: *mut f64,
     pub tags: *mut i32,
     pub incident: *mut bool,
+}
+
+#[no_mangle]
+pub extern "C" fn drop_output_tagged_bca(output: OutputTaggedBCA) {
+    let length = output.len;
+
+    if length > 0 {
+
+        let particles_layout = Layout::from_size_align(length, align_of::<[f64; 9]>()).unwrap();
+        let weights_layout = Layout::from_size_align(length, align_of::<f64>()).unwrap();
+        let tags_layout = Layout::from_size_align(length, align_of::<i32>()).unwrap();
+        let incident_layout = Layout::from_size_align(length, align_of::<bool>()).unwrap();
+
+        unsafe {
+            dealloc(output.particles as *mut u8, particles_layout);
+            dealloc(output.weights as *mut u8, weights_layout);
+            dealloc(output.tags as *mut u8, tags_layout);
+            dealloc(output.incident as *mut u8, incident_layout);
+        };
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn drop_output_bca(output: OutputBCA) {
+    let length = output.len;
+
+    if length > 0 {
+        let particles_layout = Layout::from_size_align(length, align_of::<[f64; 9]>()).unwrap();
+
+        unsafe {
+            dealloc(output.particles as *mut u8, particles_layout);
+        };
+    }
 }
 
 #[no_mangle]
@@ -208,6 +240,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; input.num_species_target],
         Z: Z2,
         m: m2,
         interaction_index: vec![0; input.num_species_target],
@@ -245,6 +278,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
             E: E1,
             Ec: input.Ec1*EV,
             Es: input.Es1*EV,
+            Ed: 0.0,
             pos: Vector::new(x, y, z),
             dir: Vector::new(ux, uy, uz),
             pos_origin: Vector::new(x, y, z),
@@ -302,6 +336,9 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
     let incident_ptr = output_incident.as_mut_ptr();
 
     std::mem::forget(total_output);
+    std::mem::forget(output_tags);
+    std::mem::forget(output_weights);
+    std::mem::forget(output_incident);
 
     OutputTaggedBCA {
         len,
@@ -311,7 +348,6 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
         incident: incident_ptr,
     }
 }
-
 
 #[no_mangle]
 pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut f64, uy: &mut f64, uz: &mut f64, E1: &mut f64, Z1: &mut f64, m1: &mut f64, Ec1: &mut f64, Es1: &mut f64, Z2: *mut f64, m2: *mut f64, Ec2: *mut f64, Es2: *mut f64, Eb2: *mut f64, n2: *mut f64) {
@@ -337,6 +373,7 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; *num_species_target as usize],
         Z: Z2,
         m: m2,
         interaction_index: vec![0; *num_species_target as usize],
@@ -358,6 +395,7 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
         E: *E1*EV,
         Ec: *Ec1*EV,
         Es: *Es1*EV,
+        Ed: 0.0,
         pos: Vector::new(x, y, z),
         dir: Vector::new(*ux, *uy, *uz),
         pos_origin: Vector::new(x, y, z),
@@ -409,6 +447,7 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
         Eb: vec![input.Eb2],
         Es: vec![input.Es2],
         Ec: vec![input.Ec2],
+        Ed: vec![0.0; input.len],
         Z: vec![input.Z2],
         m: vec![input.m2],
         interaction_index: vec![0],
@@ -446,6 +485,7 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
             E: E1,
             Ec: input.Ec1*EV,
             Es: input.Es1*EV,
+            Ed: 0.0,
             pos: Vector::new(x, y, z),
             dir: Vector::new(ux, uy, uz),
             pos_origin: Vector::new(x, y, z),
@@ -525,6 +565,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; input.num_species_target],
         Z: Z2,
         m: m2,
         interaction_index: vec![0; input.num_species_target],
@@ -562,6 +603,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
             E: E1,
             Ec: input.Ec1*EV,
             Es: input.Es1*EV,
+            Ed: 0.0,
             pos: Vector::new(x, y, z),
             dir: Vector::new(ux, uy, uz),
             pos_origin: Vector::new(x, y, z),
@@ -617,7 +659,6 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
     }
 }
 
-
 #[no_mangle]
 pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track_recoils: &mut bool,
     ux: *mut f64, uy: *mut f64, uz: *mut f64, E1: *mut f64,
@@ -663,6 +704,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; *num_species_target as usize],
         Z: Z2,
         m: m2,
         interaction_index: vec![0; *num_species_target as usize],
@@ -686,6 +728,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
             E: *E1_*EV,
             Ec: Ec1_*EV,
             Es: Es1_*EV,
+            Ed: 0.0,
             pos: Vector::new(x, y, z),
             dir: Vector::new(ux_, uy_, uz_),
             pos_origin: Vector::new(x, y, z),
@@ -806,6 +849,7 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; num_species_target],
         Z: Z2,
         m: m2,
         interaction_index: vec![0; num_species_target],
@@ -871,6 +915,96 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
 }
 
 #[cfg(feature = "python")]
+///reflect_single_ion_py(ion, target, vx, vy, vz)
+///Performs a single BCA ion trajectory in target material with specified incident velocity.
+///Args:
+///    ion (dict): dictionary that defines ion parameters; examples can be found in scripts/materials.py.
+///    target (dict): dictionary that defines target parameterrs; examples can be found in scripts/materials.py.
+///    vx, vy, vz (float): initial x, y, and z velocity in m/s.
+///Returns:
+///    vx, vy, vz (float): final x, y, and z velocity in m/s. When ion implants in material, vx, vy, and vz will all be zero.
+#[pyfunction]
+pub fn reflect_single_ion_py(ion: &PyDict, target: &PyDict, vx: f64, vy: f64, vz: f64) -> (f64, f64, f64){
+
+    let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
+    let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
+    let Ec1 = unpack(ion.get_item("Ec").expect("Cannot get ion cutoff energy from dictionary. Ensure ion['Ec'] exists."));
+    let Es1 = unpack(ion.get_item("Es").expect("Cannot get ion surface binding energy from dictionary. Ensure ion['Es'] exists."));
+
+    let Z2 = unpack(target.get_item("Z").expect("Cannot get target Z from dictionary. Ensure target['Z'] exists."));
+    let m2 = unpack(target.get_item("m").expect("Cannot get target mass from dictionary. Ensure target['m'] exists."));
+    let Ec2 = unpack(target.get_item("Ec").expect("Cannot get target cutoff energy from dictionary. Ensure target['Ec'] exists."));
+    let Es2 = unpack(target.get_item("Es").expect("Cannot get target surface binding energy from dictionary. Ensure target['Es'] exists."));
+    let Eb2 = unpack(target.get_item("Eb").expect("Cannot get target bulk binding energy from dictionary. Ensure target['Eb'] exists."));
+    let n2 = unpack(target.get_item("n").expect("Cannot get target density from dictionary. Ensure target['n'] exists."));
+
+    assert!(vx > 0.0, "Input error: vx must be greater than zero for incident particles to hit surface at x=0.");
+
+    let options = Options::default_options(false);
+
+    let velocity2 = vx.powf(2.) + vy.powf(2.) + vz.powf(2.); //m/s
+    let energy_eV = 0.5*m1*AMU*velocity2/EV; //EV
+
+    let ux = vx/velocity2.sqrt();
+    let uy = vy/velocity2.sqrt();
+    let uz = vz/velocity2.sqrt();
+
+    let material_parameters = material::MaterialParameters {
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: vec![Eb2],
+        Es: vec![Es2],
+        Ec: vec![Ec2],
+        Ed: vec![0.0],
+        Z: vec![Z2],
+        m: vec![m2],
+        interaction_index: vec![0],
+        surface_binding_model: SurfaceBindingModel::AVERAGE,
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let geometry_input = geometry::Mesh0DInput {
+        length_unit: "M".to_string(),
+        densities: vec![n2],
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
+
+    let x = -m.geometry.energy_barrier_thickness;
+    let y = 0.0;
+    let z = 0.0;
+
+    let p = particle::Particle::default_incident(
+        m1,
+        Z1,
+        energy_eV,
+        Ec1,
+        Es1,
+        x,
+        ux,
+        uy,
+        uz
+    );
+
+    let output = bca::single_ion_bca(p, &m, &options);
+
+    let reflected_energy = output[0].E; //Joules
+
+    let reflected_velocity = (2.*reflected_energy/(m1*AMU)).sqrt(); //m/s
+
+    let vx2 = output[0].dir.x*reflected_velocity;
+    let vy2 = output[0].dir.y*reflected_velocity;
+    let vz2 = output[0].dir.z*reflected_velocity;
+
+    if output[0].E > 0.0 && output[0].dir.x < 0.0 && output[0].left && output[0].incident {
+        (vx2, vy2, vz2)
+    } else {
+        (0.0, 0.0, 0.0)
+    }
+}
+
+#[cfg(feature = "python")]
 ///compound_bca_list_1D_py(ux, uy,  uz, energies, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, Eb2 n2, dx)
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
 /// Args:
@@ -931,6 +1065,7 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; num_species],
         Z: Z2,
         m: m2,
         interaction_index: vec![0; num_species],
@@ -1091,6 +1226,7 @@ pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1
         E: E1*EV,
         Ec: Ec1*EV,
         Es: Es1*EV,
+        Ed: 0.0,
         pos: Vector::new(x, y, z),
         dir: Vector::new(ux, uy, uz),
         pos_origin: Vector::new(x, y, z),
@@ -1119,6 +1255,7 @@ pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1
         Eb: vec![Eb2],
         Es: vec![Es2],
         Ec: vec![Ec2],
+        Ed: vec![0.0],
         Z: vec![Z2],
         m: vec![m2],
         interaction_index: vec![0],
@@ -1165,6 +1302,7 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
         E: E1*EV,
         Ec: Ec1*EV,
         Es: Es1*EV,
+        Ed: 0.0,
         pos: Vector::new(x, y, z),
         dir: Vector::new(ux, uy, uz),
         pos_origin: Vector::new(x, y, z),
@@ -1193,6 +1331,7 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
         Eb: Eb2,
         Es: Es2,
         Ec: Ec2,
+        Ed: vec![0.0; Z2.len()],
         Z: Z2,
         m: m2,
         interaction_index: vec![0],
@@ -1250,7 +1389,7 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
         //around a non-x axis; y is chosen arbitrarily
         Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
     };
-    
+
     let incident = rotation_matrix*direction;
 
     // ux must not be exactly 1.0 to avoid gimbal lock in RustBCA
@@ -1275,7 +1414,7 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 /// rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
 /// --
 ///
-/// This function runs a 0D Binary Collision Approximation simulation for the given incident ions and material.
+/// This function takes a particle direction and a normal vector and rotates from simulation to RustBCA coordinates.
 /// Args:
 ///     nx (f64): surface normal in global frame x-component.
 ///     ny (f64): surface normal in global frame y-component.
@@ -1286,7 +1425,6 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 /// Returns:
 ///    direction (f64, f64, f64): direction vector of particle in RustBCA coordinates.
 pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
-
     let mut ux = ux;
     let mut uy = uy;
     let mut uz = uz;
@@ -1294,26 +1432,13 @@ pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f6
     (ux, uy, uz)
 }
 
-#[cfg(all(feature = "python", feature = "parry3d"))]
-#[pyfunction]
-/// rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
-/// --
-///
-/// This function runs a 0D Binary Collision Approximation simulation for the given incident ions and material.
-/// Args:
-///     nx (f64): surface normal in global frame x-component.
-///     ny (f64): surface normal in global frame y-component.
-///     nz (f64): surface normal in global frame z-component.
-///     ux (f64): particle direction in RustBCA frame x-component.
-///     uy (f64): particle direction in RustBCA frame normal y-component.
-///     uz (f64): particle direction in RustBCA frame normal z-component.
-/// Returns:
-///    direction (f64, f64, f64): direction vector of particle in global coordinates.
-pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+#[cfg(feature = "parry3d")]
+#[no_mangle]
+pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
     let RUSTBCA_DIRECTION: Vector3::<f64> = Vector3::<f64>::new(1.0, 0.0, 0.0);
 
     let into_surface = Vector3::new(-nx, -ny, -nz);
-    let direction = Vector3::new(ux, uy, uz);
+    let direction = Vector3::new(*ux, *uy, *uz);
 
     //Rotation to local RustBCA coordinates from global
     //Here's how this works: a rotation matrix is found that maps the rustbca
@@ -1334,7 +1459,32 @@ pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (
 
     let u = rotation_matrix.transpose()*direction;
 
-    (u.x, u.y, u.z)
+    *ux = u.x;
+    *uy = u.y;
+    *uz = u.z;
+}
+
+#[cfg(all(feature = "python", feature = "parry3d"))]
+#[pyfunction]
+/// rotate_back_py(nx, ny, nz, ux, uy, uz)
+/// --
+///
+/// This function takes a particle direction and a normal vector and rotates from RustBCA to simulation coordinates.
+/// Args:
+///     nx (f64): surface normal in global frame x-component.
+///     ny (f64): surface normal in global frame y-component.
+///     nz (f64): surface normal in global frame z-component.
+///     ux (f64): particle direction in RustBCA frame x-component.
+///     uy (f64): particle direction in RustBCA frame normal y-component.
+///     uz (f64): particle direction in RustBCA frame normal z-component.
+/// Returns:
+///    direction (f64, f64, f64): direction vector of particle in global coordinates.
+pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+    let mut ux = ux;
+    let mut uy = uy;
+    let mut uz = uz;
+    rotate_back(nx, ny, nz, &mut ux, &mut uy, &mut uz);
+    (ux, uy, uz)
 }
 
 #[cfg(feature = "python")]
@@ -1355,7 +1505,9 @@ fn unpack(python_float: &PyAny) -> f64 {
 ///     num_samples: number of ion trajectories to run; precision will go as 1/sqrt(N)
 pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> f64 {
 
-    const DELTA: f64 = 1e-6; 
+    assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
+
+    const DELTA: f64 = 1e-6;
 
     let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
     let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
@@ -1374,8 +1526,8 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
     let y = 0.0;
     let z = 0.0;
 
-    let ux = (angle/180.0*PI).cos() - DELTA;
-    let uy = (angle/180.0*PI).sin() + DELTA;
+    let ux = (angle/180.0*PI).cos() + DELTA;
+    let uy = (angle/180.0*PI).sin() - DELTA;
     let uz = 0.0;
 
     let material_parameters = material::MaterialParameters {
@@ -1384,6 +1536,7 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
         Eb: vec![Eb2],
         Es: vec![Es2],
         Ec: vec![Ec2],
+        Ed: vec![0.0],
         Z: vec![Z2],
         m: vec![m2],
         interaction_index: vec![0],
@@ -1427,7 +1580,7 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
         }
     });
     let num_sputtered = *num_sputtered.lock().unwrap();
-    num_sputtered as f64 / num_samples as f64 
+    num_sputtered as f64 / num_samples as f64
 }
 
 #[cfg(feature = "python")]
@@ -1445,7 +1598,9 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
 pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
 
-    const DELTA: f64 = 1e-6; 
+    const DELTA: f64 = 1e-6;
+
+    assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
     let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
     let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
@@ -1464,8 +1619,8 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
     let y = 0.0;
     let z = 0.0;
 
-    let ux = (angle/180.0*PI).cos() - DELTA;
-    let uy = (angle/180.0*PI).sin() + DELTA;
+    let ux = (angle/180.0*PI).cos() + DELTA;
+    let uy = (angle/180.0*PI).sin() - DELTA;
     let uz = 0.0;
 
     let mut direction = Vector::new(ux, uy, uz);
@@ -1477,6 +1632,7 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
         Eb: vec![Eb2],
         Es: vec![Es2],
         Ec: vec![Ec2],
+        Ed: vec![0.0],
         Z: vec![Z2],
         m: vec![m2],
         interaction_index: vec![0],
@@ -1510,7 +1666,110 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
             uy,
             uz
         );
-        
+
+        let output = bca::single_ion_bca(p, &m, &options);
+
+        for particle in output {
+            if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && particle.incident {
+                let mut num_reflected = num_reflected.lock().unwrap();
+                *num_reflected += 1;
+                let mut energy_reflected = energy_reflected.lock().unwrap();
+                *energy_reflected += particle.E;
+            }
+        }
+    });
+    let num_reflected = *num_reflected.lock().unwrap();
+    let energy_reflected = *energy_reflected.lock().unwrap();
+
+    (num_reflected as f64 / num_samples as f64, energy_reflected / EV / energy / num_samples as f64)
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+/// compound_reflection_coefficient(ion, target_species, target_number_densities, energy, angle, num_samples)
+/// A routine the calculates the reflection coefficient of energetic ions incident upon materials using RustBCA.
+/// Args:
+///     ion: a dictionary with the keys Z (atomic number), m (atomic mass in AMU), Ec (cutoff energy in eV), Es (surface binding energy in eV)
+///     target_species: a list of dictionaries with the keys Z, m, Ec, Es, Eb (bulk binding energy in eV), n2 (number density in 1/m3)
+///     target_number_densities (list(f64)): number density of each target species in the compound
+///     energy: the incident energy of the ion in eV
+///     angle: incident angle of the ion in degrees from surface normal
+///     num_samples: number of ion trajectories to run; precision will go as 1/sqrt(N)
+/// Returns:
+///     R_N (f64): reflection coefficient (number of particles reflected / number of incident particles)
+///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
+pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, target_number_densities: Vec<f64>, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
+
+    const DELTA: f64 = 1e-6;
+
+    assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
+
+    let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
+    let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
+    let Ec1 = unpack(ion.get_item("Ec").expect("Cannot get ion cutoff energy from dictionary. Ensure ion['Ec'] exists."));
+    let Es1 = unpack(ion.get_item("Es").expect("Cannot get ion surface binding energy from dictionary. Ensure ion['Es'] exists."));
+
+    let Z2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("Z").unwrap_or_else(|| panic!("Cannot get target Z from dictionary at index {}. Ensure target['Z'] exists.", index)))).collect();
+    let m2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("m").unwrap_or_else(|| panic!("Cannot get target m from dictionary at index {}. Ensure target['m'] exists.", index)))).collect();
+    let Ec2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("Ec").unwrap_or_else(|| panic!("Cannot get target Ec from dictionary at index {}. Ensure target['Ec'] exists.", index)))).collect();
+    let Es2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("Es").unwrap_or_else(|| panic!("Cannot get target Es from dictionary at index {}. Ensure target['Es'] exists.", index)))).collect();
+    let Eb2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("Eb").unwrap_or_else(|| panic!("Cannot get target Eb from dictionary at index {}. Ensure target['Eb'] exists.", index)))).collect();
+
+    let number_target_species = Z2.len();
+
+    let options = Options::default_options(false);
+
+    let y = 0.0;
+    let z = 0.0;
+
+    let ux = (angle/180.0*PI).cos() + DELTA;
+    let uy = (angle/180.0*PI).sin() - DELTA;
+    let uz = 0.0;
+
+    let mut direction = Vector::new(ux, uy, uz);
+    direction.normalize();
+
+    let material_parameters = material::MaterialParameters {
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: Eb2,
+        Es: Es2,
+        Ec: Ec2,
+        Ed: vec![0.0; number_target_species],
+        Z: Z2,
+        m: m2,
+        interaction_index: vec![0; number_target_species],
+        surface_binding_model: SurfaceBindingModel::AVERAGE,
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let geometry_input = geometry::Mesh0DInput {
+        length_unit: "M".to_string(),
+        densities: target_number_densities,
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
+
+    let x = -m.geometry.energy_barrier_thickness;
+
+    let num_reflected = Mutex::new(0);
+    let energy_reflected = Mutex::new(0.0);
+
+    (0..num_samples as u64).into_par_iter().for_each( |index| {
+
+        let p = particle::Particle::default_incident(
+            m1,
+            Z1,
+            energy,
+            Ec1,
+            Es1,
+            x,
+            ux,
+            uy,
+            uz
+        );
+
         let output = bca::single_ion_bca(p, &m, &options);
 
         for particle in output {

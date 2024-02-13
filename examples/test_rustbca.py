@@ -11,8 +11,33 @@ from formulas import *
 import time
 
 def main():
+
+    #test rotation to and from RustBCA coordinates
+
+    #nx, ny, nz is the normal vector (out of surface)
+    nx = -np.sqrt(2)/2
+    ny = -np.sqrt(2)/2
+    nz = 0.0
+
+    #ux, uy, uz is the particle direction (simulation coordinates)
+    ux = 1.0
+    uy = 0.0
+    uz = 0.0
+
+    print(f'Before rotation: ({ux}, {uy}, {uz})')
+    ux, uy, uz = rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
+    print(f'After rotation: ({ux}, {uy}, {uz})')
+    ux, uy, uz = rotate_back_py(nx, ny, nz, ux, uy, uz)
+    print(f'After rotation back: ({ux}, {uy}, {uz})')
+
+    #After rotating and rotating back, effect should be where you started (minus fp error)
+    assert(abs(ux - 1.0) < 1e-6)
+    assert(abs(uy) < 1e-6)
+    assert(abs(uz) < 1e-6)
+
     #scripts/materials.py has a number of potential ions and targets
     ion = helium
+    ion['Eb'] = 0.0
     target = tungsten
 
     #tungsten Eb = 0 is a 'worst-case' - accepted literature value is 3 eV
@@ -23,16 +48,27 @@ def main():
     num_samples = 1000
     #For automatic control, libRustBCA offers two helpful functions for the sputtering yield and reflection coefficients
     Y = sputtering_yield(ion, target, energy, angle, num_samples)
-    
+
     print(f'Sputtering yield for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {Y} at/ion. Yamamura predicts { np.round(yamamura(ion, target, energy),3)} at/ion.')
 
     R_N, R_E = reflection_coefficient(ion, target, energy, angle, num_samples)
     print(f'Particle reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
     print(f'Energy reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_E}')
 
+    R_N, R_E = compound_reflection_coefficient(ion, [target, ion], [target['n'], 0.1*target['n']], energy, angle, num_samples)
+    print(f'Particle reflection coefficient for {ion["symbol"]} on {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
+    print(f'Energy reflection coefficient for {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_E}')
+
+    vx0 = 1e5
+    vy0 = 1e5
+    vz0 = 0.0
+    vx1, vy1, vz1 = reflect_single_ion_py(ion, target, vx0, vy0, vz0)
+
+    print(f'(vx, vy, vz) before reflection: ({vx0}, {vy0}, {vz0})')
+    print(f'(vx, vy, vz) after reflection: ({vx1}, {vy1}, {vz1})')
 
     #For smooth distributions and good statistics, you should use at least 10k ions
-    number_ions = 100000
+    number_ions = 10000
 
     #1 keV is above the He on W sputtering threshold of ~150 eV
     energies_eV = 1000.0*np.ones(number_ions)
@@ -136,7 +172,7 @@ def main():
     heights, _, _ = plt.hist(x[np.logical_and(incident, stopped)], bins=100, density=True, histtype='step')
     plt.plot([50.0, 50.0], [0.0, np.max(heights)*1.1])
     plt.gca().set_ylim([0.0, np.max(heights)*1.1])
-    
+
     plt.show()
 
 if __name__ == '__main__':
