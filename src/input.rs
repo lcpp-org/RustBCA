@@ -224,7 +224,7 @@ pub struct Options {
     pub track_recoil_trajectories: bool,
     #[serde(default = "default_buffer_size")]
     pub write_buffer_size: usize,
-    #[serde(default = "three")]
+    #[serde(default = "zero_usize")]
     pub weak_collision_order: usize,
     #[serde(default = "default_false")]
     pub suppress_deep_recoils: bool,
@@ -290,7 +290,7 @@ pub struct Options {
     pub track_recoil_trajectories: bool,
     #[serde(default = "default_buffer_size")]
     pub write_buffer_size: usize,
-    #[serde(default = "three")]
+    #[serde(default = "zero_usize")]
     pub weak_collision_order: usize,
     #[serde(default = "default_false")]
     pub suppress_deep_recoils: bool,
