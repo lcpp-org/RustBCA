@@ -15,7 +15,7 @@ titanium = {
 carbon = {
     'symbol': 'C',
     'name': 'carbon',
-    'Z': 6,
+    'Z': 6.0,
     'm': 12.011,
     'n': 1.1331E29,
     'Es': 7.37,
@@ -26,7 +26,7 @@ carbon = {
 chromium = {
  'symbol': 'Cr',
  'name': 'chromium',
- 'Z': 24,
+ 'Z': 24.0,
  'm': 51.9961,
  'Es': 4.10,
  'Ed': 28.0,
