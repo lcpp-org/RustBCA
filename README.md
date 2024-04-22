@@ -278,11 +278,8 @@ Additionally, `RustBCA` accepts an input file type (one of: `0D`, `1D`, `2D`, `T
 ```bash
 ./RustBCA 0D /path/to/input.toml
 ```
-
-For further details, have a look at
-[Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files)
-on the `RustBCA` [Wiki] for usage instructions.
-Also have a look at the examples on the [Wiki] for writing `.toml` input files.
+**Warning: RustBCA defaults to the 2D triangular mesh input mode.** For more details, see [Input Files](https://github.com/lcpp-org/RustBCA/wiki/Standalone-Code:-Input-File).
+Also have a look at the examples on the [Wiki] to see some examples of RustBCA input files.
 
 [BCA]: https://en.wikipedia.org/wiki/Binary_collision_approximation
 [HDF5]: https://en.wikipedia.org/wiki/Hierarchical_Data_Format
