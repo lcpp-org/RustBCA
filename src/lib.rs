@@ -1382,7 +1382,8 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     let v: Vector3<f64> = into_surface.cross(&RUSTBCA_DIRECTION);
     let c = into_surface.dot(&RUSTBCA_DIRECTION);
     let vx = Matrix3::<f64>::new(0.0, -v.z, v.y, v.z, 0.0, -v.x, -v.y, v.x, 0.0);
-    let rotation_matrix = if c != -1.0 {
+
+    let rotation_matrix = if (c + 1.0).abs() > 1e-6 {
         Matrix3::identity() + vx + vx*vx/(1. + c)
     } else {
         //If c == -1.0, the correct rotation should simply be a 180 degree rotation
@@ -1394,12 +1395,12 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 
     // ux must not be exactly 1.0 to avoid gimbal lock in RustBCA
     // simple_bca does not normalize direction before proceeding, must be done manually
-    *ux = incident.x + DELTA;
     assert!(
-        *ux > 0.0, "Error: RustBCA initial direction out of surface. Please check surface normals and incident direction. n = ({}, {}, {}) u = ({}, {}, {})",
-        nx, ny, nz, ux, uy, uz
+        incident.x + DELTA > 0.0, "Error: RustBCA initial direction out of surface. Please check surface normals and incident direction. c={} n = ({}, {}, {}) u = ({}, {}, {}), unew = ({}, {}, {})",
+        (c + 1.0).abs(), nx, ny, nz, ux, uy, uz, incident.x, incident.y, incident.z
     );
 
+    *ux = incident.x + DELTA;
     *uy = incident.y - DELTA;
     *uz = incident.z;
     let mag = (ux.powf(2.) + uy.powf(2.) + uz.powf(2.)).sqrt();
