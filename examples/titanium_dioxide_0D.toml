@@ -1,3 +1,4 @@
+#Use with 0D geometry option only
 [options]
 name = "10.0"
 track_trajectories = false
