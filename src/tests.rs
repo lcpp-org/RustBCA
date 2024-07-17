@@ -592,21 +592,14 @@ fn extended_test_2D_geometry() {
         points: vec![(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (3.0, 0.0), (4.0, 0.0), (4.0, 1.0), (3.0, 1.0), (3.0, 10.0), (2.0, 10.0), (2.0, 1.0), (1.0, 1.0), (1.0, 10.0), (0.0, 10.0), (0.0, 1.0)],
         triangles: vec![(13, 12, 11), (13, 11, 10), (0, 13, 10), (0, 10, 1), (1, 10, 9), (1, 9, 2), (9, 8, 7), (9, 7, 6), (2, 9, 6), (2, 6, 3), (3, 6, 5), (3, 5, 4)],
         densities: vec![vec![3e10, 3e10]; 12],
-        boundary: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 0],
-        simulation_boundary_points: vec![(-0.1, -0.1), (4.1, -0.1), (4.1, 10.1), (-0.1, 10.1), (-0.1, -0.1)],
+        boundary: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        simulation_boundary_points: vec![(-0.1, -0.1), (4.1, -0.1), (4.1, 10.1), (-0.1, 10.1)],
         energy_barrier_thickness: 4e-4,
         electronic_stopping_correction_factors: vec![1.0; 12],
     };
 
-    let material_2D: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input_2D);
+    let material_2D: material::Material<geometry::ParryMesh2D> = material::Material::<geometry::ParryMesh2D>::new(&material_parameters, &geometry_input_2D);
 
-    if let Closest::Intersection(p) = material_2D.geometry.boundary.closest_point(&point!(x: 1.5e-6, y: 1.0001e-6)) {
-        println!("({} {})", p.x(), p.y());
-    } else if let Closest::SinglePoint(p) = material_2D.geometry.boundary.closest_point(&point!(x: 1.5e-6, y: 1.0001e-6)) {
-        println!("({} {})", p.x(), p.y());
-    } else {
-        panic!();
-    }
 
     assert!(material_2D.inside(1.5e-6, 0.999e-6, 0.0));
     assert!(!material_2D.inside(1.5e-6, 1.0001e-6, 0.0));
@@ -654,7 +647,7 @@ fn test_geometry() {
         triangles: vec![(0, 1, 2), (0, 2, 3)],
         densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
         boundary: vec![0, 1, 2, 3],
-        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
+        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.)],
         energy_barrier_thickness: 10.,
         electronic_stopping_correction_factors: vec![1.0, 1.0],
     };
@@ -663,7 +656,7 @@ fn test_geometry() {
         length_unit: "ANGSTROM".to_string(),
         points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
         densities: vec![0.03, 0.03],
-        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
+        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.)],
         electronic_stopping_correction_factor: 1.0,
     };
 
@@ -681,7 +674,7 @@ fn test_geometry() {
         electronic_stopping_correction_factor: 1.0
     };
 
-    let material_2D: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input_2D);
+    let material_2D: material::Material<geometry::ParryMesh2D> = material::Material::<geometry::ParryMesh2D>::new(&material_parameters, &geometry_input_2D);
     let material_homogeneous_2D: material::Material<geometry::HomogeneousMesh2D> = material::Material::<geometry::HomogeneousMesh2D>::new(&material_parameters, &geometry_input_homogeneous_2D);
     let material_1D: material::Material<geometry::Mesh1D> = material::Material::<geometry::Mesh1D>::new(&material_parameters, &geometry_input_1D);
     let mut material_0D: material::Material<geometry::Mesh0D> = material::Material::<geometry::Mesh0D>::new(&material_parameters, &geometry_input_0D);
@@ -706,7 +699,12 @@ fn test_geometry() {
     assert_eq!(material_2D.geometry.get_densities(0., 0., 0.), material_0D.geometry.get_densities(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_total_density(0., 0., 0.), material_0D.geometry.get_total_density(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_concentrations(0., 0., 0.), material_0D.geometry.get_concentrations(0., 0., 0.));
-    assert_eq!(material_2D.geometry.closest_point(-10., 0., 5.), material_0D.geometry.closest_point(-10., 0., 5.));
+    let (x2d, y2d, z2d) = material_2D.geometry.closest_point(0., 0., 0.);
+    let (x0d, y0d, z0d) = material_0D.geometry.closest_point(0., 0., 0.);
+    assert!(approx_eq!(f64, x2d, x0d, epsilon=1e-6), "2D: ({}, {}, {}) 0D: ({}, {}, {})", x2d, y2d, z2d, x0d, y0d, z0d);
+    assert!(approx_eq!(f64, y2d, y0d, epsilon=1e-6), "2D: ({}, {}, {}) 0D: ({}, {}, {})", x2d, y2d, z2d, x0d, y0d, z0d);
+    assert!(approx_eq!(f64, z2d, z0d, epsilon=1e-6), "2D: ({}, {}, {}) 0D: ({}, {}, {})", x2d, y2d, z2d, x0d, y0d, z0d);
+
     assert_eq!(material_2D.geometry.get_densities(-10., 0., 5.), material_0D.geometry.get_densities(-10., 0., 5.));
     assert_eq!(material_2D.geometry.get_ck(-10., 0., 5.), material_0D.geometry.get_ck(-10., 0., 5.));
 
@@ -714,7 +712,14 @@ fn test_geometry() {
     assert_eq!(material_2D.geometry.get_densities(0., 0., 0.), material_homogeneous_2D.geometry.get_densities(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_total_density(0., 0., 0.), material_homogeneous_2D.geometry.get_total_density(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_concentrations(0., 0., 0.), material_homogeneous_2D.geometry.get_concentrations(0., 0., 0.));
-    assert_eq!(material_2D.geometry.closest_point(-10., 0., 5.), material_homogeneous_2D.geometry.closest_point(-10., 0., 5.));
+
+    let (x2d, y2d, z2d) = material_2D.geometry.closest_point(-10., 0., 5.);
+    let (x0d, y0d, z0d) = material_0D.geometry.closest_point(-10., 0., 5.);
+    assert!(approx_eq!(f64, x2d, x0d, epsilon=1e-6), "2D: ({}, {}, {}) 0D: ({}, {}, {})", x2d, y2d, z2d, x0d, y0d, z0d);
+    assert!(approx_eq!(f64, y2d, y0d, epsilon=1e-6), "2D: ({}, {}, {}) 0D: ({}, {}, {})", x2d, y2d, z2d, x0d, y0d, z0d);
+    assert!(approx_eq!(f64, z2d, z0d, epsilon=1e-6), "2D: ({}, {}, {}) 0D: ({}, {}, {})", x2d, y2d, z2d, x0d, y0d, z0d);
+
+
     assert_eq!(material_2D.geometry.get_densities(-10., 0., 5.), material_homogeneous_2D.geometry.get_densities(-10., 0., 5.));
     assert_eq!(material_2D.geometry.get_ck(-10., 0., 5.), material_homogeneous_2D.geometry.get_ck(-10., 0., 5.));
 }
@@ -757,7 +762,7 @@ fn test_surface_binding_energy_barrier() {
         triangles: vec![(0, 1, 2), (0, 2, 3)],
         densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
         boundary: vec![0, 1, 2, 3],
-        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
+        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.)],
         energy_barrier_thickness: 10.,
         electronic_stopping_correction_factors: vec![1.0, 1.0],
     };
@@ -768,7 +773,7 @@ fn test_surface_binding_energy_barrier() {
         electronic_stopping_correction_factor: 1.0
     };
 
-    let material_2D: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input_2D);
+    let material_2D: material::Material<geometry::ParryMesh2D> = material::Material::<geometry::ParryMesh2D>::new(&material_parameters, &geometry_input_2D);
     let mut material_0D: material::Material<geometry::Mesh0D> = material::Material::<geometry::Mesh0D>::new(&material_parameters, &geometry_input_0D);
     material_0D.geometry.energy_barrier_thickness = 10.*ANGSTROM;
 
@@ -982,13 +987,13 @@ fn test_momentum_conservation() {
             triangles: vec![(0, 1, 2), (0, 2, 3)],
             points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
             densities: vec![vec![0.06306], vec![0.06306]],
-            boundary: vec![0, 1, 2, 3],
-            simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
+            boundary: vec![3, 2, 1, 0],
+            simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.)],
             electronic_stopping_correction_factors: vec![0.0, 0.0],
             energy_barrier_thickness: 0.,
         };
 
-        let material_1: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input);
+        let material_1: material::Material<geometry::ParryMesh2D> = material::Material::<geometry::ParryMesh2D>::new(&material_parameters, &geometry_input);
 
         for high_energy_free_flight_paths in vec![true, false] {
             for potential in vec![InteractionPotential::KR_C, InteractionPotential::MOLIERE, InteractionPotential::ZBL, InteractionPotential::LENZ_JENSEN] {

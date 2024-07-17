@@ -58,7 +58,7 @@ pub use crate::consts::*;
 pub use crate::structs::*;
 pub use crate::input::{Input2D, InputHomogeneous2D, Input1D, Input0D, Options, InputFile, GeometryInput};
 pub use crate::output::{OutputUnits};
-pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D, HomogeneousMesh2D, ParryHomogeneousMesh2D};
+pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D, ParryMesh2D, HomogeneousMesh2D, ParryHomogeneousMesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
 pub use crate::physics::{physics_loop};
 
@@ -97,8 +97,8 @@ fn main() {
             physics_loop::<Mesh1D>(particle_input_array, material, options, output_units);
         },
         GeometryType::MESH2D => {
-            let (particle_input_array, material, options, output_units) = input::input::<geometry::Mesh2D>(input_file);
-            physics_loop::<Mesh2D>(particle_input_array, material, options, output_units);
+            let (particle_input_array, material, options, output_units) = input::input::<geometry::ParryMesh2D>(input_file);
+            physics_loop::<ParryMesh2D>(particle_input_array, material, options, output_units);
         },
         GeometryType::SPHERE => {
             let (particle_input_array, material, options, output_units) = input::input::<Sphere>(input_file);
