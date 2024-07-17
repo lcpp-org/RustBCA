@@ -124,6 +124,15 @@ impl Geometry for ParryBall {
         let (x_, y_, z_) = (point_projection.point.x, point_projection.point.y, point_projection.point.z);
         (x_ as f64, y_ as f64, z_ as f64)
     }
+
+    fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
+        let R = self.radius;
+        let ux = x/r;
+        let uy = y/r;
+        let uz = z/r;
+        (ux, uy, uz)
+    }
 }
 
 
@@ -262,6 +271,22 @@ impl Geometry for ParryTriMesh {
         let point_projection = self.trimesh.project_local_point(&p, false);
         let (x_, y_, z_) = (point_projection.point.x, point_projection.point.y, point_projection.point.z);
         (x_ as f64, y_ as f64, z_ as f64)
+    }
+
+    fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        let p = Point::new(x, y, z);
+        let point_projection = self.trimesh.project_local_point(&p, false);
+
+        let dx = point_projection.point.x - x;
+        let dy = point_projection.point.y - y;
+        let dz = point_projection.point.z - z;
+        let mag = (dx*dx + dy*dy + dz*dz).sqrt();
+
+        if point_projection.is_inside {
+            (dx/mag, dy/mag, dz/mag)
+        } else {
+            (-dx/mag, -dy/mag, -dz/mag)
+        }
     }
 }
 
