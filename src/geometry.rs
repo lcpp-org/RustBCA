@@ -719,9 +719,15 @@ impl Geometry for ParryMesh2D {
 
         let densities: Vec<Vec<f64>> = geometry_input.densities.iter().map(|density_list| density_list.iter().map(|density| density / (length_unit).powi(3)).collect::<Vec<f64>>()).collect::<Vec<Vec<f64>>>();
 
+        dbg!(&densities);
+
         let energy_barrier_thickness = geometry_input.energy_barrier_thickness*length_unit;
 
         let concentrations: Vec<Vec<f64>> = densities.iter().map(|density_list| density_list.iter().map(|density| density / density_list.iter().sum::<f64>() ).collect::<Vec<f64>>()).collect::<Vec<Vec<f64>>>();
+
+        for concentration in &concentrations {
+            assert!((concentration.iter().sum::<f64>() - 1.0).abs() < 1e-6);
+        }
 
         let mut linked_boundary_points = (0..number_boundary_points).zip(1..number_boundary_points).map(|(x, y)| [x, y]).collect::<Vec<[u32; 2]>>();
         linked_boundary_points.push([number_boundary_points - 1, 0]);
