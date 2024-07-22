@@ -120,4 +120,13 @@ impl Geometry for Sphere {
         let uz = z/r;
         (ux*R, uy*R, uz*R)
     }
+
+    fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
+        let R = self.radius;
+        let ux = x/r;
+        let uy = y/r;
+        let uz = z/r;
+        (ux, uy, uz)
+    }
 }
