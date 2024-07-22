@@ -56,6 +56,7 @@ use pyo3::types::*;
 //Load internal modules
 pub mod material;
 pub mod particle;
+#[cfg(test)]
 pub mod tests;
 pub mod interactions;
 pub mod bca;

@@ -3,11 +3,9 @@ use super::*;
 use itertools::Itertools;
 
 use parry2d_f64::shape::{Polyline, TriMesh, FeatureId::*};
-use parry2d_f64::shape::SegmentPointLocation::{OnEdge, OnVertex};
-use parry2d_f64::query::{PointQuery, Ray, RayCast};
-use parry2d_f64::math::{Isometry, Vector};
+use parry2d_f64::query::PointQuery;
 use parry2d_f64::math::Point as Point2d;
-use parry2d_f64::bounding_volume::aabb;
+use parry2d_f64::math::Isometry;
 
 ///Trait for a Geometry object - all forms of geometry must implement these traits to be used
 pub trait Geometry {
@@ -318,34 +316,34 @@ impl Geometry for ParryHomogeneousMesh2D {
                     ).as_str()),
         };
 
-        let mut boundary_points_converted2: Vec<Point2d<f64>> = input.points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
-        let number_boundary_points = boundary_points_converted2.len() as u32;
+        let mut boundary_points_converted: Vec<Point2d<f64>> = input.points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
+        let number_boundary_points = boundary_points_converted.len() as u32;
 
-        for p in boundary_points_converted2.iter().combinations(2) {
+        for p in boundary_points_converted.iter().combinations(2) {
             assert!(p[0] != p[1], "Input error: duplicate vertices in boundary geometry input. Boundary must be defined ccw with no duplicate points (terminal segment will span from final to initial point).")
         }
 
-        let mut simulation_boundary_points_converted2: Vec<Point2d<f64>> = input.simulation_boundary_points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
-        let number_simulation_boundary_points = simulation_boundary_points_converted2.len() as u32;
+        let mut simulation_boundary_points_converted: Vec<Point2d<f64>> = input.simulation_boundary_points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
+        let number_simulation_boundary_points = simulation_boundary_points_converted.len() as u32;
 
         let test_simulation_boundary_ccw = (0..number_simulation_boundary_points as usize)
-        .map(|i| (simulation_boundary_points_converted2[(i + 1) % number_simulation_boundary_points as usize].x - simulation_boundary_points_converted2[i].x)*(simulation_boundary_points_converted2[i].y + simulation_boundary_points_converted2[(i + 1) % number_simulation_boundary_points as usize].y))
+        .map(|i| (simulation_boundary_points_converted[(i + 1) % number_simulation_boundary_points as usize].x - simulation_boundary_points_converted[i].x)*(simulation_boundary_points_converted[i].y + simulation_boundary_points_converted[(i + 1) % number_simulation_boundary_points as usize].y))
         .sum::<f64>();
 
         if test_simulation_boundary_ccw > 0.0 {
-            simulation_boundary_points_converted2 = simulation_boundary_points_converted2.clone().into_iter().rev().collect::<Vec<Point2d<f64>>>();
+            simulation_boundary_points_converted = simulation_boundary_points_converted.clone().into_iter().rev().collect::<Vec<Point2d<f64>>>();
         }
 
-        for p in simulation_boundary_points_converted2.iter().combinations(2) {
+        for p in simulation_boundary_points_converted.iter().combinations(2) {
             assert!(p[0] != p[1], "Input error: duplicate vertices in simulation boundary geometry input. Boundary must be defined ccw with no duplicate points (terminal segment will span from final to initial point).")
         }
 
         let test_ccw = (0..number_boundary_points as usize)
-                .map(|i| (boundary_points_converted2[(i + 1) % number_boundary_points as usize].x - boundary_points_converted2[i].x)*(boundary_points_converted2[i].y + boundary_points_converted2[(i + 1) % number_boundary_points as usize].y))
+                .map(|i| (boundary_points_converted[(i + 1) % number_boundary_points as usize].x - boundary_points_converted[i].x)*(boundary_points_converted[i].y + boundary_points_converted[(i + 1) % number_boundary_points as usize].y))
                 .sum::<f64>();
 
         if test_ccw > 0.0 {
-            boundary_points_converted2 = boundary_points_converted2.clone().into_iter().rev().collect::<Vec<Point2d<f64>>>();
+            boundary_points_converted = boundary_points_converted.clone().into_iter().rev().collect::<Vec<Point2d<f64>>>();
         }
 
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
@@ -358,15 +356,13 @@ impl Geometry for ParryHomogeneousMesh2D {
 
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
 
-
-
         let mut linked_boundary_points = (0..number_boundary_points).zip(1..number_boundary_points).map(|(x, y)| [x, y]).collect::<Vec<[u32; 2]>>();
         linked_boundary_points.push([number_boundary_points - 1, 0]);
-        let boundary2 = Polyline::new(boundary_points_converted2, Some(linked_boundary_points));
+        let boundary2 = Polyline::new(boundary_points_converted, Some(linked_boundary_points));
 
         let mut linked_simulation_boundary_points = (0..number_simulation_boundary_points).zip(1..number_simulation_boundary_points).map(|(x, y)| [x, y]).collect::<Vec<[u32; 2]>>();
         linked_simulation_boundary_points.push([number_simulation_boundary_points - 1, 0]);
-        let simulation_boundary2 = Polyline::new(simulation_boundary_points_converted2, Some(linked_simulation_boundary_points));
+        let simulation_boundary2 = Polyline::new(simulation_boundary_points_converted, Some(linked_simulation_boundary_points));
 
         ParryHomogeneousMesh2D {
             densities,
@@ -396,8 +392,12 @@ impl Geometry for ParryHomogeneousMesh2D {
 
     fn inside(&self, x: f64, y: f64, z: f64) -> bool {
         let p = Point2d::new(x, y);
-        let (point_projection, (_, _)) = self.boundary.project_local_point_assuming_solid_interior_ccw(p);
-        point_projection.is_inside
+        if self.boundary.aabb(&Isometry::identity()).contains_local_point(&p) {
+            let (point_projection, (_, _)) = self.boundary.project_local_point_assuming_solid_interior_ccw(p);
+            point_projection.is_inside
+        } else {
+            false
+        }
     }
 
     fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
@@ -661,8 +661,12 @@ impl Geometry for ParryMesh2D {
     /// Determines whether the point (x, y) is inside the mesh.
     fn inside(&self, x: f64, y: f64, z: f64) -> bool {
         let p = Point2d::new(x, y);
-        let (point_projection, (_, _)) = self.boundary.project_local_point_assuming_solid_interior_ccw(p);
-        point_projection.is_inside
+        if self.boundary.aabb(&Isometry::identity()).contains_local_point(&p) {
+            let (point_projection, (_, _)) = self.boundary.project_local_point_assuming_solid_interior_ccw(p);
+            point_projection.is_inside
+        } else {
+            false
+        }
     }
 
     fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
@@ -698,39 +702,39 @@ impl Geometry for ParryMesh2D {
                     ).as_str()),
         };
 
-        let mut boundary_points_converted2: Vec<Point2d<f64>> = geometry_input.points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
-        let number_boundary_points = boundary_points_converted2.len() as u32;
+        let mut boundary_points_converted: Vec<Point2d<f64>> = geometry_input.points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
+        let number_boundary_points = boundary_points_converted.len() as u32;
 
-        let mut simulation_boundary_points_converted2: Vec<Point2d<f64>> = geometry_input.simulation_boundary_points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
-        let number_simulation_boundary_points = simulation_boundary_points_converted2.len() as u32;
+        let mut simulation_boundary_points_converted: Vec<Point2d<f64>> = geometry_input.simulation_boundary_points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
+        let number_simulation_boundary_points = simulation_boundary_points_converted.len() as u32;
 
         let test_simulation_boundary_ccw = (0..number_simulation_boundary_points as usize)
-        .map(|i| (simulation_boundary_points_converted2[(i + 1) % number_simulation_boundary_points as usize].x - simulation_boundary_points_converted2[i].x)*(simulation_boundary_points_converted2[i].y + simulation_boundary_points_converted2[(i + 1) % number_simulation_boundary_points as usize].y))
+        .map(|i| (simulation_boundary_points_converted[(i + 1) % number_simulation_boundary_points as usize].x - simulation_boundary_points_converted[i].x)*(simulation_boundary_points_converted[i].y + simulation_boundary_points_converted[(i + 1) % number_simulation_boundary_points as usize].y))
         .sum::<f64>();
 
         dbg!(test_simulation_boundary_ccw > 0.0);
 
-        dbg!(&simulation_boundary_points_converted2);
+        dbg!(&simulation_boundary_points_converted);
 
         if test_simulation_boundary_ccw > 0.0 {
-            simulation_boundary_points_converted2 = simulation_boundary_points_converted2.clone().into_iter().rev().collect::<Vec<Point2d<f64>>>();
+            simulation_boundary_points_converted = simulation_boundary_points_converted.clone().into_iter().rev().collect::<Vec<Point2d<f64>>>();
         }
 
-        dbg!(&simulation_boundary_points_converted2);
+        dbg!(&simulation_boundary_points_converted);
 
-        for p in simulation_boundary_points_converted2.iter().combinations(2) {
+        for p in simulation_boundary_points_converted.iter().combinations(2) {
             assert!(p[0] != p[1], "Input error: duplicate vertices in simulation boundary geometry input. Boundary must be defined ccw with no duplicate points (terminal segment will span from final to initial point).")
         }
 
         let test_ccw = (0..number_boundary_points as usize)
-                .map(|i| (boundary_points_converted2[(i + 1) % number_boundary_points as usize].x - boundary_points_converted2[i].x)*(boundary_points_converted2[i].y + boundary_points_converted2[(i + 1) % number_boundary_points as usize].y))
+                .map(|i| (boundary_points_converted[(i + 1) % number_boundary_points as usize].x - boundary_points_converted[i].x)*(boundary_points_converted[i].y + boundary_points_converted[(i + 1) % number_boundary_points as usize].y))
                 .sum::<f64>();
 
         if test_ccw > 0.0 {
-            boundary_points_converted2 = boundary_points_converted2.clone().into_iter().rev().collect::<Vec<Point2d<f64>>>();
+            boundary_points_converted = boundary_points_converted.clone().into_iter().rev().collect::<Vec<Point2d<f64>>>();
         }
 
-        for p in boundary_points_converted2.iter().combinations(2) {
+        for p in boundary_points_converted.iter().combinations(2) {
             assert!(p[0] != p[1], "Input error: duplicate vertices in boundary geometry input. Boundary must be defined ccw with no duplicate points (terminal segment will span from final to initial point).")
         }
 
@@ -754,12 +758,12 @@ impl Geometry for ParryMesh2D {
 
         let mut linked_boundary_points = (0..number_boundary_points).zip(1..number_boundary_points).map(|(x, y)| [x, y]).collect::<Vec<[u32; 2]>>();
         linked_boundary_points.push([number_boundary_points - 1, 0]);
-        let boundary2 = Polyline::new(boundary_points_converted2, Some(linked_boundary_points));
+        let boundary2 = Polyline::new(boundary_points_converted, Some(linked_boundary_points));
 
-        let number_simulation_boundary_points = simulation_boundary_points_converted2.clone().len() as u32;
+        let number_simulation_boundary_points = simulation_boundary_points_converted.clone().len() as u32;
         let mut linked_simulation_boundary_points = (0..number_simulation_boundary_points).zip(1..number_simulation_boundary_points).map(|(x, y)| [x, y]).collect::<Vec<[u32; 2]>>();
         linked_simulation_boundary_points.push([number_simulation_boundary_points - 1, 0]);
-        let simulation_boundary2 = Polyline::new(simulation_boundary_points_converted2, Some(linked_simulation_boundary_points));
+        let simulation_boundary2 = Polyline::new(simulation_boundary_points_converted, Some(linked_simulation_boundary_points));
 
         ParryMesh2D {
             trimesh,

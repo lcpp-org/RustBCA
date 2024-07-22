@@ -4,10 +4,8 @@ use super::*;
 use float_cmp::*;
 
 use parry2d_f64::shape::Polyline;
-use parry2d_f64::query::{PointQuery, PointProjection, Ray, RayCast};
-use parry2d_f64::math::{Isometry};
+use parry2d_f64::math::Isometry;
 use parry2d_f64::math::Point as Point2d;
-use parry2d_f64::bounding_volume::aabb;
 
 /*
         let number_boundary_points = boundary_points_converted.clone().len() as u32;
@@ -21,7 +19,7 @@ fn test_parry2d() {
     let points: Vec<Point2d<f64>> = vec![Point2d::new(-1.0, -1.0), Point2d::new(-1.0, 1.0), Point2d::new(1.0, 1.0), Point2d::new(1.0, -1.0)];
     //let mut indices: Vec<[u32; 2]> = vec![];
     //let mut indices: Vec<[u32; 2]> = vec![[0, 1], [1, 2], [2, 3], [3, 0]];
-    let mut indices: Vec<[u32; 2]> = vec![[0, 3], [3, 2], [2, 1], [1, 0]];
+    let indices: Vec<[u32; 2]> = vec![[0, 3], [3, 2], [2, 1], [1, 0]];
     //indices.reverse();
 
     //(0.0000006261797114005236, 0.000006009591179670447)
@@ -80,14 +78,14 @@ fn test_parry2d() {
     let normals_outside = query_points_outside
         .iter()
         .map( |query_point| {
-            (material_homogeneous_2D.geometry.nearest_normal_vector(query_point[0], query_point[1], query_point[2]))
+            material_homogeneous_2D.geometry.nearest_normal_vector(query_point[0], query_point[1], query_point[2])
         }
     ).collect::<Vec<(f64, f64, f64)>>();
 
     let normals_inside = query_points_inside
     .iter()
     .map( |query_point| {
-        (material_homogeneous_2D.geometry.nearest_normal_vector(query_point[0], query_point[1], query_point[2]))
+        material_homogeneous_2D.geometry.nearest_normal_vector(query_point[0], query_point[1], query_point[2])
     }
     ).collect::<Vec<(f64, f64, f64)>>();
 
