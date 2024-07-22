@@ -58,7 +58,7 @@ pub use crate::consts::*;
 pub use crate::structs::*;
 pub use crate::input::{Input2D, InputHomogeneous2D, Input1D, Input0D, Options, InputFile, GeometryInput};
 pub use crate::output::{OutputUnits};
-pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D, ParryMesh2D, HomogeneousMesh2D, ParryHomogeneousMesh2D};
+pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, ParryMesh2D, ParryHomogeneousMesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
 pub use crate::physics::{physics_loop};
 
@@ -84,7 +84,7 @@ fn main() {
             "HOMOGENEOUS2D" => GeometryType::HOMOGENEOUS2D,
             _ => panic!("Unimplemented geometry {}.", args[1].clone())
         }),
-        _ => panic!("Too many command line arguments. RustBCA accepts 0 (use 'input.toml') 1 (<input file name>) or 2 (<geometry type> <input file name>)"),
+        _ => panic!("Too many command line arguments. RustBCA accepts 0 (defaulting to 'input.toml' and 2D mesh), 1 (<input file name> defaulting to 2D mesh), or 2 (<geometry type> <input file name>)"),
     };
 
      match geometry_type {

@@ -3,10 +3,6 @@ use super::*;
 #[cfg(test)]
 use float_cmp::*;
 
-use geo::algorithm::contains::Contains;
-use geo::{Polygon, LineString, Point, point, Closest};
-use geo::algorithm::closest_point::ClosestPoint;
-
 use parry2d_f64::shape::Polyline;
 use parry2d_f64::query::{PointQuery, PointProjection, Ray, RayCast};
 use parry2d_f64::math::{Isometry};
@@ -675,7 +671,7 @@ fn test_geometry() {
     };
 
     let material_2D: material::Material<geometry::ParryMesh2D> = material::Material::<geometry::ParryMesh2D>::new(&material_parameters, &geometry_input_2D);
-    let material_homogeneous_2D: material::Material<geometry::HomogeneousMesh2D> = material::Material::<geometry::HomogeneousMesh2D>::new(&material_parameters, &geometry_input_homogeneous_2D);
+    let material_homogeneous_2D: material::Material<geometry::ParryHomogeneousMesh2D> = material::Material::<geometry::ParryHomogeneousMesh2D>::new(&material_parameters, &geometry_input_homogeneous_2D);
     let material_1D: material::Material<geometry::Mesh1D> = material::Material::<geometry::Mesh1D>::new(&material_parameters, &geometry_input_1D);
     let mut material_0D: material::Material<geometry::Mesh0D> = material::Material::<geometry::Mesh0D>::new(&material_parameters, &geometry_input_0D);
     material_0D.geometry.energy_barrier_thickness = 10.*ANGSTROM;
@@ -844,6 +840,8 @@ fn test_surface_binding_energy_barrier() {
     assert!(material_0D.inside_energy_barrier(1015.*ANGSTROM, 0., 0.));
 }
 
+//Deprecated with geo
+/*
 #[test]
 fn test_triangle_contains() {
     let triangle_1 = geometry::Triangle2D::new((0., 2., 0., 2., 0., 0.));
@@ -867,6 +865,7 @@ fn test_triangle_distance_to() {
     assert!(approx_eq!(f64, triangle_1.distance_to(2., 0.), 0., epsilon=1E-12), "{}", triangle_1.distance_to(2., 0.));
     assert!(approx_eq!(f64, triangle_1.distance_to(0., 2.), 0., epsilon=1E-12), "{}", triangle_1.distance_to(0., 2.));
 }
+*/
 
 #[test]
 fn test_surface_refraction() {
