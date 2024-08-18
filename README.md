@@ -30,6 +30,7 @@ Selected citations of RustBCA as of 5/24/23:
 * [Global sensitivity analysis of a coupled multiphysics model to predict surface evolution in fusion plasma–surface interactions](https://doi.org/10.1016/j.commatsci.2023.112229), P. Robbe et al. (2023)
 * [Modeling the effect of nitrogen recycling on the erosion and leakage of tungsten impurities from the SAS-VW divertor in DIII-D during nitrogen gas injection](https://doi.org/10.1016/j.nme.2022.101254), MS Parsons et al. (2023)
 * [Enabling attractive-repulsive potentials in binary-collision-approximation monte-carlo codes for ion-surface interactions](https://doi.org/10.1088/2053-1591/ad1262), J Drobny and D Curreli (2023)
+* [Multi-physics modeling of tungsten collector probe samples during the WEST C4 He campaign](https://doi.org.10.1088/1741-4326/ad6c5b), A. Lasa et al. (2024)
 
 ## Getting started
 
