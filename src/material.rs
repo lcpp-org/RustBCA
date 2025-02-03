@@ -300,7 +300,7 @@ impl <T: Geometry> Material<T> {
 
             let stopping_power = match electronic_stopping_mode {
                 //Biersack-Varelas Interpolation
-                ElectronicStoppingMode::INTERPOLATED => 1./(1./S_high + 1./S_low*ck),
+                ElectronicStoppingMode::INTERPOLATED => ck/(1./S_high + 1./S_low),
                 //Oen-Robinson
                 ElectronicStoppingMode::LOW_ENERGY_LOCAL => S_low*ck,
                 //Lindhard-Scharff
@@ -339,14 +339,28 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
     let leaving = !inside_now & inside_old;
     let entering = inside_now & !inside_old;
 
+    assert!(!x.is_nan(), "Particle x is NaN before surface binding energy calculation.");
+    assert!(!y.is_nan(), "Particle y is NaN before surface binding energy calculation.");
+    assert!(!z.is_nan(), "Particle z is NaN before surface binding energy calculation.");
+
+    assert!(!cosx.is_nan(), "Particle dirx is NaN before surface binding energy calculation.");
+    assert!(!cosy.is_nan(), "Particle diry is NaN before surface binding energy calculation.");
+    assert!(!cosz.is_nan(), "Particle dirz is NaN before surface binding energy calculation.");
+
     if entering {
         if particle_1.backreflected {
             particle_1.backreflected = false;
         } else {
-            let (x2, y2, z2) = material.closest_point(x, y, z);
-            let dx = x2 - x;
-            let dy = y2 - y;
-            let dz = z2 - z;
+            let (x2, y2, z2) = material.closest_point(x_old, y_old, z_old);
+            assert!(!x2.is_nan(), "Closest x is NaN in normal calculation.");
+            assert!(!y2.is_nan(), "Closest y is NaN in normal calculation.");
+            assert!(!z2.is_nan(), "Closest z is NaN in normal calculation.");
+            let dx = x2 - x_old;
+            let dy = y2 - y_old;
+            let dz = z2 - z_old;
+            assert!(!dx.is_nan(), "dx is NaN in normal calculation.");
+            assert!(!dy.is_nan(), "dy is NaN in normal calculation.");
+            assert!(!dz.is_nan(), "dz is NaN in normal calculation.");
             let mag = (dx*dx + dy*dy + dz*dz).sqrt();
             let costheta = dx*cosx/mag + dy*cosy/mag + dz*cosz/mag;
 
@@ -360,10 +374,17 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
     if leaving {
 
         let (x2, y2, z2) = material.closest_point(x, y, z);
+        assert!(!x2.is_nan(), "Closest x is NaN in normal calculation.");
+        assert!(!y2.is_nan(), "Closest y is NaN in normal calculation.");
+        assert!(!z2.is_nan(), "Closest z is NaN in normal calculation.");
         let dx = x2 - x;
         let dy = y2 - y;
         let dz = z2 - z;
+        assert!(!dx.is_nan(), "dx is NaN in normal calculation.");
+        assert!(!dy.is_nan(), "dy is NaN in normal calculation.");
+        assert!(!dz.is_nan(), "dz is NaN in normal calculation.");
         let mag = (dx*dx + dy*dy + dz*dz).sqrt();
+
         let costheta = dx*cosx/mag + dy*cosy/mag + dz*cosz/mag;
 
         let leaving_energy = match material.surface_binding_model {
@@ -414,4 +435,6 @@ pub fn boundary_condition_planar<T: Geometry>(particle_1: &mut particle::Particl
     if !particle_1.stopped & !particle_1.left {
         surface_binding_energy(particle_1, material);
     }
+
+    assert!(!particle_1.pos.x.is_nan(), "Particle position is NaN: ({}, {}, {}) old: ({}, {}, {}), left? {} stopped? {}", x, y, z, particle_1.pos_old.x, particle_1.pos_old.y, particle_1.pos_old.z, particle_1.left, particle_1.stopped);
 }
