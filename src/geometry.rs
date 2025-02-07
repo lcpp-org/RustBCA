@@ -70,6 +70,7 @@ impl Geometry for Mesh0D {
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
 
         let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
+        assert!(densities.len() > 0, "Input Error: density list empty.");
 
         let total_density: f64 = densities.iter().sum();
 
@@ -143,6 +144,7 @@ impl Geometry for Mesh1D {
 
         let layer_thicknesses = geometry_input.layer_thicknesses.clone();
         let electronic_stopping_correction_factors = geometry_input.electronic_stopping_correction_factors.clone();
+        assert!(electronic_stopping_correction_factors.len() > 0, "Input Error: Electronic stopping correction factor list empty.");
         let n = layer_thicknesses.len();
 
         let mut layers: Vec<Layer1D> =  Vec::with_capacity(n);
@@ -819,7 +821,7 @@ impl Geometry for Mesh2D {
 
         let simulation_boundary_points = geometry_input.simulation_boundary_points.clone();
         let electronic_stopping_correction_factors = geometry_input.electronic_stopping_correction_factors.clone();
-
+        assert!(electronic_stopping_correction_factors.len() > 0, "Input Error: Electronic stopping correction factor list empty.");
         let n = triangles.len();
 
         let mut cells: Vec<Cell2D> =  Vec::with_capacity(n);

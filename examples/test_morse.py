@@ -180,8 +180,8 @@ R_N_2 = np.zeros(num_energies)
 R_E_2 = np.zeros(num_energies)
 
 for index, energy in enumerate(energies):
-    R_N[index], R_E[index] = run_krc_morse_potential(energy, index, num_samples=num_samples, run_sim=False)
-    R_N_2[index], R_E_2[index] = run_morse_potential(energy, index, num_samples=num_samples, run_sim=False)
+    R_N[index], R_E[index] = run_krc_morse_potential(energy, index, num_samples=num_samples, run_sim=True)
+    R_N_2[index], R_E_2[index] = run_morse_potential(energy, index, num_samples=num_samples, run_sim=True)
 
 plt.semilogx(energies, R_N, label='R_N Morse-Kr-C H-Ni, Es=1.5eV', color='purple')
 plt.semilogx(energies, R_N_2, label='R_N Morse H-Ni, Es=1.5eV', color='green')
