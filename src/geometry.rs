@@ -768,7 +768,7 @@ impl Geometry for ParryMesh2D {
         let simulation_boundary2 = Polyline::new(simulation_boundary_points_converted, Some(linked_simulation_boundary_points));
 
         ParryMesh2D {
-            trimesh.expect(""),
+            trimesh,
             densities,
             simulation_boundary: simulation_boundary2,
             boundary: boundary2,
