@@ -65,7 +65,7 @@ pub struct ParticleInput {
 }
 
 /// Particle object. Particles in rustbca include incident ions and material atoms.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Particle {
     pub m: f64,
     pub Z: f64,
@@ -271,6 +271,9 @@ impl Particle {
         //In order to keep average denisty constant, must add back previous asymptotic deflection
         let distance_traveled = mfp + self.asymptotic_deflection - asymptotic_deflection;
 
+        assert!(!distance_traveled.is_nan(), "Travel distance is NaN, mfp: {}, asymp. defl: {}, old asymp. defl: {}", mfp, self.asymptotic_deflection, asymptotic_deflection);
+        assert!(!self.dir_old.x.is_nan(), "Particle direction is NaN, dir: ({}, {}, {})", self.dir_old.x, self.dir_old.y, self.dir_old.z);
+
         //dir has been updated, so use previous direction to advance in space
         self.pos.x += self.dir_old.x*distance_traveled;
         self.pos.y += self.dir_old.y*distance_traveled;
@@ -294,10 +297,20 @@ pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
     let u1x = (E/(E + Es)).sqrt()*particle.dir.x + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.x;
     let u1y = (E/(E + Es)).sqrt()*particle.dir.y + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.y;
     let u1z = (E/(E + Es)).sqrt()*particle.dir.z + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.z;
+
+    particle.E += Es;
+
+    if u1x.is_nan() {
+        println!("normal: ({}, {}, {})", normal.x, normal.y, normal.z);
+        dbg!(&particle);
+
+    }
+
     particle.dir.x = u1x;
     particle.dir.y = u1y;
     particle.dir.z = u1z;
-    particle.E += Es;
+
+    assert!(!u1x.is_nan(), "Particle direction after surface refraction is NaN. dir: ({}, {}, {}), old dir: ({}, {}, {}), normal: ({}, {}, {}), costheta: {}", u1x, u1y, u1z, particle.dir_old.x, particle.dir_old.y, particle.dir_old.z, normal.x, normal.y, normal.z, costheta);
 }
 
 /// Calcualte the refraction angle based on the surface binding energy of the material.
