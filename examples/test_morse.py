@@ -4,14 +4,62 @@ import matplotlib.pyplot as plt
 import sys
 import os
 #This should allow the script to find materials and formulas from anywhere
-sys.path.append(os.path.dirname(__file__)+'/../scripts')
-sys.path.append('scripts')
+sys.path.append(os.path.dirname(__file__)+'../../scripts')
+sys.path.append('../../scripts')
 from materials import *
 from formulas import *
+
+def four_eight(r, alpha, beta):
+    return -alpha/r**4 + beta/r**8
+
+def sigmoid(x, k, x0):
+    return 1./(1. + np.exp(-k*(x - x0)))
+
+def lennard_jones_12_6(r, sigma, epsilon):
+    return 4.*epsilon*((sigma/r)**12 - (sigma/r)**6)
+
+def morse(r, D, alpha, r0):
+    return D*(np.exp(-2.*alpha*(r - r0)) - 2*np.exp(-alpha*(r - r0)))
+
+def morse_krc(r, D, alpha, Za, Zb, r0, k, x0):
+    return sigmoid(r, k, x0)*morse(r, D, alpha, r0) + sigmoid(r, -k, x0)*krc(r/ANGSTROM, Za, Zb)*EV
+
+def krc(r, Za, Zb):
+    a = 0.885*A0*(np.sqrt(Za) + np.sqrt(Zb))**(-2./3.)
+    x = r/a*ANGSTROM
+    return Za*Zb*Q**2/4./PI/EPS0/(r*ANGSTROM)*(0.19*np.exp(-0.28*x) + 0.47*np.exp(-0.64*x) + 0.34*np.exp(-1.9*x))/EV
 
 #Corrections to hydrogen to enable low-E simualtions and to match literature Es for H on Ni
 hydrogen['Ec'] = 0.1
 hydrogen['Es'] = 1.5
+
+D=5.4971E-20
+r0=2.782E-10
+alpha=1.4198E10
+k=7E10
+x0=0.75E-10
+offset_eV = 1
+lw = 3
+Za = 1
+Zb = nickel["Z"]
+EV = 1.602E-19
+r = np.logspace(-2, np.log(5.0)/np.log(10), 1000)
+plt.figure()
+color_krc = plt.plot(r, krc(r, Za, Zb) + offset_eV, label='Kr-C', linewidth=lw)[0].get_color()
+color_morse = plt.plot(r, morse(r*ANGSTROM, D, alpha, r0)/EV + offset_eV, label='Morse', linewidth=lw)[0].get_color()
+color_krc_morse = plt.plot(r, morse_krc(r*ANGSTROM, D, alpha, Za, Zb, r0, k, x0)/EV + offset_eV, label='Kr-C-Morse', linestyle='--', linewidth=lw/2)[0].get_color()
+plt.gca().set_yscale('log')
+plt.gca().set_ylim([0.25, 2000])
+plt.gca().set_xlim([r[0], r[-1]])
+plt.gca().set_xscale('log')
+plt.gca().set_xlim([0.1, 5])
+plt.plot(r, offset_eV + np.zeros(len(r)), color='black', alpha=0.5)
+plt.yticks([offset_eV, 10 + offset_eV, 100 + offset_eV, 1000 + offset_eV], [0, 10, 100, 1000])
+plt.title('Interaction potentials for H-Ni')
+plt.xlabel('r [A]')
+plt.ylabel('E [eV]')
+plt.legend()
+plt.savefig('interaction_potentials_h_ni.png')
 
 #This function simply contains an entire input file as a multi-line f-string to modify some inputs.
 def run_morse_potential(energy, index, num_samples=10000, run_sim=True):
@@ -159,20 +207,44 @@ data = np.array(
     [6890.884, 0.0990099]]
 )
 
+data_srim = np.array([
+    [0.1, 0.0],
+    [1, 0.0],
+    [1.5, 1929/11844],
+    [2, 4414/12894],
+    [5, 13240./32030],
+    [10, 19977./50006],
+    [50, 6173/19054],
+    [100, 10196./35964],
+    [500, 3350/17192],
+    [1000, 4525./29840],
+    [5000, 820/16460],
+    [10000, 566./24196],
+    [50000, 53/17150.],
+    [100000, 29./23084],
+])
+
+plt.figure()
+
 #Plotting the EAM data points.
 energies = data[:6, 0]
 r_benchmark = data[:6, 1]
-plt.semilogx(energies, r_benchmark, marker='o', linestyle='', label='EAM')
+color = plt.semilogx(energies, r_benchmark, marker='o', linestyle='', label='Molecular Dynamics', color='black')[0].get_color()
+plt.errorbar(energies, r_benchmark, yerr=0.1, color=color, linestyle='', capsize=2)
 
 #Plotting the experimental data points.
 energies = data[6:, 0]
 r_benchmark = data[6:, 1]
-plt.semilogx(energies, r_benchmark, marker='^', linestyle='', label='Exp.')
+plt.semilogx(energies, r_benchmark, marker='^', linestyle='', label='Experiment', color=color, markersize=7)
+
+#energies = data_srim[:, 0]
+##r_srim = data_srim[:, 1]
+#plt.semilogx(energies, r_srim, linestyle='--', label='SRIM')
 
 #Running and plotting the H-Ni simulations with the Morse potential and updated Es
-num_energies = 15
+num_energies = 50
 energies = np.logspace(-1, 4, num_energies)
-run_sim = True
+run_sim = False
 num_samples = 10000
 R_N = np.zeros(num_energies)
 R_E = np.zeros(num_energies)
@@ -180,25 +252,27 @@ R_N_2 = np.zeros(num_energies)
 R_E_2 = np.zeros(num_energies)
 
 for index, energy in enumerate(energies):
-    R_N[index], R_E[index] = run_krc_morse_potential(energy, index, num_samples=num_samples, run_sim=True)
-    R_N_2[index], R_E_2[index] = run_morse_potential(energy, index, num_samples=num_samples, run_sim=True)
+    R_N[index], R_E[index] = run_krc_morse_potential(energy, index, num_samples=num_samples, run_sim=run_sim)
+    R_N_2[index], R_E_2[index] = run_morse_potential(energy, index, num_samples=num_samples, run_sim=run_sim)
 
-plt.semilogx(energies, R_N, label='R_N Morse-Kr-C H-Ni, Es=1.5eV', color='purple')
-plt.semilogx(energies, R_N_2, label='R_N Morse H-Ni, Es=1.5eV', color='green')
+plt.semilogx(energies, R_N, label='Morse-Kr-C Potential', color=color_krc_morse, linestyle='--')
+plt.semilogx(energies, R_N_2, label='Morse Potential', color=color_morse)
 
 #Plotting RustBCA data points, using the ergonomic helper function reflection_coefficient().
 energies = np.logspace(-1, 4, 50)
 r_rustbca = np.array([reflection_coefficient(hydrogen, nickel, energy, 0.0, 10000) for energy in energies])
 r_n = r_rustbca[:, 0]
 r_e = r_rustbca[:, 1]
-plt.semilogx(energies, r_n, label='R_N, Default Settings', color='black')
+plt.semilogx(energies, r_n, label='Kr-C Potential', color=color_krc)
 
 r_thomas = [thomas_reflection(hydrogen, nickel, energy) for energy in energies]
-plt.semilogx(energies, r_thomas, label='Thomas', color='red', linestyle='--')
+plt.semilogx(energies, r_thomas, label='Thomas Empirical Formula', color='red', linestyle='--')
 
 plt.legend()
 plt.title('Reflection Coefficients H+ on Ni')
 plt.xlabel('E [eV]')
 plt.ylabel('R')
+plt.gca().set_xlim([0.1, 1e4])
+plt.gca().set_ylim([0.0, 1.2])
 plt.show()
 plt.savefig('Morse.png')
