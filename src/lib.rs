@@ -97,7 +97,11 @@ pub fn libRustBCA(py: Python, m: &PyModule) -> PyResult<()> {
     #[cfg(feature = "parry3d")]
     m.add_function(wrap_pyfunction!(rotate_given_surface_normal_py, m)?)?;
     #[cfg(feature = "parry3d")]
+    m.add_function(wrap_pyfunction!(rotate_given_surface_normal_vec_py, m)?)?;
+    #[cfg(feature = "parry3d")]
     m.add_function(wrap_pyfunction!(rotate_back_py, m)?)?;
+    #[cfg(feature = "parry3d")]
+    m.add_function(wrap_pyfunction!(rotate_back_vec_py, m)?)?;
     Ok(())
 }
 
@@ -1433,6 +1437,49 @@ pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f6
     (ux, uy, uz)
 }
 
+#[cfg(all(feature = "python", feature = "parry3d"))]
+#[pyfunction]
+/// rotate_given_surface_normal_vec_py(nx, ny, nz, ux, uy, uz)
+/// --
+///
+/// This function takes a particle direction and a normal vector and rotates from simulation to RustBCA coordinates.
+/// Args:
+///     nx (list(f64)): surface normal in global frame x-component.
+///     ny (list(f64)): surface normal in global frame y-component.
+///     nz (list(f64)): surface normal in global frame z-component.
+///     ux (list(f64)): particle direction in global frame x-component.
+///     uy (list(f64)): particle direction in global frame normal y-component.
+///     uz (list(f64)): particle direction in global frame normal z-component.
+/// Returns:
+///    direction (list(f64), list(f64), list(f64)): direction vector of particle in RustBCA coordinates.
+pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+
+    let length = nx.len();
+    println!("{}",  ny.len());
+    println!("{}",  nz.len());
+    println!("{}",  ux.len());
+    println!("{}",  uy.len());
+    println!("{}",  uz.len());
+
+
+    let mut ux_new = Vec::with_capacity(length);
+    let mut uy_new = Vec::with_capacity(length);
+    let mut uz_new = Vec::with_capacity(length);
+
+    (0..length).into_iter().for_each(|index| {
+        println!("{}", index);
+        let mut ux_ = ux[index];
+        let mut uy_ = uy[index];
+        let mut uz_ = uz[index];
+        rotate_given_surface_normal(nx[index], ny[index], nz[index], &mut ux_, &mut uy_, &mut uz_);
+        ux_new.push(ux_);
+        uy_new.push(uy_);
+        uz_new.push(uz_);
+    });
+
+    (ux_new, uy_new, uz_new)
+}
+
 #[cfg(feature = "parry3d")]
 #[no_mangle]
 pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
@@ -1486,6 +1533,49 @@ pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (
     let mut uz = uz;
     rotate_back(nx, ny, nz, &mut ux, &mut uy, &mut uz);
     (ux, uy, uz)
+}
+
+#[cfg(all(feature = "python", feature = "parry3d"))]
+#[pyfunction]
+/// rotate_given_surface_normal_vec_py(nx, ny, nz, ux, uy, uz)
+/// --
+///
+/// This function takes a particle direction and a normal vector and rotates from simulation to RustBCA coordinates.
+/// Args:
+///     nx (list(f64)): surface normal in global frame x-component.
+///     ny (list(f64)): surface normal in global frame y-component.
+///     nz (list(f64)): surface normal in global frame z-component.
+///     ux (list(f64)): particle direction in global frame x-component.
+///     uy (list(f64)): particle direction in global frame normal y-component.
+///     uz (list(f64)): particle direction in global frame normal z-component.
+/// Returns:
+///    direction (list(f64), list(f64), list(f64)): direction vector of particle in RustBCA coordinates.
+pub fn rotate_back_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+
+    let length = nx.len();
+    println!("{}",  ny.len());
+    println!("{}",  nz.len());
+    println!("{}",  ux.len());
+    println!("{}",  uy.len());
+    println!("{}",  uz.len());
+
+
+    let mut ux_new = Vec::with_capacity(length);
+    let mut uy_new = Vec::with_capacity(length);
+    let mut uz_new = Vec::with_capacity(length);
+
+    (0..length).into_iter().for_each(|index| {
+        println!("{}", index);
+        let mut ux_ = ux[index];
+        let mut uy_ = uy[index];
+        let mut uz_ = uz[index];
+        rotate_back(nx[index], ny[index], nz[index], &mut ux_, &mut uy_, &mut uz_);
+        ux_new.push(ux_);
+        uy_new.push(uy_);
+        uz_new.push(uz_);
+    });
+
+    (ux_new, uy_new, uz_new)
 }
 
 #[cfg(feature = "python")]
