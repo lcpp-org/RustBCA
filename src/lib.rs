@@ -1464,12 +1464,12 @@ pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f6
     let mut uz_new = Vec::with_capacity(length);
 
     (0..length).into_iter().for_each(|index| {
-        println!("{}", index);
+
         let mut ux_ = ux[index];
         let mut uy_ = uy[index];
         let mut uz_ = uz[index];
 
-        if nx[index]*ux_ + ny[index]*uy_ + nz[index]*uz_ > 0 {
+        if (nx[index]*ux_ + ny[index]*uy_ + nz[index]*uz_) <= 0. {
             rotate_given_surface_normal(nx[index], ny[index], nz[index], &mut ux_, &mut uy_, &mut uz_);
             ux_new.push(ux_);
             uy_new.push(uy_);
@@ -1564,7 +1564,7 @@ pub fn rotate_back_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>
     let mut uz_new = Vec::with_capacity(length);
 
     (0..length).into_iter().for_each(|index| {
-        println!("{}", index);
+
         let mut ux_ = ux[index];
         let mut uy_ = uy[index];
         let mut uz_ = uz[index];
