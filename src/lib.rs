@@ -1414,6 +1414,8 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     *uz /= mag;
 }
 
+
+
 #[cfg(all(feature = "python", feature = "parry3d"))]
 #[pyfunction]
 /// rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
@@ -1452,6 +1454,7 @@ pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f6
 ///     uz (list(f64)): particle direction in global frame normal z-component.
 /// Returns:
 ///    direction (list(f64), list(f64), list(f64)): direction vector of particle in RustBCA coordinates.
+///    Note: non-incident particles will be returned with ux, uy, uz = (0, 0, 0)
 pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
 
     let length = nx.len();
@@ -1465,10 +1468,18 @@ pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f6
         let mut ux_ = ux[index];
         let mut uy_ = uy[index];
         let mut uz_ = uz[index];
-        rotate_given_surface_normal(nx[index], ny[index], nz[index], &mut ux_, &mut uy_, &mut uz_);
-        ux_new.push(ux_);
-        uy_new.push(uy_);
-        uz_new.push(uz_);
+
+        if nx[index]*ux_ + ny[index]*uy_ + nz[index]*uz_ > 0 {
+            rotate_given_surface_normal(nx[index], ny[index], nz[index], &mut ux_, &mut uy_, &mut uz_);
+            ux_new.push(ux_);
+            uy_new.push(uy_);
+            uz_new.push(uz_);
+        } else {
+            ux_new.push(0.);
+            uy_new.push(0.);
+            uz_new.push(0.);
+        }
+
     });
 
     (ux_new, uy_new, uz_new)
