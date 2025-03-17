@@ -1469,16 +1469,10 @@ pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f6
         let mut uy_ = uy[index];
         let mut uz_ = uz[index];
 
-        if (nx[index]*ux_ + ny[index]*uy_ + nz[index]*uz_) <= 0. {
-            rotate_given_surface_normal(nx[index], ny[index], nz[index], &mut ux_, &mut uy_, &mut uz_);
-            ux_new.push(ux_);
-            uy_new.push(uy_);
-            uz_new.push(uz_);
-        } else {
-            ux_new.push(0.);
-            uy_new.push(0.);
-            uz_new.push(0.);
-        }
+        rotate_given_surface_normal(nx[index], ny[index], nz[index], &mut ux_, &mut uy_, &mut uz_);
+        ux_new.push(ux_);
+        uy_new.push(uy_);
+        uz_new.push(uz_);
 
     });
 
