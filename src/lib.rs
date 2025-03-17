@@ -1455,12 +1455,6 @@ pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f6
 pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
 
     let length = nx.len();
-    println!("{}",  ny.len());
-    println!("{}",  nz.len());
-    println!("{}",  ux.len());
-    println!("{}",  uy.len());
-    println!("{}",  uz.len());
-
 
     let mut ux_new = Vec::with_capacity(length);
     let mut uy_new = Vec::with_capacity(length);
@@ -1537,10 +1531,10 @@ pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (
 
 #[cfg(all(feature = "python", feature = "parry3d"))]
 #[pyfunction]
-/// rotate_given_surface_normal_vec_py(nx, ny, nz, ux, uy, uz)
+/// rotate_back_vec_py(nx, ny, nz, ux, uy, uz)
 /// --
 ///
-/// This function takes a particle direction and a normal vector and rotates from simulation to RustBCA coordinates.
+/// This function takes a RustBCA particle direction and a normal vector and rotates back from RustBCA to simulation coordinates.
 /// Args:
 ///     nx (list(f64)): surface normal in global frame x-component.
 ///     ny (list(f64)): surface normal in global frame y-component.
@@ -1549,16 +1543,10 @@ pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (
 ///     uy (list(f64)): particle direction in global frame normal y-component.
 ///     uz (list(f64)): particle direction in global frame normal z-component.
 /// Returns:
-///    direction (list(f64), list(f64), list(f64)): direction vector of particle in RustBCA coordinates.
+///    direction (list(f64), list(f64), list(f64)): direction vector of particle in simulation coordinates.
 pub fn rotate_back_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
 
     let length = nx.len();
-    println!("{}",  ny.len());
-    println!("{}",  nz.len());
-    println!("{}",  ux.len());
-    println!("{}",  uy.len());
-    println!("{}",  uz.len());
-
 
     let mut ux_new = Vec::with_capacity(length);
     let mut uy_new = Vec::with_capacity(length);
