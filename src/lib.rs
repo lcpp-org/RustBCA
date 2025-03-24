@@ -965,8 +965,8 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
     assert_eq!(Eb2.len(), num_species_target, "Input error: list of target bulk binding energies is not the same length as atomic numbers.");
     assert_eq!(n2.len(), num_species_target, "Input error: list of target number densities is not the same length as atomic numbers.");
 
-    let mut options = Options::default_options(true);
-    options.high_energy_free_flight_paths = true;
+    let options = Options::default_options(true);
+    //options.high_energy_free_flight_paths = true;
 
     let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
     let y = 0.0;
