@@ -35,6 +35,31 @@ def main():
     assert(abs(uy) < 1e-6)
     assert(abs(uz) < 1e-6)
 
+    #test vectorized rotation to and from RustBCA coordinates
+
+    num_rot_test = 1000000
+
+    #nx, ny, nz is the normal vector (out of surface)
+    nx = [-np.sqrt(2)/2]*num_rot_test
+    ny = [-np.sqrt(2)/2]*num_rot_test
+    nz = [0.0]*num_rot_test
+
+    #ux, uy, uz is the particle direction (simulation coordinates)
+    ux = [1.0]*num_rot_test
+    uy = [0.0]*num_rot_test
+    uz = [0.0]*num_rot_test
+
+    start = time.time()
+    ux, uy, uz = rotate_given_surface_normal_vec_py(nx, ny, nz, ux, uy, uz)
+    ux, uy, uz = rotate_back_vec_py(nx, ny, nz, ux, uy, uz)
+    stop = time.time()
+    print(f'Time to rotate: {(stop - start)/num_rot_test} sec/vector')
+
+    #After rotating and rotating back, effect should be where you started (minus fp error)
+    assert(abs(ux[0] - 1.0) < 1e-6)
+    assert(abs(uy[0]) < 1e-6)
+    assert(abs(uz[0]) < 1e-6)
+
     #scripts/materials.py has a number of potential ions and targets
     ion = helium
     ion['Eb'] = 0.0
