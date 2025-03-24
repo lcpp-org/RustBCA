@@ -965,7 +965,8 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
     assert_eq!(Eb2.len(), num_species_target, "Input error: list of target bulk binding energies is not the same length as atomic numbers.");
     assert_eq!(n2.len(), num_species_target, "Input error: list of target number densities is not the same length as atomic numbers.");
 
-    let options = Options::default_options(true);
+    let mut options = Options::default_options(true);
+    options.high_energy_free_flight_paths = true;
 
     let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
     let y = 0.0;
@@ -993,39 +994,41 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let mut index: usize = 0;
-    for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {
+    let mut finished_particles: Vec<particle::Particle> = Vec::new();
 
-        let mut energy_out;
+    let incident_particles: Vec<particle::Particle> = izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1)
+        .enumerate()
+        .map(|(index, (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_))| {
+            let mut p = particle::Particle::default_incident(
+                m1_,
+                Z1_,
+                energy,
+                Ec1_,
+                Es1_,
+                x,
+                ux_,
+                uy_,
+                uz_
+            );
+            p.tag = index as i32;
+            p
+        }).collect();
 
-        let mut p = particle::Particle::default_incident(
-            m1_,
-            Z1_,
-            energy,
-            Ec1_,
-            Es1_,
-            x,
-            ux_,
-            uy_,
-            uz_
+        finished_particles.par_extend(
+            incident_particles.into_par_iter()
+            .map(|particle| bca::single_ion_bca(particle, &m, &options))
+            .flatten()
         );
 
-        p.tag = index as i32;
-
-        let output = bca::single_ion_bca(p, &m, &options);
-
-        for particle in output {
-
-
+        for particle in finished_particles {
             if (particle.left) | (particle.incident) {
-
                 incident.push(particle.incident);
                 incident_index.push(particle.tag as usize);
-
+                let mut energy_out;
                 if particle.stopped {
-                    energy_out = 0.
+                    energy_out = 0.;
                 } else {
-                    energy_out = particle.E/EV
+                    energy_out = particle.E/EV;
                 }
                 total_output.push(
                     [
@@ -1039,11 +1042,10 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
                         particle.dir.y,
                         particle.dir.z,
                     ]
-                );
+                )
             }
         }
-        index += 1;
-    }
+
     (total_output, incident, incident_index)
 }
 
