@@ -12,6 +12,7 @@ import time
 
 def main():
 
+
     #test rotation to and from RustBCA coordinates
 
     #nx, ny, nz is the normal vector (out of surface)
@@ -153,7 +154,7 @@ def main():
     print('Data processing complete.')
     print(f'RustBCA Y: {len(sputtered[:, 0])/number_ions} Yamamura Y: {yamamura_yield}')
     print(f'RustBCA R: {len(reflected[:, 0])/number_ions} Thomas R: {thomas}')
-    print(f'Time per ion: {delta_time/number_ions*1e3} us/{ion["symbol"]}')
+    print(f'Time per ion: {delta_time/number_ions} s/{ion["symbol"]}')
 
     #Next up is the layered target version. I'll add a 50 Angstrom layer of W-H to the top of the target.
 
@@ -199,11 +200,10 @@ def main():
     plt.plot([50.0, 50.0], [0.0, np.max(heights)*1.1])
     plt.gca().set_ylim([0.0, np.max(heights)*1.1])
 
-    #For smooth distributions and good statistics, you should use at least 10k ions
-    number_ions = 100
+    number_ions = 1000
 
     #1 keV is above the He on W sputtering threshold of ~150 eV
-    energies_eV = 1000.0*np.ones(number_ions)
+    energies_eV = 500.0*np.ones(number_ions)
 
     #Working with angles of exactly 0 is problematic due to gimbal lock
     angle = 0.0001
@@ -226,7 +226,7 @@ def main():
     output, incident, incident_index = compound_bca_list_tracked_py(
         energies_eV, ux, uy, uz, Z1, m1, Ec1, Es1,
         [target['Z'], ion['Z']], [target['m'], ion['m']],
-        [target['Ec'], ion['Ec']], [target['Es'], ion['Es']], [target['n']/10**30, target['n']/10**30],
+        [energies_eV[0], ion['Ec']], [target['Es'], ion['Es']], [target['n']/10**30, target['n']/10**30],
         [target['Eb'], 0.0])
     stop = time.time()
     delta_time = stop - start
@@ -238,7 +238,7 @@ def main():
     plt.legend(['Incident', 'Indicies'])
 
     output = np.array(output)
-    print('Simulation complete. Processing data...')
+    print(f'Simulation complete. It cost {(stop - start)}')
 
     plt.show()
 
