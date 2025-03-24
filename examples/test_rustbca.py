@@ -170,13 +170,14 @@ def main():
 
     print(f'Running RustBCA for {number_ions} {ion["symbol"]} ions on {target["symbol"]} with hydrogenated layer at {energies_eV[0]/1000.} keV...')
     print(f'This may take several minutes.')
-    #Not the different argument order; when a breaking change is due, this will
+    #Note the different argument order; when a breaking change is due, this will
     #be back-ported to the other bindings as well for consistency.
     output, incident, stopped = compound_bca_list_1D_py(
         ux, uy, uz, energies_eV, [ion['Z']]*number_ions,
         [ion['m']]*number_ions, [ion['Ec']]*number_ions, [ion['Es']]*number_ions, [target['Z'], 1.0], [target['m'], 1.008],
         [target['Ec'], 1.0], [target['Es'], 1.5], [target['Eb'], 0.0], [[target['n']/10**30, target['n']/10**30], [target['n']/10**30, 0.0]], [50.0, 1e6]
     )
+
 
     output = np.array(output)
 
@@ -197,6 +198,47 @@ def main():
     heights, _, _ = plt.hist(x[np.logical_and(incident, stopped)], bins=100, density=True, histtype='step')
     plt.plot([50.0, 50.0], [0.0, np.max(heights)*1.1])
     plt.gca().set_ylim([0.0, np.max(heights)*1.1])
+
+    #For smooth distributions and good statistics, you should use at least 10k ions
+    number_ions = 100
+
+    #1 keV is above the He on W sputtering threshold of ~150 eV
+    energies_eV = 1000.0*np.ones(number_ions)
+
+    #Working with angles of exactly 0 is problematic due to gimbal lock
+    angle = 0.0001
+
+    #In RustBCA's 0D geometry, +x -> into the surface
+    ux = np.cos(angle*np.pi/180.)*np.ones(number_ions)
+    uy = np.sin(angle*np.pi/180.)*np.ones(number_ions)
+    uz = np.zeros(number_ions)
+
+    Z1 = np.array([ion['Z']]*number_ions)
+    m1 = np.array([ion['m']]*number_ions)
+    Ec1 = np.array([ion['Ec']]*number_ions)
+    Es1 = np.array([ion['Es']]*number_ions)
+
+    print(f'Running tracked RustBCA for {number_ions} {ion["symbol"]} ions on {target["symbol"]} at {energies_eV[0]/1000.} keV...')
+    print(f'This may take several minutes.')
+
+    start = time.time()
+    # Note that simple_bca_list_py expects number densities in 1/Angstrom^3
+    output, incident, incident_index = compound_bca_list_tracked_py(
+        energies_eV, ux, uy, uz, Z1, m1, Ec1, Es1,
+        [target['Z'], ion['Z']], [target['m'], ion['m']],
+        [target['Ec'], ion['Ec']], [target['Es'], ion['Es']], [target['n']/10**30, target['n']/10**30],
+        [target['Eb'], 0.0])
+    stop = time.time()
+    delta_time = stop - start
+
+    plt.figure()
+    plt.plot(incident_index)
+    plt.xlabel('Particle number')
+    plt.ylabel('Particle index')
+    plt.legend(['Incident', 'Indicies'])
+
+    output = np.array(output)
+    print('Simulation complete. Processing data...')
 
     plt.show()
 
