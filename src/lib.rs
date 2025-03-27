@@ -1689,7 +1689,7 @@ pub fn rotate_back_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>
         let mut uz_mut = uz_;
         rotate_back(nx_, ny_, nz_, &mut ux_mut, &mut uy_mut, &mut uz_mut);
 
-        (ux_, (uy_, uz_))
+        (ux_mut, (uy_mut, uz_mut))
     }).unzip();
 
     (ux_new, uy_new, uz_new)
