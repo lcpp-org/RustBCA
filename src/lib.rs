@@ -39,7 +39,7 @@ use std::slice;
 use std::sync::Mutex;
 
 //itertools
-use itertools::izip;
+use itertools::{izip};
 
 //Math
 use std::f64::consts::FRAC_2_SQRT_PI;
@@ -1682,22 +1682,15 @@ pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (
 ///    direction (list(f64), list(f64), list(f64)): direction vector of particle in simulation coordinates.
 pub fn rotate_back_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
 
-    let length = nx.len();
+    let (ux_new, (uy_new, uz_new)) = (nx, ny, nz, ux, uy, uz).into_par_iter().map(|(nx_, ny_, nz_, ux_, uy_, uz_)| {
 
-    let mut ux_new = Vec::with_capacity(length);
-    let mut uy_new = Vec::with_capacity(length);
-    let mut uz_new = Vec::with_capacity(length);
+        let mut ux_mut = ux_;
+        let mut uy_mut = uy_;
+        let mut uz_mut = uz_;
+        rotate_back(nx_, ny_, nz_, &mut ux_mut, &mut uy_mut, &mut uz_mut);
 
-    (0..length).into_iter().for_each(|index| {
-
-        let mut ux_ = ux[index];
-        let mut uy_ = uy[index];
-        let mut uz_ = uz[index];
-        rotate_back(nx[index], ny[index], nz[index], &mut ux_, &mut uy_, &mut uz_);
-        ux_new.push(ux_);
-        uy_new.push(uy_);
-        uz_new.push(uz_);
-    });
+        (ux_mut, (uy_mut, uz_mut))
+    }).unzip();
 
     (ux_new, uy_new, uz_new)
 }

@@ -20,7 +20,7 @@ rand_distr = "0.4.3"
 toml = "0.7.4"
 anyhow = "1.0.71"
 itertools = "0.10.5"
-rayon = "1.7.0"
+rayon = "1.10.0"
 geo = {version = "0.25", optional = false}
 indicatif = {version = "0.15.0", features=["rayon"]}
 serde = { version = "1.0.163", features = ["derive"] }
