@@ -1,3 +1,4 @@
+#Use with 2D geometry input only
 [options]
 name = "2000.0eV_0.0001deg_He_H_TiO2_Al_Si"
 track_trajectories = true

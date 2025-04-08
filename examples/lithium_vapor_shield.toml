@@ -1,3 +1,4 @@
+#Use with 1D geometry option only
 [options]
 name = "lithium_vapor_shield_"
 track_trajectories = true
