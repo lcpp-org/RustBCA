@@ -39,7 +39,7 @@ use std::slice;
 use std::sync::Mutex;
 
 //itertools
-use itertools::izip;
+use itertools::{izip};
 
 //Math
 use std::f64::consts::FRAC_2_SQRT_PI;
@@ -90,6 +90,7 @@ pub fn libRustBCA(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(simple_bca_py, m)?)?;
     m.add_function(wrap_pyfunction!(simple_bca_list_py, m)?)?;
     m.add_function(wrap_pyfunction!(compound_bca_list_py, m)?)?;
+    m.add_function(wrap_pyfunction!(compound_bca_list_tracked_py, m)?)?;
     m.add_function(wrap_pyfunction!(compound_bca_list_1D_py, m)?)?;
     m.add_function(wrap_pyfunction!(sputtering_yield, m)?)?;
     m.add_function(wrap_pyfunction!(reflection_coefficient, m)?)?;
@@ -98,7 +99,11 @@ pub fn libRustBCA(py: Python, m: &PyModule) -> PyResult<()> {
     #[cfg(feature = "parry3d")]
     m.add_function(wrap_pyfunction!(rotate_given_surface_normal_py, m)?)?;
     #[cfg(feature = "parry3d")]
+    m.add_function(wrap_pyfunction!(rotate_given_surface_normal_vec_py, m)?)?;
+    #[cfg(feature = "parry3d")]
     m.add_function(wrap_pyfunction!(rotate_back_py, m)?)?;
+    #[cfg(feature = "parry3d")]
+    m.add_function(wrap_pyfunction!(rotate_back_vec_py, m)?)?;
     Ok(())
 }
 
@@ -795,7 +800,7 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
 }
 
 #[cfg(feature = "python")]
-///compound_tagged_bca_list_py(ux, uy,  uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
+///compound_\\\\\\_bca_list_py(ux, uy,  uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
 /// Args:
 ///    energies (list(f64)): initial ion energies in eV.
@@ -913,6 +918,136 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
         index += 1;
     }
     (total_output, incident)
+}
+
+#[cfg(feature = "python")]
+///compound_bca_list_tracked_py(ux, uy,  uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
+/// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
+/// Args:
+///    energies (list(f64)): initial ion energies in eV.
+///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
+///    uy (list(f64)): initial ion directions y.
+///    uz (list(f64)): initial ion directions z.
+///    Z1 (list(f64)): initial ion atomic numbers.
+///    m1 (list(f64)): initial ion masses in amu.
+///    Ec1 (list(f64)): ion cutoff energies in eV. If ion energy < Ec1, it stops in the material.
+///    Es1 (list(f64)): ion surface binding energies. Assumed planar.
+///    Z2 (list(f64)): target material species atomic numbers.
+///    m2 (list(f64)): target material species masses in amu.
+///    Ec2 (list(f64)): target material species cutoff energies in eV. If recoil energy < Ec2, it stops in the material.
+///    Es2 (list(f64)): target species surface binding energies. Assumed planar.
+///    n2 (list(f64)): target material species atomic number densities in inverse cubic Angstroms.
+///    Eb2 (list(f64)): target material species bulk binding energies in eV.
+/// Returns:
+///    output (NX9 list of f64): each row in the list represents an output particle (implanted,
+///    sputtered, or reflected). Each row consists of:
+///      [Z, m (amu), E (eV), x, y, z, (angstrom), ux, uy, uz]
+///    incident (list(bool)): whether each row of output was an incident ion or originated in the target
+///    incident_index (list(usize)): index of incident particle that caused this particle to be emitted
+#[pyfunction]
+pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, Z1: Vec<f64>, m1: Vec<f64>, Ec1: Vec<f64>, Es1: Vec<f64>, Z2: Vec<f64>, m2: Vec<f64>, Ec2: Vec<f64>, Es2: Vec<f64>, n2: Vec<f64>, Eb2: Vec<f64>) -> (Vec<[f64; 9]>, Vec<bool>, Vec<usize>) {
+    let mut total_output = vec![];
+    let mut incident = vec![];
+    let mut incident_index = vec![];
+    let num_species_target = Z2.len();
+    let num_incident_ions = energies.len();
+
+    assert_eq!(ux.len(), num_incident_ions, "Input error: list of x-directions is not the same length as list of incident energies.");
+    assert_eq!(uy.len(), num_incident_ions, "Input error: list of y-directions is not the same length as list of incident energies.");
+    assert_eq!(uz.len(), num_incident_ions, "Input error: list of z-directions is not the same length as list of incident energies.");
+    assert_eq!(Z1.len(), num_incident_ions, "Input error: list of incident atomic numbers is not the same length as list of incident energies.");
+    assert_eq!(m1.len(), num_incident_ions, "Input error: list of incident atomic masses is not the same length as list of incident energies.");
+    assert_eq!(Es1.len(), num_incident_ions, "Input error: list of incident surface binding energies is not the same length as list of incident energies.");
+    assert_eq!(Ec1.len(), num_incident_ions, "Input error: list of incident cutoff energies is not the same length as list of incident energies.");
+
+    assert_eq!(m2.len(), num_species_target, "Input error: list of target atomic masses is not the same length as atomic numbers.");
+    assert_eq!(Ec2.len(), num_species_target, "Input error: list of target cutoff energies is not the same length as atomic numbers.");
+    assert_eq!(Es2.len(), num_species_target, "Input error: list of target surface binding energies is not the same length as atomic numbers.");
+    assert_eq!(Eb2.len(), num_species_target, "Input error: list of target bulk binding energies is not the same length as atomic numbers.");
+    assert_eq!(n2.len(), num_species_target, "Input error: list of target number densities is not the same length as atomic numbers.");
+
+    let options = Options::default_options(true);
+    //options.high_energy_free_flight_paths = true;
+
+    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let y = 0.0;
+    let z = 0.0;
+
+    let material_parameters = material::MaterialParameters {
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: Eb2,
+        Es: Es2,
+        Ec: Ec2,
+        Ed: vec![0.0; num_species_target],
+        Z: Z2,
+        m: m2,
+        interaction_index: vec![0; num_species_target],
+        surface_binding_model: SurfaceBindingModel::INDIVIDUAL,
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let geometry_input = geometry::Mesh0DInput {
+        length_unit: "ANGSTROM".to_string(),
+        densities: n2,
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
+
+    let mut finished_particles: Vec<particle::Particle> = Vec::new();
+
+    let incident_particles: Vec<particle::Particle> = izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1)
+        .enumerate()
+        .map(|(index, (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_))| {
+            let mut p = particle::Particle::default_incident(
+                m1_,
+                Z1_,
+                energy,
+                Ec1_,
+                Es1_,
+                x,
+                ux_,
+                uy_,
+                uz_
+            );
+            p.tag = index as i32;
+            p
+        }).collect();
+
+        finished_particles.par_extend(
+            incident_particles.into_par_iter()
+            .map(|particle| bca::single_ion_bca(particle, &m, &options))
+            .flatten()
+        );
+
+        for particle in finished_particles {
+            if (particle.left) | (particle.incident) {
+                incident.push(particle.incident);
+                incident_index.push(particle.tag as usize);
+                let mut energy_out;
+                if particle.stopped {
+                    energy_out = 0.;
+                } else {
+                    energy_out = particle.E/EV;
+                }
+                total_output.push(
+                    [
+                        particle.Z,
+                        particle.m/AMU,
+                        energy_out,
+                        particle.pos.x/ANGSTROM,
+                        particle.pos.y/ANGSTROM,
+                        particle.pos.z/ANGSTROM,
+                        particle.dir.x,
+                        particle.dir.y,
+                        particle.dir.z,
+                    ]
+                )
+            }
+        }
+
+    (total_output, incident, incident_index)
 }
 
 #[cfg(feature = "python")]
@@ -1411,6 +1546,8 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     *uz /= mag;
 }
 
+
+
 #[cfg(all(feature = "python", feature = "parry3d"))]
 #[pyfunction]
 /// rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
@@ -1432,6 +1569,46 @@ pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f6
     let mut uz = uz;
     rotate_given_surface_normal(nx, ny, nz, &mut ux, &mut uy, &mut uz);
     (ux, uy, uz)
+}
+
+#[cfg(all(feature = "python", feature = "parry3d"))]
+#[pyfunction]
+/// rotate_given_surface_normal_vec_py(nx, ny, nz, ux, uy, uz)
+/// --
+///
+/// This function takes a particle direction and a normal vector and rotates from simulation to RustBCA coordinates.
+/// Args:
+///     nx (list(f64)): surface normal in global frame x-component.
+///     ny (list(f64)): surface normal in global frame y-component.
+///     nz (list(f64)): surface normal in global frame z-component.
+///     ux (list(f64)): particle direction in global frame x-component.
+///     uy (list(f64)): particle direction in global frame normal y-component.
+///     uz (list(f64)): particle direction in global frame normal z-component.
+/// Returns:
+///    direction (list(f64), list(f64), list(f64)): direction vector of particle in RustBCA coordinates.
+///    Note: non-incident particles will be returned with ux, uy, uz = (0, 0, 0)
+pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+
+    let length = nx.len();
+
+    let mut ux_new = Vec::with_capacity(length);
+    let mut uy_new = Vec::with_capacity(length);
+    let mut uz_new = Vec::with_capacity(length);
+
+    (0..length).into_iter().for_each(|index| {
+
+        let mut ux_ = ux[index];
+        let mut uy_ = uy[index];
+        let mut uz_ = uz[index];
+
+        rotate_given_surface_normal(nx[index], ny[index], nz[index], &mut ux_, &mut uy_, &mut uz_);
+        ux_new.push(ux_);
+        uy_new.push(uy_);
+        uz_new.push(uz_);
+
+    });
+
+    (ux_new, uy_new, uz_new)
 }
 
 #[cfg(feature = "parry3d")]
@@ -1487,6 +1664,36 @@ pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (
     let mut uz = uz;
     rotate_back(nx, ny, nz, &mut ux, &mut uy, &mut uz);
     (ux, uy, uz)
+}
+
+#[cfg(all(feature = "python", feature = "parry3d"))]
+#[pyfunction]
+/// rotate_back_vec_py(nx, ny, nz, ux, uy, uz)
+/// --
+///
+/// This function takes a RustBCA particle direction and a normal vector and rotates back from RustBCA to simulation coordinates.
+/// Args:
+///     nx (list(f64)): surface normal in global frame x-component.
+///     ny (list(f64)): surface normal in global frame y-component.
+///     nz (list(f64)): surface normal in global frame z-component.
+///     ux (list(f64)): particle direction in global frame x-component.
+///     uy (list(f64)): particle direction in global frame normal y-component.
+///     uz (list(f64)): particle direction in global frame normal z-component.
+/// Returns:
+///    direction (list(f64), list(f64), list(f64)): direction vector of particle in simulation coordinates.
+pub fn rotate_back_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+
+    let (ux_new, (uy_new, uz_new)) = (nx, ny, nz, ux, uy, uz).into_par_iter().map(|(nx_, ny_, nz_, ux_, uy_, uz_)| {
+
+        let mut ux_mut = ux_;
+        let mut uy_mut = uy_;
+        let mut uz_mut = uz_;
+        rotate_back(nx_, ny_, nz_, &mut ux_mut, &mut uy_mut, &mut uz_mut);
+
+        (ux_mut, (uy_mut, uz_mut))
+    }).unzip();
+
+    (ux_new, uy_new, uz_new)
 }
 
 #[cfg(feature = "python")]
