@@ -799,7 +799,7 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
 }
 
 #[cfg(feature = "python")]
-///compound_tagged_bca_list_py(ux, uy,  uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
+///compound_\\\\\\_bca_list_py(ux, uy,  uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
 /// Args:
 ///    energies (list(f64)): initial ion energies in eV.
@@ -920,7 +920,7 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
 }
 
 #[cfg(feature = "python")]
-///compound_tagged_bca_list_py(ux, uy,  uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
+///compound_bca_list_tracked_py(ux, uy,  uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
 /// Args:
 ///    energies (list(f64)): initial ion energies in eV.
