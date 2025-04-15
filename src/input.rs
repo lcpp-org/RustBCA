@@ -172,11 +172,6 @@ fn one_u64() -> u64 {
     1
 }
 
-///This helper function is a workaround to issue #368 in serde
-fn three() -> usize {
-    3
-}
-
 fn zero_usize() -> usize{
     0
 }
