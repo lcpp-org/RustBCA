@@ -4,6 +4,8 @@ name = "boron_nitride_"
 weak_collision_order = 0
 num_threads = 4
 track_displacements = true
+track_trajectories = true
+track_recoil_trajectories = true
 
 [material_parameters]
 energy_unit = "EV"
@@ -19,7 +21,7 @@ m = [ 10.811, 14,]
 length_unit = "MICRON"
 energy_unit = "EV"
 mass_unit = "AMU"
-N = [ 10000 ]
+N = [ 100 ]
 m = [ 1.008 ]
 Z = [ 1 ]
 E = [ 1000.0 ]
