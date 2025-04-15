@@ -13,7 +13,7 @@ mass_unit = "AMU"
 Eb = [ 0.0, 0.0,]
 Es = [ 5.76, 0.0,]
 Ed = [25.0, 25.0]
-Ec = [ 1.0, 1.0,]
+Ec = [ 5.0, 5.0,]
 Z = [ 5, 7,]
 m = [ 10.811, 14,]
 
@@ -21,7 +21,7 @@ m = [ 10.811, 14,]
 length_unit = "MICRON"
 energy_unit = "EV"
 mass_unit = "AMU"
-N = [ 100 ]
+N = [ 10 ] # Number of computational ions low for plotting trajectories
 m = [ 1.008 ]
 Z = [ 1 ]
 E = [ 1000.0 ]
