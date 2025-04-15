@@ -60,12 +60,11 @@ For those eager to get started with the standalone code, try running one of the 
 the plots located on the [Wiki], these may require some optional
 [Python] packages (`matplotlib`, `numpy`, `scipy`, `shapely`, and `toml`).
 
-### H trajectories and collision cascades in a boron nitride dust grain
-
+### H trajectories and collision cascades in boron nitride
 First, run the example using:
 
 ```bash
-cargo run --release examples/boron_nitride.toml
+cargo run --release 0D examples/boron_nitride_0D.toml
 ```
 
 Afterwords, fire up your favourite [Python] interpreter
@@ -73,7 +72,7 @@ Afterwords, fire up your favourite [Python] interpreter
 
 ```python
 from scripts.rustbca import *
-do_trajectory_plot("boron_dust_grain_")
+do_trajectory_plot("boron_nitride_")
 ```
 
 ### He implantation into a layered TiO<sub>2</sub>/Al/Si target
