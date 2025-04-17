@@ -15,7 +15,7 @@ and displacement damage of the target. Generally, [BCA] codes can be
 valid for incident ion energies between approximately ~1 eV/nucleon 
 to <1 GeV/nucleon. Improvements to RustBCA have expanded the regime
 of validity for some quantities, such as reflection coefficients, below 
-1 eV/nucleon.
+1 eV/nucleon for some ion/target pairs.
 
 Check out the `RustBCA` [Wiki] for detailed information, installation
 instructions, use cases, examples, and more. See the RustBCA paper at the
@@ -35,6 +35,8 @@ Selected citations of RustBCA as of 5/24/23:
 ## Getting started
 
 The easiest way to get started is with the ergonomic Python functions.
+These functions use the default RustBCA options detailed on the [Input Files](https://github.com/lcpp-org/RustBCA/wiki/Standalone-Code:-Input-File) page, which are not universally applicable.
+These examples use example material parameters located in `scripts/materials.py` which should be verified before use.
 Follow these steps to install, build, and run simple RustBCA simulations
 for sputtering yields and reflection coefficients:
 ```
