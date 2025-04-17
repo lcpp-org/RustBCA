@@ -165,15 +165,14 @@ will add an executable at `target/release/`.
 
 #### Automatic Dependencies
 
-* see [Cargo.toml](https://github.com/lcpp-org/RustBCA/blob/master/Cargo.toml) for a complete list.
+* see [Cargo.toml](https://github.com/lcpp-org/RustBCA/blob/master/Cargo.toml) for a complete list of required and optional dependencies managed by `cargo`.
 
 #### Optional Dependencies
 
 * [HDF5] libraries
-* [rcpr], a CPR and polynomial rootfinder, required for using attractive-repulsive interaction potentials such as Lennard-Jones or Morse.
-* For manipulating input files and running associated scripts, the following are required:
+* For manipulating input files and running associated scripts, the following are suggested:
   * [Python] 3.6+
-  * The [Python] libraries: `numpy`, `matplotlib`, `toml` (must build from source), `shapely`, and `scipy`.
+  * [Python] libraries: `numpy`, `matplotlib`, `toml`, `shapely`, and `scipy`.
 
 ### Detailed instructions for Ubuntu 18.04 LTS
 
