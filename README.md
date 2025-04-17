@@ -44,15 +44,17 @@ python -m pip install .
 python
 Python 3.9.6 (tags/v3.9.6:db3ff76, Jun 28 2021, 15:26:21) [MSC v.1929 64 bit (AMD64)] on win32
 Type "help", "copyright", "credits" or "license" for more information.
->>> from libRustBCA import *; from scripts.materials import *
+>>> from libRustBCA import *; from scripts.materials import *; import numpy as np
 >>> angle = 0.0 # deg
 >>> energy = 1000.0 # eV
 >>> num_samples = 10000
->>> sputtering_yield(argon, tungsten, energy, angle, num_samples)
-1.0398
->>> reflection_coefficient(argon, tungsten, energy, angle, num_samples)
-(0.3294, 0.10230906775743769) # (reflection coefficient, energy reflection coefficient)
->>>
+>>> 1 < sputtering_yield(argon, tungsten, energy, angle, num_samples) < 1.1 # Y approx. 1.04
+True
+>>> R_N, R_E = reflection_coefficient(argon, tungsten, energy, angle, num_samples)
+>>> 0.3 < R_N < 0.4 # R_N approx. 0.35 
+True
+>>> 0.0 < R_E < 0.2 # R_E approx 0.1
+True
 ```
 
 For those eager to get started with the standalone code, try running one of the examples in the
@@ -63,8 +65,11 @@ the plots located on the [Wiki], these may require some optional
 ### H trajectories and collision cascades in boron nitride
 First, run the example using:
 
-```bash
-cargo run --release 0D examples/boron_nitride_0D.toml
+```shell
+$ cargo run --release 0D examples/boron_nitride_0D.toml 2>/dev/null  #suppress progress bar for automatic testing
+Processing 10 ions...
+Initializing with 4 threads...
+Finished!
 ```
 
 Afterwords, fire up your favourite [Python] interpreter
@@ -79,8 +84,11 @@ do_trajectory_plot("boron_nitride_")
 
 First, run the example using:
 
-```bash
-cargo run --release examples/layered_geometry.toml
+```shell
+$ cargo run --release examples/layered_geometry.toml 2>/dev/null #suppress progress bar for automatic testing
+Processing 10000 ions...
+Initializing with 4 threads...
+Finished!
 ```
 
 Afterwords, fire up your favourite [Python] interpreter
@@ -170,7 +178,7 @@ sudo apt-get install curl
 ```
 3. Install [rustup], the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/ by running the following command and following on-screen instructions:
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ```
 4. (Optional) Install `pip` for [Python]:
 ```bash
@@ -178,44 +186,30 @@ sudo apt-get install python3-pip
 ```
 5. (Optional) Install [Python] libraries for making input files:
 ```bash
-python3 -m pip install numpy matplotlib shapely scipy
+python3 -m pip install numpy matplotlib shapely scipy toml
 ```
-6. (Optional) Install [Python] [TOML] library from source:
-```bash
-git clone https://github.com/uiri/toml.git
-cd toml
-python3 setup.py install
-```
-7. (Optional) Install software for [rcpr]:
-```bash
-sudo apt-get install gcc gfortran build-essential cmake liblapack-dev libblas-dev liblapacke-dev
-```
-8. (Optional - should come with rustup) Install `cargo`:
+6. (Optional - should come with rustup) Install `cargo`:
 ```bash
 sudo apt-get install cargo
 ```
-9. Build `RustBCA`:
+7. Build `RustBCA`:
 ```bash
-git clone https://github.com/lcpp-org/rustBCA
+git clone https://github.com/lcpp-org/RustBCA
 cd RustBCA
 cargo build --release
 ```
-10. (Optional) Build `RustBCA` with optional dependencies, `hdf5` and/or `rcpr` (with your choice of backend: `openblas`, `netlib`, or `intel-mkl`):
+8. (Optional) Build `RustBCA` with optional dependencies, `hdf5` and/or `rcpr`:
 ```bash
-cargo build --release --features cpr_rootfinder_netlib,hdf5_input
-cargo build --release --features cpr_rootfinder_openblas,hdf5_input
-cargo build --release --features cpr_rootfinder_intel_mkl,hdf5_input
- ```
-11. `input.toml` is the input file - see [Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files) for more information
-12. Run the required tests using:
+cargo build --release --features cpr_rootfinder,hdf5
+```
+9. `input.toml` is the input file - see the [Input File](https://github.com/lcpp-org/RustBCA/wiki/Standalone-Code:-Input-File) page for more information
+10. Run the required tests using:
 ```bash
 cargo test
 ```
-13. (Optional) Run the required and optional tests for the desired backend(s):
+11. (Optional) Run the tests for the advanced rootfinder:
 ```bash
-cargo test --features cpr_rootfinder_netlib
-cargo test --features cpr_rootfinder_openblas
-cargo test --features cpr_rootfinder_intel_mkl
+cargo test --features cpr_rootfinder
 ```
 
 ### Detailed instructions for Fedora 33
@@ -237,12 +231,6 @@ sudo dnf install python3-numpy python3-scipy python3-matplotlib python3-toml pyt
 ```
 
 or, alternatively, using `pip3`.
-
-If desired, RustBCA can be built with [rcpr] to simulate attractive-repuslive interaction potentials; rcpr requires (at least) the following:
-
-```bash
-sudo dnf install gcc gcc-gfortran cmake lapack lapack-devel blas blas-devel
-```
 
 Building `RustBCA` is straightforward, and can be done using:
 

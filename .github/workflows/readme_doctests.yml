@@ -38,4 +38,4 @@ jobs:
         python3 -m pip install .
     - name: run byexample
       run: |
-        byexample -vvv -l python3 README.md
+        byexample -l python3,shell README.md -vvv --timeout 300 --no-enhance-diff -o '+norm-ws +rm=~ +term=dumb'
