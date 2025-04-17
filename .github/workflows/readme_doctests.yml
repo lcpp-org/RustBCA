@@ -1,4 +1,4 @@
-name: RustBCA Compile check
+name: README doctests
 
 on:
   push:
