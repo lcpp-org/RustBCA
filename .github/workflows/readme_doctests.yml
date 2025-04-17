@@ -30,11 +30,8 @@ jobs:
         sudo apt-get install python3-pip python3-dev
     - name: Install Python libraries
       run: |
-        python3 -m pip install numpy shapely scipy matplotlib toml
-    - name: Install HDF5 Libraries
-      run: |
-        sudo apt install libhdf5-dev
-    - name: test Python Bindings
+        python3 -m pip install numpy shapely scipy matplotlib toml byexample
+    - name: install Python Bindings
       run: |
         python3 -m pip install setuptools_rust testresources setuptools wheel
         python3 -m pip install --upgrade pip setuptools wheel
