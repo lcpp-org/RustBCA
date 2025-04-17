@@ -85,6 +85,15 @@ def main():
     print(f'Particle reflection coefficient for {ion["symbol"]} on {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
     print(f'Energy reflection coefficient for {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_E}')
 
+    S_N, R_N, R_E = compound_sputtering_reflection_coefficient(
+        ion, [target, ion], [target['n'], 0.1*target['n']], energy, angle, num_samples)
+    print(
+        f'Particle sputtering yield for {ion["symbol"]} on {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {S_N}. Yamamura  predicts {np.round(yamamura(ion, target, energy), 3)}.')
+    print(
+        f'Particle reflection coefficient for {ion["symbol"]} on {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
+    print(
+        f'Energy reflection coefficient for {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_E}')
+
     vx0 = 1e5
     vy0 = 1e5
     vz0 = 0.0
