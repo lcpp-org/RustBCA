@@ -149,7 +149,13 @@ The following features are implemented in `RustBCA`:
 ## Installation
 
 Without optional features, `RustBCA` should compile with `cargo` alone on
-Windows, MacOS, and Linux systems.
+Windows, MacOS, and Linux systems:
+
+```
+cargo build --release 
+```
+
+will add an executable at `target/release/`.
 
 [HDF5] for particle list input has been tested on Windows, but version 1.10.6 must be used.
 
