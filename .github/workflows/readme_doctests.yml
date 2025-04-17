@@ -38,4 +38,4 @@ jobs:
         python3 -m pip install .
     - name: run byexample
       run: |
-        byexample -l python3 -vvv
+        byexample -vvv -l python3 README.md
