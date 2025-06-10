@@ -1,4 +1,4 @@
-#Use with 0D geometry option only
+#Use with HOMOGENEOUS2D geometry option only
 [options]
 name = "boron_nitride_h_"
 weak_collision_order = 0
