@@ -1518,7 +1518,7 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     let c = into_surface.dot(&RUSTBCA_DIRECTION);
     let vx = Matrix3::<f64>::new(0.0, -v.z, v.y, v.z, 0.0, -v.x, -v.y, v.x, 0.0);
 
-    let rotation_matrix = if (c + 1.0).abs() > 1e-6 {
+    let rotation_matrix = if (c + 1.0).abs() > DELTA {
         Matrix3::identity() + vx + vx*vx/(1. + c)
     } else {
         //If c == -1.0, the correct rotation should simply be a 180 degree rotation
