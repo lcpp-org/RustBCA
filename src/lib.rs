@@ -1518,10 +1518,10 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     //let c = into_surface.dot(&RUSTBCA_DIRECTION);
     //let vx = Matrix3::<f64>::new(0.0, -v.z, v.y, v.z, 0.0, -v.x, -v.y, v.x, 0.0);
 
-    let s = ny*ny + nz*nz;
+    //let s = ny*ny + nz*nz;
 
-    let rotation_matrix = if nx > 0.0 {
-        Matrix3::<f64>::new(0.0, -ny, -nz, ny, nz*nz/s, -ny*nz/s, nz, -ny*nz/s, ny*ny/s)
+    let rotation_matrix = if (1.0 - nx).abs() > 0.0 {
+        Matrix3::<f64>::new(1. + (-ny*ny - nz*nz)/(1. - nx), -ny, -nz, ny, -ny*ny/(1. - nx) + 1., -ny*nz/(1. - nx), nz, -ny*nz/(1. - nx), -nz*nz/(1. - nx) + 1.)
     } else {
         //If c == -1.0, the correct rotation should simply be a 180 degree rotation
         //around a non-x axis; y is chosen arbitrarily
@@ -1529,13 +1529,6 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     };
 
     let incident = rotation_matrix*direction;
-
-    // ux must not be exactly 1.0 to avoid gimbal lock in RustBCA
-    // simple_bca does not normalize direction before proceeding, must be done manually
-    assert!(
-        incident.x > 0.0, "Error: RustBCA initial direction out of surface. Please check surface normals and incident direction. n = ({}, {}, {}) u = ({}, {}, {}), unew = ({}, {}, {})",
-        nx, ny, nz, ux, uy, uz, incident.x, incident.y, incident.z
-    );
 
     *ux = incident.x;
     *uy = incident.y;
@@ -1617,7 +1610,7 @@ pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f6
 pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
     let RUSTBCA_DIRECTION: Vector3::<f64> = Vector3::<f64>::new(1.0, 0.0, 0.0);
 
-    let into_surface = Vector3::new(-nx, -ny, -nz);
+    //let into_surface = Vector3::new(-nx, -ny, -nz);
     let direction = Vector3::new(*ux, *uy, *uz);
 
     //Rotation to local RustBCA coordinates from global
@@ -1625,12 +1618,8 @@ pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut 
     //into-the-surface vector (1.0, 0.0, 0.0) onto the local into-the-surface vector (negative normal w.r.t. ray origin).
     //That rotation is then applied to the particle direction, and can be undone later.
     //Algorithm is from here:
-    //https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/180436#180436
-    let v: Vector3<f64> = into_surface.cross(&RUSTBCA_DIRECTION);
-    let c = into_surface.dot(&RUSTBCA_DIRECTION);
-    let vx = Matrix3::<f64>::new(0.0, -v.z, v.y, v.z, 0.0, -v.x, -v.y, v.x, 0.0);
-    let rotation_matrix = if c != -1.0 {
-        Matrix3::identity() + vx + vx*vx/(1. + c)
+    let rotation_matrix = if (1.0 - nx).abs() > 0.0 {
+        Matrix3::<f64>::new(1. + (-ny*ny - nz*nz)/(1. - nx), -ny, -nz, ny, -ny*ny/(1. - nx) + 1., -ny*nz/(1. - nx), nz, -ny*nz/(1. - nx), -nz*nz/(1. - nx) + 1.)
     } else {
         //If c == -1.0, the correct rotation should simply be a 180 degree rotation
         //around a non-x axis; y is chosen arbitrarily
