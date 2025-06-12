@@ -1522,6 +1522,7 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 
     let rotation_matrix = if (1.0 - nx).abs() > 0.0 {
         Matrix3::<f64>::new(1. + (-ny*ny - nz*nz)/(1. - nx), -ny, -nz, ny, -ny*ny/(1. - nx) + 1., -ny*nz/(1. - nx), nz, -ny*nz/(1. - nx), -nz*nz/(1. - nx) + 1.)
+
     } else {
         //If c == -1.0, the correct rotation should simply be a 180 degree rotation
         //around a non-x axis; y is chosen arbitrarily
