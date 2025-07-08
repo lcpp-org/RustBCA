@@ -1958,7 +1958,7 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
         m: m2,
         interaction_index: vec![0; number_target_species],
         surface_binding_model: SurfaceBindingModel::AVERAGE,
-        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+        bulk_binding_model: BulkBindingModel::AVERAGE,//INDIVIDUAL,
     };
 
     let geometry_input = geometry::Mesh0DInput {
