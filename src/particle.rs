@@ -239,16 +239,20 @@ impl Particle {
         let cosx: f64 = self.dir.x;
         let cosy: f64 = self.dir.y;
         let cosz: f64 = self.dir.z;
-        let cphi: f64 = phi.cos();
-        let sphi: f64 = phi.sin();
+        let cphi: f64 = (phi + PI).cos();
+        let sphi: f64 = (phi + PI).sin();
         let sa = (1. - cosx*cosx).sqrt();
 
         //Particle direction update formulas from original TRIDYN paper, see Moeller and Eckstein 1988
         let cpsi: f64 = psi.cos();
         let spsi: f64 = psi.sin();
-        let cosx_new: f64 = cpsi*cosx + spsi*cphi*sa;
-        let cosy_new: f64 = cpsi*cosy - spsi/sa*(cphi*cosx*cosy - sphi*cosz);
-        let cosz_new: f64 = cpsi*cosz - spsi/sa*(cphi*cosx*cosz + sphi*cosy);
+        //let cosx_new: f64 = cpsi*cosx + spsi*cphi*sa;
+        //let cosy_new: f64 = cpsi*cosy - spsi/sa*(cphi*cosx*cosy - sphi*cosz);
+        //let cosz_new: f64 = cpsi*cosz - spsi/sa*(cphi*cosx*cosz + sphi*cosy);
+
+        let cosx_new = cpsi*cosx - spsi*(cosz*sphi + cosy*cphi);
+        let cosy_new = cpsi*cosy + spsi*((1. + cosx - cosy*cosy)*cphi - cosy*cosz*sphi)/(1. + cosx);
+        let cosz_new = cpsi*cosz + spsi*((1. + cosx - cosz*cosz)*sphi - cosy*cosz*cphi)/(1. + cosx);
 
         let dir_new = Vector {x: cosx_new, y: cosy_new, z: cosz_new};
 
