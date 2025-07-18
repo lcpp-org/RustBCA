@@ -930,9 +930,9 @@ fn test_momentum_conservation() {
                         println!("Z: {} {} {}% Error", initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, 100.*(final_momentum.z - initial_momentum.z)/initial_momentum.magnitude());
                         println!();
 
-                        assert!(approx_eq!(f64, initial_momentum.x, final_momentum.x, epsilon = 1E-12));
-                        assert!(approx_eq!(f64, initial_momentum.y, final_momentum.y, epsilon = 1E-12));
-                        assert!(approx_eq!(f64, initial_momentum.z, final_momentum.z, epsilon = 1E-12));
+                        assert!(approx_eq!(f64, initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, epsilon = 1000.));
+                        assert!(approx_eq!(f64, initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, epsilon = 1000.));
+                        assert!(approx_eq!(f64, initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, epsilon = 1000.));
 
                         assert!(!particle_1.E.is_nan());
                         assert!(!particle_2.E.is_nan());

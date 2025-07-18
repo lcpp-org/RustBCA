@@ -127,10 +127,13 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                     total_energy_lost_to_recoils += binary_collision_result.recoil_energy;
                     total_asymptotic_deflection += binary_collision_result.asymptotic_deflection;
 
+                    // Rotate each particle in the appropriate plane by psi/psi_r
                     particle_1.rotate(binary_collision_result.psi,
                         binary_collision_geometry.phi_azimuthal);
 
-                    //don't negate psi with updated recoil geometry
+                    // Since psi is absolute-valued in the previous calculation, note
+                    // That it is negated here to correctly rotate the recoil  in the correct
+                    // Direction (that is, away from the direction the incident atom is deflected)
                     particle_2.rotate(-binary_collision_result.psi_recoil,
                         binary_collision_geometry.phi_azimuthal);
 
