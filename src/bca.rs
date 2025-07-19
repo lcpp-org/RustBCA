@@ -131,9 +131,9 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                     particle_1.rotate(binary_collision_result.psi,
                         binary_collision_geometry.phi_azimuthal);
 
-                    // Since psi is absolute-valued in the previous calculation, note
-                    // That it is negated here to correctly rotate the recoil  in the correct
-                    // Direction (that is, away from the direction the incident atom is deflected)
+                    // Since psi and psi_r are absolute-valued in the BC calculation, note
+                    // that it is negated here to correctly rotate the recoil in the correct
+                    // direction (that is, away from the direction the incident atom is deflected)
                     particle_2.rotate(-binary_collision_result.psi_recoil,
                         binary_collision_geometry.phi_azimuthal);
 
