@@ -781,8 +781,8 @@ fn test_momentum_conservation() {
         //Arbitrary initial angle
         let theta = 0.974194583091052_f64;
         let cosx = (theta).cos();
-        let cosy = (theta).sin();
-        let cosz = 0.;
+        let cosy = (theta).sin()/(2.0_f64).sqrt();
+        let cosz = (theta).sin()/(2.0_f64).sqrt();
 
         let material_parameters = material::MaterialParameters{
             energy_unit: "EV".to_string(),

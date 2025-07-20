@@ -365,14 +365,24 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     let cosphi: f64 = phi_azimuthal.cos();
 
     //Find recoil location
-    /*
-    let x_recoil: f64 = x + mfp*cosx - impact_parameter*cosphi*sinx;
-    let y_recoil: f64 = y + mfp*cosy - impact_parameter*(sinphi*cosz - cosphi*cosy*cosx)/sinx;
-    let z_recoil: f64 = z + mfp*cosz + impact_parameter*(sinphi*cosy - cosphi*cosx*cosz)/sinx;
-    */
-    let x_recoil = x + mfp*cosx - impact_parameter*(cosz*sinphi + cosy*cosphi);
-    let y_recoil = y + mfp*cosy + impact_parameter*((1. + cosx - cosy*cosy)*cosphi - cosy*cosz*sinphi)/(1. + cosx);
-    let z_recoil = z + mfp*cosz + impact_parameter*((1. + cosx - cosz*cosz)*sinphi - cosy*cosz*cosphi)/(1. + cosx);
+
+    let x_recoil = if cosx > -1. {
+        x + mfp*cosx - impact_parameter*(cosz*sinphi + cosy*cosphi)
+    } else {
+        x + mfp*cosx - impact_parameter*((1. + cosz - cosx*cosx)*cosphi - cosx*cosy*sinphi)/(1. + cosz)
+    };
+
+    let y_recoil = if cosx > -1. {
+        y + mfp*cosy + impact_parameter*((1. + cosx - cosy*cosy)*cosphi - cosy*cosz*sinphi)/(1. + cosx)
+    } else {
+        y + mfp*cosy + impact_parameter*((1. + cosz - cosy*cosy)*sinphi - cosx*cosy*cosphi)/(1. + cosz)
+    };
+
+    let z_recoil = if cosx > -1. {
+        z + mfp*cosz + impact_parameter*((1. + cosx - cosz*cosz)*sinphi - cosy*cosz*cosphi)/(1. + cosx)
+    } else {
+        z + mfp*cosz + impact_parameter*(cosx*cosphi + cosy*sinphi)
+    };
 
     //Choose recoil Z, M
     let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, Ed_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil);

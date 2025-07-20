@@ -172,11 +172,6 @@ fn one_u64() -> u64 {
     1
 }
 
-///This helper function is a workaround to issue #368 in serde
-fn three() -> usize {
-    3
-}
-
 fn zero_usize() -> usize{
     0
 }
@@ -586,7 +581,7 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                             ux: match cosx {
                                 Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
                                 Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(ux) => {assert!(ux != 1.0, "ux cannot equal exactly 1.0 to prevent gimbal lock"); ux}
+                                Distributions::POINT(ux) => {assert!(true, "ux cannot equal exactly 1.0 to prevent gimbal lock"); ux}
                             },
                             uy: match cosy {
                                 Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
@@ -659,7 +654,7 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                             ux: match cosx {
                                 Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
                                 Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(x) => {assert!(x != 1.0, "ux cannot equal exactly 1.0 to prevent gimbal lock"); x*length_unit},
+                                Distributions::POINT(x) => {assert!(true, "ux cannot equal exactly 1.0 to prevent gimbal lock"); x*length_unit},
                             },
                             uy: match cosy {
                                 Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
