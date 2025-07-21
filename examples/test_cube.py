@@ -20,7 +20,7 @@ def run(energy, index, num_samples=10000, run_sim=True, a=1000, x0=0, y0=500, z0
     track_recoils = true
     track_recoil_trajectories = {str(track_trajectories).lower()}
     weak_collision_order = 0
-    num_threads = 4
+    num_threads = 5
     num_chunks = 5
 
     [material_parameters]
@@ -112,13 +112,13 @@ def run(energy, index, num_samples=10000, run_sim=True, a=1000, x0=0, y0=500, z0
 
 def main():
     do_plots = True
-    run_sim = False
+    run_sim = True
     track_trajectories = False
     a = 1000
-    num_samples = 100000
+    num_samples = 10000
     num_angles = 10
-    energy = 500
-    angles = np.linspace(0.01, 89.9, num_angles)
+    energy = 200
+    angles = np.linspace(0.0, 89.9, num_angles)
     
     sputtering_yields_x = np.zeros(num_angles)
     sputtering_yields_z = np.zeros(num_angles)
@@ -137,43 +137,44 @@ def main():
     R_z_minus = np.zeros(num_angles)
 
     sim_index = 0
+    impl_index = num_angles*3//4
+    bins = np.linspace(0, 500, 100)
     for angle_index, angle in enumerate(angles):
 
         R, Y, reflected, sputtered, implanted = run(energy, sim_index, num_samples, track_trajectories=track_trajectories, run_sim=run_sim, ux=np.cos(angle*np.pi/180.), uy=np.sin(angle*np.pi/180.)/np.sqrt(2), uz=np.sin(angle*np.pi/180.)/np.sqrt(2))
         sim_index += 1
         plt.figure(1)
-        if angle_index == 0: plt.hist(implanted[:, 2], histtype='step', bins=100, density=True, label='x')
-
+        if angle_index == impl_index: plt.hist(implanted[:, 2], histtype='step', bins=bins, density=False, label='x')
         sputtering_yields_x[angle_index] = Y
         R_x[angle_index] = R
 
         R, Y, reflected, sputtered, implanted = run(energy, sim_index, num_samples, track_trajectories=track_trajectories, run_sim=run_sim, x0=a, ux=-np.cos(angle*np.pi/180.), uy=np.sin(angle*np.pi/180.)/np.sqrt(2), uz=np.sin(angle*np.pi/180.)/np.sqrt(2))
         sim_index += 1
-        if angle_index == 0: plt.hist(a - implanted[:, 2], histtype='step', bins=100, density=True, label='-x')
+        if angle_index == impl_index: plt.hist(a - implanted[:, 2], histtype='step', bins=bins, density=False, label='-x')
         sputtering_yields_x_minus[angle_index] = Y
         R_x_minus[angle_index] = R
 
         R, Y, reflected, sputtered, implanted = run(energy, sim_index, num_samples, track_trajectories=track_trajectories, run_sim=run_sim, x0=a/2., y0=a/2., z0=a, ux=np.sin(angle*np.pi/180.)/np.sqrt(2), uy=np.sin(angle*np.pi/180.)/np.sqrt(2), uz=-np.cos(angle*np.pi/180.))
         sim_index += 1
-        if angle_index == 0: plt.hist(a - implanted[:, 4], histtype='step', bins=100, density=True, label='-z')
+        if angle_index == impl_index: plt.hist(a - implanted[:, 4], histtype='step', bins=bins, density=False, label='-z')
         sputtering_yields_z_minus[angle_index] = Y
         R_z_minus[angle_index] = R
 
         R, Y, reflected, sputtered, implanted = run(energy, sim_index, num_samples, track_trajectories=track_trajectories, run_sim=run_sim, x0=a/2., y0=a/2., z0=0.0, ux=np.sin(angle*np.pi/180.)/np.sqrt(2), uy=np.sin(angle*np.pi/180.)/np.sqrt(2), uz=np.cos(angle*np.pi/180.))
         sim_index += 1
-        if angle_index == 0: plt.hist(implanted[:, 4], histtype='step', bins=100, density=True, label='z')
+        if angle_index == impl_index: plt.hist(implanted[:, 4], histtype='step', bins=bins, density=False, label='z')
         sputtering_yields_z[angle_index] = Y
         R_z[angle_index] = R
 
         R, Y, reflected, sputtered, implanted = run(energy, sim_index, num_samples, track_trajectories=track_trajectories, run_sim=run_sim, x0=a/2., y0=0.0, z0=a/2., ux=np.sin(angle*np.pi/180.)/np.sqrt(2), uz=np.sin(angle*np.pi/180.)/np.sqrt(2), uy=np.cos(angle*np.pi/180.))
         sim_index += 1
-        if angle_index == 0: plt.hist(implanted[:, 3], histtype='step', bins=100, density=True, label='y')
+        if angle_index == impl_index: plt.hist(implanted[:, 3], histtype='step', bins=bins, density=False, label='y')
         sputtering_yields_y[angle_index] = Y
         R_y[angle_index] = R
 
         R, Y, reflected, sputtered, implanted = run(energy, sim_index, num_samples, track_trajectories=track_trajectories, run_sim=run_sim, x0=a/2., y0=a, z0=a/2., ux=np.sin(angle*np.pi/180.)/np.sqrt(2), uz=np.sin(angle*np.pi/180.)/np.sqrt(2), uy=-np.cos(angle*np.pi/180.))
         sim_index += 1
-        if angle_index == 0: plt.hist(a - implanted[:, 3], histtype='step', bins=100, density=True, label='-y')
+        if angle_index == impl_index: plt.hist(a - implanted[:, 3], histtype='step', bins=bins, density=False, label='-y')
         sputtering_yields_y_minus[angle_index] = Y
         R_y_minus[angle_index] = R
 
@@ -206,9 +207,9 @@ def main():
 
     if track_trajectories and do_plots:
 
-        do_trajectory_plot('cube_19', boundary=[[0.0, 0.0], [0.0, a], [a, a], [a, 0.0], [0.0, 0.0]])
+        do_trajectory_plot('cube_0', boundary=[[0.0, 0.0], [0.0, a], [a, a], [a, 0.0], [0.0, 0.0]])
 
-        do_trajectory_plot('cube_20', boundary=[[0.0, 0.0], [0.0, a], [a, a], [a, 0.0], [0.0, 0.0]])
+        do_trajectory_plot('cube_1', boundary=[[0.0, 0.0], [0.0, a], [a, a], [a, 0.0], [0.0, 0.0]])
 
 if __name__ == '__main__':
     main()
