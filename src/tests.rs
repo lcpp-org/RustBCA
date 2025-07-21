@@ -761,6 +761,41 @@ fn test_surface_refraction() {
 #[test]
 fn test_momentum_conservation() {
 
+
+    #[cfg(not(feature = "cpr_rootfinder"))]
+    let potentials = vec![
+        InteractionPotential::KR_C,
+        InteractionPotential::MOLIERE,
+        InteractionPotential::ZBL,
+        InteractionPotential::LENZ_JENSEN
+    ];
+
+    #[cfg(feature = "cpr_rootfinder")]
+    let potentials = vec![
+        InteractionPotential::KR_C,
+        InteractionPotential::MOLIERE,
+        InteractionPotential::ZBL,
+        InteractionPotential::LENZ_JENSEN,
+        InteractionPotential::MORSE{D: 5.4971E-20, r0: 2.782E-10, alpha: 1.4198E10}
+    ];
+    
+    let mut rootfinders = vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}; 4];
+
+    //[[{"CPR"={n0=2, nmax=100, epsilon=1E-9, complex_threshold=1E-3, truncation_threshold=1E-9, far_from_zero=1E9, interval_limit=1E-12, derivative_free=true}}]]
+    #[cfg(feature = "cpr_rootfinder")]
+    rootfinders.push(
+        Rootfinder::CPR{
+            n0: 2,
+            nmax: 100,
+            epsilon: 1e-9,
+            complex_threshold: 1e-3,
+            truncation_threshold: 1e-9,
+            far_from_zero: 1e9,
+            interval_limit:1e-12,
+            derivative_free: true
+        }
+    );
+
     for direction in vec![(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), (0.0, -1.0, 0.0), (0.0, 0.0, -1.0)] {
         for energy_eV in vec![1., 10., 100., 1000., 1000.] {
             //Aluminum
@@ -813,132 +848,136 @@ fn test_momentum_conservation() {
             let material_1: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input);
 
             for high_energy_free_flight_paths in vec![true, false] {
-                for potential in vec![InteractionPotential::KR_C, InteractionPotential::MOLIERE, InteractionPotential::ZBL, InteractionPotential::LENZ_JENSEN] {
+                for (potential, root_finder) in potentials.iter().zip(rootfinders.clone()) {
                     for scattering_integral in vec![ScatteringIntegral::MENDENHALL_WELLER, ScatteringIntegral::GAUSS_MEHLER{n_points: 10}, ScatteringIntegral::GAUSS_LEGENDRE] {
-                        for root_finder in vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}] {
 
-                            println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
-
-                            let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, 0.0, x1, y1, z1, cosx, cosy, cosz, false, false, 0);
-
-                            #[cfg(not(feature = "distributions"))]
-                            let options = Options {
-                                name: "test".to_string(),
-                                track_trajectories: false,
-                                track_recoils: true,
-                                track_recoil_trajectories: false,
-                                write_buffer_size: 8000,
-                                weak_collision_order: 0,
-                                suppress_deep_recoils: false,
-                                high_energy_free_flight_paths: high_energy_free_flight_paths,
-                                electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-                                mean_free_path_model: MeanFreePathModel::LIQUID,
-                                interaction_potential: vec![vec![potential]],
-                                scattering_integral: vec![vec![scattering_integral]],
-                                num_threads: 1,
-                                num_chunks: 1,
-                                use_hdf5: false,
-                                root_finder: vec![vec![root_finder]],
-                                track_displacements: false,
-                                track_energy_losses: false,
-                            };
-
-                            #[cfg(feature = "distributions")]
-                            let options = Options {
-                                name: "test".to_string(),
-                                track_trajectories: false,
-                                track_recoils: true,
-                                track_recoil_trajectories: false,
-                                write_buffer_size: 8000,
-                                weak_collision_order: 0,
-                                suppress_deep_recoils: false,
-                                high_energy_free_flight_paths: high_energy_free_flight_paths,
-                                electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-                                mean_free_path_model: MeanFreePathModel::LIQUID,
-                                interaction_potential: vec![vec![potential]],
-                                scattering_integral: vec![vec![scattering_integral]],
-                                num_threads: 1,
-                                num_chunks: 1,
-                                use_hdf5: false,
-                                root_finder: vec![vec![root_finder]],
-                                track_displacements: false,
-                                track_energy_losses: false,
-                                energy_min: 0.0,
-                                energy_max: 10.0,
-                                energy_num: 11,
-                                angle_min: 0.0,
-                                angle_max: 90.0,
-                                angle_num: 11,
-                                x_min: 0.0,
-                                y_min: -10.0,
-                                z_min: -10.0,
-                                x_max: 10.0,
-                                y_max: 10.0,
-                                z_max: 10.0,
-                                x_num: 11,
-                                y_num: 11,
-                                z_num: 11,
-                            };
-
-                            let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
-
-                            println!("Phi: {} rad p: {} Angstrom mfp: {} Angstrom", binary_collision_geometries[0].phi_azimuthal,
-                                binary_collision_geometries[0].impact_parameter/ANGSTROM,
-                                binary_collision_geometries[0].mfp/ANGSTROM);
-
-                            let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material_1,
-                                &binary_collision_geometries[0], &options);
-
-                            let mom1_0 = particle_1.get_momentum();
-                            let mom2_0 = particle_2.get_momentum();
-
-                            let initial_momentum = mom1_0.add(&mom2_0);
-
-                            let binary_collision_result = bca::calculate_binary_collision(&particle_1,
-                                &particle_2, &binary_collision_geometries[0], &options).unwrap();
-
-                            println!("E_recoil: {} eV Psi: {} rad Psi_recoil: {} rad", binary_collision_result.recoil_energy/EV,
-                                binary_collision_result.psi,
-                                binary_collision_result.psi_recoil);
-
-                            println!("Initial Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
-
-                            //Energy transfer to recoil
-                            particle_2.E = binary_collision_result.recoil_energy - material_1.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
-
-                            //Rotate particle 1, 2 by lab frame scattering angles
-                            particle_1.rotate(binary_collision_result.psi,
-                                binary_collision_geometries[0].phi_azimuthal);
-
-                            particle_2.rotate(-binary_collision_result.psi_recoil,
-                                binary_collision_geometries[0].phi_azimuthal);
-
-                            //Subtract total energy from all simultaneous collisions and electronic stopping
-                            particle_1.E += -binary_collision_result.recoil_energy;
-                            bca::subtract_electronic_stopping_energy(&mut particle_1, &material_1, 0.,
-                                0., particle_2.Z, species_index, &options);
-
-                            let mom1_1 = particle_1.get_momentum();
-                            let mom2_1 = particle_2.get_momentum();
-
-                            let final_momentum = mom1_1.add(&mom2_1);
-
-                            println!("Final Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
-                            println!("X: {} {} {}% Error", initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, 100.*(final_momentum.x - initial_momentum.x)/initial_momentum.magnitude());
-                            println!("Y: {} {} {}% Error", initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, 100.*(final_momentum.y - initial_momentum.y)/initial_momentum.magnitude());
-                            println!("Z: {} {} {}% Error", initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, 100.*(final_momentum.z - initial_momentum.z)/initial_momentum.magnitude());
-                            println!();
-
-                            assert!(approx_eq!(f64, initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, epsilon = 1000.));
-                            assert!(approx_eq!(f64, initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, epsilon = 1000.));
-                            assert!(approx_eq!(f64, initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, epsilon = 1000.));
-
-                            assert!(!particle_1.E.is_nan());
-                            assert!(!particle_2.E.is_nan());
-                            assert!(!initial_momentum.x.is_nan());
-                            assert!(!initial_momentum.x.is_nan());
-                            assert!(!initial_momentum.x.is_nan());
+                        //Skip incompatible combination
+                        match (root_finder, scattering_integral) {
+                            (Rootfinder::CPR{..}, ScatteringIntegral::MENDENHALL_WELLER) => continue,
+                            _ => {}
                         }
+
+                        println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
+
+                        let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, 0.0, x1, y1, z1, cosx, cosy, cosz, false, false, 0);
+
+                        #[cfg(not(feature = "distributions"))]
+                        let options = Options {
+                            name: "test".to_string(),
+                            track_trajectories: false,
+                            track_recoils: true,
+                            track_recoil_trajectories: false,
+                            write_buffer_size: 8000,
+                            weak_collision_order: 0,
+                            suppress_deep_recoils: false,
+                            high_energy_free_flight_paths: high_energy_free_flight_paths,
+                            electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
+                            mean_free_path_model: MeanFreePathModel::LIQUID,
+                            interaction_potential: vec![vec![*potential]],
+                            scattering_integral: vec![vec![scattering_integral]],
+                            num_threads: 1,
+                            num_chunks: 1,
+                            use_hdf5: false,
+                            root_finder: vec![vec![root_finder]],
+                            track_displacements: false,
+                            track_energy_losses: false,
+                        };
+
+                        #[cfg(feature = "distributions")]
+                        let options = Options {
+                            name: "test".to_string(),
+                            track_trajectories: false,
+                            track_recoils: true,
+                            track_recoil_trajectories: false,
+                            write_buffer_size: 8000,
+                            weak_collision_order: 0,
+                            suppress_deep_recoils: false,
+                            high_energy_free_flight_paths: high_energy_free_flight_paths,
+                            electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
+                            mean_free_path_model: MeanFreePathModel::LIQUID,
+                            interaction_potential: vec![vec![potential]],
+                            scattering_integral: vec![vec![scattering_integral]],
+                            num_threads: 1,
+                            num_chunks: 1,
+                            use_hdf5: false,
+                            root_finder: vec![vec![root_finder]],
+                            track_displacements: false,
+                            track_energy_losses: false,
+                            energy_min: 0.0,
+                            energy_max: 10.0,
+                            energy_num: 11,
+                            angle_min: 0.0,
+                            angle_max: 90.0,
+                            angle_num: 11,
+                            x_min: 0.0,
+                            y_min: -10.0,
+                            z_min: -10.0,
+                            x_max: 10.0,
+                            y_max: 10.0,
+                            z_max: 10.0,
+                            x_num: 11,
+                            y_num: 11,
+                            z_num: 11,
+                        };
+
+                        let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
+
+                        println!("Phi: {} rad p: {} Angstrom mfp: {} Angstrom", binary_collision_geometries[0].phi_azimuthal,
+                            binary_collision_geometries[0].impact_parameter/ANGSTROM,
+                            binary_collision_geometries[0].mfp/ANGSTROM);
+
+                        let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material_1,
+                            &binary_collision_geometries[0], &options);
+
+                        let mom1_0 = particle_1.get_momentum();
+                        let mom2_0 = particle_2.get_momentum();
+
+                        let initial_momentum = mom1_0.add(&mom2_0);
+
+                        let binary_collision_result = bca::calculate_binary_collision(&particle_1,
+                            &particle_2, &binary_collision_geometries[0], &options).unwrap();
+
+                        println!("E_recoil: {} eV Psi: {} rad Psi_recoil: {} rad", binary_collision_result.recoil_energy/EV,
+                            binary_collision_result.psi,
+                            binary_collision_result.psi_recoil);
+
+                        println!("Initial Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
+
+                        //Energy transfer to recoil
+                        particle_2.E = binary_collision_result.recoil_energy - material_1.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
+
+                        //Rotate particle 1, 2 by lab frame scattering angles
+                        particle_1.rotate(binary_collision_result.psi,
+                            binary_collision_geometries[0].phi_azimuthal);
+
+                        particle_2.rotate(-binary_collision_result.psi_recoil,
+                            binary_collision_geometries[0].phi_azimuthal);
+
+                        //Subtract total energy from all simultaneous collisions and electronic stopping
+                        particle_1.E += -binary_collision_result.recoil_energy;
+                        bca::subtract_electronic_stopping_energy(&mut particle_1, &material_1, 0.,
+                            0., particle_2.Z, species_index, &options);
+
+                        let mom1_1 = particle_1.get_momentum();
+                        let mom2_1 = particle_2.get_momentum();
+
+                        let final_momentum = mom1_1.add(&mom2_1);
+
+                        println!("Final Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
+                        println!("X: {} {} {}% Error", initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, 100.*(final_momentum.x - initial_momentum.x)/initial_momentum.magnitude());
+                        println!("Y: {} {} {}% Error", initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, 100.*(final_momentum.y - initial_momentum.y)/initial_momentum.magnitude());
+                        println!("Z: {} {} {}% Error", initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, 100.*(final_momentum.z - initial_momentum.z)/initial_momentum.magnitude());
+                        println!();
+
+                        assert!(approx_eq!(f64, initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, epsilon = 1000.));
+                        assert!(approx_eq!(f64, initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, epsilon = 1000.));
+                        assert!(approx_eq!(f64, initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, epsilon = 1000.));
+
+                        assert!(!particle_1.E.is_nan());
+                        assert!(!particle_2.E.is_nan());
+                        assert!(!initial_momentum.x.is_nan());
+                        assert!(!initial_momentum.x.is_nan());
+                        assert!(!initial_momentum.x.is_nan());
                     }
                 }
             }
