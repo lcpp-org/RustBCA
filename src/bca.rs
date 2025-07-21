@@ -523,8 +523,9 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
         InteractionPotential::COULOMB{..} => 0.,
         _ => x0*a*(theta/2.).sin()
     };
-    let psi = (theta.sin().atan2(Ma/Mb + theta.cos())).abs();
-    let psi_recoil = (theta.sin().atan2(1. - theta.cos())).abs();
+
+    let psi = theta.sin().atan2(Ma/Mb + theta.cos());//.abs();
+    let psi_recoil = theta.sin().atan2(1. - theta.cos());//.abs();
     let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powi(2)*E0*(theta/2.).sin().powi(2);
 
     Ok(BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asymptotic_deflection, x0))
