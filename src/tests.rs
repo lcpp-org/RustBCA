@@ -969,6 +969,7 @@ fn test_momentum_conservation() {
                         println!("Z: {} {} {}% Error", initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, 100.*(final_momentum.z - initial_momentum.z)/initial_momentum.magnitude());
                         println!();
 
+                        //These values are in  [angstrom amu / second], so very large.
                         assert!(approx_eq!(f64, initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, epsilon = 1000.));
                         assert!(approx_eq!(f64, initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, epsilon = 1000.));
                         assert!(approx_eq!(f64, initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, epsilon = 1000.));
