@@ -779,7 +779,6 @@ fn test_momentum_conservation() {
             let Ec2 = 1.;
             let Es2 = 1.;
 
-            //Arbitrary initial angle
             let cosx = direction.0;
             let cosy = direction.1;
             let cosz = direction.2;
