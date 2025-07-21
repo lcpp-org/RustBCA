@@ -895,7 +895,7 @@ fn test_momentum_conservation() {
                             high_energy_free_flight_paths: high_energy_free_flight_paths,
                             electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
                             mean_free_path_model: MeanFreePathModel::LIQUID,
-                            interaction_potential: vec![vec![potential]],
+                            interaction_potential: vec![vec![*potential]],
                             scattering_integral: vec![vec![scattering_integral]],
                             num_threads: 1,
                             num_chunks: 1,
