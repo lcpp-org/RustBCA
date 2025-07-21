@@ -803,7 +803,7 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
 /// Args:
 ///    energies (list(f64)): initial ion energies in eV.
-///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
+///    ux (list(f64)): initial ion directions x.
 ///    uy (list(f64)): initial ion directions y.
 ///    uz (list(f64)): initial ion directions z.
 ///    Z1 (list(f64)): initial ion atomic numbers.
@@ -924,7 +924,7 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
 /// Args:
 ///    energies (list(f64)): initial ion energies in eV.
-///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
+///    ux (list(f64)): initial ion directions x.
 ///    uy (list(f64)): initial ion directions y.
 ///    uz (list(f64)): initial ion directions z.
 ///    Z1 (list(f64)): initial ion atomic numbers.
@@ -1143,7 +1143,7 @@ pub fn reflect_single_ion_py(ion: &PyDict, target: &PyDict, vx: f64, vy: f64, vz
 ///compound_bca_list_1D_py(ux, uy,  uz, energies, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, Eb2 n2, dx)
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
 /// Args:
-///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
+///    ux (list(f64)): initial ion directions x.
 ///    uy (list(f64)): initial ion directions y.
 ///    uz (list(f64)): initial ion directions z.
 ///    energies (list(f64)): initial ion energies in eV.
@@ -1279,7 +1279,7 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
 ///    x (f64): initial ion position x. Material target is x>0
 ///    y (f64): initial ion position y.
 ///    z (f64): initial ion position z.
-///    ux (f64): initial ion direction x. ux != 0.0 to avoid gimbal lock
+///    ux (f64): initial ion direction x.
 ///    uy (f64): initial ion direction y.
 ///    uz (f64): initial ion direction z.
 ///    energy (f64): initial ion energy in eV.
@@ -1309,7 +1309,7 @@ pub fn simple_bca_py(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64,
 /// This function runs a 0D Binary Collision Approximation simulation for the given incident ions and material.
 /// Args:
 ///    energy (list(f64)): initial energies in eV.
-///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
+///    ux (list(f64)): initial ion directions x.
 ///    uy (list(f64)): initial ion directions y.
 ///    uz (list(f64)): initial ion directions z.
 ///    Z1 (f64): initial ion atomic number.
