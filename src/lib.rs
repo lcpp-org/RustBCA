@@ -1502,10 +1502,7 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
 #[cfg(feature = "parry3d")]
 #[no_mangle]
 pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
-    //const DELTA: f64 = 1e-9;
-    //let RUSTBCA_DIRECTION: Vector3::<f64> = Vector3::<f64>::new(1.0, 0.0, 0.0);
 
-    //let into_surface = Vector3::new(-nx, -ny, -nz);
     let direction = Vector3::new(*ux, *uy, *uz);
 
     //Rotation to local RustBCA coordinates from global
@@ -1514,11 +1511,6 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     //That rotation is then applied to the particle direction, and can be undone later.
     //Algorithm is from here:
     //https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/180436#180436
-    //let v: Vector3<f64> = into_surface.cross(&RUSTBCA_DIRECTION);
-    //let c = into_surface.dot(&RUSTBCA_DIRECTION);
-    //let vx = Matrix3::<f64>::new(0.0, -v.z, v.y, v.z, 0.0, -v.x, -v.y, v.x, 0.0);
-
-    //let s = ny*ny + nz*nz;
 
     let rotation_matrix = if (1.0 - nx).abs() > 0.0 {
         Matrix3::<f64>::new(1. + (-ny*ny - nz*nz)/(1. - nx), -ny, -nz, ny, -ny*ny/(1. - nx) + 1., -ny*nz/(1. - nx), nz, -ny*nz/(1. - nx), -nz*nz/(1. - nx) + 1.)
@@ -1608,9 +1600,7 @@ pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f6
 #[cfg(feature = "parry3d")]
 #[no_mangle]
 pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
-    let RUSTBCA_DIRECTION: Vector3::<f64> = Vector3::<f64>::new(1.0, 0.0, 0.0);
 
-    //let into_surface = Vector3::new(-nx, -ny, -nz);
     let direction = Vector3::new(*ux, *uy, *uz);
 
     //Rotation to local RustBCA coordinates from global
@@ -1626,6 +1616,7 @@ pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut 
         Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
     };
 
+    // Note: transpose of R == R^-1
     let u = rotation_matrix.transpose()*direction;
 
     *ux = u.x;
@@ -1706,8 +1697,6 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
-    const DELTA: f64 = 1e-6;
-
     let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
     let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
     let Ec1 = unpack(ion.get_item("Ec").expect("Cannot get ion cutoff energy from dictionary. Ensure ion['Ec'] exists."));
@@ -1725,8 +1714,8 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
     let y = 0.0;
     let z = 0.0;
 
-    let ux = (angle/180.0*PI).cos() + DELTA;
-    let uy = (angle/180.0*PI).sin() - DELTA;
+    let ux = (angle/180.0*PI).cos();
+    let uy = (angle/180.0*PI).sin();
     let uz = 0.0;
 
     let material_parameters = material::MaterialParameters {
@@ -1797,8 +1786,6 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
 pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
 
-    const DELTA: f64 = 1e-6;
-
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
     let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
@@ -1818,8 +1805,8 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
     let y = 0.0;
     let z = 0.0;
 
-    let ux = (angle/180.0*PI).cos() + DELTA;
-    let uy = (angle/180.0*PI).sin() - DELTA;
+    let ux = (angle/180.0*PI).cos();
+    let uy = (angle/180.0*PI).sin();
     let uz = 0.0;
 
     let mut direction = Vector::new(ux, uy, uz);
@@ -1899,8 +1886,6 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
 pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, target_number_densities: Vec<f64>, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
 
-    const DELTA: f64 = 1e-6;
-
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
     let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
@@ -1921,8 +1906,8 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
     let y = 0.0;
     let z = 0.0;
 
-    let ux = (angle/180.0*PI).cos() + DELTA;
-    let uy = (angle/180.0*PI).sin() - DELTA;
+    let ux = (angle/180.0*PI).cos();
+    let uy = (angle/180.0*PI).sin();
     let uz = 0.0;
 
     let mut direction = Vector::new(ux, uy, uz);
