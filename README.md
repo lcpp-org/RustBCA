@@ -12,10 +12,10 @@ By discretizing the collision cascade into a sequence of binary collisions,
 between an energetic ion and a target material. This includes reflection,
 implantation, and transmission of the incident ion, as well as sputtering
 and displacement damage of the target. Generally, [BCA] codes can be
-valid for incident ion energies between approximately ~1 eV/nucleon 
-to <1 GeV/nucleon. Improvements to RustBCA have expanded the regime
+valid for incident ion energies between several eV/nucleon  to 
+<1 GeV/nucleon. Improvements to RustBCA have expanded the regime
 of validity for some quantities, such as reflection coefficients, below 
-1 eV/nucleon.
+1 eV/nucleon for some ion/target pairs.
 
 Check out the `RustBCA` [Wiki] for detailed information, installation
 instructions, use cases, examples, and more. See the RustBCA paper at the
@@ -35,6 +35,10 @@ Selected citations of RustBCA as of 5/24/23:
 ## Getting started
 
 The easiest way to get started is with the ergonomic Python functions.
+These functions use the default RustBCA options detailed on the
+[Input Files](https://github.com/lcpp-org/RustBCA/wiki/Standalone-Code:-Input-File) page, which are not universally applicable.
+These examples use example material parameters located in
+`scripts/materials.py` that should be verified before use.
 Follow these steps to install, build, and run simple RustBCA simulations
 for sputtering yields and reflection coefficients:
 ```
@@ -44,15 +48,17 @@ python -m pip install .
 python
 Python 3.9.6 (tags/v3.9.6:db3ff76, Jun 28 2021, 15:26:21) [MSC v.1929 64 bit (AMD64)] on win32
 Type "help", "copyright", "credits" or "license" for more information.
->>> from libRustBCA import *; from scripts.materials import *
+>>> from libRustBCA import *; from scripts.materials import *; import numpy as np
 >>> angle = 0.0 # deg
 >>> energy = 1000.0 # eV
 >>> num_samples = 10000
->>> sputtering_yield(argon, tungsten, energy, angle, num_samples)
-1.0398
->>> reflection_coefficient(argon, tungsten, energy, angle, num_samples)
-(0.3294, 0.10230906775743769) # (reflection coefficient, energy reflection coefficient)
->>>
+>>> 1 < sputtering_yield(argon, tungsten, energy, angle, num_samples) < 1.1 # Y approx. 1.04
+True
+>>> R_N, R_E = reflection_coefficient(argon, tungsten, energy, angle, num_samples)
+>>> 0.3 < R_N < 0.4 # R_N approx. 0.35 
+True
+>>> 0.0 < R_E < 0.2 # R_E approx 0.1
+True
 ```
 
 For those eager to get started with the standalone code, try running one of the examples in the
@@ -60,12 +66,14 @@ For those eager to get started with the standalone code, try running one of the 
 the plots located on the [Wiki], these may require some optional
 [Python] packages (`matplotlib`, `numpy`, `scipy`, `shapely`, and `toml`).
 
-### H trajectories and collision cascades in a boron nitride dust grain
-
+### H trajectories and collision cascades in boron nitride
 First, run the example using:
 
-```bash
-cargo run --release examples/boron_nitride.toml
+```shell
+$ cargo run --release 0D examples/boron_nitride_0D.toml 2>/dev/null  #suppress progress bar for automatic testing
+Processing 10 ions...
+Initializing with 4 threads...
+Finished!
 ```
 
 Afterwords, fire up your favourite [Python] interpreter
@@ -73,15 +81,18 @@ Afterwords, fire up your favourite [Python] interpreter
 
 ```python
 from scripts.rustbca import *
-do_trajectory_plot("boron_dust_grain_")
+do_trajectory_plot("boron_nitride_")
 ```
 
 ### He implantation into a layered TiO<sub>2</sub>/Al/Si target
 
 First, run the example using:
 
-```bash
-cargo run --release examples/layered_geometry.toml
+```shell
+$ cargo run --release examples/layered_geometry.toml 2>/dev/null #suppress progress bar for automatic testing
+Processing 10000 ions...
+Initializing with 4 threads...
+Finished!
 ```
 
 Afterwords, fire up your favourite [Python] interpreter
@@ -142,7 +153,13 @@ The following features are implemented in `RustBCA`:
 ## Installation
 
 Without optional features, `RustBCA` should compile with `cargo` alone on
-Windows, MacOS, and Linux systems.
+Windows, MacOS, and Linux systems:
+
+```
+cargo build --release 
+```
+
+will add an executable at `target/release/`.
 
 [HDF5] for particle list input has been tested on Windows, but version 1.10.6 must be used.
 
@@ -152,15 +169,14 @@ Windows, MacOS, and Linux systems.
 
 #### Automatic Dependencies
 
-* see [Cargo.toml](https://github.com/lcpp-org/RustBCA/blob/master/Cargo.toml) for a complete list.
+* see [Cargo.toml](https://github.com/lcpp-org/RustBCA/blob/master/Cargo.toml) for a complete list of required and optional dependencies managed by `cargo`.
 
 #### Optional Dependencies
 
 * [HDF5] libraries
-* [rcpr], a CPR and polynomial rootfinder, required for using attractive-repulsive interaction potentials such as Lennard-Jones or Morse.
-* For manipulating input files and running associated scripts, the following are required:
+* For manipulating input files and running associated scripts, the following are suggested:
   * [Python] 3.6+
-  * The [Python] libraries: `numpy`, `matplotlib`, `toml` (must build from source), `shapely`, and `scipy`.
+  * [Python] libraries: `numpy`, `matplotlib`, `toml`, `shapely`, and `scipy`.
 
 ### Detailed instructions for Ubuntu 18.04 LTS
 
@@ -171,7 +187,7 @@ sudo apt-get install curl
 ```
 3. Install [rustup], the Rust toolchain (includes rustc, the compiler, and cargo, the package manager) from https://rustup.rs/ by running the following command and following on-screen instructions:
 ```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ```
 4. (Optional) Install `pip` for [Python]:
 ```bash
@@ -179,44 +195,30 @@ sudo apt-get install python3-pip
 ```
 5. (Optional) Install [Python] libraries for making input files:
 ```bash
-python3 -m pip install numpy matplotlib shapely scipy
+python3 -m pip install numpy matplotlib shapely scipy toml
 ```
-6. (Optional) Install [Python] [TOML] library from source:
-```bash
-git clone https://github.com/uiri/toml.git
-cd toml
-python3 setup.py install
-```
-7. (Optional) Install software for [rcpr]:
-```bash
-sudo apt-get install gcc gfortran build-essential cmake liblapack-dev libblas-dev liblapacke-dev
-```
-8. (Optional - should come with rustup) Install `cargo`:
+6. (Optional - should come with rustup) Install `cargo`:
 ```bash
 sudo apt-get install cargo
 ```
-9. Build `RustBCA`:
+7. Build `RustBCA`:
 ```bash
-git clone https://github.com/lcpp-org/rustBCA
+git clone https://github.com/lcpp-org/RustBCA
 cd RustBCA
 cargo build --release
 ```
-10. (Optional) Build `RustBCA` with optional dependencies, `hdf5` and/or `rcpr` (with your choice of backend: `openblas`, `netlib`, or `intel-mkl`):
+8. (Optional) Build `RustBCA` with optional dependencies, `hdf5` and/or `rcpr`:
 ```bash
-cargo build --release --features cpr_rootfinder_netlib,hdf5_input
-cargo build --release --features cpr_rootfinder_openblas,hdf5_input
-cargo build --release --features cpr_rootfinder_intel_mkl,hdf5_input
- ```
-11. `input.toml` is the input file - see [Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files) for more information
-12. Run the required tests using:
+cargo build --release --features cpr_rootfinder,hdf5
+```
+9. `input.toml` is the input file - see the [Input File](https://github.com/lcpp-org/RustBCA/wiki/Standalone-Code:-Input-File) page for more information
+10. Run the required tests using:
 ```bash
 cargo test
 ```
-13. (Optional) Run the required and optional tests for the desired backend(s):
+11. (Optional) Run the tests for the advanced rootfinder:
 ```bash
-cargo test --features cpr_rootfinder_netlib
-cargo test --features cpr_rootfinder_openblas
-cargo test --features cpr_rootfinder_intel_mkl
+cargo test --features cpr_rootfinder
 ```
 
 ### Detailed instructions for Fedora 33
@@ -238,12 +240,6 @@ sudo dnf install python3-numpy python3-scipy python3-matplotlib python3-toml pyt
 ```
 
 or, alternatively, using `pip3`.
-
-If desired, RustBCA can be built with [rcpr] to simulate attractive-repuslive interaction potentials; rcpr requires (at least) the following:
-
-```bash
-sudo dnf install gcc gcc-gfortran cmake lapack lapack-devel blas blas-devel
-```
 
 Building `RustBCA` is straightforward, and can be done using:
 
