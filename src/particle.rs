@@ -243,7 +243,7 @@ impl Particle {
         let spsi: f64 = psi.sin();
 
         // To resolve the singularity, a different set of rotations is used when cosx == -1
-        // Because of this, the recoil location is not consistent between the two formulas
+        // Because of this, the recoil location is not consistent between the two formulas at a given phi
         // Since phi is sampled uniformly from (0, 2pi), this does not matter
         // However, if a crystalline structure is ever added, this needs to be considered
         let cosx_new = if cosx > -1. {

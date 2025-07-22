@@ -366,7 +366,7 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
 
     // These formulas find the recoil one mfp away at an impact parameter p at angle phi
     // To resolve the singularity, a different set of rotations is used when cosx == -1
-    // Because of this, the recoil location is not consistent between the two formulas
+    // Because of this, the recoil location is not consistent between the two formulas at a given phi
     // Since phi is sampled uniformly from (0, 2pi), this does not matter
     // However, if a crystalline structure is ever added, this needs to be considered
     let x_recoil = if cosx > -1. {
