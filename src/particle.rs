@@ -238,12 +238,14 @@ impl Particle {
         let cosz: f64 = self.dir.z;
         let cosphi: f64 = (phi + PI).cos();
         let sinphi: f64 = (phi + PI).sin();
-        let sa = (1. - cosx*cosx).sqrt();
 
-        //Particle direction update formulas from original TRIDYN paper, see Moeller and Eckstein 1988
         let cpsi: f64 = psi.cos();
         let spsi: f64 = psi.sin();
 
+        // To resolve the singularity, a different set of rotations is used when cosx == -1
+        // Because of this, the recoil location is not consistent between the two formulas
+        // Since phi is sampled uniformly from (0, 2pi), this does not matter
+        // However, if a crystalline structure is ever added, this needs to be considered
         let cosx_new = if cosx > -1. {
             cpsi*cosx - spsi*(cosz*sinphi + cosy*cosphi)
         } else {
