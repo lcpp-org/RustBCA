@@ -803,7 +803,7 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
 /// Args:
 ///    energies (list(f64)): initial ion energies in eV.
-///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
+///    ux (list(f64)): initial ion directions x.
 ///    uy (list(f64)): initial ion directions y.
 ///    uz (list(f64)): initial ion directions z.
 ///    Z1 (list(f64)): initial ion atomic numbers.
@@ -924,7 +924,7 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
 /// Args:
 ///    energies (list(f64)): initial ion energies in eV.
-///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
+///    ux (list(f64)): initial ion directions x.
 ///    uy (list(f64)): initial ion directions y.
 ///    uz (list(f64)): initial ion directions z.
 ///    Z1 (list(f64)): initial ion atomic numbers.
@@ -1143,7 +1143,7 @@ pub fn reflect_single_ion_py(ion: &PyDict, target: &PyDict, vx: f64, vy: f64, vz
 ///compound_bca_list_1D_py(ux, uy,  uz, energies, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, Eb2 n2, dx)
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
 /// Args:
-///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
+///    ux (list(f64)): initial ion directions x.
 ///    uy (list(f64)): initial ion directions y.
 ///    uz (list(f64)): initial ion directions z.
 ///    energies (list(f64)): initial ion energies in eV.
@@ -1279,7 +1279,7 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
 ///    x (f64): initial ion position x. Material target is x>0
 ///    y (f64): initial ion position y.
 ///    z (f64): initial ion position z.
-///    ux (f64): initial ion direction x. ux != 0.0 to avoid gimbal lock
+///    ux (f64): initial ion direction x.
 ///    uy (f64): initial ion direction y.
 ///    uz (f64): initial ion direction z.
 ///    energy (f64): initial ion energy in eV.
@@ -1309,7 +1309,7 @@ pub fn simple_bca_py(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64,
 /// This function runs a 0D Binary Collision Approximation simulation for the given incident ions and material.
 /// Args:
 ///    energy (list(f64)): initial energies in eV.
-///    ux (list(f64)): initial ion directions x. ux != 0.0 to avoid gimbal lock
+///    ux (list(f64)): initial ion directions x.
 ///    uy (list(f64)): initial ion directions y.
 ///    uz (list(f64)): initial ion directions z.
 ///    Z1 (f64): initial ion atomic number.
@@ -1502,10 +1502,7 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
 #[cfg(feature = "parry3d")]
 #[no_mangle]
 pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
-    const DELTA: f64 = 1e-9;
-    let RUSTBCA_DIRECTION: Vector3::<f64> = Vector3::<f64>::new(1.0, 0.0, 0.0);
 
-    let into_surface = Vector3::new(-nx, -ny, -nz);
     let direction = Vector3::new(*ux, *uy, *uz);
 
     //Rotation to local RustBCA coordinates from global
@@ -1514,12 +1511,9 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     //That rotation is then applied to the particle direction, and can be undone later.
     //Algorithm is from here:
     //https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/180436#180436
-    let v: Vector3<f64> = into_surface.cross(&RUSTBCA_DIRECTION);
-    let c = into_surface.dot(&RUSTBCA_DIRECTION);
-    let vx = Matrix3::<f64>::new(0.0, -v.z, v.y, v.z, 0.0, -v.x, -v.y, v.x, 0.0);
 
-    let rotation_matrix = if (c + 1.0).abs() > DELTA {
-        Matrix3::identity() + vx + vx*vx/(1. + c)
+    let rotation_matrix = if (1.0 - nx).abs() > 0.0 {
+        Matrix3::<f64>::new(1. + (-ny*ny - nz*nz)/(1. - nx), -ny, -nz, ny, -ny*ny/(1. - nx) + 1., -ny*nz/(1. - nx), nz, -ny*nz/(1. - nx), -nz*nz/(1. - nx) + 1.)
     } else {
         //If c == -1.0, the correct rotation should simply be a 180 degree rotation
         //around a non-x axis; y is chosen arbitrarily
@@ -1528,15 +1522,8 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 
     let incident = rotation_matrix*direction;
 
-    // ux must not be exactly 1.0 to avoid gimbal lock in RustBCA
-    // simple_bca does not normalize direction before proceeding, must be done manually
-    assert!(
-        incident.x + DELTA > 0.0, "Error: RustBCA initial direction out of surface. Please check surface normals and incident direction. c={} n = ({}, {}, {}) u = ({}, {}, {}), unew = ({}, {}, {})",
-        (c + 1.0).abs(), nx, ny, nz, ux, uy, uz, incident.x, incident.y, incident.z
-    );
-
-    *ux = incident.x + DELTA;
-    *uy = incident.y - DELTA;
+    *ux = incident.x;
+    *uy = incident.y;
     *uz = incident.z;
     let mag = (ux.powf(2.) + uy.powf(2.) + uz.powf(2.)).sqrt();
 
@@ -1613,9 +1600,7 @@ pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f6
 #[cfg(feature = "parry3d")]
 #[no_mangle]
 pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
-    let RUSTBCA_DIRECTION: Vector3::<f64> = Vector3::<f64>::new(1.0, 0.0, 0.0);
 
-    let into_surface = Vector3::new(-nx, -ny, -nz);
     let direction = Vector3::new(*ux, *uy, *uz);
 
     //Rotation to local RustBCA coordinates from global
@@ -1623,18 +1608,15 @@ pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut 
     //into-the-surface vector (1.0, 0.0, 0.0) onto the local into-the-surface vector (negative normal w.r.t. ray origin).
     //That rotation is then applied to the particle direction, and can be undone later.
     //Algorithm is from here:
-    //https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/180436#180436
-    let v: Vector3<f64> = into_surface.cross(&RUSTBCA_DIRECTION);
-    let c = into_surface.dot(&RUSTBCA_DIRECTION);
-    let vx = Matrix3::<f64>::new(0.0, -v.z, v.y, v.z, 0.0, -v.x, -v.y, v.x, 0.0);
-    let rotation_matrix = if c != -1.0 {
-        Matrix3::identity() + vx + vx*vx/(1. + c)
+    let rotation_matrix = if (1.0 - nx).abs() > 0.0 {
+        Matrix3::<f64>::new(1. + (-ny*ny - nz*nz)/(1. - nx), -ny, -nz, ny, -ny*ny/(1. - nx) + 1., -ny*nz/(1. - nx), nz, -ny*nz/(1. - nx), -nz*nz/(1. - nx) + 1.)
     } else {
         //If c == -1.0, the correct rotation should simply be a 180 degree rotation
         //around a non-x axis; y is chosen arbitrarily
         Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
     };
 
+    // Note: transpose of R == R^-1
     let u = rotation_matrix.transpose()*direction;
 
     *ux = u.x;
@@ -1715,8 +1697,6 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
-    const DELTA: f64 = 1e-6;
-
     let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
     let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
     let Ec1 = unpack(ion.get_item("Ec").expect("Cannot get ion cutoff energy from dictionary. Ensure ion['Ec'] exists."));
@@ -1734,8 +1714,8 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
     let y = 0.0;
     let z = 0.0;
 
-    let ux = (angle/180.0*PI).cos() + DELTA;
-    let uy = (angle/180.0*PI).sin() - DELTA;
+    let ux = (angle/180.0*PI).cos();
+    let uy = (angle/180.0*PI).sin();
     let uz = 0.0;
 
     let material_parameters = material::MaterialParameters {
@@ -1806,8 +1786,6 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
 pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
 
-    const DELTA: f64 = 1e-6;
-
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
     let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
@@ -1827,8 +1805,8 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
     let y = 0.0;
     let z = 0.0;
 
-    let ux = (angle/180.0*PI).cos() + DELTA;
-    let uy = (angle/180.0*PI).sin() - DELTA;
+    let ux = (angle/180.0*PI).cos();
+    let uy = (angle/180.0*PI).sin();
     let uz = 0.0;
 
     let mut direction = Vector::new(ux, uy, uz);
@@ -1908,8 +1886,6 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
 pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, target_number_densities: Vec<f64>, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
 
-    const DELTA: f64 = 1e-6;
-
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
     let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
@@ -1930,8 +1906,8 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
     let y = 0.0;
     let z = 0.0;
 
-    let ux = (angle/180.0*PI).cos() + DELTA;
-    let uy = (angle/180.0*PI).sin() - DELTA;
+    let ux = (angle/180.0*PI).cos();
+    let uy = (angle/180.0*PI).sin();
     let uz = 0.0;
 
     let mut direction = Vector::new(ux, uy, uz);

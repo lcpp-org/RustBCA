@@ -761,62 +761,101 @@ fn test_surface_refraction() {
 #[test]
 fn test_momentum_conservation() {
 
-    for energy_eV in vec![1., 10., 100., 1000., 1000.] {
-        //Aluminum
-        let m1 = 183.8*AMU;
-        let Z1 = 74.;
-        let E1 = energy_eV*EV;
-        let Ec1 = 1.*EV;
-        let Es1 = 1.*EV;
-        let x1 = 0.;
-        let y1 = 0.;
-        let z1 = 0.;
 
-        //Aluminum
-        let m2 = 6.941;
-        let Z2 = 3.;
-        let Ec2 = 1.;
-        let Es2 = 1.;
+    #[cfg(not(feature = "cpr_rootfinder"))]
+    let potentials = vec![
+        InteractionPotential::KR_C,
+        InteractionPotential::MOLIERE,
+        InteractionPotential::ZBL,
+        InteractionPotential::LENZ_JENSEN
+    ];
 
-        //Arbitrary initial angle
-        let theta = 0.974194583091052_f64;
-        let cosx = (theta).cos();
-        let cosy = (theta).sin();
-        let cosz = 0.;
+    #[cfg(feature = "cpr_rootfinder")]
+    let potentials = vec![
+        InteractionPotential::KR_C,
+        InteractionPotential::MOLIERE,
+        InteractionPotential::ZBL,
+        InteractionPotential::LENZ_JENSEN,
+        InteractionPotential::MORSE{D: 5.4971E-20, r0: 2.782E-10, alpha: 1.4198E10}
+    ];
+    
+    let mut rootfinders = vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}; 4];
 
-        let material_parameters = material::MaterialParameters{
-            energy_unit: "EV".to_string(),
-            mass_unit: "AMU".to_string(),
-            Eb: vec![0.0],
-            Es: vec![Es2],
-            Ec: vec![Ec2],
-            Ed: vec![0.0],
-            Z: vec![Z2],
-            m: vec![m2],
-            interaction_index: vec![0],
-            surface_binding_model: SurfaceBindingModel::PLANAR{calculation: SurfaceBindingCalculation::TARGET},
-            bulk_binding_model: BulkBindingModel::INDIVIDUAL,
-        };
+    //[[{"CPR"={n0=2, nmax=100, epsilon=1E-9, complex_threshold=1E-3, truncation_threshold=1E-9, far_from_zero=1E9, interval_limit=1E-12, derivative_free=true}}]]
+    #[cfg(feature = "cpr_rootfinder")]
+    rootfinders.push(
+        Rootfinder::CPR{
+            n0: 2,
+            nmax: 100,
+            epsilon: 1e-9,
+            complex_threshold: 1e-3,
+            truncation_threshold: 1e-9,
+            far_from_zero: 1e9,
+            interval_limit:1e-12,
+            derivative_free: true
+        }
+    );
 
-        let thickness: f64 = 1000.;
-        let depth: f64 = 1000.;
-        let geometry_input = geometry::Mesh2DInput {
-            length_unit: "ANGSTROM".to_string(),
-            triangles: vec![(0, 1, 2), (0, 2, 3)],
-            points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
-            densities: vec![vec![0.06306], vec![0.06306]],
-            boundary: vec![0, 1, 2, 3],
-            simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
-            electronic_stopping_correction_factors: vec![0.0, 0.0],
-            energy_barrier_thickness: 0.,
-        };
+    for direction in vec![(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), (0.0, -1.0, 0.0), (0.0, 0.0, -1.0)] {
+        for energy_eV in vec![1., 10., 100., 1000., 1000.] {
+            //Aluminum
+            let m1 = 183.8*AMU;
+            let Z1 = 74.;
+            let E1 = energy_eV*EV;
+            let Ec1 = 1.*EV;
+            let Es1 = 1.*EV;
+            let x1 = 0.;
+            let y1 = 0.;
+            let z1 = 0.;
 
-        let material_1: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input);
+            //Aluminum
+            let m2 = 6.941;
+            let Z2 = 3.;
+            let Ec2 = 1.;
+            let Es2 = 1.;
 
-        for high_energy_free_flight_paths in vec![true, false] {
-            for potential in vec![InteractionPotential::KR_C, InteractionPotential::MOLIERE, InteractionPotential::ZBL, InteractionPotential::LENZ_JENSEN] {
-                for scattering_integral in vec![ScatteringIntegral::MENDENHALL_WELLER, ScatteringIntegral::GAUSS_MEHLER{n_points: 10}, ScatteringIntegral::GAUSS_LEGENDRE] {
-                    for root_finder in vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}] {
+            let cosx = direction.0;
+            let cosy = direction.1;
+            let cosz = direction.2;
+
+            let material_parameters = material::MaterialParameters{
+                energy_unit: "EV".to_string(),
+                mass_unit: "AMU".to_string(),
+                Eb: vec![0.0],
+                Es: vec![Es2],
+                Ec: vec![Ec2],
+                Ed: vec![0.0],
+                Z: vec![Z2],
+                m: vec![m2],
+                interaction_index: vec![0],
+                surface_binding_model: SurfaceBindingModel::PLANAR{calculation: SurfaceBindingCalculation::TARGET},
+                bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+            };
+
+            let thickness: f64 = 1000.;
+            let depth: f64 = 1000.;
+            let geometry_input = geometry::Mesh2DInput {
+                length_unit: "ANGSTROM".to_string(),
+                triangles: vec![(0, 1, 2), (0, 2, 3)],
+                points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
+                densities: vec![vec![0.06306], vec![0.06306]],
+                boundary: vec![0, 1, 2, 3],
+                simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
+                electronic_stopping_correction_factors: vec![0.0, 0.0],
+                energy_barrier_thickness: 0.,
+            };
+
+            let material_1: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input);
+
+            for high_energy_free_flight_paths in vec![true, false] {
+                for (potential, root_finder) in potentials.iter().zip(rootfinders.clone()) {
+                    for scattering_integral in vec![ScatteringIntegral::MENDENHALL_WELLER, ScatteringIntegral::GAUSS_MEHLER{n_points: 10}, ScatteringIntegral::GAUSS_LEGENDRE] {
+
+                        //Skip incompatible combination
+                        match (root_finder, scattering_integral) {
+                            (Rootfinder::CPR{..}, ScatteringIntegral::MENDENHALL_WELLER) => continue,
+                            _ => {}
+                        }
 
                         println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
 
@@ -834,7 +873,7 @@ fn test_momentum_conservation() {
                             high_energy_free_flight_paths: high_energy_free_flight_paths,
                             electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
                             mean_free_path_model: MeanFreePathModel::LIQUID,
-                            interaction_potential: vec![vec![potential]],
+                            interaction_potential: vec![vec![*potential]],
                             scattering_integral: vec![vec![scattering_integral]],
                             num_threads: 1,
                             num_chunks: 1,
@@ -856,7 +895,7 @@ fn test_momentum_conservation() {
                             high_energy_free_flight_paths: high_energy_free_flight_paths,
                             electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
                             mean_free_path_model: MeanFreePathModel::LIQUID,
-                            interaction_potential: vec![vec![potential]],
+                            interaction_potential: vec![vec![*potential]],
                             scattering_integral: vec![vec![scattering_integral]],
                             num_threads: 1,
                             num_chunks: 1,
@@ -930,9 +969,10 @@ fn test_momentum_conservation() {
                         println!("Z: {} {} {}% Error", initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, 100.*(final_momentum.z - initial_momentum.z)/initial_momentum.magnitude());
                         println!();
 
-                        assert!(approx_eq!(f64, initial_momentum.x, final_momentum.x, epsilon = 1E-12));
-                        assert!(approx_eq!(f64, initial_momentum.y, final_momentum.y, epsilon = 1E-12));
-                        assert!(approx_eq!(f64, initial_momentum.z, final_momentum.z, epsilon = 1E-12));
+                        //These values are in  [angstrom amu / second], so very large.
+                        assert!(approx_eq!(f64, initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, epsilon = 1000.));
+                        assert!(approx_eq!(f64, initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, epsilon = 1000.));
+                        assert!(approx_eq!(f64, initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, epsilon = 1000.));
 
                         assert!(!particle_1.E.is_nan());
                         assert!(!particle_2.E.is_nan());
