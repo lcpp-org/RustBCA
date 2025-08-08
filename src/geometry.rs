@@ -707,8 +707,12 @@ impl Geometry for ParryMesh2D {
         let mut boundary_points_converted: Vec<Point2d<f64>> = geometry_input.points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
         let number_boundary_points = boundary_points_converted.len() as u32;
 
+        dbg!(&geometry_input.simulation_boundary_points);
+
         let mut simulation_boundary_points_converted: Vec<Point2d<f64>> = geometry_input.simulation_boundary_points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
         let number_simulation_boundary_points = simulation_boundary_points_converted.len() as u32;
+
+        dbg!(number_simulation_boundary_points);
 
         let test_simulation_boundary_ccw = (0..number_simulation_boundary_points as usize)
         .map(|i| (simulation_boundary_points_converted[(i + 1) % number_simulation_boundary_points as usize].x - simulation_boundary_points_converted[i].x)*(simulation_boundary_points_converted[i].y + simulation_boundary_points_converted[(i + 1) % number_simulation_boundary_points as usize].y))
@@ -725,7 +729,7 @@ impl Geometry for ParryMesh2D {
         dbg!(&simulation_boundary_points_converted);
 
         for p in simulation_boundary_points_converted.iter().combinations(2) {
-            assert!(p[0] != p[1], "Input error: duplicate vertices in simulation boundary geometry input. Boundary must be defined ccw with no duplicate points (terminal segment will span from final to initial point).")
+            assert!(p[0] != p[1], "Input error: duplicate vertices {}, {} in simulation boundary geometry input. Boundary must be defined ccw with no duplicate points (terminal segment will span from final to initial point).", p[0], p[1])
         }
 
         let test_ccw = (0..number_boundary_points as usize)
@@ -768,7 +772,7 @@ impl Geometry for ParryMesh2D {
         let simulation_boundary2 = Polyline::new(simulation_boundary_points_converted, Some(linked_simulation_boundary_points));
 
         ParryMesh2D {
-            trimesh,
+            trimesh: trimesh.expect("Input Error: Trimesh failed to build. Check mesh vertices and points."),
             densities,
             simulation_boundary: simulation_boundary2,
             boundary: boundary2,

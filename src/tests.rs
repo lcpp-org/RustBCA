@@ -975,22 +975,13 @@ fn test_momentum_conservation() {
         }
     );
 
-<<<<<<< HEAD
-        let thickness: f64 = 1000.;
-        let depth: f64 = 1000.;
-        let geometry_input = geometry::Mesh2DInput {
-            length_unit: "ANGSTROM".to_string(),
-            triangles: vec![(0, 1, 2), (0, 2, 3)],
-            points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
-            densities: vec![vec![0.06306], vec![0.06306]],
-            boundary: vec![3, 2, 1, 0],
-            simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.)],
-            electronic_stopping_correction_factors: vec![0.0, 0.0],
-            energy_barrier_thickness: 0.,
-        };
+    //Aluminum
+    let m2 = 6.941;
+    let Z2 = 3.;
+    let Ec2 = 1.;
+    let Es2 = 1.;
 
-        let material_1: material::Material<geometry::ParryMesh2D> = material::Material::<geometry::ParryMesh2D>::new(&material_parameters, &geometry_input);
-=======
+
     for direction in vec![(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), (0.0, -1.0, 0.0), (0.0, 0.0, -1.0)] {
         for energy_eV in vec![1., 10., 100., 1000., 1000.] {
             //Aluminum
@@ -1008,11 +999,23 @@ fn test_momentum_conservation() {
             let Z2 = 3.;
             let Ec2 = 1.;
             let Es2 = 1.;
->>>>>>> dev
 
             let cosx = direction.0;
             let cosy = direction.1;
             let cosz = direction.2;
+
+            let thickness: f64 = 1000.;
+            let depth: f64 = 1000.;
+            let geometry_input = geometry::Mesh2DInput {
+                length_unit: "ANGSTROM".to_string(),
+                triangles: vec![(0, 1, 2), (0, 2, 3)],
+                points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
+                densities: vec![vec![0.06306], vec![0.06306]],
+                boundary: vec![0, 1, 2, 3],
+                simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.)],
+                electronic_stopping_correction_factors: vec![0.0, 0.0],
+                energy_barrier_thickness: 0.,
+            };
 
             let material_parameters = material::MaterialParameters{
                 energy_unit: "EV".to_string(),
@@ -1028,20 +1031,7 @@ fn test_momentum_conservation() {
                 bulk_binding_model: BulkBindingModel::INDIVIDUAL,
             };
 
-            let thickness: f64 = 1000.;
-            let depth: f64 = 1000.;
-            let geometry_input = geometry::Mesh2DInput {
-                length_unit: "ANGSTROM".to_string(),
-                triangles: vec![(0, 1, 2), (0, 2, 3)],
-                points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
-                densities: vec![vec![0.06306], vec![0.06306]],
-                boundary: vec![0, 1, 2, 3],
-                simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
-                electronic_stopping_correction_factors: vec![0.0, 0.0],
-                energy_barrier_thickness: 0.,
-            };
-
-        let material_1: material::Material<geometry::ParryMesh2D> = material::Material::<geometry::ParryMesh2D>::new(&material_parameters, &geometry_input);
+            let material_1: material::Material<geometry::ParryMesh2D> = material::Material::<geometry::ParryMesh2D>::new(&material_parameters, &geometry_input);
 
             for high_energy_free_flight_paths in vec![true, false] {
                 for (potential, root_finder) in potentials.iter().zip(rootfinders.clone()) {
