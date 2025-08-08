@@ -221,7 +221,7 @@ impl Geometry for ParryTriMesh {
             concentrations,
             electronic_stopping_correction_factor,
             energy_barrier_thickness,
-            trimesh,
+            trimesh: trimesh.expect("Input error: failed to build Trimesh. Check vertices, indices"),
             boundary,
         }
     }
