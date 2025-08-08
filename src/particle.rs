@@ -102,8 +102,6 @@ impl Particle {
         let dirz = input.uz;
 
         let dir_mag = (dirx*dirx + diry*diry + dirz*dirz).sqrt();
-
-        assert!((dirx/dir_mag).abs() < 1.0 - f64::EPSILON, "Input error: incident direction cannot round to exactly (1, 0, 0) due to gimbal lock. Use a non-zero y-component.");
         assert!(input.E > 0., "Input error: incident energy {}; must be greater than zero.", input.E/EV);
 
         Particle {
@@ -177,7 +175,6 @@ impl Particle {
         let y = 0.;
         let z = 0.;
 
-        assert!((dirx/dir_mag).abs() < 1.0 - f64::EPSILON, "Input error: incident direction cannot round to exactly (1, 0, 0) due to gimbal lock. Use a non-zero y-component.");
         assert!(E_eV > 0., "Input error: incident energy {}; must be greater than zero.", E_eV);
 
         Particle {
@@ -239,16 +236,33 @@ impl Particle {
         let cosx: f64 = self.dir.x;
         let cosy: f64 = self.dir.y;
         let cosz: f64 = self.dir.z;
-        let cphi: f64 = phi.cos();
-        let sphi: f64 = phi.sin();
-        let sa = (1. - cosx*cosx).sqrt();
+        let cosphi: f64 = (phi + PI).cos();
+        let sinphi: f64 = (phi + PI).sin();
 
-        //Particle direction update formulas from original TRIDYN paper, see Moeller and Eckstein 1988
         let cpsi: f64 = psi.cos();
         let spsi: f64 = psi.sin();
-        let cosx_new: f64 = cpsi*cosx + spsi*cphi*sa;
-        let cosy_new: f64 = cpsi*cosy - spsi/sa*(cphi*cosx*cosy - sphi*cosz);
-        let cosz_new: f64 = cpsi*cosz - spsi/sa*(cphi*cosx*cosz + sphi*cosy);
+
+        // To resolve the singularity, a different set of rotations is used when cosx == -1
+        // Because of this, the recoil location is not consistent between the two formulas at a given phi
+        // Since phi is sampled uniformly from (0, 2pi), this does not matter
+        // However, if a crystalline structure is ever added, this needs to be considered
+        let cosx_new = if cosx > -1. {
+            cpsi*cosx - spsi*(cosz*sinphi + cosy*cosphi)
+        } else {
+            cpsi*cosx - spsi*((1. + cosz - cosx*cosx)*cosphi - cosx*cosy*sinphi)/(1. + cosz)
+        };
+
+        let cosy_new = if cosx > -1. {
+            cpsi*cosy + spsi*((1. + cosx - cosy*cosy)*cosphi - cosy*cosz*sinphi)/(1. + cosx)
+        } else {
+            cpsi*cosy + spsi*((1. + cosz - cosy*cosy)*sinphi - cosx*cosy*cosphi)/(1. + cosz)
+        };
+
+        let cosz_new = if cosx > -1. {
+            cpsi*cosz + spsi*((1. + cosx - cosz*cosz)*sinphi - cosy*cosz*cosphi)/(1. + cosx)
+        } else {
+            cpsi*cosz + spsi*(cosx*cosphi + cosy*sinphi)
+        };
 
         let dir_new = Vector {x: cosx_new, y: cosy_new, z: cosz_new};
 

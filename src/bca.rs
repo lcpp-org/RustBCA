@@ -127,9 +127,13 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                     total_energy_lost_to_recoils += binary_collision_result.recoil_energy;
                     total_asymptotic_deflection += binary_collision_result.asymptotic_deflection;
 
+                    // Rotate each particle in the appropriate plane by psi/psi_r
                     particle_1.rotate(binary_collision_result.psi,
                         binary_collision_geometry.phi_azimuthal);
 
+                    // Since psi and psi_r are absolute-valued in the BC calculation, note
+                    // that it is negated here to correctly rotate the recoil in the correct
+                    // direction (that is, away from the direction the incident atom is deflected)
                     particle_2.rotate(-binary_collision_result.psi_recoil,
                         binary_collision_geometry.phi_azimuthal);
 
@@ -360,10 +364,28 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     let sinx: f64 = (1. - cosx*cosx).sqrt();
     let cosphi: f64 = phi_azimuthal.cos();
 
-    //Find recoil location
-    let x_recoil: f64 = x + mfp*cosx - impact_parameter*cosphi*sinx;
-    let y_recoil: f64 = y + mfp*cosy - impact_parameter*(sinphi*cosz - cosphi*cosy*cosx)/sinx;
-    let z_recoil: f64 = z + mfp*cosz + impact_parameter*(sinphi*cosy - cosphi*cosx*cosz)/sinx;
+    // These formulas find the recoil one mfp away at an impact parameter p at angle phi
+    // To resolve the singularity, a different set of rotations is used when cosx == -1
+    // Because of this, the recoil location is not consistent between the two formulas at a given phi
+    // Since phi is sampled uniformly from (0, 2pi), this does not matter
+    // However, if a crystalline structure is ever added, this needs to be considered
+    let x_recoil = if cosx > -1. {
+        x + mfp*cosx - impact_parameter*(cosz*sinphi + cosy*cosphi)
+    } else {
+        x + mfp*cosx - impact_parameter*((1. + cosz - cosx*cosx)*cosphi - cosx*cosy*sinphi)/(1. + cosz)
+    };
+
+    let y_recoil = if cosx > -1. {
+        y + mfp*cosy + impact_parameter*((1. + cosx - cosy*cosy)*cosphi - cosy*cosz*sinphi)/(1. + cosx)
+    } else {
+        y + mfp*cosy + impact_parameter*((1. + cosz - cosy*cosy)*sinphi - cosx*cosy*cosphi)/(1. + cosz)
+    };
+
+    let z_recoil = if cosx > -1. {
+        z + mfp*cosz + impact_parameter*((1. + cosx - cosz*cosz)*sinphi - cosy*cosz*cosphi)/(1. + cosx)
+    } else {
+        z + mfp*cosz + impact_parameter*(cosx*cosphi + cosy*sinphi)
+    };
 
     //Choose recoil Z, M
     let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, Ed_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil);
@@ -504,8 +526,9 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
         InteractionPotential::COULOMB{..} => 0.,
         _ => x0*a*(theta/2.).sin()
     };
-    let psi = (theta.sin().atan2(Ma/Mb + theta.cos())).abs();
-    let psi_recoil = (theta.sin().atan2(1. - theta.cos())).abs();
+
+    let psi = theta.sin().atan2(Ma/Mb + theta.cos());//.abs();
+    let psi_recoil = theta.sin().atan2(1. - theta.cos());//.abs();
     let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powi(2)*E0*(theta/2.).sin().powi(2);
 
     Ok(BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asymptotic_deflection, x0))

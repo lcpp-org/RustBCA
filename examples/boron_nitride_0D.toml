@@ -4,6 +4,8 @@ name = "boron_nitride_"
 weak_collision_order = 0
 num_threads = 4
 track_displacements = true
+track_trajectories = true
+track_recoil_trajectories = true
 
 [material_parameters]
 energy_unit = "EV"
@@ -11,7 +13,7 @@ mass_unit = "AMU"
 Eb = [ 0.0, 0.0,]
 Es = [ 5.76, 0.0,]
 Ed = [25.0, 25.0]
-Ec = [ 1.0, 1.0,]
+Ec = [ 5.0, 5.0,]
 Z = [ 5, 7,]
 m = [ 10.811, 14,]
 
@@ -19,14 +21,14 @@ m = [ 10.811, 14,]
 length_unit = "MICRON"
 energy_unit = "EV"
 mass_unit = "AMU"
-N = [ 10000 ]
+N = [ 10 ] # Number of computational ions low for plotting trajectories
 m = [ 1.008 ]
 Z = [ 1 ]
 E = [ 1000.0 ]
 Ec = [ 1.0 ]
 Es = [ 10.0 ]
 pos = [ [ 0.0, 0.0, 0.0,] ]
-dir = [ [ 0.9999999999984769, 1.7453292519934434e-6, 0.0,] ]
+dir = [ [ 1.0, 0.0, 0.0,] ]
 
 [geometry_input]
 length_unit = "ANGSTROM"
