@@ -1,7 +1,7 @@
 #Use with 2D geometry option only
 [options]
 name = "2000.0eV_0.0001deg_He_TiO2_Al_Si"
-track_trajectories = false
+track_trajectories = true
 track_recoils = true
 track_recoil_trajectories = false
 write_buffer_size = 8000
@@ -54,7 +54,8 @@ points = [[0.0, -0.5], [0.01, -0.5], [0.04, -0.5], [0.5, -0.5], [0.5, 0.5], [0.0
 triangles = [[0, 1, 6], [0, 6, 7], [1, 2, 5], [1, 5, 6], [2, 3, 4], [2, 4, 5]]
 densities = [ [ 3.0e+10, 6.0e+10, 0.0, 0.0,], [ 3.0e+10, 6.0e+10, 0.0, 0.0,], [ 0.0, 0.0, 6.026e+10, 0.0,], [ 0.0, 0.0, 6.026e+10, 0.0,], [ 0.0, 0.0, 0.0, 4.996e+10,], [ 0.0, 0.0, 0.0, 4.996e+10,],]
 boundary = [0, 3, 4, 7]
-simulation_boundary_points = [ [ 0.6, -0.6,], [ -0.1, -0.6,], [ -0.1, 0.6,], [ 0.6, 0.6,], [ 0.6, -0.6,],]
+#simulation_boundary_points = [ [ 0.6, -0.6,], [ -0.1, -0.6,], [ -0.1, 0.6,], [ 0.6, 0.6,],]
+simulation_boundary_points = [[0.6, 0.6], [-0.1, 0.6], [-0.1, -0.6], [0.6, -0.6]]
 electronic_stopping_correction_factors = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 energy_barrier_thickness = 2.2E-4
 

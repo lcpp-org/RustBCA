@@ -56,6 +56,7 @@ use pyo3::types::*;
 //Load internal modules
 pub mod material;
 pub mod particle;
+#[cfg(test)]
 pub mod tests;
 pub mod interactions;
 pub mod bca;
@@ -75,7 +76,7 @@ pub use crate::consts::*;
 pub use crate::structs::*;
 pub use crate::input::{Input2D, InputHomogeneous2D, Input1D, Input0D, Options, InputFile, GeometryInput};
 pub use crate::output::{OutputUnits};
-pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D};
+pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, ParryMesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
 
 #[cfg(feature = "parry3d")]
