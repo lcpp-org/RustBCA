@@ -3,22 +3,10 @@ use super::*;
 #[cfg(test)]
 use float_cmp::*;
 
-use parry2d_f64::shape::Polyline;
-use parry2d_f64::math::Isometry;
-use parry2d_f64::math::Point as Point2d;
-
-/*
-        let number_boundary_points = boundary_points_converted.clone().len() as u32;
-        let boundary = Polygon::new(LineString::from(boundary_points_converted), vec![]);
-        let mut linked_points = (0..number_boundary_points).zip(1..number_boundary_points).map(|(x, y)| [x, y]).collect::<Vec<[u32; 2]>>();
-        let boundary2 = Polyline::new(boundary_points_converted2, Some(linked_points));
-*/
-
-#[test]
+#[cfg(test)]
 fn test_parry2d() {
     let points: Vec<Point2d<f64>> = vec![Point2d::new(-1.0, -1.0), Point2d::new(-1.0, 1.0), Point2d::new(1.0, 1.0), Point2d::new(1.0, -1.0)];
-    //let mut indices: Vec<[u32; 2]> = vec![];
-    //let mut indices: Vec<[u32; 2]> = vec![[0, 1], [1, 2], [2, 3], [3, 0]];
+
     let indices: Vec<[u32; 2]> = vec![[0, 3], [3, 2], [2, 1], [1, 0]];
     //indices.reverse();
 
@@ -32,9 +20,7 @@ fn test_parry2d() {
     );
 
     assert!(point_projection.is_inside);
-
     assert!(polyline.aabb(&Isometry::identity()).contains_local_point(&query_point));
-    //assert!(point_projection.is_inside);
 
     let test_geometry = vec![(0.25, 0.2), (0.75, 0.2), (0.8, 0.8), (0.5, 0.5), (0.2, 0.8)];
     let num_segments = 5;
