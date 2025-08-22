@@ -12,8 +12,18 @@ pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
 
 }
 
-fn sigmoid(x: f64, k: f64, x0: f64) -> f64 {
-    1./(1. + (-k*(x - x0)).exp())
+fn smootherstep(x: f64, k: f64, x0: f64) -> f64 {
+    let x_transformed = x*k/8.0; //Constant to match sigmoid, determined by eye
+    let x0_transformed = x0*k/8.0;
+
+    if x_transformed <= x0_transformed - 0.5 {
+        0.
+    } else if x_transformed >= 0.5 + x0_transformed {
+        1.
+    } else {
+        let x1 = x_transformed - x0_transformed + 0.5;
+        return x1 * x1 * x1 * (x1 * (6. * x1 - 15.) + 10.);
+    }
 }
 
 /// Interaction potential between two particles a and b at a distance `r`.
@@ -346,9 +356,9 @@ pub fn morse(r: f64, D: f64, alpha: f64, r0: f64) -> f64 {
     D*((-2.*alpha*(r - r0)).exp() - 2.*(-alpha*(r - r0)).exp())
 }
 
-/// Kr-C + Morse potential with sigmoid interpolation at crossing point of two potentials
+/// Kr-C + Morse potential with smootherstep interpolation at crossing point of two potentials
 pub fn krc_morse(r: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, k: f64, x0: f64) -> f64 {
-    sigmoid(r, k, x0)*morse(r, D, alpha, r0) + sigmoid(r, -k, x0)*screened_coulomb(r, a, Za, Zb, InteractionPotential::KR_C)
+    smootherstep(r, k, x0)*morse(r, D, alpha, r0) + smootherstep(r, -k, x0)*screened_coulomb(r, a, Za, Zb, InteractionPotential::KR_C)
 }
 
 /// Distance of closest approach function for four-eight potential (Born repulsion)
