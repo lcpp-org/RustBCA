@@ -41,6 +41,7 @@ jobs:
         python3 -m pip install .
         python3 -c "from libRustBCA import *;"
         python3 examples/test_rustbca.py
+        python3 examples/test_cube.py
     - name: Test Fortran and C bindings
       run : |
         cargo build --release --lib --features parry3d
