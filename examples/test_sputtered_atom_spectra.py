@@ -295,7 +295,7 @@ yield_exp = np.array([
 ])
 
 #This function simply contains an entire input file as a multi-line f-string to modify some inputs.
-def run_rustbca(ion, target, energy, index=0, num_samples=10000, run_sim=True, estop='LOW_ENERGY_NONLOCAL', weak_collisions=0, Eb=3.0, correction=1.0,  interaction='KR_C'):
+def run_rustbca(ion, target, energy, index=0, num_samples=10000, run_sim=True, estop='LOW_ENERGY_NONLOCAL', weak_collisions=0, Eb=0.0, correction=1.0,  interaction='KR_C'):
 
     input_file = f'''
     [options]
