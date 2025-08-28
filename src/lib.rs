@@ -94,6 +94,7 @@ pub fn libRustBCA(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sputtering_yield, m)?)?;
     m.add_function(wrap_pyfunction!(reflection_coefficient, m)?)?;
     m.add_function(wrap_pyfunction!(compound_reflection_coefficient, m)?)?;
+    m.add_function(wrap_pyfunction!(compound_sputtering_reflection_coefficient, m)?)?;
     m.add_function(wrap_pyfunction!(reflect_single_ion_py, m)?)?;
     #[cfg(feature = "parry3d")]
     m.add_function(wrap_pyfunction!(rotate_given_surface_normal_py, m)?)?;
@@ -105,6 +106,15 @@ pub fn libRustBCA(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(rotate_back_vec_py, m)?)?;
     Ok(())
 }
+
+pub fn find_index(Z: f64, Z2: &[f64]) -> Option<usize> {
+                for (index, &value) in Z2.iter().enumerate() {
+                    if value == Z {
+                return Some(index);
+            }
+        }
+        None
+    }
 
 #[derive(Debug)]
 #[repr(C)]
@@ -1948,7 +1958,7 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
         m: m2,
         interaction_index: vec![0; number_target_species],
         surface_binding_model: SurfaceBindingModel::AVERAGE,
-        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+        bulk_binding_model: BulkBindingModel::AVERAGE,//INDIVIDUAL,
     };
 
     let geometry_input = geometry::Mesh0DInput {
@@ -1993,4 +2003,127 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
     let energy_reflected = *energy_reflected.lock().unwrap();
 
     (num_reflected as f64 / num_samples as f64, energy_reflected / EV / energy / num_samples as f64)
+}
+
+
+#[cfg(feature = "python")]
+#[pyfunction]
+/// compound_sputtering_reflection_coefficient(ion, target_species, target_number_densities, energy, angle, num_samples)
+/// A routine the calculates the reflection coefficient of energetic ions incident upon materials using RustBCA.
+/// Args:
+///     ion: a dictionary with the keys Z (atomic number), m (atomic mass in AMU), Ec (cutoff energy in eV), Es (surface binding energy in eV)
+///     target_species: a list of dictionaries with the keys Z, m, Ec, Es, Eb (bulk binding energy in eV), n2 (number density in 1/m3)
+///     target_number_densities (list(f64)): number density of each target species in the compound
+///     energy: the incident energy of the ion in eV
+///     angle: incident angle of the ion in degrees from surface normal
+///     num_samples: number of ion trajectories to run; precision will go as 1/sqrt(N)
+/// Returns:
+///     S_N (f64): sputtering yield (number of particles sputtered / number of incident particles)
+///     R_N (f64): reflection coefficient (number of particles reflected / number of incident particles)
+///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
+pub fn compound_sputtering_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, target_number_densities: Vec<f64>, energy: f64, angle: f64, num_samples: usize) -> (Vec<f64>, f64, f64) {
+
+    const DELTA: f64 = 1e-6;
+
+    assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
+
+    let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
+    let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
+    let Ec1 = unpack(ion.get_item("Ec").expect("Cannot get ion cutoff energy from dictionary. Ensure ion['Ec'] exists."));
+    let Es1 = unpack(ion.get_item("Es").expect("Cannot get ion surface binding energy from dictionary. Ensure ion['Es'] exists."));
+
+    let Z2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("Z").unwrap_or_else(|| panic!("Cannot get target Z from dictionary at index {}. Ensure target['Z'] exists.", index)))).collect();
+    let m2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("m").unwrap_or_else(|| panic!("Cannot get target m from dictionary at index {}. Ensure target['m'] exists.", index)))).collect();
+    let Ec2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("Ec").unwrap_or_else(|| panic!("Cannot get target Ec from dictionary at index {}. Ensure target['Ec'] exists.", index)))).collect();
+    let Es2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("Es").unwrap_or_else(|| panic!("Cannot get target Es from dictionary at index {}. Ensure target['Es'] exists.", index)))).collect();
+    let Eb2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("Eb").unwrap_or_else(|| panic!("Cannot get target Eb from dictionary at index {}. Ensure target['Eb'] exists.", index)))).collect();
+    let Z2_ = Z2.clone(); 
+    let number_target_species = Z2.len();
+
+    let options = Options::default_options(true);
+
+    let y = 0.0;
+    let z = 0.0;
+
+    let ux = (angle/180.0*PI).cos() + DELTA;
+    let uy = (angle/180.0*PI).sin() - DELTA;
+    let uz = 0.0;
+
+    let mut direction = Vector::new(ux, uy, uz);
+    direction.normalize();
+
+    let material_parameters = material::MaterialParameters {
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: Eb2,
+        Es: Es2,
+        Ec: Ec2,
+        Ed: vec![0.0; number_target_species],
+        Z: Z2,
+        m: m2,
+        interaction_index: vec![0; number_target_species],
+        surface_binding_model: SurfaceBindingModel::AVERAGE,
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let geometry_input = geometry::Mesh0DInput {
+        length_unit: "M".to_string(),
+        densities: target_number_densities,
+        electronic_stopping_correction_factor: 1.0
+    };
+
+    let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
+
+    let x = -m.geometry.energy_barrier_thickness;
+
+    let num_reflected = Mutex::new(0);
+    let energy_reflected = Mutex::new(0.0);
+    let num_sputtered: Mutex<Vec<f64>> = Mutex::new(vec![0.0; targets.len()]);
+
+
+    (0..num_samples as u64).into_par_iter().for_each( |index| {
+
+        let p = particle::Particle::default_incident(
+            m1,
+            Z1,
+            energy,
+            Ec1,
+            Es1,
+            x,
+            ux,
+            uy,
+            uz
+        );
+
+        let output = bca::single_ion_bca(p, &m, &options);
+
+        for particle in output {
+            //println!("output");
+            if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left {
+                if (particle.incident) {
+                    //println!("reflected");
+                    let mut num_reflected = num_reflected.lock().unwrap();
+                    *num_reflected += 1;
+                    let mut energy_reflected = energy_reflected.lock().unwrap();
+                    *energy_reflected += particle.E;
+                }
+                else{
+                    //println!("sputtered");
+                    let mut num_sputtered = num_sputtered.lock().unwrap();
+                    let ind = find_index(particle.Z, &Z2_).unwrap();
+
+                    num_sputtered[ind] += 1.0;
+                    //println!("num_sputtered: {:?}", *num_sputtered);
+                }
+            }
+        }
+    });
+
+
+
+    let num_reflected = *num_reflected.lock().unwrap();
+    let energy_reflected = *energy_reflected.lock().unwrap();
+    let num_sputtered = num_sputtered.lock().unwrap();
+    let num_sputtered_: Vec<f64> = num_sputtered.iter().map(|&x| x / num_samples as f64).collect();
+    (num_sputtered_, num_reflected as f64 / num_samples as f64, energy_reflected / EV / energy / num_samples as f64)
 }
