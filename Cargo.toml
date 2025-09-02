@@ -5,6 +5,8 @@ default-run = "RustBCA"
 authors = ["Jon Drobny <drobny2@illinois.edu>", "Jon Drobny <jdrobny@tae.com>"]
 edition = "2021"
 
+
+
 [[bin]]
 name = "RustBCA"
 path = "src/main.rs"
@@ -27,7 +29,8 @@ serde = { version = "1.0.163", features = ["derive"] }
 hdf5 = {version = "0.7.1", optional = true}
 rcpr = { git = "https://github.com/drobnyjt/rcpr", optional = true}
 ndarray = {version = "0.14.0", features = ["serde"], optional = true}
-parry3d-f64 = {optional = true, version="0.2.0"}
+parry3d-f64 = {optional = true, version="0.23.0"}
+parry2d-f64 = {optional = false, version="0.23.0"}
 
 [dependencies.pyo3]
 version = "0.19.0"
@@ -41,7 +44,7 @@ float-cmp = "0.8.0"
 lto = "fat"
 codegen-units = 1
 opt-level = 3
-debug = false
+debug = 1
 
 [features]
 hdf5_input = ["hdf5"]

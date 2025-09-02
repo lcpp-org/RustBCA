@@ -1,8 +1,11 @@
 use super::*;
 
-use geo::algorithm::contains::Contains;
-use geo::{Polygon, LineString, Point, point, Closest};
-use geo::algorithm::closest_point::ClosestPoint;
+use itertools::Itertools;
+
+use parry2d_f64::shape::{Polyline, TriMesh, FeatureId::*};
+use parry2d_f64::query::PointQuery;
+use parry2d_f64::math::Point as Point2d;
+use parry2d_f64::math::Isometry;
 
 ///Trait for a Geometry object - all forms of geometry must implement these traits to be used
 pub trait Geometry {
@@ -18,6 +21,7 @@ pub trait Geometry {
     fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool;
     fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool;
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64);
+    fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64);
 }
 
 pub trait GeometryElement: Clone {
@@ -108,6 +112,10 @@ impl Geometry for Mesh0D {
 
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
         (0., y, z)
+    }
+
+    fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        (-1., 0., 0.)
     }
 }
 
@@ -265,6 +273,175 @@ impl Geometry for Mesh1D {
             (self.top, y, z)
         }
     }
+
+    fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        (-1., 0., 0.)
+    }
+}
+
+#[derive(Deserialize, Clone)]
+pub struct ParryHomogeneousMesh2DInput {
+    pub length_unit: String,
+    pub points: Vec<(f64, f64)>,
+    pub simulation_boundary_points: Vec<(f64, f64)>,
+    pub densities: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64
+}
+
+#[derive(Clone)]
+pub struct ParryHomogeneousMesh2D {
+    pub boundary: Polyline,
+    pub simulation_boundary: Polyline,
+    pub energy_barrier_thickness: f64,
+    pub densities: Vec<f64>,
+    pub electronic_stopping_correction_factor: f64,
+    pub concentrations: Vec<f64>
+}
+
+
+impl Geometry for ParryHomogeneousMesh2D {
+
+    type InputFileFormat = InputHomogeneous2D;
+
+    fn new(input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> Self {
+        let length_unit: f64 = match input.length_unit.as_str() {
+            "MICRON" => MICRON,
+            "CM" => CM,
+            "MM" => MM,
+            "ANGSTROM" => ANGSTROM,
+            "NM" => NM,
+            "M" => 1.,
+            _ => input.length_unit.parse()
+                .expect(format!(
+                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M",
+                        &input.length_unit.as_str()
+                    ).as_str()),
+        };
+
+        let mut boundary_points_converted: Vec<Point2d<f64>> = input.points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
+        let number_boundary_points = boundary_points_converted.len() as u32;
+
+        for p in boundary_points_converted.iter().combinations(2) {
+            assert!(p[0] != p[1], "Input error: duplicate vertices in boundary geometry input. Boundary must be defined ccw with no duplicate points (terminal segment will span from final to initial point).")
+        }
+
+        let mut simulation_boundary_points_converted: Vec<Point2d<f64>> = input.simulation_boundary_points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
+        let number_simulation_boundary_points = simulation_boundary_points_converted.len() as u32;
+
+        let test_simulation_boundary_ccw = (0..number_simulation_boundary_points as usize)
+        .map(|i| (simulation_boundary_points_converted[(i + 1) % number_simulation_boundary_points as usize].x - simulation_boundary_points_converted[i].x)*(simulation_boundary_points_converted[i].y + simulation_boundary_points_converted[(i + 1) % number_simulation_boundary_points as usize].y))
+        .sum::<f64>();
+
+        if test_simulation_boundary_ccw > 0.0 {
+            simulation_boundary_points_converted = simulation_boundary_points_converted.clone().into_iter().rev().collect::<Vec<Point2d<f64>>>();
+        }
+
+        for p in simulation_boundary_points_converted.iter().combinations(2) {
+            assert!(p[0] != p[1], "Input error: duplicate vertices in simulation boundary geometry input. Boundary must be defined ccw with no duplicate points (terminal segment will span from final to initial point).")
+        }
+
+        let test_ccw = (0..number_boundary_points as usize)
+                .map(|i| (boundary_points_converted[(i + 1) % number_boundary_points as usize].x - boundary_points_converted[i].x)*(boundary_points_converted[i].y + boundary_points_converted[(i + 1) % number_boundary_points as usize].y))
+                .sum::<f64>();
+
+        if test_ccw > 0.0 {
+            boundary_points_converted = boundary_points_converted.clone().into_iter().rev().collect::<Vec<Point2d<f64>>>();
+        }
+
+        let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
+
+        let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
+
+        let total_density: f64 = densities.iter().sum();
+
+        let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
+
+        let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
+
+        let mut linked_boundary_points = (0..number_boundary_points).zip(1..number_boundary_points).map(|(x, y)| [x, y]).collect::<Vec<[u32; 2]>>();
+        linked_boundary_points.push([number_boundary_points - 1, 0]);
+        let boundary2 = Polyline::new(boundary_points_converted, Some(linked_boundary_points));
+
+        let mut linked_simulation_boundary_points = (0..number_simulation_boundary_points).zip(1..number_simulation_boundary_points).map(|(x, y)| [x, y]).collect::<Vec<[u32; 2]>>();
+        linked_simulation_boundary_points.push([number_simulation_boundary_points - 1, 0]);
+        let simulation_boundary2 = Polyline::new(simulation_boundary_points_converted, Some(linked_simulation_boundary_points));
+
+        ParryHomogeneousMesh2D {
+            densities,
+            simulation_boundary: simulation_boundary2,
+            boundary: boundary2,
+            electronic_stopping_correction_factor,
+            energy_barrier_thickness,
+            concentrations
+        }
+    }
+
+    fn get_densities(&self,  x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.densities
+    }
+
+    fn get_ck(&self,  x: f64, y: f64, z: f64) -> f64 {
+        self.electronic_stopping_correction_factor
+    }
+
+    fn get_total_density(&self,  x: f64, y: f64, z: f64) -> f64 {
+        self.densities.iter().sum::<f64>()
+    }
+
+    fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.concentrations
+    }
+
+    fn inside(&self, x: f64, y: f64, z: f64) -> bool {
+        let p = Point2d::new(x, y);
+        if self.boundary.aabb(&Isometry::identity()).contains_local_point(&p) {
+            let (point_projection, (_, _)) = self.boundary.project_local_point_assuming_solid_interior_ccw(p);
+            point_projection.is_inside
+        } else {
+            false
+        }
+    }
+
+    fn inside_simulation_boundary(&self, x: f64, y: f64, z: f64) -> bool {
+        let p = Point2d::new(x, y);
+
+        let (point_projection, (_, _)) = self.simulation_boundary.project_local_point_assuming_solid_interior_ccw(p);
+        point_projection.is_inside
+
+    }
+    fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
+        if self.inside(x, y, z) {
+            true
+        } else {
+            let p = Point2d::new(x, y);
+            (self.boundary.distance_to_local_point(&p, true) as f64) < self.energy_barrier_thickness
+        }
+    }
+
+    fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        let p = Point2d::new(x, y);
+        let (point_projection, (_, _)) = self.boundary.project_local_point_assuming_solid_interior_ccw(p);
+        let (x_, y_) = (point_projection.point.x, point_projection.point.y);
+        (x_ as f64, y_ as f64, z)
+    }
+
+    fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        let p = Point2d::new(x, y);
+
+        let (point_projection, (_, _)) = self.boundary.project_local_point_assuming_solid_interior_ccw(p);
+        let (x_intersect, y_intersect, z_intersect) = self.closest_point(x, y, z);
+
+        let dx = x_intersect - x;
+        let dy = y_intersect - y;
+        let dz = z_intersect - z;
+        let mag = (dx*dx + dy*dy + dz*dz).sqrt();
+
+        if point_projection.is_inside {
+            (dx/mag, dy/mag, dz/mag)
+        } else {
+            (-dx/mag, -dy/mag, -dz/mag)
+        }
+    }
 }
 
 #[derive(Deserialize, Clone)]
@@ -276,6 +453,7 @@ pub struct HomogeneousMesh2DInput {
     pub electronic_stopping_correction_factor: f64
 }
 
+/*
 #[derive(Clone)]
 pub struct HomogeneousMesh2D {
     pub boundary: Polygon<f64>,
@@ -379,7 +557,12 @@ impl Geometry for HomogeneousMesh2D {
             panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
         }
     }
+
+    fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        panic!("Not implemented.")
+    }
 }
+*/
 
 /// Object that contains raw mesh input data.
 #[derive(Deserialize, Clone)]
@@ -394,6 +577,213 @@ pub struct Mesh2DInput {
     pub energy_barrier_thickness: f64,
 }
 
+#[derive(Clone)]
+pub struct ParryMesh2D {
+    trimesh: TriMesh,
+    densities: Vec<Vec<f64>>,
+    electronic_stopping_correction_factors: Vec<f64>,
+    concentrations: Vec<Vec<f64>>,
+    pub boundary: Polyline,
+    pub simulation_boundary: Polyline,
+    pub energy_barrier_thickness: f64
+}
+
+impl ParryMesh2D {
+    fn get_id(&self, x: f64, y: f64, z: f64) -> usize {
+        let p = Point2d::new(x, y);
+        let (point_projection, feature_id) = self.trimesh.project_local_point_and_get_feature(&p);
+        match feature_id {
+            Vertex(vertex_id) => {
+                for (triangle_id, triangle) in self.trimesh.triangles().enumerate() {
+                    if triangle.contains_local_point(&self.trimesh.vertices()[vertex_id as usize]) {
+                        return triangle_id as usize
+                    }
+                }
+                panic!("Geometry error: point ({}, {}) located on a vertex that is not associated with any triangle. Check mesh input.", x, y);
+            },
+            Face(triangle_id) => {
+                triangle_id as usize
+            }
+            Unknown => {
+                panic!("Geometry error: unknown feature detected near ({}, {}). Check mesh input.", x, y);
+            }
+        }
+    }
+}
+
+impl Geometry for ParryMesh2D {
+    type InputFileFormat = Input2D;
+
+    fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
+        if self.inside(x, y, z) {
+            true
+        } else {
+            let p = Point2d::new(x, y);
+            if self.trimesh.distance_to_local_point(&p, true) < self.energy_barrier_thickness {
+                true
+            } else {
+                false
+            }
+        }
+    }
+
+    fn inside_simulation_boundary (&self, x: f64, y: f64, z: f64) -> bool {
+        let p = Point2d::new(x, y);
+
+        let (point_projection, (_, _)) = self.simulation_boundary.project_local_point_assuming_solid_interior_ccw(p);
+
+        point_projection.is_inside
+    }
+
+    fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        let p = Point2d::new(x, y);
+        let (point_projection, (_, _)) = self.boundary.project_local_point_assuming_solid_interior_ccw(p);
+        let (x_, y_) = (point_projection.point.x, point_projection.point.y);
+        (x_ as f64, y_ as f64, z)
+    }
+
+    fn get_densities(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.densities[self.get_id(x, y, z)]
+    }
+
+    fn get_ck(&self, x: f64, y: f64, z: f64) -> f64 {
+        self.electronic_stopping_correction_factors[self.get_id(x, y, z)]
+    }
+
+    /// Determine the total number density of the triangle that contains or is nearest to (x, y).
+    fn get_total_density(&self, x: f64, y: f64, z: f64) -> f64 {
+        self.get_densities(x, y, z).iter().sum::<f64>()
+    }
+
+    /// Find the concentrations of the triangle that contains or is nearest to (x, y).
+    fn get_concentrations(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
+        &self.concentrations[self.get_id(x, y, z)]
+    }
+
+    /// Determines whether the point (x, y) is inside the mesh.
+    fn inside(&self, x: f64, y: f64, z: f64) -> bool {
+        let p = Point2d::new(x, y);
+        if self.boundary.aabb(&Isometry::identity()).contains_local_point(&p) {
+            let (point_projection, (_, _)) = self.boundary.project_local_point_assuming_solid_interior_ccw(p);
+            point_projection.is_inside
+        } else {
+            false
+        }
+    }
+
+    fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        let p = Point2d::new(x, y);
+
+        let (point_projection, (_, _)) = self.boundary.project_local_point_assuming_solid_interior_ccw(p);
+        let (x_intersect, y_intersect, z_intersect) = self.closest_point(x, y, z);
+
+        let dx = x_intersect - x;
+        let dy = y_intersect - y;
+        let dz = z_intersect - z;
+        let mag = (dx*dx + dy*dy + dz*dz).sqrt();
+
+        if point_projection.is_inside {
+            (dx/mag, dy/mag, dz/mag)
+        } else {
+            (-dx/mag, -dy/mag, -dz/mag)
+        }
+    }
+
+    fn new(geometry_input: &<<Self as Geometry>::InputFileFormat as GeometryInput>::GeometryInput) -> ParryMesh2D {
+        let length_unit: f64 = match geometry_input.length_unit.as_str() {
+            "MICRON" => MICRON,
+            "CM" => CM,
+            "MM" => MM,
+            "ANGSTROM" => ANGSTROM,
+            "NM" => NM,
+            "M" => 1.,
+            _ => geometry_input.length_unit.parse()
+                .expect(format!(
+                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M",
+                        &geometry_input.length_unit.as_str()
+                    ).as_str()),
+        };
+
+        let mut boundary_points_converted: Vec<Point2d<f64>> = geometry_input.points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
+        let number_boundary_points = boundary_points_converted.len() as u32;
+
+        dbg!(&geometry_input.simulation_boundary_points);
+
+        let mut simulation_boundary_points_converted: Vec<Point2d<f64>> = geometry_input.simulation_boundary_points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect();
+        let number_simulation_boundary_points = simulation_boundary_points_converted.len() as u32;
+
+        dbg!(number_simulation_boundary_points);
+
+        let test_simulation_boundary_ccw = (0..number_simulation_boundary_points as usize)
+        .map(|i| (simulation_boundary_points_converted[(i + 1) % number_simulation_boundary_points as usize].x - simulation_boundary_points_converted[i].x)*(simulation_boundary_points_converted[i].y + simulation_boundary_points_converted[(i + 1) % number_simulation_boundary_points as usize].y))
+        .sum::<f64>();
+
+        dbg!(test_simulation_boundary_ccw > 0.0);
+
+        dbg!(&simulation_boundary_points_converted);
+
+        if test_simulation_boundary_ccw > 0.0 {
+            simulation_boundary_points_converted = simulation_boundary_points_converted.clone().into_iter().rev().collect::<Vec<Point2d<f64>>>();
+        }
+
+        dbg!(&simulation_boundary_points_converted);
+
+        for p in simulation_boundary_points_converted.iter().combinations(2) {
+            assert!(p[0] != p[1], "Input error: duplicate vertices {}, {} in simulation boundary geometry input. Boundary must be defined ccw with no duplicate points (terminal segment will span from final to initial point).", p[0], p[1])
+        }
+
+        let test_ccw = (0..number_boundary_points as usize)
+                .map(|i| (boundary_points_converted[(i + 1) % number_boundary_points as usize].x - boundary_points_converted[i].x)*(boundary_points_converted[i].y + boundary_points_converted[(i + 1) % number_boundary_points as usize].y))
+                .sum::<f64>();
+
+        if test_ccw > 0.0 {
+            boundary_points_converted = boundary_points_converted.clone().into_iter().rev().collect::<Vec<Point2d<f64>>>();
+        }
+
+        for p in boundary_points_converted.iter().combinations(2) {
+            assert!(p[0] != p[1], "Input error: duplicate vertices in boundary geometry input. Boundary must be defined ccw with no duplicate points (terminal segment will span from final to initial point).")
+        }
+
+        let triangles = geometry_input.triangles.iter().map(|(i, j, k)| [*i as u32, *j as u32, *k as u32]).collect::<Vec<[u32; 3]>>();
+        let points_converted = geometry_input.points.iter().map(|(x, y)| Point2d::new(x*length_unit, y*length_unit)).collect::<Vec<Point2d<f64>>>();
+
+        let trimesh = TriMesh::new(points_converted, triangles);
+
+        let electronic_stopping_correction_factors = geometry_input.electronic_stopping_correction_factors.clone();
+
+        let densities: Vec<Vec<f64>> = geometry_input.densities.iter().map(|density_list| density_list.iter().map(|density| density / (length_unit).powi(3)).collect::<Vec<f64>>()).collect::<Vec<Vec<f64>>>();
+
+
+        let energy_barrier_thickness = geometry_input.energy_barrier_thickness*length_unit;
+
+        let concentrations: Vec<Vec<f64>> = densities.iter().map(|density_list| density_list.iter().map(|density| density / density_list.iter().sum::<f64>() ).collect::<Vec<f64>>()).collect::<Vec<Vec<f64>>>();
+
+        for concentration in &concentrations {
+            assert!((concentration.iter().sum::<f64>() - 1.0).abs() < 1e-6);
+        }
+
+        let mut linked_boundary_points = (0..number_boundary_points).zip(1..number_boundary_points).map(|(x, y)| [x, y]).collect::<Vec<[u32; 2]>>();
+        linked_boundary_points.push([number_boundary_points - 1, 0]);
+        let boundary2 = Polyline::new(boundary_points_converted, Some(linked_boundary_points));
+
+        let number_simulation_boundary_points = simulation_boundary_points_converted.clone().len() as u32;
+        let mut linked_simulation_boundary_points = (0..number_simulation_boundary_points).zip(1..number_simulation_boundary_points).map(|(x, y)| [x, y]).collect::<Vec<[u32; 2]>>();
+        linked_simulation_boundary_points.push([number_simulation_boundary_points - 1, 0]);
+        let simulation_boundary2 = Polyline::new(simulation_boundary_points_converted, Some(linked_simulation_boundary_points));
+
+        ParryMesh2D {
+            trimesh: trimesh.expect("Input Error: Trimesh failed to build. Check mesh vertices and points."),
+            densities,
+            simulation_boundary: simulation_boundary2,
+            boundary: boundary2,
+            electronic_stopping_correction_factors,
+            energy_barrier_thickness,
+            concentrations
+        }
+    }
+}
+
+/*
 /// Triangular mesh for rustbca.
 #[derive(Clone)]
 pub struct Mesh2D {
@@ -491,26 +881,6 @@ impl Geometry for Mesh2D {
             cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));
         }
 
-        /*
-        for ((coordinate_set, densities), ck) in triangles.iter().zip(densities).zip(electronic_stopping_correction_factors) {
-            let coordinate_set_converted = (
-                coordinate_set.0*length_unit,
-                coordinate_set.1*length_unit,
-                coordinate_set.2*length_unit,
-                coordinate_set.3*length_unit,
-                coordinate_set.4*length_unit,
-                coordinate_set.5*length_unit,
-            );
-
-            let total_density: f64 = densities.iter().sum();
-            let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
-
-            cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));
-        }
-        */
-
-
-
         let mut boundary_points_converted = Vec::with_capacity(material_boundary_point_indices.len());
         for index in material_boundary_point_indices.iter() {
             boundary_points_converted.push((points[*index].0*length_unit, points[*index].1*length_unit));
@@ -549,8 +919,18 @@ impl Geometry for Mesh2D {
 
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
         if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+            if p.x() == x && p.y() == y {
+                dbg!(&self.boundary);
+                println!("single point");
+                panic!("({} {} {}) ({} {} {})", p.x(), p.y(), z, x, y, z);
+            }
             (p.x(), p.y(), z)
         } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+            if p.x() == x && p.y() == y {
+                dbg!(&self.boundary);
+                println!("intersection");
+                panic!("({} {} {}) ({} {} {})", p.x(), p.y(), z, x, y, z);
+            }
             (p.x(), p.y(), z)
         } else {
             panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
@@ -617,6 +997,10 @@ impl Geometry for Mesh2D {
     fn inside(&self, x: f64, y: f64, z: f64) -> bool {
         self.boundary.contains(&Point::new(x, y))
     }
+
+    fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        panic!("Not implemented.");
+    }
 }
 
 /// A mesh cell that contains a triangle and the local number densities and concentrations.
@@ -662,6 +1046,7 @@ impl GeometryElement for Cell2D {
         self.electronic_stopping_correction_factor
     }
 }
+*/
 
 #[derive(Clone)]
 pub struct Layer1D {
@@ -711,6 +1096,7 @@ impl GeometryElement for Layer1D {
     }
 }
 
+/*
 /// A triangle in 2D, with points (x1, y1), (x2, y2), (x3, y3), and the three line segments bewtween them.
 #[derive(Clone)]
 pub struct Triangle2D {
@@ -801,3 +1187,4 @@ impl Triangle2D {
         ((x - centroid.0)*(x - centroid.0) + (y - centroid.1)*(y - centroid.1)).sqrt()
     }
 }
+*/

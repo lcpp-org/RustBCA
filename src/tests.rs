@@ -3,6 +3,101 @@ use super::*;
 #[cfg(test)]
 use float_cmp::*;
 
+#[cfg(test)]
+fn test_parry2d() {
+    let points: Vec<Point2d<f64>> = vec![Point2d::new(-1.0, -1.0), Point2d::new(-1.0, 1.0), Point2d::new(1.0, 1.0), Point2d::new(1.0, -1.0)];
+
+    let indices: Vec<[u32; 2]> = vec![[0, 3], [3, 2], [2, 1], [1, 0]];
+    //indices.reverse();
+
+    //(0.0000006261797114005236, 0.000006009591179670447)
+    let query_point = Point2d::new(0.0, 0.0);
+
+    let polyline = Polyline::new(points, Some(indices));
+
+    let (point_projection, (_, _)) = polyline.project_local_point_assuming_solid_interior_ccw(
+        query_point
+    );
+
+    assert!(point_projection.is_inside);
+    assert!(polyline.aabb(&Isometry::identity()).contains_local_point(&query_point));
+
+    let test_geometry = vec![(0.25, 0.2), (0.75, 0.2), (0.8, 0.8), (0.5, 0.5), (0.2, 0.8)];
+    let num_segments = 5;
+
+    let geometry_input_homogeneous_2D = geometry::HomogeneousMesh2DInput {
+        length_unit: "M".to_string(),
+        points: test_geometry.clone(),
+        densities: vec![0.03, 0.03],
+        simulation_boundary_points: vec![(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)],
+        electronic_stopping_correction_factor: 1.0,
+    };
+
+    let material_parameters = material::MaterialParameters{
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: vec![0.0, 0.0],
+        Es: vec![2.0, 4.0],
+        Ec: vec![1.0, 1.0],
+        Ed: vec![0.0, 0.0],
+        Z: vec![29., 1.],
+        m: vec![63.54, 1.0008],
+        interaction_index: vec![0, 0],
+        surface_binding_model: SurfaceBindingModel::PLANAR{calculation: SurfaceBindingCalculation::TARGET},
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let material_homogeneous_2D: material::Material<geometry::ParryHomogeneousMesh2D> = material::Material::<geometry::ParryHomogeneousMesh2D>::new(&material_parameters, &geometry_input_homogeneous_2D);
+
+    let query_points_outside = vec![[0.5, 0.1, 0.0], [0.9, 0.5, 0.0], [0.6, 0.7, 0.0], [0.4, 0.7, 0.0], [0.1, 0.5, 0.0]];
+    let query_points_inside = vec![[0.5, 0.21, 0.0], [0.75, 0.21, 0.0], [0.51, 0.5, 0.0], [0.49, 0.5, 0.0], [0.25, 0.21, 0.0]];
+
+    for query_point in query_points_outside.clone() {
+        assert!(!material_homogeneous_2D.inside(query_point[0], query_point[1], query_point[2]), "Point ({}, {}, {}) failed outsidedness check.", query_point[0], query_point[1], query_point[2]);
+    }
+
+    for query_point in query_points_inside.clone() {
+        assert!(material_homogeneous_2D.inside(query_point[0], query_point[1], query_point[2]), "Point ({}, {}, {}) failed outsidedness check.", query_point[0], query_point[1], query_point[2]);
+    }
+
+
+    let normals_outside = query_points_outside
+        .iter()
+        .map( |query_point| {
+            material_homogeneous_2D.geometry.nearest_normal_vector(query_point[0], query_point[1], query_point[2])
+        }
+    ).collect::<Vec<(f64, f64, f64)>>();
+
+    let normals_inside = query_points_inside
+    .iter()
+    .map( |query_point| {
+        material_homogeneous_2D.geometry.nearest_normal_vector(query_point[0], query_point[1], query_point[2])
+    }
+    ).collect::<Vec<(f64, f64, f64)>>();
+
+    let test_normals = (0..num_segments)
+        .zip(1..num_segments + 1)
+        .map(|(i, j)| {
+            let dx = test_geometry[i % num_segments].0 - test_geometry[j % num_segments].0;
+            let dy = test_geometry[i % num_segments].1 - test_geometry[j % num_segments].1;
+            let mag = (dx*dx + dy*dy).sqrt();
+            (-dy/mag, dx/mag, 0.0)
+        }).collect::<Vec<(f64, f64, f64)>>();
+
+    for (test_normal, normal) in test_normals.iter().zip(normals_outside) {
+        assert!(approx_eq!(f64, normal.0, test_normal.0, epsilon=1E-9), "Normal vector check failed. Calculated Normal: ({}, {}, {}) Test: ({}, {}, {})", normal.0, normal.1, normal.2, test_normal.0, test_normal.1, test_normal.2);
+        assert!(approx_eq!(f64, normal.1, test_normal.1, epsilon=1E-9));
+        assert!(approx_eq!(f64, normal.2, test_normal.2, epsilon=1E-9));
+    }
+
+    for (test_normal, normal) in test_normals.iter().zip(normals_inside) {
+        assert!(approx_eq!(f64, normal.0, test_normal.0, epsilon=1E-9), "Normal vector check failed. Calculated Normal: ({}, {}, {}) Test: ({}, {}, {})", normal.0, normal.1, normal.2, test_normal.0, test_normal.1, test_normal.2);
+        assert!(approx_eq!(f64, normal.1, test_normal.1, epsilon=1E-9));
+        assert!(approx_eq!(f64, normal.2, test_normal.2, epsilon=1E-9));
+    }
+
+}
+
 
 #[test]
 #[cfg(feature = "cpr_rootfinder")]
@@ -440,6 +535,61 @@ fn test_spherical_geometry() {
 }
 
 #[test]
+fn extended_test_2D_geometry() {
+    let mass = 1.;
+    let Z = 1.;
+    let E = 10.*EV;
+    let Ec = 1.*EV;
+    let Es = 5.76*EV;
+    let x = 1.5e-6;
+    let y = 10.0e-6;
+    let z = 0.;
+    let cosx = 0.0;
+    let cosy = -1.0;
+    let cosz = 0.;
+
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, 0.0, x, y, z, cosx, cosy, cosz, false, false, 0);
+
+    let material_parameters = material::MaterialParameters{
+        energy_unit: "EV".to_string(),
+        mass_unit: "AMU".to_string(),
+        Eb: vec![0.0, 0.0],
+        Es: vec![2.0, 4.0],
+        Ec: vec![1.0, 1.0],
+        Ed: vec![0.0, 0.0],
+        Z: vec![29., 1.],
+        m: vec![63.54, 1.0008],
+        interaction_index: vec![0, 0],
+        surface_binding_model: SurfaceBindingModel::PLANAR{calculation: SurfaceBindingCalculation::TARGET},
+        bulk_binding_model: BulkBindingModel::INDIVIDUAL,
+    };
+
+    let thickness: f64 = 1000.;
+    let depth: f64 = 1000.;
+
+    let geometry_input_2D = geometry::Mesh2DInput {
+        length_unit: "MICRON".to_string(),
+        points: vec![(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (3.0, 0.0), (4.0, 0.0), (4.0, 1.0), (3.0, 1.0), (3.0, 10.0), (2.0, 10.0), (2.0, 1.0), (1.0, 1.0), (1.0, 10.0), (0.0, 10.0), (0.0, 1.0)],
+        triangles: vec![(13, 12, 11), (13, 11, 10), (0, 13, 10), (0, 10, 1), (1, 10, 9), (1, 9, 2), (9, 8, 7), (9, 7, 6), (2, 9, 6), (2, 6, 3), (3, 6, 5), (3, 5, 4)],
+        densities: vec![vec![3e10, 3e10]; 12],
+        boundary: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+        simulation_boundary_points: vec![(-0.1, -0.1), (4.1, -0.1), (4.1, 10.1), (-0.1, 10.1)],
+        energy_barrier_thickness: 4e-4,
+        electronic_stopping_correction_factors: vec![1.0; 12],
+    };
+
+    let material_2D: material::Material<geometry::ParryMesh2D> = material::Material::<geometry::ParryMesh2D>::new(&material_parameters, &geometry_input_2D);
+
+
+    assert!(material_2D.inside(1.5e-6, 0.999e-6, 0.0));
+    assert!(!material_2D.inside(1.5e-6, 1.0001e-6, 0.0));
+
+    material::surface_binding_energy(&mut particle_1, &material_2D);
+
+    material::boundary_condition_planar(&mut particle_1, &material_2D);
+}
+
+#[test]
 fn test_geometry() {
     let mass = 1.;
     let Z = 1.;
@@ -477,7 +627,7 @@ fn test_geometry() {
         triangles: vec![(0, 1, 2), (0, 2, 3)],
         densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
         boundary: vec![0, 1, 2, 3],
-        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
+        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.)],
         energy_barrier_thickness: 10.,
         electronic_stopping_correction_factors: vec![1.0, 1.0],
     };
@@ -486,7 +636,7 @@ fn test_geometry() {
         length_unit: "ANGSTROM".to_string(),
         points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
         densities: vec![0.03, 0.03],
-        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
+        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.)],
         electronic_stopping_correction_factor: 1.0,
     };
 
@@ -504,8 +654,8 @@ fn test_geometry() {
         electronic_stopping_correction_factor: 1.0
     };
 
-    let material_2D: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input_2D);
-    let material_homogeneous_2D: material::Material<geometry::HomogeneousMesh2D> = material::Material::<geometry::HomogeneousMesh2D>::new(&material_parameters, &geometry_input_homogeneous_2D);
+    let material_2D: material::Material<geometry::ParryMesh2D> = material::Material::<geometry::ParryMesh2D>::new(&material_parameters, &geometry_input_2D);
+    let material_homogeneous_2D: material::Material<geometry::ParryHomogeneousMesh2D> = material::Material::<geometry::ParryHomogeneousMesh2D>::new(&material_parameters, &geometry_input_homogeneous_2D);
     let material_1D: material::Material<geometry::Mesh1D> = material::Material::<geometry::Mesh1D>::new(&material_parameters, &geometry_input_1D);
     let mut material_0D: material::Material<geometry::Mesh0D> = material::Material::<geometry::Mesh0D>::new(&material_parameters, &geometry_input_0D);
     material_0D.geometry.energy_barrier_thickness = 10.*ANGSTROM;
@@ -529,7 +679,12 @@ fn test_geometry() {
     assert_eq!(material_2D.geometry.get_densities(0., 0., 0.), material_0D.geometry.get_densities(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_total_density(0., 0., 0.), material_0D.geometry.get_total_density(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_concentrations(0., 0., 0.), material_0D.geometry.get_concentrations(0., 0., 0.));
-    assert_eq!(material_2D.geometry.closest_point(-10., 0., 5.), material_0D.geometry.closest_point(-10., 0., 5.));
+    let (x2d, y2d, z2d) = material_2D.geometry.closest_point(0., 0., 0.);
+    let (x0d, y0d, z0d) = material_0D.geometry.closest_point(0., 0., 0.);
+    assert!(approx_eq!(f64, x2d, x0d, epsilon=1e-6), "2D: ({}, {}, {}) 0D: ({}, {}, {})", x2d, y2d, z2d, x0d, y0d, z0d);
+    assert!(approx_eq!(f64, y2d, y0d, epsilon=1e-6), "2D: ({}, {}, {}) 0D: ({}, {}, {})", x2d, y2d, z2d, x0d, y0d, z0d);
+    assert!(approx_eq!(f64, z2d, z0d, epsilon=1e-6), "2D: ({}, {}, {}) 0D: ({}, {}, {})", x2d, y2d, z2d, x0d, y0d, z0d);
+
     assert_eq!(material_2D.geometry.get_densities(-10., 0., 5.), material_0D.geometry.get_densities(-10., 0., 5.));
     assert_eq!(material_2D.geometry.get_ck(-10., 0., 5.), material_0D.geometry.get_ck(-10., 0., 5.));
 
@@ -537,7 +692,14 @@ fn test_geometry() {
     assert_eq!(material_2D.geometry.get_densities(0., 0., 0.), material_homogeneous_2D.geometry.get_densities(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_total_density(0., 0., 0.), material_homogeneous_2D.geometry.get_total_density(0., 0., 0.));
     assert_eq!(material_2D.geometry.get_concentrations(0., 0., 0.), material_homogeneous_2D.geometry.get_concentrations(0., 0., 0.));
-    assert_eq!(material_2D.geometry.closest_point(-10., 0., 5.), material_homogeneous_2D.geometry.closest_point(-10., 0., 5.));
+
+    let (x2d, y2d, z2d) = material_2D.geometry.closest_point(-10., 0., 5.);
+    let (x0d, y0d, z0d) = material_0D.geometry.closest_point(-10., 0., 5.);
+    assert!(approx_eq!(f64, x2d, x0d, epsilon=1e-6), "2D: ({}, {}, {}) 0D: ({}, {}, {})", x2d, y2d, z2d, x0d, y0d, z0d);
+    assert!(approx_eq!(f64, y2d, y0d, epsilon=1e-6), "2D: ({}, {}, {}) 0D: ({}, {}, {})", x2d, y2d, z2d, x0d, y0d, z0d);
+    assert!(approx_eq!(f64, z2d, z0d, epsilon=1e-6), "2D: ({}, {}, {}) 0D: ({}, {}, {})", x2d, y2d, z2d, x0d, y0d, z0d);
+
+
     assert_eq!(material_2D.geometry.get_densities(-10., 0., 5.), material_homogeneous_2D.geometry.get_densities(-10., 0., 5.));
     assert_eq!(material_2D.geometry.get_ck(-10., 0., 5.), material_homogeneous_2D.geometry.get_ck(-10., 0., 5.));
 }
@@ -580,7 +742,7 @@ fn test_surface_binding_energy_barrier() {
         triangles: vec![(0, 1, 2), (0, 2, 3)],
         densities: vec![vec![0.03, 0.03], vec![0.03, 0.03]],
         boundary: vec![0, 1, 2, 3],
-        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
+        simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.)],
         energy_barrier_thickness: 10.,
         electronic_stopping_correction_factors: vec![1.0, 1.0],
     };
@@ -591,7 +753,7 @@ fn test_surface_binding_energy_barrier() {
         electronic_stopping_correction_factor: 1.0
     };
 
-    let material_2D: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input_2D);
+    let material_2D: material::Material<geometry::ParryMesh2D> = material::Material::<geometry::ParryMesh2D>::new(&material_parameters, &geometry_input_2D);
     let mut material_0D: material::Material<geometry::Mesh0D> = material::Material::<geometry::Mesh0D>::new(&material_parameters, &geometry_input_0D);
     material_0D.geometry.energy_barrier_thickness = 10.*ANGSTROM;
 
@@ -662,6 +824,8 @@ fn test_surface_binding_energy_barrier() {
     assert!(material_0D.inside_energy_barrier(1015.*ANGSTROM, 0., 0.));
 }
 
+//Deprecated with geo
+/*
 #[test]
 fn test_triangle_contains() {
     let triangle_1 = geometry::Triangle2D::new((0., 2., 0., 2., 0., 0.));
@@ -685,6 +849,7 @@ fn test_triangle_distance_to() {
     assert!(approx_eq!(f64, triangle_1.distance_to(2., 0.), 0., epsilon=1E-12), "{}", triangle_1.distance_to(2., 0.));
     assert!(approx_eq!(f64, triangle_1.distance_to(0., 2.), 0., epsilon=1E-12), "{}", triangle_1.distance_to(0., 2.));
 }
+*/
 
 #[test]
 fn test_surface_refraction() {
@@ -778,7 +943,7 @@ fn test_momentum_conservation() {
         InteractionPotential::LENZ_JENSEN,
         InteractionPotential::MORSE{D: 5.4971E-20, r0: 2.782E-10, alpha: 1.4198E10}
     ];
-    
+
     let mut rootfinders = vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}; 4];
 
     //[[{"CPR"={n0=2, nmax=100, epsilon=1E-9, complex_threshold=1E-3, truncation_threshold=1E-9, far_from_zero=1E9, interval_limit=1E-12, derivative_free=true}}]]
@@ -795,6 +960,13 @@ fn test_momentum_conservation() {
             derivative_free: true
         }
     );
+
+    //Aluminum
+    let m2 = 6.941;
+    let Z2 = 3.;
+    let Ec2 = 1.;
+    let Es2 = 1.;
+
 
     for direction in vec![(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0), (-1.0, 0.0, 0.0), (0.0, -1.0, 0.0), (0.0, 0.0, -1.0)] {
         for energy_eV in vec![1., 10., 100., 1000., 1000.] {
@@ -818,6 +990,19 @@ fn test_momentum_conservation() {
             let cosy = direction.1;
             let cosz = direction.2;
 
+            let thickness: f64 = 1000.;
+            let depth: f64 = 1000.;
+            let geometry_input = geometry::Mesh2DInput {
+                length_unit: "ANGSTROM".to_string(),
+                triangles: vec![(0, 1, 2), (0, 2, 3)],
+                points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
+                densities: vec![vec![0.06306], vec![0.06306]],
+                boundary: vec![0, 1, 2, 3],
+                simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.)],
+                electronic_stopping_correction_factors: vec![0.0, 0.0],
+                energy_barrier_thickness: 0.,
+            };
+
             let material_parameters = material::MaterialParameters{
                 energy_unit: "EV".to_string(),
                 mass_unit: "AMU".to_string(),
@@ -832,20 +1017,7 @@ fn test_momentum_conservation() {
                 bulk_binding_model: BulkBindingModel::INDIVIDUAL,
             };
 
-            let thickness: f64 = 1000.;
-            let depth: f64 = 1000.;
-            let geometry_input = geometry::Mesh2DInput {
-                length_unit: "ANGSTROM".to_string(),
-                triangles: vec![(0, 1, 2), (0, 2, 3)],
-                points: vec![(0., -thickness/2.), (depth, -thickness/2.), (depth, thickness/2.), (0., thickness/2.)],
-                densities: vec![vec![0.06306], vec![0.06306]],
-                boundary: vec![0, 1, 2, 3],
-                simulation_boundary_points: vec![(0., 1.1*thickness/2.), (depth, 1.1*thickness/2.), (depth, -1.1*thickness/2.), (0., -1.1*thickness/2.), (0., 1.1*thickness/2.)],
-                electronic_stopping_correction_factors: vec![0.0, 0.0],
-                energy_barrier_thickness: 0.,
-            };
-
-            let material_1: material::Material<geometry::Mesh2D> = material::Material::<geometry::Mesh2D>::new(&material_parameters, &geometry_input);
+            let material_1: material::Material<geometry::ParryMesh2D> = material::Material::<geometry::ParryMesh2D>::new(&material_parameters, &geometry_input);
 
             for high_energy_free_flight_paths in vec![true, false] {
                 for (potential, root_finder) in potentials.iter().zip(rootfinders.clone()) {
@@ -857,7 +1029,7 @@ fn test_momentum_conservation() {
                             _ => {}
                         }
 
-                        println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
+                        //println!("Case: {} {} {} {}", energy_eV, high_energy_free_flight_paths, potential, scattering_integral);
 
                         let mut particle_1 = particle::Particle::new(m1, Z1, E1, Ec1, Es1, 0.0, x1, y1, z1, cosx, cosy, cosz, false, false, 0);
 
@@ -922,9 +1094,11 @@ fn test_momentum_conservation() {
 
                         let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
 
+                        /*
                         println!("Phi: {} rad p: {} Angstrom mfp: {} Angstrom", binary_collision_geometries[0].phi_azimuthal,
                             binary_collision_geometries[0].impact_parameter/ANGSTROM,
                             binary_collision_geometries[0].mfp/ANGSTROM);
+                        */
 
                         let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material_1,
                             &binary_collision_geometries[0], &options);
@@ -937,12 +1111,13 @@ fn test_momentum_conservation() {
                         let binary_collision_result = bca::calculate_binary_collision(&particle_1,
                             &particle_2, &binary_collision_geometries[0], &options).unwrap();
 
+                        /*
                         println!("E_recoil: {} eV Psi: {} rad Psi_recoil: {} rad", binary_collision_result.recoil_energy/EV,
                             binary_collision_result.psi,
                             binary_collision_result.psi_recoil);
 
                         println!("Initial Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
-
+                        */
                         //Energy transfer to recoil
                         particle_2.E = binary_collision_result.recoil_energy - material_1.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
 
@@ -963,11 +1138,13 @@ fn test_momentum_conservation() {
 
                         let final_momentum = mom1_1.add(&mom2_1);
 
+                        /*
                         println!("Final Energies: {} eV {} eV", particle_1.E/EV, particle_2.E/EV);
                         println!("X: {} {} {}% Error", initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, 100.*(final_momentum.x - initial_momentum.x)/initial_momentum.magnitude());
                         println!("Y: {} {} {}% Error", initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, 100.*(final_momentum.y - initial_momentum.y)/initial_momentum.magnitude());
                         println!("Z: {} {} {}% Error", initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, 100.*(final_momentum.z - initial_momentum.z)/initial_momentum.magnitude());
                         println!();
+                        */
 
                         //These values are in  [angstrom amu / second], so very large.
                         assert!(approx_eq!(f64, initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, epsilon = 1000.));

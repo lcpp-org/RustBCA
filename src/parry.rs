@@ -2,7 +2,7 @@ use super::*;
 use parry3d_f64::shape::{Ball, TriMesh};
 use parry3d_f64::query::{PointQuery, Ray, RayCast};
 use parry3d_f64::math::{Isometry, Point, Vector};
-use parry3d_f64::bounding_volume::AABB;
+use parry3d_f64::bounding_volume::Aabb;
 
 #[derive(Deserialize, Clone)]
 pub struct InputParryBall {
@@ -124,6 +124,15 @@ impl Geometry for ParryBall {
         let (x_, y_, z_) = (point_projection.point.x, point_projection.point.y, point_projection.point.z);
         (x_ as f64, y_ as f64, z_ as f64)
     }
+
+    fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        let r = (x.powi(2) + y.powi(2) + z.powi(2)).sqrt();
+        let R = self.radius;
+        let ux = x/r;
+        let uy = y/r;
+        let uz = z/r;
+        (ux, uy, uz)
+    }
 }
 
 
@@ -171,7 +180,7 @@ pub struct ParryTriMesh {
     pub electronic_stopping_correction_factor: f64,
     pub energy_barrier_thickness: f64,
     pub trimesh: TriMesh,
-    pub boundary: AABB,
+    pub boundary: Aabb,
 }
 
 impl GeometryInput for InputParryTriMesh {
@@ -204,7 +213,7 @@ impl Geometry for ParryTriMesh {
         let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
         let points = input.vertices.iter().map(|p| Point::new(p[0]*length_unit , p[1]*length_unit , p[2]*length_unit)).collect();
-        let trimesh = TriMesh::new(points, input.indices.clone());
+        let trimesh = TriMesh::new(points, input.indices.clone()).expect("Input error: failed to build Trimesh. Check vertices, indices");
         let boundary = trimesh.aabb(&Isometry::identity());
 
         ParryTriMesh {
@@ -262,6 +271,22 @@ impl Geometry for ParryTriMesh {
         let point_projection = self.trimesh.project_local_point(&p, false);
         let (x_, y_, z_) = (point_projection.point.x, point_projection.point.y, point_projection.point.z);
         (x_ as f64, y_ as f64, z_ as f64)
+    }
+
+    fn nearest_normal_vector(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
+        let p = Point::new(x, y, z);
+        let point_projection = self.trimesh.project_local_point(&p, false);
+
+        let dx = point_projection.point.x - x;
+        let dy = point_projection.point.y - y;
+        let dz = point_projection.point.z - z;
+        let mag = (dx*dx + dy*dy + dz*dz).sqrt();
+
+        if point_projection.is_inside {
+            (dx/mag, dy/mag, dz/mag)
+        } else {
+            (-dx/mag, -dy/mag, -dz/mag)
+        }
     }
 }
 

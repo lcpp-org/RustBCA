@@ -1,5 +1,5 @@
 /// 3D vector.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Vector {
     pub x: f64,
     pub y: f64,
@@ -45,7 +45,7 @@ impl Vector {
 }
 
 /// TrajectoryElement is a trajectory-tracking object that includes x, y, z, and the current energy.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TrajectoryElement {
     pub E: f64,
     pub x: f64,
@@ -65,7 +65,7 @@ impl TrajectoryElement {
 }
 
 /// Energy loss is an output tracker that tracks the separate nuclear and electronic energy losses.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EnergyLoss {
     pub En: f64,
     pub Ee: f64,

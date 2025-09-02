@@ -12,9 +12,9 @@ By discretizing the collision cascade into a sequence of binary collisions,
 between an energetic ion and a target material. This includes reflection,
 implantation, and transmission of the incident ion, as well as sputtering
 and displacement damage of the target. Generally, [BCA] codes can be
-valid for incident ion energies between several eV/nucleon  to 
+valid for incident ion energies between several eV/nucleon  to
 <1 GeV/nucleon. Improvements to RustBCA have expanded the regime
-of validity for some quantities, such as reflection coefficients, below 
+of validity for some quantities, such as reflection coefficients, below
 1 eV/nucleon for some ion/target pairs.
 
 Check out the `RustBCA` [Wiki] for detailed information, installation
@@ -55,7 +55,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 >>> 1 < sputtering_yield(argon, tungsten, energy, angle, num_samples) < 1.1 # Y approx. 1.04
 True
 >>> R_N, R_E = reflection_coefficient(argon, tungsten, energy, angle, num_samples)
->>> 0.3 < R_N < 0.4 # R_N approx. 0.35 
+>>> 0.3 < R_N < 0.4 # R_N approx. 0.35
 True
 >>> 0.0 < R_E < 0.2 # R_E approx 0.1
 True
@@ -156,7 +156,7 @@ Without optional features, `RustBCA` should compile with `cargo` alone on
 Windows, MacOS, and Linux systems:
 
 ```
-cargo build --release 
+cargo build --release
 ```
 
 will add an executable at `target/release/`.
@@ -197,26 +197,26 @@ sudo apt-get install python3-pip
 ```bash
 python3 -m pip install numpy matplotlib shapely scipy toml
 ```
-6. (Optional - should come with rustup) Install `cargo`:
+7. (Optional - should come with rustup) Install `cargo`:
 ```bash
 sudo apt-get install cargo
 ```
-7. Build `RustBCA`:
+8. Build `RustBCA`:
 ```bash
 git clone https://github.com/lcpp-org/RustBCA
 cd RustBCA
 cargo build --release
 ```
-8. (Optional) Build `RustBCA` with optional dependencies, `hdf5` and/or `rcpr`:
+9. (Optional) Build `RustBCA` with optional dependencies, `hdf5` and/or `rcpr`:
 ```bash
-cargo build --release --features cpr_rootfinder,hdf5
-```
-9. `input.toml` is the input file - see the [Input File](https://github.com/lcpp-org/RustBCA/wiki/Standalone-Code:-Input-File) page for more information
-10. Run the required tests using:
+cargo build --release --features cpr_rootfinder,hdf5_input
+ ```
+10. `input.toml` is the input file - see [Usage](https://github.com/lcpp-org/RustBCA/wiki/Usage,-Input-File,-and-Output-Files) for more information
+11. Run the required tests using:
 ```bash
 cargo test
 ```
-11. (Optional) Run the tests for the advanced rootfinder:
+12. (Optional) Run the required and optional tests for the desired backend(s):
 ```bash
 cargo test --features cpr_rootfinder
 ```
@@ -271,7 +271,7 @@ command line argument.
 ./RustBCA /path/to/input.toml
 ```
 
-Additionally, `RustBCA` accepts an input file type (one of: `0D`, `1D`, `2D`, `TRIMESH`, `SPHERE` - see the wiki for more details):
+Additionally, `RustBCA` accepts an input file type (one of: `0D`, `1D`, `2D`, `TRIMESH`, `SPHERE`, `HOMOGENEOUS2D` - see the wiki for more details):
 ```bash
 ./RustBCA 0D /path/to/input.toml
 ```

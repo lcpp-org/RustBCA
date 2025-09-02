@@ -3,13 +3,13 @@ use super::*;
 pub enum MaterialType {
     MESH0D(material::Material<geometry::Mesh0D>),
     MESH1D(material::Material<geometry::Mesh1D>),
-    MESH2D(material::Material<geometry::Mesh2D>),
+    MESH2D(material::Material<geometry::ParryMesh2D>),
     SPHERE(material::Material<sphere::Sphere>),
     #[cfg(feature = "parry3d")]
     BALL(material::Material<parry::ParryBall>),
     #[cfg(feature = "parry3d")]
     TRIMESH(material::Material<parry::ParryTriMesh>),
-    HOMOGENEOUS2D(material::Material<geometry::HomogeneousMesh2D>)
+    HOMOGENEOUS2D(material::Material<geometry::ParryHomogeneousMesh2D>)
 }
 
 #[derive(Deserialize, PartialEq, Clone, Copy)]
