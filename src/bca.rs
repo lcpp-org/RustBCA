@@ -538,7 +538,7 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
 /// Mendenhall-Weller scattering integrand.
 fn scattering_integral_mw(x: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
     //Function for scattering integral - see Mendenhall and Weller, 1991 & 2005
-    return (1. - interactions::phi(x, interaction_potential)/x/reduced_energy - beta*beta/x/x).powf(-0.5);
+    return 1/(1. - interactions::phi(x, interaction_potential)/x/reduced_energy - beta*beta/x/x).sqrt();
 }
 
 /// Gauss-Legendre scattering integrand.
@@ -776,7 +776,7 @@ pub fn mendenhall_weller(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_par
     let beta: f64 = impact_parameter/a;
 
     //Scattering integral quadrature from Mendenhall and Weller 2005
-    let lambda0 = (0.5 + beta*beta/x0/x0/2. - interactions::dphi(x0,  interaction_potential)/2./reduced_energy).powf(-1./2.);
+    let lambda0 = 1./(0.5 + beta*beta/x0/x0/2. - interactions::dphi(x0,  interaction_potential)/2./reduced_energy).sqrt();
     let alpha = 1./12.*(1. + lambda0 + 5.*(0.4206*scattering_integral_mw(x0/0.9072, beta, reduced_energy,  interaction_potential) + 0.9072*scattering_integral_mw(x0/0.4206, beta, reduced_energy,  interaction_potential)));
     PI*(1. - beta*alpha/x0)
 }

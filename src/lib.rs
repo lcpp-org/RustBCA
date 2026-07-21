@@ -235,7 +235,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
     let tags = unsafe { slice::from_raw_parts(input.tags, input.len).to_vec() };
     let weights = unsafe { slice::from_raw_parts(input.weights, input.len).to_vec() };
 
-    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let x = -2.*(n2.iter().sum::<f64>()*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -368,7 +368,7 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
     let Es2 = unsafe { slice::from_raw_parts(Es2, *num_species_target as usize).to_vec() };
     let Eb2 = unsafe { slice::from_raw_parts(Eb2, *num_species_target as usize).to_vec() };
 
-    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let x = -2.*(n2.iter().sum::<f64>()*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -438,7 +438,7 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
 #[no_mangle]
 pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
 
-    let x = -2.*(input.n2*10E30).powf(-1./3.);
+    let x = -2.*(input.n2*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -560,7 +560,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
     let Es2 = unsafe { slice::from_raw_parts(input.Es2, input.num_species_target).to_vec() };
     let Eb2 = unsafe { slice::from_raw_parts(input.Eb2, input.num_species_target).to_vec() };
 
-    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let x = -2.*(n2.iter().sum::<f64>()*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -699,7 +699,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
 
     //println!("Z2: {} m2: {} n2: {} Ec2: {} Es2: {} Eb2: {}", Z2[0], m2[0], n2[0], Ec2[0], Es2[0], Eb2[0]);
 
-    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let x = -2.*(n2.iter().sum::<f64>()*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -844,7 +844,7 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
 
     let options = Options::default_options(true);
 
-    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let x = -2.*(n2.iter().sum::<f64>()*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -968,7 +968,7 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
     let options = Options::default_options(true);
     //options.high_energy_free_flight_paths = true;
 
-    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let x = -2.*(n2.iter().sum::<f64>()*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -1333,7 +1333,7 @@ pub fn simple_bca_list_py(energies: Vec<f64>, usx: Vec<f64>, usy: Vec<f64>, usz:
     assert_eq!(energies.len(), usy.len());
     assert_eq!(energies.len(), usz.len());
 
-    let x = -2.*(n2*10E30).powf(-1./3.);
+    let x = -2.*(n2*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -1525,7 +1525,7 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     *ux = incident.x;
     *uy = incident.y;
     *uz = incident.z;
-    let mag = (ux.powf(2.) + uy.powf(2.) + uz.powf(2.)).sqrt();
+    let mag = (ux*ux + uy*uy + uz*uz).sqrt();
 
     *ux /= mag;
     *uy /= mag;

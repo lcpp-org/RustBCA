@@ -70,7 +70,7 @@ impl Geometry for Mesh0D {
 
         let total_density: f64 = densities.iter().sum();
 
-        let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
+        let energy_barrier_thickness = 1./total_density.cbrt()/SQRTPI*2.;
 
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
 
@@ -180,8 +180,8 @@ impl Geometry for Mesh1D {
             layer_top = layer_bottom;
         }
 
-        let top_energy_barrier_thickness = layers[0].densities.iter().sum::<f64>().powf(-1./3.)/SQRTPI*2.;
-        let bottom_energy_barrier_thickness = layers[layers.len() - 1].densities.iter().sum::<f64>().powf(-1./3.)/SQRTPI*2.;
+        let top_energy_barrier_thickness = 1./layers[0].densities.iter().sum::<f64>().cbrt()/SQRTPI*2.;
+        let bottom_energy_barrier_thickness = 1./layers[layers.len() - 1].densities.iter().sum::<f64>().cbrt()/SQRTPI*2.;
 
         Mesh1D {
             layers,
@@ -315,7 +315,7 @@ impl Geometry for HomogeneousMesh2D {
 
         let total_density: f64 = densities.iter().sum();
 
-        let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
+        let energy_barrier_thickness = 1./total_density.cbrt()/SQRTPI*2.;
 
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
 
@@ -361,7 +361,7 @@ impl Geometry for HomogeneousMesh2D {
             true
         } else {
             if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
-                let distance = ((x - p.x()).powf(2.) +  (y - p.y()).powf(2.)).sqrt();
+                let distance = ((x - p.x()).powi(2) +  (y - p.y()).powi(2)).sqrt();
                 distance < self.energy_barrier_thickness
             } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
                 true

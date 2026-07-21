@@ -121,7 +121,7 @@ impl <T: Geometry> Material<T> {
 
     /// Determines the local mean free path from the formula sum(n(x, y))^(-1/3)
     pub fn mfp(&self, x: f64, y: f64, z: f64) -> f64 {
-        return self.total_number_density(x, y, z).powf(-1./3.);
+        return 1./self.total_number_density(x, y, z).cbrt();
     }
 
     /// Total number density of triangle that contains or is nearest to (x, y).
@@ -274,7 +274,7 @@ impl <T: Geometry> Material<T> {
 
         for (n, Zb) in self.number_densities(x, y, z).iter().zip(&self.Z) {
 
-            let beta = (1. - (1. + E/Ma/C.powi(2)).powf(-2.)).sqrt();
+            let beta = (1. - 1./(1. + E/Ma/C.powi(2)).sqrt()).sqrt();
             let v = beta*C;
 
             // This term is an empirical fit to the mean ionization potential
@@ -296,7 +296,8 @@ impl <T: Geometry> Material<T> {
             let S_high = prefactor*(eb + 1. + B/eb).ln();
 
             //Lindhard-Scharff electronic stopping
-            let S_low = LINDHARD_SCHARFF_PREFACTOR*(Za.powf(7./6.)*Zb)/(Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.)*(E/Q/Ma*AMU).sqrt();
+            //let S_low = LINDHARD_SCHARFF_PREFACTOR*(Za.powf(7./6.)*Zb)/(Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.)*(E/Q/Ma*AMU).sqrt();
+            let S_low = LINDHARD_SCHARFF_PREFACTOR*(Za*Za.cbrt().sqrt()*Zb)/(Za.cbrt().powi(2) + Zb.cbrt().powi(2)).powi(3).sqrt()*(E/Q/Ma*AMU).sqrt();
 
             let stopping_power = match electronic_stopping_mode {
                 //Biersack-Varelas Interpolation
