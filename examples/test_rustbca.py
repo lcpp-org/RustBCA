@@ -12,6 +12,7 @@ import time
 
 def main():
 
+    os.environ["LIBRUSTBCA_SEED"]="0"
 
     #test rotation to and from RustBCA coordinates
 
@@ -76,14 +77,21 @@ def main():
     Y = sputtering_yield(ion, target, energy, angle, num_samples)
 
     print(f'Sputtering yield for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {Y} at/ion. Yamamura predicts { np.round(yamamura(ion, target, energy),3)} at/ion.')
+    np.testing.assert_approx_equal(Y, 0.045)
+
 
     R_N, R_E = reflection_coefficient(ion, target, energy, angle, num_samples)
     print(f'Particle reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
     print(f'Energy reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_E}')
+    np.testing.assert_approx_equal(R_N, 0.435)
+    np.testing.assert_approx_equal(R_E, 0.23222361140889344)
 
     R_N, R_E = compound_reflection_coefficient(ion, [target, ion], [target['n'], 0.1*target['n']], energy, angle, num_samples)
     print(f'Particle reflection coefficient for {ion["symbol"]} on {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
     print(f'Energy reflection coefficient for {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_E}')
+    np.testing.assert_approx_equal(R_N, 0.421)
+    np.testing.assert_approx_equal(R_E, 0.22787000234654273)
+
 
     vx0 = 1e5
     vy0 = 1e5
@@ -112,6 +120,7 @@ def main():
 
     start = time.time()
     #Note that simple_bca_list_py expects number densities in 1/Angstrom^3
+    # Note - simple_bca_list_py is unseeded and nondeterministic
     output = np.array(simple_bca_list_py(energies_eV, ux, uy, uz, ion['Z'],
         ion['m'], ion['Ec'], ion['Es'], target['Z'], target['m'],
         target['Ec'], target['Es'], target['n']/10**30, target['Eb']))
@@ -129,6 +138,9 @@ def main():
     ux = output[:, 6]
     uy = output[:, 7]
     uz = output[:, 8]
+
+    # check that mean implantation depth is reasonable
+    assert(20, np.mean(x), 30)
 
     #For the python bindings, these conditionals can be used to distinguish
     #between sputtered, reflected, and implanted particles in the output list
@@ -155,6 +167,10 @@ def main():
     print(f'RustBCA Y: {len(sputtered[:, 0])/number_ions} Yamamura Y: {yamamura_yield}')
     print(f'RustBCA R: {len(reflected[:, 0])/number_ions} Thomas R: {thomas}')
     print(f'Time per ion: {delta_time/number_ions} s/{ion["symbol"]}')
+
+    # check that reflection/sputtering are reasonable
+    assert(0.01 < len(sputtered[:, 0])/number_ions < 0.03)
+    assert(0.4 < len(reflected[:, 0])/number_ions < 0.6)
 
     #Next up is the layered target version. I'll add a 50 Angstrom layer of W-H to the top of the target.
 
@@ -199,6 +215,8 @@ def main():
     heights, _, _ = plt.hist(x[np.logical_and(incident, stopped)], bins=100, density=True, histtype='step')
     plt.plot([50.0, 50.0], [0.0, np.max(heights)*1.1])
     plt.gca().set_ylim([0.0, np.max(heights)*1.1])
+
+    np.testing.assert_approx_equal(np.mean(x), 12.179891077431188)
 
     number_ions = 10000
 
@@ -267,6 +285,9 @@ def main():
     print(f'RustBCA Y: {len(sputtered[:, 0])/number_ions} Yamamura Y: {yamamura_yield}')
     print(f'RustBCA R: {len(reflected[:, 0])/number_ions} Thomas R: {thomas}')
     print(f'Time per ion: {delta_time/number_ions} s/{ion["symbol"]}')
+
+    np.testing.assert_approx_equal(len(sputtered[:, 0])/number_ions, 0.027)
+    np.testing.assert_approx_equal(len(reflected[:, 0])/number_ions, 0.5089)
 
     plt.figure()
     plt.plot(incident_index)
