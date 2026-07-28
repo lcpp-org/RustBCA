@@ -1,4 +1,5 @@
 use super::*;
+use rand::RngExt;
 
 ///This helper function is a workaround to issue #368 in serde
 fn default_surface_binding_model() -> SurfaceBindingModel {
@@ -243,8 +244,8 @@ impl <T: Geometry> Material<T> {
     }
 
     ///Choose the parameters of a target atom as a concentration-weighted random draw from the species in the triangle that contains or is nearest to (x, y).
-    pub fn choose(&self, x: f64, y: f64, z: f64) -> (usize, f64, f64, f64, f64, f64, usize) {
-        let random_number: f64 = rand::random::<f64>();
+    pub fn choose(&self, x: f64, y: f64, z: f64, rng: &mut ChaCha8Rng) -> (usize, f64, f64, f64, f64, f64, usize) {
+        let random_number: f64 = rng.random::<f64>();
         let cumulative_concentrations = self.get_cumulative_concentrations(x, y, z);
 
         for (component_index, cumulative_concentration) in cumulative_concentrations.iter().enumerate() {

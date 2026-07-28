@@ -100,7 +100,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
             for (k, binary_collision_geometry) in binary_collision_geometries.iter().enumerate().take(options.weak_collision_order + 1) {
 
                 let (species_index, mut particle_2) = bca::choose_collision_partner(&particle_1, &material,
-                    &binary_collision_geometry, &options);
+                    &binary_collision_geometry, &options, rng);
 
                 //If recoil location is inside, proceed with binary collision loop
                 if material.inside(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z) & material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z) {
@@ -348,7 +348,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
 }
 
 /// For a particle in a material, and for a particular binary collision geometry, choose a species for the collision partner.
-pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, material: &material::Material<T>, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options) -> (usize, particle::Particle) {
+pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, material: &material::Material<T>, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options, rng: &mut ChaCha8Rng) -> (usize, particle::Particle) {
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;
@@ -389,7 +389,7 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     };
 
     //Choose recoil Z, M
-    let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, Ed_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil);
+    let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, Ed_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil, rng);
     let mut new_particle = particle::Particle::new(
         M_recoil, Z_recoil, 0., Ec_recoil, Es_recoil, Ed_recoil,
         x_recoil, y_recoil, z_recoil,

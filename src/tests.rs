@@ -929,7 +929,7 @@ fn test_momentum_conservation() {
                             binary_collision_geometries[0].mfp/ANGSTROM);
 
                         let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material_1,
-                            &binary_collision_geometries[0], &options);
+                            &binary_collision_geometries[0], &options, &mut rng);
 
                         let mom1_0 = particle_1.get_momentum();
                         let mom2_0 = particle_2.get_momentum();
