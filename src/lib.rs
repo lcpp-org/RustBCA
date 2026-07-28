@@ -309,7 +309,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
             tracked_vector: Vector::new(positions[index][0], positions[index][1], positions[index][2]),
         };
 
-        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        let mut rng = ChaCha8Rng::seed_from_u64(index as u64);
         let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
@@ -427,7 +427,7 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
         tracked_vector: Vector::new(0.0, 0.0, 0.0),
     };
 
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
     let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     *ux = output[0].dir.x;
@@ -475,6 +475,7 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
 
     let velocities = unsafe { slice::from_raw_parts(input.velocities, input.len) };
 
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
     for velocity in velocities {
 
         let vx = velocity[0];
@@ -518,7 +519,6 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
             tracked_vector: Vector::new(0.0, 0.0, 0.0),
         };
 
-        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
@@ -593,6 +593,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
 
     let velocities = unsafe { slice::from_raw_parts(input.velocities, input.len) };
 
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
     for velocity in velocities {
 
         let vx = velocity[0];
@@ -636,7 +637,6 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
             tracked_vector: Vector::new(0.0, 0.0, 0.0),
         };
 
-        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
@@ -730,6 +730,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
     for (((((((E1_, ux_), uy_), uz_), Z1_), Ec1_), Es1_), m1_) in E1.iter().zip(ux).zip(uy).zip(uz).zip(Z1).zip(Ec1).zip(Es1).zip(m1) {
 
         let p = particle::Particle {
@@ -761,7 +762,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
             tracked_vector: Vector::new(0.0, 0.0, 0.0)
         };
 
-        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        
         let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
