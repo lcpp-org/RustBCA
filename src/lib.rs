@@ -876,7 +876,6 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let mut index: usize = 0;
     for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {
 
         let mut energy_out;
@@ -921,7 +920,6 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
                 );
             }
         }
-        index += 1;
     }
     (total_output, incident)
 }
@@ -1027,9 +1025,9 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
             .enumerate()
             .map_init(
                 || ChaCha8Rng::seed_from_u64(SEED),
-                | rng, (particle_index, particle_input)| {
+                | rng, (particle_index, incident_particle)| {
                     rng.set_stream(particle_index as u64);
-                    bca::single_ion_bca(particle, &m, &options, &mut rng)
+                    bca::single_ion_bca(incident_particle, &m, &options, rng)
                 } 
             )
             .flatten()
@@ -1039,7 +1037,7 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
             if (particle.left) | (particle.incident) {
                 incident.push(particle.incident);
                 incident_index.push(particle.tag as usize);
-                let mut energy_out;
+                let energy_out;
                 if particle.stopped {
                     energy_out = 0.;
                 } else {
@@ -1235,8 +1233,6 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
 
     let x = -m.geometry.top_energy_barrier_thickness/2.;
 
-    let mut index: usize = 0;
-
     for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {();
 
         let mut energy_out;
@@ -1282,7 +1278,6 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
                 );
             }
         }
-        index += 1;
     }
     (total_output, incident, stopped)
 }
@@ -1544,7 +1539,7 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     *ux = incident.x;
     *uy = incident.y;
     *uz = incident.z;
-    let mag = (ux*ux + uy*uy + uz*uz).sqrt();
+    let mag = (ux.powi(2) + uy.powi(2) + uz.powi(2)).sqrt();
 
     *ux /= mag;
     *uy /= mag;
@@ -1781,7 +1776,7 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
         );
         
         rng.set_stream(index);
-        let output = bca::single_ion_bca(p, &m, &options);
+        let output = bca::single_ion_bca(p, &m, &options, rng);
 
         for particle in output {
             if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && (!particle.incident) {
@@ -1880,7 +1875,7 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
         );
         
         rng.set_stream(index);
-        let output = bca::single_ion_bca(p, &m, &options);
+        let output = bca::single_ion_bca(p, &m, &options, rng);
 
         for particle in output {
             if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && particle.incident {
@@ -1985,7 +1980,7 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
         );
         
         rng.set_stream(index);
-        let output = bca::single_ion_bca(p, &m, &options);
+        let output = bca::single_ion_bca(p, &m, &options, rng);
 
         for particle in output {
             if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && particle.incident {
