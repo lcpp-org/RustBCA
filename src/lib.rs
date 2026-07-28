@@ -1858,6 +1858,7 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
 
     let num_reflected = Mutex::new(0);
     let energy_reflected = Mutex::new(0.0);
+    let residue = Mutex::new(0.0);
 
     static SEED: u64 = 0;
     (0..num_samples as u64).into_par_iter()
@@ -1884,14 +1885,22 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
                 let mut num_reflected = num_reflected.lock().unwrap();
                 *num_reflected += 1;
                 let mut energy_reflected = energy_reflected.lock().unwrap();
-                *energy_reflected += particle.E;
+
+                let mut residue_part;
+
+                (*energy_reflected, residue_part) = moller_knuth_two_sum(*energy_reflected, particle.E);
+
+                let mut residue = residue.lock().unwrap();
+                *residue = *residue + residue_part;
+
             }
         }
     });
     let num_reflected = *num_reflected.lock().unwrap();
     let energy_reflected = *energy_reflected.lock().unwrap();
+    let residue = *residue.lock().unwrap();
 
-    (num_reflected as f64 / num_samples as f64, energy_reflected / EV / energy / num_samples as f64)
+    (num_reflected as f64 / num_samples as f64, (energy_reflected + residue) / EV / energy / num_samples as f64)
 }
 
 #[cfg(feature = "python")]
@@ -1963,6 +1972,7 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
 
     let num_reflected = Mutex::new(0);
     let energy_reflected = Mutex::new(0.0);
+    let residue = Mutex::new(0.0);
 
     static SEED: u64 = 0;
     (0..num_samples as u64).into_par_iter()
@@ -1989,12 +1999,30 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
                 let mut num_reflected = num_reflected.lock().unwrap();
                 *num_reflected += 1;
                 let mut energy_reflected = energy_reflected.lock().unwrap();
-                *energy_reflected += particle.E;
+
+                let mut residue_part;
+
+                (*energy_reflected, residue_part) = moller_knuth_two_sum(*energy_reflected, particle.E);
+
+                let mut residue = residue.lock().unwrap();
+                *residue = *residue + residue_part;
+
             }
         }
     });
     let num_reflected = *num_reflected.lock().unwrap();
     let energy_reflected = *energy_reflected.lock().unwrap();
+    let residue = *residue.lock().unwrap();
 
-    (num_reflected as f64 / num_samples as f64, energy_reflected / EV / energy / num_samples as f64)
+    (num_reflected as f64 / num_samples as f64, (energy_reflected + residue) / EV / energy / num_samples as f64)
+}
+
+fn moller_knuth_two_sum(a: f64, b: f64) -> (f64, f64) {
+    let s = a + b;
+    let b_prime = s - a;
+    let a_prime = s - b_prime;
+    let delta_b = b - b_prime;
+    let delta_a = a - a_prime;
+    let r = delta_a + delta_b;
+    (s, r)
 }
