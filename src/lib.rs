@@ -475,7 +475,14 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
 
     let velocities = unsafe { slice::from_raw_parts(input.velocities, input.len) };
 
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
     for velocity in velocities {
 
         let vx = velocity[0];
@@ -1262,7 +1269,14 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
 
     let x = -m.geometry.top_energy_barrier_thickness/2.;
 
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
     for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {();
 
         let mut energy_out;

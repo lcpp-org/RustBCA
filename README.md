@@ -85,7 +85,7 @@ Afterwords, fire up your favourite [Python] interpreter
 from scripts.rustbca import *; import numpy as np;
 
 deposited_list = np.atleast_2d(np.genfromtxt('boron_nitride_deposited.output', delimiter=','))
-np.assert_approx_equal(deposited_list[0, 2], 0.016531847238600884)
+np.testing.assert_approx_equal(deposited_list[0, 2], 0.016531847238600884)
 
 do_trajectory_plot("boron_nitride_")
 ```
@@ -114,7 +114,7 @@ deposited_ions = np.genfromtxt(
     names=["M", "Z", "x", "y", "z", "collisions"],
 )
 
-np.assert_approx_equal(deposited_ions['x'][0], 0.0018110896054452609)
+np.testing.assert_approx_equal(deposited_ions['x'][0], 0.0018110896054452609)
 
 plt.hist(deposited_ions["x"], bins=100)
 
