@@ -43,7 +43,6 @@ Follow these steps to install, build, and run simple RustBCA simulations
 for sputtering yields and reflection coefficients:
 ```
 git clone https://github.com/lcpp-org/rustbca
-git checkout branch rng_seeded
 cd rustbca
 python -m pip install .
 python
