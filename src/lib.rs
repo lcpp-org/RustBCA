@@ -593,7 +593,14 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
 
     let velocities = unsafe { slice::from_raw_parts(input.velocities, input.len) };
 
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
     for velocity in velocities {
 
         let vx = velocity[0];
@@ -730,7 +737,14 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
     for (((((((E1_, ux_), uy_), uz_), Z1_), Ec1_), Es1_), m1_) in E1.iter().zip(ux).zip(uy).zip(uz).zip(Z1).zip(Ec1).zip(Es1).zip(m1) {
 
         let p = particle::Particle {
@@ -876,7 +890,14 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
     };
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
+
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
     for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {
 
@@ -1003,6 +1024,13 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
 
     let mut finished_particles: Vec<particle::Particle> = Vec::new();
 
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
     let incident_particles: Vec<particle::Particle> = izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1)
         .enumerate()
         .map(|(index, (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_))| {
@@ -1021,12 +1049,11 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
             p
         }).collect();
 
-        static SEED: u64 = 0;
         finished_particles.par_extend(
             incident_particles.into_par_iter()
             .enumerate()
             .map_init(
-                || ChaCha8Rng::seed_from_u64(SEED),
+                || ChaCha8Rng::seed_from_u64(seed),
                 | rng, (particle_index, incident_particle)| {
                     rng.set_stream(particle_index as u64);
                     bca::single_ion_bca(incident_particle, &m, &options, rng)
@@ -1760,10 +1787,16 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 
     let num_sputtered = Mutex::new(0);
 
-    static SEED: u64 = 0;
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
     (0..num_samples as u64).into_par_iter()
     .for_each_init(
-        || ChaCha8Rng::seed_from_u64(SEED), |rng, index| {
+        || ChaCha8Rng::seed_from_u64(seed), |rng, index| {
 
         let p = particle::Particle::default_incident(
             m1,
@@ -1860,8 +1893,8 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
     let energy_reflected = Mutex::new(0.0);
     let residue = Mutex::new(0.0);
 
-
     let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
         Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
         Err(env::VarError::NotPresent) => 0_u64,
         Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
@@ -1870,7 +1903,6 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
     (0..num_samples as u64).into_par_iter()
     .for_each_init(
         || ChaCha8Rng::seed_from_u64(seed), |rng, index| {
-
         let p = particle::Particle::default_incident(
             m1,
             Z1,
@@ -1981,12 +2013,16 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
     let energy_reflected = Mutex::new(0.0);
     let residue = Mutex::new(0.0);
 
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
 
-
-    static SEED: u64 = 0;
     (0..num_samples as u64).into_par_iter()
     .for_each_init(
-        || ChaCha8Rng::seed_from_u64(SEED), |rng, index| {
+        || ChaCha8Rng::seed_from_u64(seed), |rng, index| {
 
         let p = particle::Particle::default_incident(
             m1,
