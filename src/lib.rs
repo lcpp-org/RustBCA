@@ -2,7 +2,7 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
-use std::{fmt};
+use std::{fmt, env};
 use std::mem::discriminant;
 
 use std::alloc::{dealloc, Layout};
@@ -1860,10 +1860,16 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
     let energy_reflected = Mutex::new(0.0);
     let residue = Mutex::new(0.0);
 
-    static SEED: u64 = 0;
+
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
     (0..num_samples as u64).into_par_iter()
     .for_each_init(
-        || ChaCha8Rng::seed_from_u64(SEED), |rng, index| {
+        || ChaCha8Rng::seed_from_u64(seed), |rng, index| {
 
         let p = particle::Particle::default_incident(
             m1,
@@ -1886,7 +1892,7 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
                 *num_reflected += 1;
                 let mut energy_reflected = energy_reflected.lock().unwrap();
 
-                let mut residue_part;
+                let residue_part;
 
                 // Use Moller-Knuth TwoSum to preserve deterministic fp reduce
                 (*energy_reflected, residue_part) = moller_knuth_two_sum(*energy_reflected, particle.E);
@@ -1975,6 +1981,8 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
     let energy_reflected = Mutex::new(0.0);
     let residue = Mutex::new(0.0);
 
+
+
     static SEED: u64 = 0;
     (0..num_samples as u64).into_par_iter()
     .for_each_init(
@@ -2001,7 +2009,7 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
                 *num_reflected += 1;
                 let mut energy_reflected = energy_reflected.lock().unwrap();
 
-                let mut residue_part;
+                let residue_part;
 
                 // Use Moller-Knuth TwoSum to preserve deterministic fp reduce
                 (*energy_reflected, residue_part) = moller_knuth_two_sum(*energy_reflected, particle.E);
