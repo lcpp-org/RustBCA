@@ -28,7 +28,8 @@ pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Part
             .progress_chars("#>-"));
 
         //Main loop
-        for (chunk_index, particle_input_chunk) in particle_input_array.chunks((total_count/options.num_chunks) as usize).enumerate() {
+        let chunk_size = (total_count/options.num_chunks) as usize;
+        for (chunk_index, particle_input_chunk) in particle_input_array.chunks(chunk_size).enumerate() {
 
             let mut finished_particles: Vec<particle::Particle> = Vec::new();
 
@@ -40,7 +41,7 @@ pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Part
                 .map_init(
                     || ChaCha8Rng::seed_from_u64(SEED),
                     | rng, (particle_index, particle_input)| {
-                        rng.set_stream(particle_index as u64);
+                        rng.set_stream((chunk_index * chunk_size + particle_index) as u64);
                         bar.tick();
                         bar.inc(1);
                         bca::single_ion_bca(particle::Particle::from_input(*particle_input, &options), &material, &options, rng)

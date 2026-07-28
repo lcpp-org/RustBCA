@@ -875,6 +875,7 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
     };
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
 
     for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {
 
@@ -892,7 +893,7 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
             uz_
         );
 
-        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        
         let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
@@ -1418,7 +1419,7 @@ pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
     let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     output.iter().filter(|particle| (particle.incident) | (particle.left)).map(|particle|
