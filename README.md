@@ -114,6 +114,8 @@ deposited_ions = np.genfromtxt(
     names=["M", "Z", "x", "y", "z", "collisions"],
 )
 
+np.assert_approx_equal(deposited_ions['x'][0], 0.0018110896054452609)
+
 plt.hist(deposited_ions["x"], bins=100)
 
 plt.show()
