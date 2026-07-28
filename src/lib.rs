@@ -1888,6 +1888,7 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
 
                 let mut residue_part;
 
+                // Use Moller-Knuth TwoSum to preserve deterministic fp reduce
                 (*energy_reflected, residue_part) = moller_knuth_two_sum(*energy_reflected, particle.E);
 
                 let mut residue = residue.lock().unwrap();
@@ -2002,6 +2003,7 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
 
                 let mut residue_part;
 
+                // Use Moller-Knuth TwoSum to preserve deterministic fp reduce
                 (*energy_reflected, residue_part) = moller_knuth_two_sum(*energy_reflected, particle.E);
 
                 let mut residue = residue.lock().unwrap();
@@ -2017,7 +2019,17 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
     (num_reflected as f64 / num_samples as f64, (energy_reflected + residue) / EV / energy / num_samples as f64)
 }
 
+/// Moller-Knuth TwoSum Floating-Point Adder with Residual (FPAR)
+/// This function allows one to use the identity: 
+/// Given two floating point numbers a, b;
+/// And the sum s = IEEE754RoundToNearest(a + b);
+/// And the residual from floating point error r = (a + b) - s;
+/// The following is invariant: s + r = a + b
+/// citation: Accurate Parallel Floating-Point Accumulation
+/// E. Kadric et al., IEEE Transactions on Computers 65 11
+/// doi: 10.1109/TC.2016.2532874
 fn moller_knuth_two_sum(a: f64, b: f64) -> (f64, f64) {
+    
     let s = a + b;
     let b_prime = s - a;
     let a_prime = s - b_prime;
