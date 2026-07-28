@@ -80,7 +80,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
         while !particle_1.stopped & !particle_1.left {
 
             //Choose impact parameters and azimuthal angles for all collisions, and determine mean free path
-            let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material, &options, rng);
+            let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, material, options, rng);
 
             #[cfg(feature = "accelerated_ions")]
             let distance_to_target = if !material.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z) {
@@ -99,15 +99,15 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
             //Collision loop
             for (k, binary_collision_geometry) in binary_collision_geometries.iter().enumerate().take(options.weak_collision_order + 1) {
 
-                let (species_index, mut particle_2) = bca::choose_collision_partner(&particle_1, &material,
-                    &binary_collision_geometry, &options, rng);
+                let (species_index, mut particle_2) = bca::choose_collision_partner(&particle_1, material,
+                    binary_collision_geometry, options, rng);
 
                 //If recoil location is inside, proceed with binary collision loop
                 if material.inside(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z) & material.inside_energy_barrier(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z) {
 
                     //Determine scattering angle from binary collision
                     let binary_collision_result = bca::calculate_binary_collision(&particle_1,
-                        &particle_2, &binary_collision_geometry, &options)
+                        &particle_2, binary_collision_geometry, options)
                         .with_context(|| format!("Numerical error: binary collision calculation failed at x = {} y = {} with {}",
                             particle_1.pos.x, particle_2.pos.x, &binary_collision_geometry))
                         .unwrap();
@@ -190,13 +190,13 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                 binary_collision_geometries[0].mfp + distance_to_target - material.geometry.get_energy_barrier_thickness(), total_asymptotic_deflection);
 
             //Subtract total energy from all simultaneous collisions and electronic stopping
-            let energy_lost_to_electronic_stopping = bca::subtract_electronic_stopping_energy(&mut particle_1, &material, distance_traveled,
+            let energy_lost_to_electronic_stopping = bca::subtract_electronic_stopping_energy(&mut particle_1, material, distance_traveled,
                 normalized_distance_of_closest_approach, strong_collision_Z,
-                strong_collision_index, &options);
-            particle_1.update_energy_loss_tracker(&options, total_energy_lost_to_recoils, energy_lost_to_electronic_stopping);
+                strong_collision_index, options);
+            particle_1.update_energy_loss_tracker(options, total_energy_lost_to_recoils, energy_lost_to_electronic_stopping);
 
             //Check boundary conditions on leaving and stopping
-            material::boundary_condition_planar(&mut particle_1, &material);
+            material::boundary_condition_planar(&mut particle_1, material);
 
             //Set particle index to topmost particle
             particle_index = particles.len();
@@ -288,7 +288,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
             };
 
             binary_collision_geometries.push(BinaryCollisionGeometry::new(phis_azimuthal[0], impact_parameter[0], ffp));
-            return binary_collision_geometries;
+            binary_collision_geometries
 
         } else {
 
@@ -312,7 +312,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
             }
 
             binary_collision_geometries.push(BinaryCollisionGeometry::new(phis_azimuthal[0], impact_parameter[0], ffp));
-            return binary_collision_geometries;
+            binary_collision_geometries
         }
 
     } else {
@@ -343,7 +343,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
             binary_collision_geometries.push(BinaryCollisionGeometry::new(phis_azimuthal[k], impact_parameters[k], mfp))
         }
 
-        return binary_collision_geometries;
+        binary_collision_geometries
     }
 }
 
@@ -402,7 +402,7 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     new_particle.tag = particle_1.tag;
     new_particle.tracked_vector = particle_1.tracked_vector;
 
-    return (species_index, new_particle)
+    (species_index, new_particle)
 }
 
 /// Calculate the distance of closest approach of two particles given a particular binary collision geometry.
@@ -539,7 +539,7 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
 /// Mendenhall-Weller scattering integrand.
 fn scattering_integral_mw(x: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
     //Function for scattering integral - see Mendenhall and Weller, 1991 & 2005
-    return 1./(1. - interactions::phi(x, interaction_potential)/x/reduced_energy - beta*beta/x/x).sqrt();
+    1./(1. - interactions::phi(x, interaction_potential)/x/reduced_energy - beta*beta/x/x).sqrt()
 }
 
 /// Gauss-Legendre scattering integrand.
@@ -579,8 +579,8 @@ fn scattering_integral_gauss_mehler(impact_parameter: f64, relative_energy: f64,
 
 /// Compute the scattering integral for a given relative energy, distance of closest approach `r0`,  and interaction potential using a Gauss-Legendre, 5-point quadrature.
 fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
-    let x: Vec<f64> = vec![0., -0.538469, 0.538469, -0.90618, 0.90618].iter().map(|x| x/2. + 1./2.).collect();
-    let w: Vec<f64> = vec![0.568889, 0.478629, 0.478629, 0.236927, 0.236927].iter().map(|w| w/2.).collect();
+    let x: Vec<f64> = [0., -0.538469, 0.538469, -0.90618, 0.90618].iter().map(|x| x/2. + 1./2.).collect();
+    let w: Vec<f64> = [0.568889, 0.478629, 0.478629, 0.236927, 0.236927].iter().map(|w| w/2.).collect();
 
     PI - x.iter().zip(w)
         .map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential)
@@ -720,8 +720,8 @@ pub fn newton_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_par
             return Ok(x0);
         }
     }
-    return Err(anyhow!("Numerical error: exceeded maximum number of Newton-Raphson iterations, {}. E: {} eV; x0: {}; Error: {}; Tolerance: {}; Za: {}; Zb: {}; Ma: {} amu; Mb: {} amu; a: {}; p: {} A",
-        max_iterations, E0/Q, x0, err, tolerance, Za, Zb, Ma/AMU, Mb/AMU, a, impact_parameter/ANGSTROM));
+    Err(anyhow!("Numerical error: exceeded maximum number of Newton-Raphson iterations, {}. E: {} eV; x0: {}; Error: {}; Tolerance: {}; Za: {}; Zb: {}; Ma: {} amu; Mb: {} amu; a: {}; p: {} A",
+        max_iterations, E0/Q, x0, err, tolerance, Za, Zb, Ma/AMU, Mb/AMU, a, impact_parameter/ANGSTROM))
 }
 
 /// Gauss-Mehler quadrature.

@@ -179,7 +179,7 @@ impl Particle {
 
         Particle {
             m: m_amu*AMU,
-            Z: Z,
+            Z,
             E: E_eV*EV,
             Ec: Ec_eV*EV,
             Es: Es_eV*EV,
@@ -296,7 +296,7 @@ impl Particle {
         self.dir_old.y = self.dir.y;
         self.dir_old.z = self.dir.z;
 
-        return distance_traveled;
+        distance_traveled
     }
 }
 
@@ -322,5 +322,5 @@ pub fn refraction_angle(costheta: f64, energy_old: f64, energy_new: f64) -> f64 
     let delta_theta = sintheta1.asin() - sintheta0.asin();
     assert!(!delta_theta.is_nan(), "Numerical error: refraction returned NaN.");
     let sign = -costheta.signum();
-    return sign*delta_theta;
+    sign*delta_theta
 }

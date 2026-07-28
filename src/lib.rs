@@ -2029,7 +2029,7 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
 
     let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
         Ok(seed) if seed == "-1" => rand::random(),
-        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64 or not -1."),
         Err(env::VarError::NotPresent) => 0_u64,
         Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
     };

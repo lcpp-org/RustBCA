@@ -22,7 +22,7 @@ fn smootherstep(x: f64, k: f64, x0: f64) -> f64 {
         1.
     } else {
         let x1 = x_transformed - x0_transformed + 0.5;
-        return x1 * x1 * x1 * (x1 * (6. * x1 - 15.) + 10.);
+        x1 * x1 * x1 * (x1 * (6. * x1 - 15.) + 10.)
     }
 }
 
@@ -72,25 +72,25 @@ pub fn energy_threshold_single_root(interaction_potential: InteractionPotential)
 /// Distance of closest approach function for screened coulomb potentials.
 fn doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
     //Nonlinear equation to determine distance of closest approach
-    return x0 - interactions::phi(x0, interaction_potential)/reduced_energy - beta*beta/x0;
+    x0 - interactions::phi(x0, interaction_potential)/reduced_energy - beta*beta/x0
 }
 
 /// First derivative w.r.t. `r` of the distance of closest approach function for screened coulomb potentials.
 fn diff_doca_function(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
     //First differential of distance of closest approach function for N-R solver
-    return beta*beta/x0/x0 - interactions::dphi(x0, interaction_potential)/reduced_energy + 1.
+    beta*beta/x0/x0 - interactions::dphi(x0, interaction_potential)/reduced_energy + 1.
 }
 
 /// Singularity-free version of the screened-coulomb distance of closest approach function.
 fn doca_function_transformed(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
     //Singularity free version of doca function
-    return x0*x0 - x0*interactions::phi(x0, interaction_potential)/reduced_energy - beta*beta;
+    x0*x0 - x0*interactions::phi(x0, interaction_potential)/reduced_energy - beta*beta
 }
 
 /// First derivative w.r.t. `r` of the singularity-free version of the screened-coulomb distance of closest approach function.
 fn diff_doca_function_transformed(x0: f64, beta: f64, reduced_energy: f64, interaction_potential: InteractionPotential) -> f64 {
     //First differential of distance of closest approach function for N-R solver
-    return 2.*x0 - interactions::phi(x0, interaction_potential)/reduced_energy
+    2.*x0 - interactions::phi(x0, interaction_potential)/reduced_energy
 }
 
 /// Distance of closest approach function. The outermost root of this function is the distance of closest approach, or classical turning point, which is the lower bound to the scattering integral.
@@ -240,7 +240,7 @@ pub fn screened_coulomb(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential:
 
 /// Coulombic interaction potential.
 pub fn coulomb(r: f64, Za: f64, Zb: f64) -> f64 {
-    return Za*Zb*Q*Q/4./PI/EPS0/r;
+    Za*Zb*Q*Q/4./PI/EPS0/r
 }
 
 /// Screening functions for screened-coulomb interaction potentials.
@@ -414,14 +414,12 @@ pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
 
     } else if x <= x2 {
 
-        let a = vec![
-            1.389653276380862E4,
+        let a = [1.389653276380862E4,
             -3.596912431628216E4,
             3.739206756369099E4,
             -1.933748081656593E4,
             0.495516793802426E4,
-            -0.050264585985867E4
-        ];
+            -0.050264585985867E4];
 
         (a[0] + a[1]*x + a[2]*x.powi(2) + a[3]*x.powi(3) + a[4]*x.powi(4) + a[5]*x.powi(5))*EV
 
@@ -431,7 +429,7 @@ pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
             -0.1036435865158945,
             -0.2912948318493851,
             -2.096765499656263,
-            19.16045452701010,
+            19.160_454_527_010_1,
             -41.01619862085917,
             46.05205617244703,
             26.42203930654883,
@@ -440,15 +438,15 @@ pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
         ];
 
         let delta = vec![
-            4.268900000000000,
-            3.985680000000000,
-            3.702460000000000,
-            3.419240000000000,
-            3.136020000000000,
-            2.852800000000000,
-            2.741100000000000,
-            2.604045000000000,
-            2.466990000000000,
+            4.268_9,
+            3.985_68,
+            3.702_46,
+            3.419_24,
+            3.136_02,
+            2.852_8,
+            2.741_1,
+            2.604_045,
+            2.466_99,
         ];
 
         a.iter().zip(delta).map(|(&a_i, delta_i)| EV*a_i*(delta_i - x).powi(3)*heaviside(delta_i - x)).sum::<f64>()

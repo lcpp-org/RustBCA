@@ -154,7 +154,7 @@ impl InputFile for Input1D {
 }
 
 ///This helper function is a workaround to issue #368 in serde
-fn default_seed() -> u64 {
+fn default_seed() -> i32 {
     0
 }
 
@@ -252,7 +252,7 @@ pub struct Options {
     #[serde(default = "default_false")]
     pub track_energy_losses: bool,
     #[serde(default = "default_seed")]
-    pub seed: u64
+    pub seed: i32
 }
 
 #[cfg(not(feature = "distributions"))]
@@ -261,7 +261,7 @@ impl Options {
         Options {
             name: "default".to_string(),
             track_trajectories: false,
-            track_recoils: track_recoils,
+            track_recoils,
             track_recoil_trajectories: false,
             write_buffer_size: default_buffer_size(),
             weak_collision_order: zero_usize(),
@@ -336,7 +336,7 @@ pub struct Options {
     pub y_num: usize,
     pub z_num: usize,
     #[serde(default = "default_seed")]
-    pub seed: u64
+    pub seed: i32
 }
 
 #[cfg(feature = "distributions")]
@@ -391,7 +391,7 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
         .write(false)
         .create(false)
         .open(&input_file)
-        .expect(format!("Input errror: could not open input file {}.", &input_file).as_str());
+        .unwrap_or_else(|_| panic!("Input errror: could not open input file {}.", &input_file));
     file.read_to_string(&mut input_toml).context("Could not convert TOML file to string.").unwrap();
 
     let input: <T as Geometry>::InputFileFormat = InputFile::new(&input_toml);
@@ -403,7 +403,11 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
     let mut material: material::Material<T> = material::Material::<T>::new(&material_parameters, input.get_geometry_input());
 
     // Initialize RNG
-    let mut rng = ChaCha8Rng::seed_from_u64(options.seed);
+    let mut rng = if options.seed < 0 {
+            ChaCha8Rng::seed_from_u64(rand::random())
+    } else {
+            ChaCha8Rng::seed_from_u64(u64::try_from(options.seed).expect("Value Error: seed not u64."))
+    };
 
     //Ensure nonsensical threads/chunks options crash on input
     assert!(options.num_threads > 0, "Input error: num_threads must be greater than zero.");
@@ -510,10 +514,8 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
         "NM" => NM,
         "M" => 1.,
         _ => particle_parameters.length_unit.parse()
-            .expect(format!(
-                    "Input errror: could nor parse length unit {}. Use a valid float or one of
-                    ANGSTROM, NM, MICRON, CM, MM, M", &particle_parameters.length_unit.as_str()
-                ).as_str()),
+            .unwrap_or_else(|_| panic!("Input errror: could nor parse length unit {}. Use a valid float or one of
+                    ANGSTROM, NM, MICRON, CM, MM, M", &particle_parameters.length_unit.as_str())),
     };
 
     let energy_unit: f64 = match particle_parameters.energy_unit.as_str() {
@@ -522,18 +524,14 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
         "KEV" => EV*1E3,
         "MEV" => EV*1E6,
         _ => particle_parameters.energy_unit.parse()
-            .expect(format!(
-                    "Input errror: could nor parse energy unit {}. Use a valid float or one of EV, J, KEV, MEV", &particle_parameters.energy_unit.as_str()
-                ).as_str()),
+            .unwrap_or_else(|_| panic!("Input errror: could nor parse energy unit {}. Use a valid float or one of EV, J, KEV, MEV", &particle_parameters.energy_unit.as_str())),
     };
 
     let mass_unit: f64 = match particle_parameters.mass_unit.as_str() {
         "AMU" => AMU,
         "KG" => 1.0,
         _ => particle_parameters.mass_unit.parse()
-            .expect(format!(
-                    "Input errror: could nor parse mass unit {}. Use a valid float or one of AMU, KG", &particle_parameters.mass_unit.as_str()
-                ).as_str()),
+            .unwrap_or_else(|_| panic!("Input errror: could nor parse mass unit {}. Use a valid float or one of AMU, KG", &particle_parameters.mass_unit.as_str())),
     };
 
     //HDF5
@@ -643,7 +641,7 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                     particle_input.push(
                         particle::ParticleInput{
                             m: m*mass_unit,
-                            Z: Z,
+                            Z,
                             E: match E {
                                 Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*energy_unit},
                                 Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*energy_unit},
@@ -681,7 +679,7 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                                 Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
                                 Distributions::POINT(x) => x*length_unit,
                             },
-                            interaction_index: interaction_index,
+                            interaction_index,
                             tag: 0,
                             weight: 1.0,
                         }
