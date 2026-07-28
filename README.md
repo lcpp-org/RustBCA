@@ -54,12 +54,12 @@ Type "help", "copyright", "credits" or "license" for more information.
 >>> angle = 0.0 # deg
 >>> energy = 1000.0 # eV
 >>> num_samples = 10000
->>> sputtering_yield(argon, tungsten, energy, angle, num_samples) == 1.032
+>>> sputtering_yield(argon, tungsten, energy, angle, num_samples) == 1.0243
 True
 >>> R_N, R_E = reflection_coefficient(argon, tungsten, energy, angle, num_samples)
->>> R_N == 0.3321
+>>> R_N == 0.3234
 True
->>> np.testing.assert_approx_equal(R_E, 0.09839033536523972)
+>>> np.testing.assert_approx_equal(R_E, 0.09645129485419984)
 ```
 
 For those eager to get started with the standalone code, try running one of the examples in the
@@ -81,7 +81,11 @@ Afterwords, fire up your favourite [Python] interpreter
 (e.g., [IPython]) and execute:
 
 ```python
-from scripts.rustbca import *
+from scripts.rustbca import *; import numpy as np;
+
+deposited_list = np.atleast_2d(np.genfromtxt('boron_nitride_deposited.output', delimiter=','))
+np.assert_approx_equal(deposited_list[0, 2], 0.016531847238600884)
+
 do_trajectory_plot("boron_nitride_")
 ```
 
