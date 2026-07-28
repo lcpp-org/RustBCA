@@ -4,8 +4,6 @@ pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Part
 
         println!("Processing {} ions...", particle_input_array.len());
 
-        static SEED: u64 = 0;
-
         let total_count: u64 = particle_input_array.len() as u64;
         assert!(total_count/options.num_chunks > 0, "Input error: chunk size == 0 - reduce num_chunks or increase particle count.");
 
@@ -39,7 +37,7 @@ pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Part
                 particle_input_chunk.into_par_iter()
                 .enumerate()
                 .map_init(
-                    || ChaCha8Rng::seed_from_u64(SEED),
+                    || ChaCha8Rng::seed_from_u64(options.seed),
                     | rng, (particle_index, particle_input)| {
                         rng.set_stream((chunk_index * chunk_size + particle_index) as u64);
                         bar.tick();

@@ -154,6 +154,11 @@ impl InputFile for Input1D {
 }
 
 ///This helper function is a workaround to issue #368 in serde
+fn default_seed() -> u64 {
+    0
+}
+
+///This helper function is a workaround to issue #368 in serde
 fn default_false() -> bool {
     false
 }
@@ -246,6 +251,8 @@ pub struct Options {
     pub track_displacements: bool,
     #[serde(default = "default_false")]
     pub track_energy_losses: bool,
+    #[serde(default = "default_seed")]
+    pub seed: u64
 }
 
 #[cfg(not(feature = "distributions"))]
@@ -269,7 +276,8 @@ impl Options {
             num_chunks: 1,
             use_hdf5: false,
             track_displacements: false,
-            track_energy_losses: false
+            track_energy_losses: false,
+            seed: default_seed(),
         }
     }
 }
@@ -327,6 +335,8 @@ pub struct Options {
     pub x_num: usize,
     pub y_num: usize,
     pub z_num: usize,
+    #[serde(default = "default_seed")]
+    pub seed: u64
 }
 
 #[cfg(feature = "distributions")]
@@ -366,14 +376,13 @@ impl Options {
             x_num: 0,
             y_num: 0,
             z_num: 0,
+            seed: default_seed()
         }
     }
 }
 
 pub fn input<T: Geometry>(input_file: String) -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits)
 where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
-
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
 
     //Read input file, convert to string, and open with toml
     let mut input_toml = String::new();
@@ -392,6 +401,9 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
     let mut particle_parameters = (*input.get_particle_parameters()).clone();
     let material_parameters = (*input.get_material_parameters()).clone();
     let mut material: material::Material<T> = material::Material::<T>::new(&material_parameters, input.get_geometry_input());
+
+    // Initialize RNG
+    let mut rng = ChaCha8Rng::seed_from_u64(options.seed);
 
     //Ensure nonsensical threads/chunks options crash on input
     assert!(options.num_threads > 0, "Input error: num_threads must be greater than zero.");

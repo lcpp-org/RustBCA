@@ -881,6 +881,7 @@ fn test_momentum_conservation() {
                             root_finder: vec![vec![root_finder]],
                             track_displacements: false,
                             track_energy_losses: false,
+                            seed: 0,
                         };
 
                         #[cfg(feature = "distributions")]
@@ -903,6 +904,7 @@ fn test_momentum_conservation() {
                             root_finder: vec![vec![root_finder]],
                             track_displacements: false,
                             track_energy_losses: false,
+                            seed: 0,
                             energy_min: 0.0,
                             energy_max: 10.0,
                             energy_num: 11,
@@ -1085,6 +1087,7 @@ fn test_quadrature() {
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
         track_displacements: false,
         track_energy_losses: false,
+        seed: 0,
     };
 
     #[cfg(feature = "distributions")]
@@ -1107,6 +1110,7 @@ fn test_quadrature() {
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
         track_displacements: false,
         track_energy_losses: false,
+        seed: 0,
         energy_min: 0.0,
         energy_max: 10.0,
         energy_num: 11,
