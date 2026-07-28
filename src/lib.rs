@@ -1137,7 +1137,7 @@ pub fn reflect_single_ion_py(ion: &PyDict, target: &PyDict, vx: f64, vy: f64, vz
         uz
     );
 
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
     let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     let reflected_energy = output[0].E; //Joules
@@ -1235,6 +1235,7 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
 
     let x = -m.geometry.top_energy_barrier_thickness/2.;
 
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
     for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {();
 
         let mut energy_out;
@@ -1251,7 +1252,6 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
             uz_
         );
 
-        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
@@ -1497,7 +1497,7 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
     let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     output.iter().filter(|particle| (particle.incident) | (particle.left)).map(|particle|
