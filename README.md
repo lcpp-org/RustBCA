@@ -81,7 +81,7 @@ Afterwords, fire up your favourite [Python] interpreter
 (e.g., [IPython]) and execute:
 
 ```python
-from scripts.rustbca import *; import numpy as np;
+import os; os.environ["SUPPRESS_RUSTBCA_MATERIALS_WARNING"] = 1; from scripts.rustbca import *; import numpy as np;
 
 deposited_list = np.atleast_2d(np.genfromtxt('boron_nitride_deposited.output', delimiter=','))
 np.testing.assert_approx_equal(deposited_list[0, 2], 0.016531847238600884)
