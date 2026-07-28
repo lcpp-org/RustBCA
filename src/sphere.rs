@@ -63,10 +63,8 @@ impl Geometry for Sphere {
             "NM" => NM,
             "M" => 1.,
             _ => input.length_unit.parse()
-                .expect(format!(
-                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M",
-                        &input.length_unit.as_str()
-                    ).as_str()),
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M",
+                        &input.length_unit.as_str())),
         };
 
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;

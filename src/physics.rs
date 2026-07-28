@@ -17,7 +17,7 @@ pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Part
 
         //Initialize threads with rayon
         println!("Initializing with {} threads...", options.num_threads);
-        let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global().unwrap();
+        rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global().unwrap();
 
         //Create and configure progress bar
         let bar: ProgressBar = ProgressBar::new(total_count);
@@ -37,7 +37,11 @@ pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Part
                 particle_input_chunk.into_par_iter()
                 .enumerate()
                 .map_init(
-                    || ChaCha8Rng::seed_from_u64(options.seed),
+                    || if options.seed < 0 { 
+                        ChaCha8Rng::seed_from_u64(rand::random())
+                    } else {
+                        ChaCha8Rng::seed_from_u64(u64::try_from(options.seed).expect("Value Error: seed not u64."))
+                    },
                     | rng, (particle_index, particle_input)| {
                         rng.set_stream((chunk_index * chunk_size + particle_index) as u64);
                         bar.tick();

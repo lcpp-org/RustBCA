@@ -61,18 +61,14 @@ impl <T: Geometry> Material<T> {
             "KEV" => EV*1E3,
             "MEV" => EV*1E6,
             _ => material_parameters.energy_unit.parse()
-                .expect(format!(
-                        "Input errror: could nor parse energy unit {}. Use a valid float or one of EV, J, KEV, MEV", &material_parameters.energy_unit.as_str()
-                    ).as_str()),
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse energy unit {}. Use a valid float or one of EV, J, KEV, MEV", &material_parameters.energy_unit.as_str())),
         };
 
         let mass_unit: f64 = match material_parameters.mass_unit.as_str() {
             "AMU" => AMU,
             "KG" => 1.,
             _ => material_parameters.mass_unit.parse()
-                .expect(format!(
-                        "Input errror: could nor parse mass unit {}. Use a valid float or one of AMU, KG", &material_parameters.mass_unit.as_str()
-                    ).as_str()),
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse mass unit {}. Use a valid float or one of AMU, KG", &material_parameters.mass_unit.as_str())),
         };
 
         Material {
@@ -94,7 +90,7 @@ impl <T: Geometry> Material<T> {
 
         let total_number_density: f64 = self.geometry.get_total_density(x, y, z);
 
-        return self.geometry.get_densities(x, y, z).iter().map(|&i| i / total_number_density).collect();
+        self.geometry.get_densities(x, y, z).iter().map(|&i| i / total_number_density).collect()
     }
 
     /// Gets cumulative concentrations of triangle that contains or is nearest to (x, y).
@@ -107,22 +103,22 @@ impl <T: Geometry> Material<T> {
             sum += concentration;
             cumulative_concentrations.push(sum);
         }
-        return cumulative_concentrations;
+        cumulative_concentrations
     }
 
     /// Determines whether (x, y) is inside the material.
     pub fn inside(&self, x: f64, y: f64, z: f64) -> bool {
-        return self.geometry.inside(x, y, z);
+        self.geometry.inside(x, y, z)
     }
 
     /// Gets electronic stopping correction factor for LS and OR
     pub fn electronic_stopping_correction_factor(&self, x: f64, y: f64, z: f64) -> f64 {
-        return self.geometry.get_ck(x, y, z);
+        self.geometry.get_ck(x, y, z)
     }
 
     /// Determines the local mean free path from the formula sum(n(x, y))^(-1/3)
     pub fn mfp(&self, x: f64, y: f64, z: f64) -> f64 {
-        return 1./self.total_number_density(x, y, z).cbrt();
+        1./self.total_number_density(x, y, z).cbrt()
     }
 
     /// Total number density of triangle that contains or is nearest to (x, y).
@@ -132,7 +128,7 @@ impl <T: Geometry> Material<T> {
 
     /// Lists number density of each species of triangle that contains or is nearest to (x, y).
     pub fn number_densities(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
-        return &self.geometry.get_densities(x, y, z);
+        self.geometry.get_densities(x, y, z)
     }
 
     /// Determines whether a point (x, y) is inside the energy barrier of the material.
@@ -142,7 +138,7 @@ impl <T: Geometry> Material<T> {
 
     /// Determines whether a point (x, y) is inside the simulation boundary.
     pub fn inside_simulation_boundary(&self, x:f64, y: f64, z: f64) -> bool {
-        return self.geometry.inside_simulation_boundary(x, y, z);
+        self.geometry.inside_simulation_boundary(x, y, z)
     }
 
     /// Finds the closest point on the material boundary to the point (x, y).
@@ -153,20 +149,20 @@ impl <T: Geometry> Material<T> {
     /// Finds the average, concentration-weighted atomic number, Z_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_Z(&self, x: f64, y: f64, z: f64) -> f64 {
         let concentrations = self.geometry.get_concentrations(x, y, z);
-        return self.Z.iter().zip(concentrations).map(|(charge, concentration)| charge*concentration).collect::<Vec<f64>>().iter().sum();
+        self.Z.iter().zip(concentrations).map(|(charge, concentration)| charge*concentration).collect::<Vec<f64>>().iter().sum()
     }
 
     /// Finds the average, concentration-weighted atomic mass, m_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_mass(&self, x: f64, y: f64, z: f64) -> f64 {
         let concentrations = self.geometry.get_concentrations(x, y, z);
-        return self.m.iter().zip(concentrations).map(|(mass, concentration)| mass*concentration).collect::<Vec<f64>>().iter().sum();
+        self.m.iter().zip(concentrations).map(|(mass, concentration)| mass*concentration).collect::<Vec<f64>>().iter().sum()
     }
 
     /// Finds the average, concentration-weighted bulk binding energy of the triangle that contains or is nearest to (x, y).
     pub fn average_bulk_binding_energy(&self, x: f64, y: f64, z: f64) -> f64 {
         //returns average bulk binding energy
         let concentrations = self.geometry.get_concentrations(x, y, z);
-        return self.Eb.iter().zip(concentrations).map(|(bulk_binding_energy, concentration)| bulk_binding_energy*concentration).collect::<Vec<f64>>().iter().sum();
+        self.Eb.iter().zip(concentrations).map(|(bulk_binding_energy, concentration)| bulk_binding_energy*concentration).collect::<Vec<f64>>().iter().sum()
     }
 
     pub fn actual_bulk_binding_energy(&self, species_index: usize, x: f64, y: f64, z: f64) -> f64 {
@@ -240,7 +236,7 @@ impl <T: Geometry> Material<T> {
                 min_Ec = *Ec;
             }
         }
-        return min_Ec;
+        min_Ec
     }
 
     ///Choose the parameters of a target atom as a concentration-weighted random draw from the species in the triangle that contains or is nearest to (x, y).
@@ -313,7 +309,7 @@ impl <T: Geometry> Material<T> {
 
             stopping_powers.push(stopping_power);
         }
-        return stopping_powers;
+        stopping_powers
     }
 }
 
