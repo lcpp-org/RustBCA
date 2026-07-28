@@ -52,13 +52,12 @@ Type "help", "copyright", "credits" or "license" for more information.
 >>> angle = 0.0 # deg
 >>> energy = 1000.0 # eV
 >>> num_samples = 10000
->>> 1 < sputtering_yield(argon, tungsten, energy, angle, num_samples) < 1.1 # Y approx. 1.04
+>>> sputtering_yield(argon, tungsten, energy, angle, num_samples) == 1.032
 True
 >>> R_N, R_E = reflection_coefficient(argon, tungsten, energy, angle, num_samples)
->>> 0.3 < R_N < 0.4 # R_N approx. 0.35 
+>>> R_N == 0.3321
 True
->>> 0.0 < R_E < 0.2 # R_E approx 0.1
-True
+>>> np.testing.assert_approx_equal(R_E, 0.09839033536523972)
 ```
 
 For those eager to get started with the standalone code, try running one of the examples in the
