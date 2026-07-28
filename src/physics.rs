@@ -4,6 +4,8 @@ pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Part
 
         println!("Processing {} ions...", particle_input_array.len());
 
+        static SEED: u64 = 0;
+
         let total_count: u64 = particle_input_array.len() as u64;
         assert!(total_count/options.num_chunks > 0, "Input error: chunk size == 0 - reduce num_chunks or increase particle count.");
 
@@ -34,10 +36,14 @@ pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Part
             // finished particle array via map from particle -> finished particles via BCA
             finished_particles.par_extend(
                 particle_input_chunk.into_par_iter()
-                .map(|particle_input| {
-                    bar.tick();
-                    bar.inc(1);
-                    bca::single_ion_bca(particle::Particle::from_input(*particle_input, &options), &material, &options)
+                .enumerate()
+                .map_init(
+                    || ChaCha8Rng::seed_from_u64(SEED),
+                    | rng, (particle_index, particle_input)| {
+                        rng.set_stream(particle_index as u64);
+                        bar.tick();
+                        bar.inc(1);
+                        bca::single_ion_bca(particle::Particle::from_input(*particle_input, &options), &material, &options, rng)
                 }).flatten()
             );
 

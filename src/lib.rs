@@ -41,6 +41,9 @@ use std::sync::Mutex;
 //itertools
 use itertools::{izip};
 
+//RNG
+use rand::{SeedableRng, rngs::ChaCha8Rng};
+
 //Math
 use std::f64::consts::FRAC_2_SQRT_PI;
 use std::f64::consts::PI;
@@ -306,7 +309,8 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
             tracked_vector: Vector::new(positions[index][0], positions[index][1], positions[index][2]),
         };
 
-        let output = bca::single_ion_bca(p, &m, &options);
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
 
@@ -423,7 +427,8 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
         tracked_vector: Vector::new(0.0, 0.0, 0.0),
     };
 
-    let output = bca::single_ion_bca(p, &m, &options);
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     *ux = output[0].dir.x;
     *uy = output[0].dir.y;
@@ -513,8 +518,8 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
             tracked_vector: Vector::new(0.0, 0.0, 0.0),
         };
 
-
-        let output = bca::single_ion_bca(p, &m, &options);
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
 
@@ -631,8 +636,8 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
             tracked_vector: Vector::new(0.0, 0.0, 0.0),
         };
 
-
-        let output = bca::single_ion_bca(p, &m, &options);
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
 
@@ -756,7 +761,8 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
             tracked_vector: Vector::new(0.0, 0.0, 0.0)
         };
 
-        let output = bca::single_ion_bca(p, &m, &options);
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
 
@@ -887,7 +893,8 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
             uz_
         );
 
-        let output = bca::single_ion_bca(p, &m, &options);
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
             if (particle.left) | (particle.incident) {
@@ -1014,9 +1021,17 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
             p
         }).collect();
 
+        static SEED: u64 = 0;
         finished_particles.par_extend(
             incident_particles.into_par_iter()
-            .map(|particle| bca::single_ion_bca(particle, &m, &options))
+            .enumerate()
+            .map_init(
+                || ChaCha8Rng::seed_from_u64(SEED),
+                | rng, (particle_index, particle_input)| {
+                    rng.set_stream(particle_index as u64);
+                    bca::single_ion_bca(particle, &m, &options, &mut rng)
+                } 
+            )
             .flatten()
         );
 
@@ -1122,7 +1137,8 @@ pub fn reflect_single_ion_py(ion: &PyDict, target: &PyDict, vx: f64, vy: f64, vz
         uz
     );
 
-    let output = bca::single_ion_bca(p, &m, &options);
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     let reflected_energy = output[0].E; //Joules
 
@@ -1237,7 +1253,8 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
             uz_
         );
 
-        let output = bca::single_ion_bca(p, &m, &options);
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
+        let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
             if (particle.left) | (particle.incident) {
@@ -1406,7 +1423,8 @@ pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let output = bca::single_ion_bca(p, &m, &options);
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     output.iter().filter(|particle| (particle.incident) | (particle.left)).map(|particle|
         [
@@ -1482,7 +1500,8 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let output = bca::single_ion_bca(p, &m, &options);
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     output.iter().filter(|particle| (particle.incident) | (particle.left)).map(|particle|
         [
@@ -1744,7 +1763,10 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 
     let num_sputtered = Mutex::new(0);
 
-    (0..num_samples as u64).into_par_iter().for_each( |index| {
+    static SEED: u64 = 0;
+    (0..num_samples as u64).into_par_iter()
+    .for_each_init(
+        || ChaCha8Rng::seed_from_u64(SEED), |rng, index| {
 
         let p = particle::Particle::default_incident(
             m1,
@@ -1757,7 +1779,8 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
             uy,
             uz
         );
-
+        
+        rng.set_stream(index);
         let output = bca::single_ion_bca(p, &m, &options);
 
         for particle in output {
@@ -1839,7 +1862,10 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
     let num_reflected = Mutex::new(0);
     let energy_reflected = Mutex::new(0.0);
 
-    (0..num_samples as u64).into_par_iter().for_each( |index| {
+    static SEED: u64 = 0;
+    (0..num_samples as u64).into_par_iter()
+    .for_each_init(
+        || ChaCha8Rng::seed_from_u64(SEED), |rng, index| {
 
         let p = particle::Particle::default_incident(
             m1,
@@ -1852,7 +1878,8 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
             uy,
             uz
         );
-
+        
+        rng.set_stream(index);
         let output = bca::single_ion_bca(p, &m, &options);
 
         for particle in output {
@@ -1940,7 +1967,10 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
     let num_reflected = Mutex::new(0);
     let energy_reflected = Mutex::new(0.0);
 
-    (0..num_samples as u64).into_par_iter().for_each( |index| {
+    static SEED: u64 = 0;
+    (0..num_samples as u64).into_par_iter()
+    .for_each_init(
+        || ChaCha8Rng::seed_from_u64(SEED), |rng, index| {
 
         let p = particle::Particle::default_incident(
             m1,
@@ -1953,7 +1983,8 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
             uy,
             uz
         );
-
+        
+        rng.set_stream(index);
         let output = bca::single_ion_bca(p, &m, &options);
 
         for particle in output {

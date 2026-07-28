@@ -920,7 +920,9 @@ fn test_momentum_conservation() {
                             z_num: 11,
                         };
 
-                        let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
+                        static SEED: u64 = 0;
+                        let mut rng = ChaCha8Rng::seed_from_u64(SEED);
+                        let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options, &mut rng);
 
                         println!("Phi: {} rad p: {} Angstrom mfp: {} Angstrom", binary_collision_geometries[0].phi_azimuthal,
                             binary_collision_geometries[0].impact_parameter/ANGSTROM,

@@ -1,5 +1,6 @@
 use super::*;
-use rand_distr::{Normal, Distribution, Uniform};
+use rand::distr::{Uniform};
+use rand_distr::{Normal, Distribution};
 
 pub trait InputFile: GeometryInput {
     fn new(string: &str) -> Self;
@@ -557,40 +558,40 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                             m: m*mass_unit,
                             Z: Z,
                             E: match E {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*energy_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*energy_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*energy_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*energy_unit},
                                 Distributions::POINT(E) => E*energy_unit,
                             },
                             Ec: Ec*energy_unit,
                             Es: Es*energy_unit,
                             x: match x {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*length_unit},
                                 Distributions::POINT(x) => x*length_unit,
                             },
                             y: match y {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*length_unit},
                                 Distributions::POINT(y) => y*length_unit,
                             },
                             z: match z {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*length_unit},
                                 Distributions::POINT(z) => z*length_unit,
                             },
                             ux: match cosx {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*length_unit},
                                 Distributions::POINT(ux) => ux,
                             },
                             uy: match cosy {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*length_unit},
                                 Distributions::POINT(uy) => uy,
                             },
                             uz: match cosz {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*length_unit},
                                 Distributions::POINT(uz) => uz,
                             },
                             interaction_index: interaction_index,
@@ -630,40 +631,40 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                             m: m*mass_unit,
                             Z: Z,
                             E: match E {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*energy_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*energy_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*energy_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*energy_unit},
                                 Distributions::POINT(x) => x*energy_unit,
                             },
                             Ec: Ec*energy_unit,
                             Es: Es*energy_unit,
                             x: match x {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*length_unit},
                                 Distributions::POINT(x) => x*length_unit,
                             },
                             y: match y {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*length_unit},
                                 Distributions::POINT(x) => x*length_unit,
                             },
                             z: match z {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*length_unit},
                                 Distributions::POINT(x) => x*length_unit,
                             },
                             ux: match cosx {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*length_unit},
                                 Distributions::POINT(x) => x*length_unit
                             },
                             uy: match cosy {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*length_unit},
                                 Distributions::POINT(x) => x*length_unit,
                             },
                             uz: match cosz {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
+                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::rng())*length_unit},
+                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rand::rng())*length_unit},
                                 Distributions::POINT(x) => x*length_unit,
                             },
                             interaction_index: interaction_index,

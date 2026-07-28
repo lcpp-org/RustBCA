@@ -1,4 +1,5 @@
 use super::*;
+use rand::RngExt;
 
 #[cfg(feature = "cpr_rootfinder")]
 use rcpr::chebyshev::*;
@@ -62,7 +63,7 @@ impl fmt::Display for BinaryCollisionResult {
 }
 
 /// This function takes a single particle, a material, and an options object and runs a binary-collision-approximation trajectory for that particle in that material, producing a final particle list that consists of the original ion and any material particles displaced thereby.
-pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &material::Material<T>, options: &Options) -> Vec<particle::Particle> {
+pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &material::Material<T>, options: &Options, rng: &mut ChaCha8Rng) -> Vec<particle::Particle> {
 
     let mut particles: Vec<particle::Particle> = Vec::new();
     particles.push(particle);
@@ -79,7 +80,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
         while !particle_1.stopped & !particle_1.left {
 
             //Choose impact parameters and azimuthal angles for all collisions, and determine mean free path
-            let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material, &options);
+            let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material, &options, rng);
 
             #[cfg(feature = "accelerated_ions")]
             let distance_to_target = if !material.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z) {
@@ -207,7 +208,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
 
 /// For a particle in a material, determine the mean free path and choose the azimuthal angle and impact parameter.
 /// The mean free path can be exponentially distributed (gaseous) or constant (amorphous solid/liquid). Azimuthal angles are chosen uniformly. Impact parameters are chosen for collision partners distributed uniformly on a disk of density-dependent radius.
-pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>, options: &Options) -> Vec<BinaryCollisionGeometry> {
+pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>, options: &Options, rng: &mut ChaCha8Rng) -> Vec<BinaryCollisionGeometry> {
 
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
@@ -220,7 +221,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
 
     //Each weak collision gets its own aziumuthal angle in annuli around collision point
     for k in 0..options.weak_collision_order + 1 {
-        phis_azimuthal.push(2.*PI*rand::random::<f64>());
+        phis_azimuthal.push(2.*PI*rng.random::<f64>());
     }
 
     if options.high_energy_free_flight_paths {
@@ -264,22 +265,22 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
             //Cylindrical geometry
             pmax = mfp/SQRTPI;
             let mut impact_parameter = Vec::with_capacity(1);
-            let random_number = rand::random::<f64>();
+            let random_number = rng.random::<f64>();
             let p = pmax*random_number.sqrt();
             impact_parameter.push(p);
 
             //Atomically rough surface - scatter initial collisions using mfp near interface
             if particle_1.first_step {
-                ffp = mfp*rand::random::<f64>();
+                ffp = mfp*rng.random::<f64>();
                 particle_1.first_step = false;
             }
 
             ffp *= match options.mean_free_path_model {
-                MeanFreePathModel::GASEOUS => -rand::random::<f64>().ln(),
+                MeanFreePathModel::GASEOUS => -rng.random::<f64>().ln(),
                 MeanFreePathModel::LIQUID => 1.0,
                 MeanFreePathModel::THRESHOLD{density} => {
                     if material.geometry.get_densities(x, y, z).iter().sum::<f64>() < density {
-                        -rand::random::<f64>().ln()
+                        -rng.random::<f64>().ln()
                     } else {
                         1.0
                     }
@@ -296,18 +297,18 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
             //And SRIM textbook chapter 7
             //And Eckstein 1991
             let mut impact_parameter = Vec::with_capacity(1);
-            let random_number = rand::random::<f64>();
+            let random_number = rng.random::<f64>();
             let p = pmax*(-random_number.ln()).sqrt();
             impact_parameter.push(p);
 
             //Atomically rough surface - scatter initial collisions using mfp near interface
             if particle_1.first_step {
-                ffp = mfp*rand::random::<f64>();
+                ffp = mfp*rng.random::<f64>();
                 particle_1.first_step = false;
             }
 
             if options.mean_free_path_model == MeanFreePathModel::GASEOUS {
-                ffp *= -rand::random::<f64>().ln();
+                ffp *= -rng.random::<f64>().ln();
             }
 
             binary_collision_geometries.push(BinaryCollisionGeometry::new(phis_azimuthal[0], impact_parameter[0], ffp));
@@ -322,19 +323,19 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
         //Cylindrical geometry
         let mut impact_parameters = Vec::with_capacity(options.weak_collision_order + 1);
         for k in 0..(options.weak_collision_order + 1) {
-            let random_number = rand::random::<f64>();
+            let random_number = rng.random::<f64>();
             let p = pmax*(random_number + k as f64).sqrt();
             impact_parameters.push(p)
         }
 
         //Atomically rough surface - scatter initial collisions
         if particle_1.first_step {
-            mfp *= rand::random::<f64>();
+            mfp *= rng.random::<f64>();
             particle_1.first_step = false;
         }
 
         if options.mean_free_path_model == MeanFreePathModel::GASEOUS {
-            mfp *= -rand::random::<f64>().ln();
+            mfp *= -rng.random::<f64>().ln();
         }
 
 
