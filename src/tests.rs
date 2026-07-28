@@ -229,6 +229,7 @@ fn test_distributions() {
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}]],
         track_displacements: false,
         track_energy_losses: true,
+        seed: 0,
         energy_min: 0.0,
         energy_max: 10.0,
         energy_num: 11,
