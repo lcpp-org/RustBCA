@@ -140,7 +140,7 @@ def main():
     uz = output[:, 8]
 
     # check that mean implantation depth is reasonable
-    assert(20, np.mean(x), 30)
+    assert(20 < np.mean(x) < 30)
 
     #For the python bindings, these conditionals can be used to distinguish
     #between sputtered, reflected, and implanted particles in the output list
@@ -194,7 +194,6 @@ def main():
         [ion['m']]*number_ions, [ion['Ec']]*number_ions, [ion['Es']]*number_ions, [target['Z'], 1.0], [target['m'], 1.008],
         [target['Ec'], 1.0], [target['Es'], 1.5], [target['Eb'], 0.0], [[target['n']/10**30, target['n']/10**30], [target['n']/10**30, 0.0]], [50.0, 1e6]
     )
-
 
     output = np.array(output)
 
