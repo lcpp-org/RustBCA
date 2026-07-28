@@ -48,8 +48,9 @@ python -m pip install .
 python
 Python 3.9.6 (tags/v3.9.6:db3ff76, Jun 28 2021, 15:26:21) [MSC v.1929 64 bit (AMD64)] on win32
 Type "help", "copyright", "credits" or "license" for more information.
->>> import os; os.environ["SUPPRESS_RUSTBCA_MATERIALS_WARNING"]="1"
+>>> import os
 >>> from libRustBCA import *; from scripts.materials import *; import numpy as np
+materials.py is intended to provide example input values only; all input values should be verified by the user before running. This warning can be suppressed by setting the environment variable SUPPRESS_RUSTBCA_MATERIALS_WARNING to 1.
 >>> os.environ["RAYON_NUM_THREADS"] = "4"
 >>> os.environ["LIBRUSTBCA_SEED"] = "0" # All multi-ion library functions default to a seed of 0; specified here for completeness
 >>> angle = 0.0 # deg
