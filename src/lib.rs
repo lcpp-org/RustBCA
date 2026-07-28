@@ -2086,8 +2086,8 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
 /// citation: Accurate Parallel Floating-Point Accumulation
 /// E. Kadric et al., IEEE Transactions on Computers 65 11
 /// doi: 10.1109/TC.2016.2532874
+#[cfg(feature = "python")]
 fn moller_knuth_two_sum(a: f64, b: f64) -> (f64, f64) {
-    
     let s = a + b;
     let b_prime = s - a;
     let a_prime = s - b_prime;
