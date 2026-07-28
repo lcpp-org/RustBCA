@@ -48,17 +48,18 @@ python -m pip install .
 python
 Python 3.9.6 (tags/v3.9.6:db3ff76, Jun 28 2021, 15:26:21) [MSC v.1929 64 bit (AMD64)] on win32
 Type "help", "copyright", "credits" or "license" for more information.
->>> from libRustBCA import *; from scripts.materials import *; import numpy as np
+>>> from libRustBCA import *; from scripts.materials import *; import numpy as np; import os
+>>> os.environ["RAYON_NUM_THREADS"] = "4"
+>>> os.environ["LIBRUSTBCA_SEED"] = "0" # All multi-ion library functions default to a seed of 0; specified here for completeness
 >>> angle = 0.0 # deg
 >>> energy = 1000.0 # eV
 >>> num_samples = 10000
->>> 1 < sputtering_yield(argon, tungsten, energy, angle, num_samples) < 1.1 # Y approx. 1.04
+>>> sputtering_yield(argon, tungsten, energy, angle, num_samples) == 1.0243
 True
 >>> R_N, R_E = reflection_coefficient(argon, tungsten, energy, angle, num_samples)
->>> 0.3 < R_N < 0.4 # R_N approx. 0.35 
+>>> R_N == 0.3234
 True
->>> 0.0 < R_E < 0.2 # R_E approx 0.1
-True
+>>> np.testing.assert_approx_equal(R_E, 0.09645129485419984)
 ```
 
 For those eager to get started with the standalone code, try running one of the examples in the
@@ -80,7 +81,11 @@ Afterwords, fire up your favourite [Python] interpreter
 (e.g., [IPython]) and execute:
 
 ```python
-from scripts.rustbca import *
+from scripts.rustbca import *; import numpy as np;
+
+deposited_list = np.atleast_2d(np.genfromtxt('boron_nitride_deposited.output', delimiter=','))
+np.testing.assert_approx_equal(deposited_list[0, 2], 0.016531847238600884)
+
 do_trajectory_plot("boron_nitride_")
 ```
 
@@ -107,6 +112,8 @@ deposited_ions = np.genfromtxt(
     delimiter=",",
     names=["M", "Z", "x", "y", "z", "collisions"],
 )
+
+np.testing.assert_approx_equal(deposited_ions['x'][0], 0.0018110896054452609)
 
 plt.hist(deposited_ions["x"], bins=100)
 

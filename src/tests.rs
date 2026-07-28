@@ -229,6 +229,7 @@ fn test_distributions() {
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}]],
         track_displacements: false,
         track_energy_losses: true,
+        seed: 0,
         energy_min: 0.0,
         energy_max: 10.0,
         energy_num: 11,
@@ -881,6 +882,7 @@ fn test_momentum_conservation() {
                             root_finder: vec![vec![root_finder]],
                             track_displacements: false,
                             track_energy_losses: false,
+                            seed: 0,
                         };
 
                         #[cfg(feature = "distributions")]
@@ -903,6 +905,7 @@ fn test_momentum_conservation() {
                             root_finder: vec![vec![root_finder]],
                             track_displacements: false,
                             track_energy_losses: false,
+                            seed: 0,
                             energy_min: 0.0,
                             energy_max: 10.0,
                             energy_num: 11,
@@ -920,14 +923,16 @@ fn test_momentum_conservation() {
                             z_num: 11,
                         };
 
-                        let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
+                        static SEED: u64 = 0;
+                        let mut rng = ChaCha8Rng::seed_from_u64(SEED);
+                        let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options, &mut rng);
 
                         println!("Phi: {} rad p: {} Angstrom mfp: {} Angstrom", binary_collision_geometries[0].phi_azimuthal,
                             binary_collision_geometries[0].impact_parameter/ANGSTROM,
                             binary_collision_geometries[0].mfp/ANGSTROM);
 
                         let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material_1,
-                            &binary_collision_geometries[0], &options);
+                            &binary_collision_geometries[0], &options, &mut rng);
 
                         let mom1_0 = particle_1.get_momentum();
                         let mom2_0 = particle_2.get_momentum();
@@ -1083,6 +1088,7 @@ fn test_quadrature() {
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
         track_displacements: false,
         track_energy_losses: false,
+        seed: 0,
     };
 
     #[cfg(feature = "distributions")]
@@ -1105,6 +1111,7 @@ fn test_quadrature() {
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
         track_displacements: false,
         track_energy_losses: false,
+        seed: 0,
         energy_min: 0.0,
         energy_max: 10.0,
         energy_num: 11,

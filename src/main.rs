@@ -35,6 +35,9 @@ use std::f64::consts::FRAC_2_SQRT_PI;
 use std::f64::consts::PI;
 use std::f64::consts::SQRT_2;
 
+//RNG
+use rand::{SeedableRng, rngs::ChaCha8Rng};
+
 //Load internal modules
 pub mod material;
 pub mod particle;

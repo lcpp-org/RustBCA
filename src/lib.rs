@@ -2,7 +2,7 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
-use std::{fmt};
+use std::{fmt, env};
 use std::mem::discriminant;
 
 use std::alloc::{dealloc, Layout};
@@ -40,6 +40,9 @@ use std::sync::Mutex;
 
 //itertools
 use itertools::{izip};
+
+//RNG
+use rand::{SeedableRng, rngs::ChaCha8Rng};
 
 //Math
 use std::f64::consts::FRAC_2_SQRT_PI;
@@ -235,7 +238,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
     let tags = unsafe { slice::from_raw_parts(input.tags, input.len).to_vec() };
     let weights = unsafe { slice::from_raw_parts(input.weights, input.len).to_vec() };
 
-    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let x = -2.*(n2.iter().sum::<f64>()*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -306,7 +309,8 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
             tracked_vector: Vector::new(positions[index][0], positions[index][1], positions[index][2]),
         };
 
-        let output = bca::single_ion_bca(p, &m, &options);
+        let mut rng = ChaCha8Rng::seed_from_u64(index as u64);
+        let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
 
@@ -368,7 +372,7 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
     let Es2 = unsafe { slice::from_raw_parts(Es2, *num_species_target as usize).to_vec() };
     let Eb2 = unsafe { slice::from_raw_parts(Eb2, *num_species_target as usize).to_vec() };
 
-    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let x = -2.*(n2.iter().sum::<f64>()*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -423,7 +427,8 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
         tracked_vector: Vector::new(0.0, 0.0, 0.0),
     };
 
-    let output = bca::single_ion_bca(p, &m, &options);
+    let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
+    let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     *ux = output[0].dir.x;
     *uy = output[0].dir.y;
@@ -438,7 +443,7 @@ pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut 
 #[no_mangle]
 pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
 
-    let x = -2.*(input.n2*10E30).powf(-1./3.);
+    let x = -2.*(input.n2*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -470,6 +475,14 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
 
     let velocities = unsafe { slice::from_raw_parts(input.velocities, input.len) };
 
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
     for velocity in velocities {
 
         let vx = velocity[0];
@@ -513,8 +526,7 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
             tracked_vector: Vector::new(0.0, 0.0, 0.0),
         };
 
-
-        let output = bca::single_ion_bca(p, &m, &options);
+        let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
 
@@ -560,7 +572,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
     let Es2 = unsafe { slice::from_raw_parts(input.Es2, input.num_species_target).to_vec() };
     let Eb2 = unsafe { slice::from_raw_parts(input.Eb2, input.num_species_target).to_vec() };
 
-    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let x = -2.*(n2.iter().sum::<f64>()*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -588,6 +600,14 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
 
     let velocities = unsafe { slice::from_raw_parts(input.velocities, input.len) };
 
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
     for velocity in velocities {
 
         let vx = velocity[0];
@@ -631,8 +651,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
             tracked_vector: Vector::new(0.0, 0.0, 0.0),
         };
 
-
-        let output = bca::single_ion_bca(p, &m, &options);
+        let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
 
@@ -699,7 +718,7 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
 
     //println!("Z2: {} m2: {} n2: {} Ec2: {} Es2: {} Eb2: {}", Z2[0], m2[0], n2[0], Ec2[0], Es2[0], Eb2[0]);
 
-    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let x = -2.*(n2.iter().sum::<f64>()*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -725,6 +744,14 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
     for (((((((E1_, ux_), uy_), uz_), Z1_), Ec1_), Es1_), m1_) in E1.iter().zip(ux).zip(uy).zip(uz).zip(Z1).zip(Ec1).zip(Es1).zip(m1) {
 
         let p = particle::Particle {
@@ -756,7 +783,8 @@ pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track
             tracked_vector: Vector::new(0.0, 0.0, 0.0)
         };
 
-        let output = bca::single_ion_bca(p, &m, &options);
+        
+        let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
 
@@ -844,7 +872,7 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
 
     let options = Options::default_options(true);
 
-    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let x = -2.*(n2.iter().sum::<f64>()*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -870,7 +898,14 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let mut index: usize = 0;
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
+
     for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {
 
         let mut energy_out;
@@ -887,7 +922,8 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
             uz_
         );
 
-        let output = bca::single_ion_bca(p, &m, &options);
+        
+        let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
             if (particle.left) | (particle.incident) {
@@ -914,7 +950,6 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
                 );
             }
         }
-        index += 1;
     }
     (total_output, incident)
 }
@@ -968,7 +1003,7 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
     let options = Options::default_options(true);
     //options.high_energy_free_flight_paths = true;
 
-    let x = -2.*(n2.iter().sum::<f64>()*10E30).powf(-1./3.);
+    let x = -2.*(n2.iter().sum::<f64>()*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -996,6 +1031,13 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
 
     let mut finished_particles: Vec<particle::Particle> = Vec::new();
 
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
     let incident_particles: Vec<particle::Particle> = izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1)
         .enumerate()
         .map(|(index, (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_))| {
@@ -1016,7 +1058,14 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
 
         finished_particles.par_extend(
             incident_particles.into_par_iter()
-            .map(|particle| bca::single_ion_bca(particle, &m, &options))
+            .enumerate()
+            .map_init(
+                || ChaCha8Rng::seed_from_u64(seed),
+                | rng, (particle_index, incident_particle)| {
+                    rng.set_stream(particle_index as u64);
+                    bca::single_ion_bca(incident_particle, &m, &options, rng)
+                } 
+            )
             .flatten()
         );
 
@@ -1024,7 +1073,7 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
             if (particle.left) | (particle.incident) {
                 incident.push(particle.incident);
                 incident_index.push(particle.tag as usize);
-                let mut energy_out;
+                let energy_out;
                 if particle.stopped {
                     energy_out = 0.;
                 } else {
@@ -1122,7 +1171,8 @@ pub fn reflect_single_ion_py(ion: &PyDict, target: &PyDict, vx: f64, vy: f64, vz
         uz
     );
 
-    let output = bca::single_ion_bca(p, &m, &options);
+    let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
+    let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     let reflected_energy = output[0].E; //Joules
 
@@ -1219,8 +1269,14 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
 
     let x = -m.geometry.top_energy_barrier_thickness/2.;
 
-    let mut index: usize = 0;
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
 
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
     for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {();
 
         let mut energy_out;
@@ -1237,7 +1293,7 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
             uz_
         );
 
-        let output = bca::single_ion_bca(p, &m, &options);
+        let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
         for particle in output {
             if (particle.left) | (particle.incident) {
@@ -1265,7 +1321,6 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
                 );
             }
         }
-        index += 1;
     }
     (total_output, incident, stopped)
 }
@@ -1333,7 +1388,7 @@ pub fn simple_bca_list_py(energies: Vec<f64>, usx: Vec<f64>, usy: Vec<f64>, usz:
     assert_eq!(energies.len(), usy.len());
     assert_eq!(energies.len(), usz.len());
 
-    let x = -2.*(n2*10E30).powf(-1./3.);
+    let x = -2.*(n2*1E30).powf(-1./3.);
     let y = 0.0;
     let z = 0.0;
 
@@ -1406,7 +1461,8 @@ pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let output = bca::single_ion_bca(p, &m, &options);
+    let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
+    let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     output.iter().filter(|particle| (particle.incident) | (particle.left)).map(|particle|
         [
@@ -1482,7 +1538,8 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let output = bca::single_ion_bca(p, &m, &options);
+    let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
+    let output = bca::single_ion_bca(p, &m, &options, &mut rng);
 
     output.iter().filter(|particle| (particle.incident) | (particle.left)).map(|particle|
         [
@@ -1525,7 +1582,7 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     *ux = incident.x;
     *uy = incident.y;
     *uz = incident.z;
-    let mag = (ux.powf(2.) + uy.powf(2.) + uz.powf(2.)).sqrt();
+    let mag = (ux.powi(2) + uy.powi(2) + uz.powi(2)).sqrt();
 
     *ux /= mag;
     *uy /= mag;
@@ -1744,7 +1801,16 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 
     let num_sputtered = Mutex::new(0);
 
-    (0..num_samples as u64).into_par_iter().for_each( |index| {
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
+    (0..num_samples as u64).into_par_iter()
+    .for_each_init(
+        || ChaCha8Rng::seed_from_u64(seed), |rng, index| {
 
         let p = particle::Particle::default_incident(
             m1,
@@ -1757,8 +1823,9 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
             uy,
             uz
         );
-
-        let output = bca::single_ion_bca(p, &m, &options);
+        
+        rng.set_stream(index);
+        let output = bca::single_ion_bca(p, &m, &options, rng);
 
         for particle in output {
             if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && (!particle.incident) {
@@ -1838,9 +1905,18 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
 
     let num_reflected = Mutex::new(0);
     let energy_reflected = Mutex::new(0.0);
+    let residue = Mutex::new(0.0);
 
-    (0..num_samples as u64).into_par_iter().for_each( |index| {
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
 
+    (0..num_samples as u64).into_par_iter()
+    .for_each_init(
+        || ChaCha8Rng::seed_from_u64(seed), |rng, index| {
         let p = particle::Particle::default_incident(
             m1,
             Z1,
@@ -1852,22 +1928,32 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
             uy,
             uz
         );
-
-        let output = bca::single_ion_bca(p, &m, &options);
+        
+        rng.set_stream(index);
+        let output = bca::single_ion_bca(p, &m, &options, rng);
 
         for particle in output {
             if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && particle.incident {
                 let mut num_reflected = num_reflected.lock().unwrap();
                 *num_reflected += 1;
                 let mut energy_reflected = energy_reflected.lock().unwrap();
-                *energy_reflected += particle.E;
+
+                let residue_part;
+
+                // Use Moller-Knuth TwoSum to preserve deterministic fp reduce
+                (*energy_reflected, residue_part) = moller_knuth_two_sum(*energy_reflected, particle.E);
+
+                let mut residue = residue.lock().unwrap();
+                *residue = *residue + residue_part;
+
             }
         }
     });
     let num_reflected = *num_reflected.lock().unwrap();
     let energy_reflected = *energy_reflected.lock().unwrap();
+    let residue = *residue.lock().unwrap();
 
-    (num_reflected as f64 / num_samples as f64, energy_reflected / EV / energy / num_samples as f64)
+    (num_reflected as f64 / num_samples as f64, (energy_reflected + residue) / EV / energy / num_samples as f64)
 }
 
 #[cfg(feature = "python")]
@@ -1939,8 +2025,18 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
 
     let num_reflected = Mutex::new(0);
     let energy_reflected = Mutex::new(0.0);
+    let residue = Mutex::new(0.0);
 
-    (0..num_samples as u64).into_par_iter().for_each( |index| {
+    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => rand::random(),
+        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64 or not -1."),
+        Err(env::VarError::NotPresent) => 0_u64,
+        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
+    };
+
+    (0..num_samples as u64).into_par_iter()
+    .for_each_init(
+        || ChaCha8Rng::seed_from_u64(seed), |rng, index| {
 
         let p = particle::Particle::default_incident(
             m1,
@@ -1953,20 +2049,50 @@ pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, targ
             uy,
             uz
         );
-
-        let output = bca::single_ion_bca(p, &m, &options);
+        
+        rng.set_stream(index);
+        let output = bca::single_ion_bca(p, &m, &options, rng);
 
         for particle in output {
             if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && particle.incident {
                 let mut num_reflected = num_reflected.lock().unwrap();
                 *num_reflected += 1;
                 let mut energy_reflected = energy_reflected.lock().unwrap();
-                *energy_reflected += particle.E;
+
+                let residue_part;
+
+                // Use Moller-Knuth TwoSum to preserve deterministic fp reduce
+                (*energy_reflected, residue_part) = moller_knuth_two_sum(*energy_reflected, particle.E);
+
+                let mut residue = residue.lock().unwrap();
+                *residue = *residue + residue_part;
+
             }
         }
     });
     let num_reflected = *num_reflected.lock().unwrap();
     let energy_reflected = *energy_reflected.lock().unwrap();
+    let residue = *residue.lock().unwrap();
 
-    (num_reflected as f64 / num_samples as f64, energy_reflected / EV / energy / num_samples as f64)
+    (num_reflected as f64 / num_samples as f64, (energy_reflected + residue) / EV / energy / num_samples as f64)
+}
+
+/// Moller-Knuth TwoSum Floating-Point Adder with Residual (FPAR)
+/// This function allows one to use the identity: 
+/// Given two floating point numbers a, b;
+/// And the sum s = IEEE754RoundToNearest(a + b);
+/// And the residual from floating point error r = (a + b) - s;
+/// The following is invariant: s + r = a + b
+/// citation: Accurate Parallel Floating-Point Accumulation
+/// E. Kadric et al., IEEE Transactions on Computers 65 11
+/// doi: 10.1109/TC.2016.2532874
+#[cfg(feature = "python")]
+fn moller_knuth_two_sum(a: f64, b: f64) -> (f64, f64) {
+    let s = a + b;
+    let b_prime = s - a;
+    let a_prime = s - b_prime;
+    let delta_b = b - b_prime;
+    let delta_a = a - a_prime;
+    let r = delta_a + delta_b;
+    (s, r)
 }

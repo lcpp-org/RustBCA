@@ -15,8 +15,8 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-rand = "0.8.5"
-rand_distr = "0.4.3"
+rand = {version = "0.10.2", features=["chacha"]}
+rand_distr = "0.6.0"
 toml = "0.7.4"
 anyhow = "1.0.71"
 itertools = "0.10.5"
