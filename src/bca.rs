@@ -347,6 +347,26 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
     }
 }
 
+/// This function finds an orthonormal basis from a unit vector n
+/// it should avoid all numerical / consistency issues
+/// Duff et al., JCGT 2017
+/// http://jcgt.org/published/0006/01/01/
+fn duff_orthonormal_basis(n: Vector) -> (Vector, Vector) {
+    if n.z < 0. {
+        let a = 1.0 / (1.0 - n.z);
+        let b = n.x * n.y * a;
+        let b1 = Vector::new(1.0 - n.x*n.x*a, -b, n.x);
+        let b2 = Vector::new(b, n.y * n.y*a- 1.0, -n.y);
+        (b1, b2)
+    } else {
+        let a = 1.0 / (1.0 + n.z);
+        let b = -n.x * n.y * a;
+        let b1 = Vector::new(1.0 - n.x*n.x*a, b, -n.x);
+        let b2 = Vector::new(b, 1.0 - n.y*n.y*a, -n.y);
+        (b1, b2)
+    }
+}
+
 /// For a particle in a material, and for a particular binary collision geometry, choose a species for the collision partner.
 pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, material: &material::Material<T>, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options, rng: &mut ChaCha8Rng) -> (usize, particle::Particle) {
     let x = particle_1.pos.x;
@@ -370,23 +390,28 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     // Because of this, the recoil location is not consistent between the two formulas at a given phi
     // Since phi is sampled uniformly from (0, 2pi), this does not matter
     // However, if a crystalline structure is ever added, this needs to be considered
-    let x_recoil = if cosx > -1. {
+    /*
+    let x_recoil = if cosx > -1. + 1e-6 {
         x + mfp*cosx - impact_parameter*(cosz*sinphi + cosy*cosphi)
     } else {
         x + mfp*cosx - impact_parameter*((1. + cosz - cosx*cosx)*cosphi - cosx*cosy*sinphi)/(1. + cosz)
     };
 
-    let y_recoil = if cosx > -1. {
+    let y_recoil = if cosx > -1. + 1e-6 {
         y + mfp*cosy + impact_parameter*((1. + cosx - cosy*cosy)*cosphi - cosy*cosz*sinphi)/(1. + cosx)
     } else {
         y + mfp*cosy + impact_parameter*((1. + cosz - cosy*cosy)*sinphi - cosx*cosy*cosphi)/(1. + cosz)
     };
 
-    let z_recoil = if cosx > -1. {
+    let z_recoil = if cosx > -1. + 1e-6 {
         z + mfp*cosz + impact_parameter*((1. + cosx - cosz*cosz)*sinphi - cosy*cosz*cosphi)/(1. + cosx)
     } else {
         z + mfp*cosz + impact_parameter*(cosx*cosphi + cosy*sinphi)
-    };
+    };*/
+    let (e1, e2) = duff_orthonormal_basis(particle_1.dir);
+    let x_recoil = x + impact_parameter*(e1.x*cosphi + e2.x*sinphi);
+    let y_recoil = y + impact_parameter*(e1.y*cosphi + e2.y*sinphi);
+    let z_recoil = z + impact_parameter*(e1.z*cosphi + e2.z*sinphi);
 
     //Choose recoil Z, M
     let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, Ed_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil, rng);
