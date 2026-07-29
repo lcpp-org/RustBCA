@@ -144,6 +144,7 @@ options = {
             }
         ]
     ],
+    'seed': 0 # if <0, will generate a seed from thread-local PRNG; if >0, will be used as seed to PRNG
 }
 
 # material parameters are per-species
