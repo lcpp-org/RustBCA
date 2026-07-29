@@ -266,7 +266,7 @@ impl Particle {
         };
         */
 
-        let (e1, e2) = duff_orthonormal_basis(self.dir);
+        let (e1, e2) = math::duff_orthonormal_basis(self.dir);
         let cosx_new = cpsi*cosx - spsi*(cosphi*e1.x + sinphi*e2.x);
         let cosy_new = cpsi*cosy - spsi*(cosphi*e1.y + sinphi*e2.y);
         let cosz_new = cpsi*cosz - spsi*(cosphi*e1.z + sinphi*e2.z);

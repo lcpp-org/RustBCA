@@ -52,6 +52,7 @@ pub mod consts;
 pub mod structs;
 pub mod sphere;
 pub mod physics;
+pub mod math;
 
 #[cfg(feature = "parry3d")]
 pub mod parry;
@@ -64,6 +65,7 @@ pub use crate::output::{OutputUnits};
 pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D, HomogeneousMesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
 pub use crate::physics::{physics_loop};
+pub use crate::math::duff_orthonormal_basis;
 
 #[cfg(feature = "parry3d")]
 pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, ParryTriMeshInput, InputParryTriMesh};

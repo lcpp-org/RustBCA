@@ -347,26 +347,6 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
     }
 }
 
-/// This function finds an orthonormal basis from a unit vector n
-/// it should avoid all numerical / consistency issues
-/// Duff et al., JCGT 2017
-/// http://jcgt.org/published/0006/01/01/
-fn duff_orthonormal_basis(n: Vector) -> (Vector, Vector) {
-    if n.z < 0. {
-        let a = 1.0 / (1.0 - n.z);
-        let b = n.x * n.y * a;
-        let b1 = Vector::new(1.0 - n.x*n.x*a, -b, n.x);
-        let b2 = Vector::new(b, n.y * n.y*a- 1.0, -n.y);
-        (b1, b2)
-    } else {
-        let a = 1.0 / (1.0 + n.z);
-        let b = -n.x * n.y * a;
-        let b1 = Vector::new(1.0 - n.x*n.x*a, b, -n.x);
-        let b2 = Vector::new(b, 1.0 - n.y*n.y*a, -n.y);
-        (b1, b2)
-    }
-}
-
 /// For a particle in a material, and for a particular binary collision geometry, choose a species for the collision partner.
 pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, material: &material::Material<T>, binary_collision_geometry: &BinaryCollisionGeometry, options: &Options, rng: &mut ChaCha8Rng) -> (usize, particle::Particle) {
     let x = particle_1.pos.x;
@@ -408,10 +388,10 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     } else {
         z + mfp*cosz + impact_parameter*(cosx*cosphi + cosy*sinphi)
     };*/
-    let (e1, e2) = duff_orthonormal_basis(particle_1.dir);
-    let x_recoil = x + impact_parameter*(e1.x*cosphi + e2.x*sinphi);
-    let y_recoil = y + impact_parameter*(e1.y*cosphi + e2.y*sinphi);
-    let z_recoil = z + impact_parameter*(e1.z*cosphi + e2.z*sinphi);
+    let (e1, e2) = math::duff_orthonormal_basis(particle_1.dir);
+    let x_recoil = x + mfp*cosx + impact_parameter*(e1.x*cosphi + e2.x*sinphi);
+    let y_recoil = y + mfp*cosy + impact_parameter*(e1.y*cosphi + e2.y*sinphi);
+    let z_recoil = z + mfp*cosz + impact_parameter*(e1.z*cosphi + e2.z*sinphi);
 
     //Choose recoil Z, M
     let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, Ed_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil, rng);
