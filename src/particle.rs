@@ -246,6 +246,7 @@ impl Particle {
         // Because of this, the recoil location is not consistent between the two formulas at a given phi
         // Since phi is sampled uniformly from (0, 2pi), this does not matter
         // However, if a crystalline structure is ever added, this needs to be considered
+        /*
         let cosx_new = if cosx > -1. {
             cpsi*cosx - spsi*(cosz*sinphi + cosy*cosphi)
         } else {
@@ -263,6 +264,12 @@ impl Particle {
         } else {
             cpsi*cosz + spsi*(cosx*cosphi + cosy*sinphi)
         };
+        */
+
+        let (e1, e2) = duff_orthonormal_basis(self.dir);
+        let cosx_new = cpsi*cosx - spsi*(cosphi*e1.x + sinphi*e2.x);
+        let cosy_new = cpsi*cosy - spsi*(cosphi*e1.y + sinphi*e2.y);
+        let cosz_new = cpsi*cosz - spsi*(cosphi*e1.z + sinphi*e2.z);
 
         let dir_new = Vector {x: cosx_new, y: cosy_new, z: cosz_new};
 
