@@ -427,11 +427,11 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
     }
 
     for Ed_ in &material.Ed {
-        assert!(*Ed_ > 0.0, "Input Error: Ed cannot be less than zero.")
+        assert!(*Ed_ > 0.0, "Input Error: Ed = {}; Ed cannot be less than zero.", Ed_);
     }
 
     for Eb_ in &material.Eb {
-        assert!(*Eb_ > 0.0, "Input Error: Eb cannot be less than zero.")
+        assert!(*Eb_ > 0.0, "Input Error: Eb = {}; Eb cannot be less than zero.", Eb_);
     }
 
     //Check that incompatible options are not on simultaneously
