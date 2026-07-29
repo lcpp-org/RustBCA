@@ -426,6 +426,14 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
         material.Ed = vec![material.Ed[0]; material.m.len()];
     }
 
+    for Ed_ in &material.Ed {
+        assert!(*Ed_ > 0.0, "Input Error: Ed cannot be less than zero.")
+    }
+
+    for Eb_ in &material.Eb {
+        assert!(*Eb_ > 0.0, "Input Error: Eb cannot be less than zero.")
+    }
+
     //Check that incompatible options are not on simultaneously
     if options.high_energy_free_flight_paths {
         assert!(options.electronic_stopping_mode == ElectronicStoppingMode::INTERPOLATED,
