@@ -975,15 +975,15 @@ fn test_momentum_conservation() {
                         println!();
 
                         //These values are in  [angstrom amu / second], so very large.
-                        assert!(approx_eq!(f64, initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, epsilon = 1000.));
-                        assert!(approx_eq!(f64, initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, epsilon = 1000.));
-                        assert!(approx_eq!(f64, initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, epsilon = 1000.));
+                        assert!(approx_eq!(f64, initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, epsilon = 10.));
+                        assert!(approx_eq!(f64, initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, epsilon = 10.));
+                        assert!(approx_eq!(f64, initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, epsilon = 10.));
 
                         assert!(!particle_1.E.is_nan());
                         assert!(!particle_2.E.is_nan());
                         assert!(!initial_momentum.x.is_nan());
-                        assert!(!initial_momentum.x.is_nan());
-                        assert!(!initial_momentum.x.is_nan());
+                        assert!(!initial_momentum.y.is_nan());
+                        assert!(!initial_momentum.z.is_nan());
                     }
                 }
             }
