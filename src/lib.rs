@@ -1563,6 +1563,7 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
 pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
 
     let direction = Vector3::new(*ux, *uy, *uz);
+    let n = Vector3::new(nx, ny, nz);
 
     //Rotation to local RustBCA coordinates from global
     //Here's how this works: a rotation matrix is found that maps the rustbca
@@ -1579,7 +1580,12 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
         Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
     };
 
-    let incident = rotation_matrix*direction;
+    let (b1, b2) = duff_orthonormal_basis(Vector::new(-nx, -ny, -nz));
+    let e1 = Vector3::new(b1.x, b1.y, b1.z);
+    let e2 = Vector3::new(b2.x, b2.y, b2.z);
+    let rotation_matrix_duff = Matrix3::from_columns(&[-n, e1, e2]);
+
+    let incident = rotation_matrix_duff*direction;
 
     *ux = incident.x;
     *uy = incident.y;
@@ -1661,6 +1667,7 @@ pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f6
 pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
 
     let direction = Vector3::new(*ux, *uy, *uz);
+    let n = Vector3::new(nx, ny, nz);
 
     //Rotation to local RustBCA coordinates from global
     //Here's how this works: a rotation matrix is found that maps the rustbca
@@ -1675,8 +1682,13 @@ pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut 
         Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
     };
 
+    let (b1, b2) = duff_orthonormal_basis(Vector::new(-nx, -ny, -nz));
+    let e1 = Vector3::new(b1.x, b1.y, b1.z);
+    let e2 = Vector3::new(b2.x, b2.y, b2.z);
+    let rotation_matrix_duff = Matrix3::from_columns(&[-n, e1, e2]);
+
     // Note: transpose of R == R^-1
-    let u = rotation_matrix.transpose()*direction;
+    let u = rotation_matrix_duff.transpose()*direction;
 
     *ux = u.x;
     *uy = u.y;
