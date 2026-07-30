@@ -236,7 +236,7 @@ impl Particle {
         let cosx: f64 = self.dir.x;
         let cosy: f64 = self.dir.y;
         let cosz: f64 = self.dir.z;
-        // minus sign here enforces particle deflection in opposite direction of recoil location
+        // PI rotation here enforces particle deflection in opposite direction of recoil location
         let cosphi: f64 = (phi + PI).cos();
         let sinphi: f64 = (phi + PI).sin();
 
