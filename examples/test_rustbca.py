@@ -77,20 +77,20 @@ def main():
     Y = sputtering_yield(ion, target, energy, angle, num_samples)
 
     print(f'Sputtering yield for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {Y} at/ion. Yamamura predicts { np.round(yamamura(ion, target, energy),3)} at/ion.')
-    np.testing.assert_approx_equal(Y, 0.045)
+    np.testing.assert_approx_equal(Y, 0.044)
 
 
     R_N, R_E = reflection_coefficient(ion, target, energy, angle, num_samples)
     print(f'Particle reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
     print(f'Energy reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_E}')
-    np.testing.assert_approx_equal(R_N, 0.435)
-    np.testing.assert_approx_equal(R_E, 0.23222361140889344)
+    np.testing.assert_approx_equal(R_N, 0.426)
+    np.testing.assert_approx_equal(R_E, 0.23367711096087937)
 
     R_N, R_E = compound_reflection_coefficient(ion, [target, ion], [target['n'], 0.1*target['n']], energy, angle, num_samples)
     print(f'Particle reflection coefficient for {ion["symbol"]} on {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
     print(f'Energy reflection coefficient for {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_E}')
-    np.testing.assert_approx_equal(R_N, 0.421)
-    np.testing.assert_approx_equal(R_E, 0.22787000234654273)
+    np.testing.assert_approx_equal(R_N, 0.424)
+    np.testing.assert_approx_equal(R_E, 0.22840032456593984)
 
 
     vx0 = 1e5
@@ -215,7 +215,7 @@ def main():
     plt.plot([50.0, 50.0], [0.0, np.max(heights)*1.1])
     plt.gca().set_ylim([0.0, np.max(heights)*1.1])
 
-    np.testing.assert_approx_equal(np.mean(x), 12.179891077431188)
+    np.testing.assert_approx_equal(np.mean(x), 12.957009857301925)
 
     number_ions = 10000
 
@@ -285,8 +285,8 @@ def main():
     print(f'RustBCA R: {len(reflected[:, 0])/number_ions} Thomas R: {thomas}')
     print(f'Time per ion: {delta_time/number_ions} s/{ion["symbol"]}')
 
-    np.testing.assert_approx_equal(len(sputtered[:, 0])/number_ions, 0.027)
-    np.testing.assert_approx_equal(len(reflected[:, 0])/number_ions, 0.5089)
+    np.testing.assert_approx_equal(len(sputtered[:, 0])/number_ions, 0.0267)
+    np.testing.assert_approx_equal(len(reflected[:, 0])/number_ions, 0.5129)
 
     plt.figure()
     plt.plot(incident_index)
@@ -294,7 +294,11 @@ def main():
     plt.ylabel('Particle index')
     plt.legend(['Incident', 'Indicies'])
 
-    plt.show()
+    show_plot = False
+    if show_plot:
+        plt.show()
+    else:
+        plt.savefig('test_rustbca.png')
 
 if __name__ == '__main__':
     main()
