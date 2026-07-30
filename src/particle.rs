@@ -236,8 +236,8 @@ impl Particle {
         let cosx: f64 = self.dir.x;
         let cosy: f64 = self.dir.y;
         let cosz: f64 = self.dir.z;
-        let cosphi: f64 = (phi + PI).cos();
-        let sinphi: f64 = (phi + PI).sin();
+        let cosphi: f64 = (phi - PI).cos();
+        let sinphi: f64 = (phi - PI).sin();
 
         let cpsi: f64 = psi.cos();
         let spsi: f64 = psi.sin();

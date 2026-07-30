@@ -389,9 +389,9 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
         z + mfp*cosz + impact_parameter*(cosx*cosphi + cosy*sinphi)
     };*/
     let (e1, e2) = math::duff_orthonormal_basis(particle_1.dir);
-    let x_recoil = x + mfp*cosx + impact_parameter*(e1.x*cosphi + e2.x*sinphi);
-    let y_recoil = y + mfp*cosy + impact_parameter*(e1.y*cosphi + e2.y*sinphi);
-    let z_recoil = z + mfp*cosz + impact_parameter*(e1.z*cosphi + e2.z*sinphi);
+    let x_recoil = x + mfp*cosx - impact_parameter*(e1.x*cosphi + e2.x*sinphi);
+    let y_recoil = y + mfp*cosy - impact_parameter*(e1.y*cosphi + e2.y*sinphi);
+    let z_recoil = z + mfp*cosz - impact_parameter*(e1.z*cosphi + e2.z*sinphi);
 
     //Choose recoil Z, M
     let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, Ed_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil, rng);
