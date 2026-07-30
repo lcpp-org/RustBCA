@@ -17,7 +17,7 @@ It includes two geometry modes, 1D and 0D.
 
 It simulates the following situations:
 
-if mode == '1D': 
+if mode == '1D':
     H+ (1 keV)
     |
     V
@@ -61,7 +61,7 @@ angle = 45.0 # degrees; measured from surface normal
 
 '''
 For organizational purposes, species are commonly defined in dictionaries.
-Additional examples can be found in scripts/materials.py, but values 
+Additional examples can be found in scripts/materials.py, but values
 should be checked for correctness before use. Values are explained
 in the relevant sections below.
 '''
@@ -199,7 +199,7 @@ particle_parameters = {
     'm': [ion["m"]],
     # atomic number
     'Z': [ion["Z"]],
-    # incidenet energy 
+    # incidenet energy
     'E': [incident_energy],
     # cutoff energy - if E < Ec, particle stops
     'Ec': [ion["Ec"]],
@@ -230,7 +230,7 @@ geometry_1D = {
     'length_unit': 'ANGSTROM',
     # used to correct nonlocal stopping for known compound discrpancies
     'electronic_stopping_correction_factors': [1.0, 1.0, 1.0],
-    # thickness of each layer in order from top (x=0) to bottom 
+    # thickness of each layer in order from top (x=0) to bottom
     'layer_thicknesses': layer_thicknesses,
     # number densitiy of each layer in order from top to bottom
     'densities': [
@@ -260,26 +260,30 @@ input_string = dumps(input_data).replace('\r', '')
 with  open('examples/input_file.toml', 'w') as input_file:
     input_file.write(input_string)
 
-if run_sim:
-    os.system(f'cargo run --release {mode} examples/input_file.toml')
+branches_to_test = ['dev', 'experimental_recoil_generation', 'improved_duff']
 
-# Read output files - ensure arrays are at least 2D for indexing
-sputtered = np.atleast_2d(np.genfromtxt('input_filesputtered.output', delimiter=','))
-reflected = np.atleast_2d(np.genfromtxt('input_filereflected.output', delimiter=','))
-implanted = np.atleast_2d(np.genfromtxt('input_filedeposited.output', delimiter=','))
+for branch in branches_to_test:
+    if run_sim:
+        os.system(f'git checkout {branch}')
+        os.system(f'cargo run --release {mode} examples/input_file.toml')
 
-print('H on B-TiB2-Ti')
-print(f'R_N, R_E: {np.size(reflected[:, 0])/number_ions}, {np.sum(reflected[:, 2]/incident_energy/number_ions)}')
-print(f'Y: {np.size(sputtered[:, 0])/number_ions} [at./ion]')
-print()
-print('H on B (default settings)')
-print(f'Y: {sputtering_yield(hydrogen, boron, incident_energy, angle, 10000)} [at./ion]')
-print(f'R_N, R_E: {reflection_coefficient(hydrogen, boron, incident_energy, angle, 10000)}')
+    # Read output files - ensure arrays are at least 2D for indexing
+    sputtered = np.atleast_2d(np.genfromtxt('input_filesputtered.output', delimiter=','))
+    reflected = np.atleast_2d(np.genfromtxt('input_filereflected.output', delimiter=','))
+    implanted = np.atleast_2d(np.genfromtxt('input_filedeposited.output', delimiter=','))
 
-x = implanted[:, 2]
-num_bins=100
-bins = np.linspace(0.0, 500.0, num_bins)
-plt.hist(x, bins=bins, histtype='step')
+    print('H on B-TiB2-Ti')
+    print(f'R_N, R_E: {np.size(reflected[:, 0])/number_ions}, {np.sum(reflected[:, 2]/incident_energy/number_ions)}')
+    print(f'Y: {np.size(sputtered[:, 0])/number_ions} [at./ion]')
+    print()
+    print('H on B (default settings)')
+    print(f'Y: {sputtering_yield(hydrogen, boron, incident_energy, angle, 10000)} [at./ion]')
+    print(f'R_N, R_E: {reflection_coefficient(hydrogen, boron, incident_energy, angle, 10000)}')
+
+    x = implanted[:, 2]
+    num_bins=100
+    bins = np.linspace(0.0, 500.0, num_bins)
+    plt.hist(x, bins=bins, histtype='step', label=branch)
 if mode == '1D':
     plt.plot([layer_thicknesses[0], layer_thicknesses[0]], [0.0, number_ions], color='gray')
     plt.plot([layer_thicknesses[0] + layer_thicknesses[1], layer_thicknesses[0] + layer_thicknesses[1]], [0.0, number_ions], linestyle='--', color='gray')
