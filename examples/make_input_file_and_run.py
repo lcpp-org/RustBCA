@@ -199,7 +199,7 @@ particle_parameters = {
     'm': [ion["m"]],
     # atomic number
     'Z': [ion["Z"]],
-    # incidenet energy 
+    # incident energy 
     'E': [incident_energy],
     # cutoff energy - if E < Ec, particle stops
     'Ec': [ion["Ec"]],
