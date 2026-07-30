@@ -1568,20 +1568,19 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     let (b1, b2) = duff_orthonormal_basis(Vector::new(-nx, -ny, -nz));
     let e1 = Vector3::new(b1.x, b1.y, b1.z);
     let e2 = Vector3::new(b2.x, b2.y, b2.z);
-    let rotation_matrix_duff = Matrix3::from_columns(&[-n, e1, e2]);
+    let rotation_matrix_duff = Matrix3::from_columns(&[-n, e1, e2]).transpose();
+    // Duff et al. provide a robust algorithm that constructs an orthonormal basis from n
+    // That basis is used to construct an R such that R ex = -n, R ey = e1, R ez = e2.
+    // The transpose of this matrix gives the matrix we want, R^T n = ex.
+    // That is, R maps the global normal vector onto the RustBCA normal vector.
+    // And thus R maps a global particle velocity into the RustBCA frame.
 
     let incident = rotation_matrix_duff*direction;
 
     *ux = incident.x;
     *uy = incident.y;
     *uz = incident.z;
-    let mag = (ux.powi(2) + uy.powi(2) + uz.powi(2)).sqrt();
-
-    *ux /= mag;
-    *uy /= mag;
-    *uz /= mag;
 }
-
 
 
 #[cfg(all(feature = "python", feature = "parry3d"))]
@@ -1658,15 +1657,16 @@ pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut 
     let e1 = Vector3::new(b1.x, b1.y, b1.z);
     let e2 = Vector3::new(b2.x, b2.y, b2.z);
     let rotation_matrix_duff = Matrix3::from_columns(&[-n, e1, e2]);
+    // Duff et al. provide a robust algorithm that constructs an orthonormal basis from n
+    // That basis is used to construct an R such that R ex = -n, R ey = e1, R ez = e2.
+    // This is the transpose of the matrix in rotate_given_surface_normal.
+    // Since, for rotation matrices, R^T = R^-1, this is the inverse transform.
 
     let incident = rotation_matrix_duff*direction;
 
-    // Note: transpose of R == R^-1
-    let u = rotation_matrix_duff.transpose()*direction;
-
-    *ux = u.x;
-    *uy = u.y;
-    *uz = u.z;
+    *ux = incident.x;
+    *uy = incident.y;
+    *uz = incident.z;
 }
 
 #[cfg(all(feature = "python", feature = "parry3d"))]
