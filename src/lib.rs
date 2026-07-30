@@ -1565,21 +1565,6 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
     let direction = Vector3::new(*ux, *uy, *uz);
     let n = Vector3::new(nx, ny, nz);
 
-    //Rotation to local RustBCA coordinates from global
-    //Here's how this works: a rotation matrix is found that maps the rustbca
-    //into-the-surface vector (1.0, 0.0, 0.0) onto the local into-the-surface vector (negative normal w.r.t. ray origin).
-    //That rotation is then applied to the particle direction, and can be undone later.
-    //Algorithm is from here:
-    //https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/180436#180436
-
-    let rotation_matrix = if (1.0 - nx).abs() > 0.0 {
-        Matrix3::<f64>::new(1. + (-ny*ny - nz*nz)/(1. - nx), -ny, -nz, ny, -ny*ny/(1. - nx) + 1., -ny*nz/(1. - nx), nz, -ny*nz/(1. - nx), -nz*nz/(1. - nx) + 1.)
-    } else {
-        //If c == -1.0, the correct rotation should simply be a 180 degree rotation
-        //around a non-x axis; y is chosen arbitrarily
-        Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
-    };
-
     let (b1, b2) = duff_orthonormal_basis(Vector::new(-nx, -ny, -nz));
     let e1 = Vector3::new(b1.x, b1.y, b1.z);
     let e2 = Vector3::new(b2.x, b2.y, b2.z);
@@ -1669,23 +1654,12 @@ pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut 
     let direction = Vector3::new(*ux, *uy, *uz);
     let n = Vector3::new(nx, ny, nz);
 
-    //Rotation to local RustBCA coordinates from global
-    //Here's how this works: a rotation matrix is found that maps the rustbca
-    //into-the-surface vector (1.0, 0.0, 0.0) onto the local into-the-surface vector (negative normal w.r.t. ray origin).
-    //That rotation is then applied to the particle direction, and can be undone later.
-    //Algorithm is from here:
-    let rotation_matrix = if (1.0 - nx).abs() > 0.0 {
-        Matrix3::<f64>::new(1. + (-ny*ny - nz*nz)/(1. - nx), -ny, -nz, ny, -ny*ny/(1. - nx) + 1., -ny*nz/(1. - nx), nz, -ny*nz/(1. - nx), -nz*nz/(1. - nx) + 1.)
-    } else {
-        //If c == -1.0, the correct rotation should simply be a 180 degree rotation
-        //around a non-x axis; y is chosen arbitrarily
-        Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
-    };
-
     let (b1, b2) = duff_orthonormal_basis(Vector::new(-nx, -ny, -nz));
     let e1 = Vector3::new(b1.x, b1.y, b1.z);
     let e2 = Vector3::new(b2.x, b2.y, b2.z);
     let rotation_matrix_duff = Matrix3::from_columns(&[-n, e1, e2]);
+
+    let incident = rotation_matrix_duff*direction;
 
     // Note: transpose of R == R^-1
     let u = rotation_matrix_duff.transpose()*direction;
