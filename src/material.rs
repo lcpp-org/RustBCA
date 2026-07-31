@@ -180,7 +180,7 @@ impl <T: Geometry> Material<T> {
         }
     }
 
-    /// Finds the concentration-dependent surface binding energy of the triangle that contains or is nearest to (x, y).
+    /// Finds the concentration-dependent surface binding energy of the geometry element that contains or is nearest to (x, y, z).
     /// The surface binding energy is calculated using one of three methods:
     /// 1. INDIVIDUAL: the surface binding energies are set individually for each species, as Es.
     /// 2. TARGET: the surface binding energy is calculated as the local concentration-weighted average of the target surface binding energies, unless the particle has Es = 0, in which case it is 0.
@@ -285,6 +285,13 @@ impl <T: Geometry> Material<T> {
                 ElectronicStoppingMode::LOW_ENERGY_LOCAL | ElectronicStoppingMode::LOW_ENERGY_NONLOCAL | ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => {
                     S_low*ck
                 },
+                ElectronicStoppingMode::INTERPOLATEDPLUS{ci} => {
+                    let S_high = bethe_bloch_stopping_power_cross_section(Za, *Zb, E, Ma);
+                    
+                    // correction applied only to LS component
+                    (S_high.powf(-ci) + (S_low*ck).powf(-ci)).powf(-1./ci)
+                },
+                
             };
             stopping_powers.push(stopping_power);
         }

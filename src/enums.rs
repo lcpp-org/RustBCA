@@ -44,6 +44,8 @@ pub enum ElectronicStoppingMode {
     LOW_ENERGY_NONLOCAL,
     /// Equipartition between Oen-Robinson and Lindhard-Scharff electronic stopping formulas.
     LOW_ENERGY_EQUIPARTITION,
+    /// Biersack-Varelas interpolated electronic stopping with custom interpolation weight. Valid for ~eV/nucleon to ~GeV/nucleon.
+    INTERPOLATEDPLUS{ci: f64}
 }
 
 impl fmt::Display for ElectronicStoppingMode {
@@ -53,6 +55,7 @@ impl fmt::Display for ElectronicStoppingMode {
             ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => write!(f, "Lindhard-Scharff electronic stopping"),
             ElectronicStoppingMode::LOW_ENERGY_LOCAL => write!(f, "Oen-Robinson electronic stopping"),
             ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => write!(f, "Equipartition with Lindhard-Scharff and Oen-Robinson"),
+            ElectronicStoppingMode::INTERPOLATEDPLUS{ci} => write!(f, "Biersack-Varelas interpolation with custom weight ci={}.", ci)
         }
     }
 }

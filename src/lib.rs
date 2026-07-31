@@ -841,14 +841,15 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
 ///     E (f64): ion energy in eV
 ///     Ma (f64): ion mass in AMU
 ///     ck (f64): LS correction factor
+///     ci (f64): BV custom interp. weight
 /// Returns:
-///     (Lindhard-Scharff [eV m^2], Bethe-Bloch [eV m^2], Biersack-Varelas [eV m^2])
-pub fn electronic_stopping_cross_sections(Za: f64, Zb: f64, E: f64, Ma: f64, ck: f64) -> (f64, f64, f64) {
+///     (Lindhard-Scharff [eV m^2], Bethe-Bloch [eV m^2], Biersack-Varelas [eV m^2], Biersack-Varelas with custom interp. weight [eV m^2])
+pub fn electronic_stopping_cross_sections(Za: f64, Zb: f64, E: f64, Ma: f64, ck: f64, ci: f64) -> (f64, f64, f64, f64) {
 
     let S_low = lindhard_scharff_stopping_power_cross_section(Za, Zb, E*EV, Ma*AMU);
     let S_high = bethe_bloch_stopping_power_cross_section(Za, Zb, E*EV, Ma*AMU);
 
-    (S_low*ck/EV, S_high/EV, 1./(1./(S_high) + 1./(S_low*ck))/EV)
+    (S_low*ck/EV, S_high/EV, 1./(1./(S_high) + 1./(S_low*ck))/EV, (S_high.powf(-ci) + (S_low*ck).powf(-ci)).powf(-1./ci)/EV)
 }
 
 #[cfg(feature = "python")]
