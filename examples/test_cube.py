@@ -239,10 +239,6 @@ def main():
         for range2 in ranges: # since R ~ 1 at the highest two angles, there's too much variance in ranges
             np.testing.assert_allclose(range1[:-2], range2[:-2], rtol=0.05)
 
-    breakpoint()
-
-    # All ranges 
-
     if do_plots:
         plt.figure(2)
         plt.title('Sputtering')
