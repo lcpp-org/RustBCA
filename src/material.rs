@@ -1,5 +1,6 @@
 use super::*;
 use rand::RngExt;
+use std::sync::LazyLock;
 
 ///This helper function is a workaround to issue #368 in serde
 fn default_surface_binding_model() -> SurfaceBindingModel {
@@ -299,8 +300,24 @@ impl <T: Geometry> Material<T> {
     }
 }
 
+const Z_MAX: usize = 120;
+static LS_STOPPING_CONSTANT_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
+    ||
+    std::array::from_fn(
+        |i| {
+            let Za = i / Z_MAX;
+            let Zb = i % Z_MAX;
+            lindhard_scharff_stopping_power_constant(Za as f64, Zb as f64)
+        }
+    )
+);
+
+fn lindhard_scharff_stopping_power_constant(Za: f64, Zb: f64) -> f64 {
+    LINDHARD_SCHARFF_PREFACTOR*(Za*Za.cbrt().sqrt()*Zb)/(Za.cbrt().powi(2) + Zb.cbrt().powi(2)).powi(3).sqrt()*(AMU/Q).sqrt()
+}
+
 pub fn lindhard_scharff_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
-    LINDHARD_SCHARFF_PREFACTOR*(Za*Za.cbrt().sqrt()*Zb)/(Za.cbrt().powi(2) + Zb.cbrt().powi(2)).powi(3).sqrt()*(E/Q/Ma*AMU).sqrt()
+    lindhard_scharff_stopping_power_constant(Za, Zb)*(E/Ma).sqrt()
 }
 
 pub fn bethe_bloch_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
