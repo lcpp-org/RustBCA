@@ -2,6 +2,7 @@
 use super::*;
 #[cfg(test)]
 use float_cmp::*;
+#[cfg(test)]
 use rand::RngExt;
 
 #[test]
