@@ -112,9 +112,9 @@ def run(energy, index, num_samples=10000, run_sim=True, a=1000, x0=0, y0=500, z0
     return num_reflected/num_samples, num_sputtered/num_samples, reflected_list, sputtered_list, implanted_list
 
 def main():
-    do_plots = True
+    do_plots = False
     run_sim = True
-    track_trajectories = False
+    track_trajectories = Falsehttps://github.com/lcpp-org/RustBCA/pull/315
     a = 1000
     num_samples = 100000
     num_angles = 10
