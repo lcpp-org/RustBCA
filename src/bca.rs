@@ -510,8 +510,8 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
         _ => x0*a*(theta/2.).sin()
     };
 
-    let psi = theta.sin().atan2(Ma/Mb + theta.cos());//.abs();
-    let psi_recoil = theta.sin().atan2(1. - theta.cos());//.abs();
+    let psi = theta.sin().atan2(Ma/Mb + theta.cos());
+    let psi_recoil = theta.sin().atan2(1. - theta.cos());
     let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powi(2)*E0*(theta/2.).sin().powi(2);
 
     Ok(BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asymptotic_deflection, x0))
@@ -583,18 +583,6 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
     let coefficients = interactions::polynomial_coefficients(relative_energy, impact_parameter, interaction_potential);
     let roots = real_polynomial_roots(coefficients.clone(), polynom_complex_threshold).unwrap();
 
-    /*
-    println!("p={}", impact_parameter/ANGSTROM);
-
-    for coefficient in &coefficients {
-        println!("{}", {coefficient});
-    }
-
-    for root in &roots {
-        println!("{} A", {root});
-    }
-    */
-
     let max_root = roots.iter().cloned().fold(f64::NAN, f64::max);
 
     let inverse_transformed_root = interactions::inverse_transform(max_root, interaction_potential);
@@ -642,8 +630,6 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
         interactions::scaling_function(r, impact_parameter, interaction_potential)};
 
-    //Using upper bound const, ~10, construct upper bound as a plateau near 0 and linear increase away from that
-    //let upper_bound = f64::max(upper_bound_const*p, upper_bound_const*a);
     let upper_bound = impact_parameter + interactions::crossing_point_doca(interaction_potential);
 
     let roots = match derivative_free {
@@ -683,14 +669,16 @@ pub fn newton_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_par
     let f = |r: f64| -> f64 {interactions::distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
     let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
 
-    //Guess for large reduced energy from Mendenhall and Weller 1991
-    //For small energies, use pure Newton-Raphson with arbitrary guess of 1
-    let mut x0 = beta;
     let mut xn: f64;
-    if reduced_energy > 5. {
+
+    //Guess for large reduced energy from Mendenhall and Weller 1991
+    //For small energies, use pure Newton-Raphson with arbitrary guess of beta
+    let mut x0 = if reduced_energy > 5. {
         let inv_er_2 = 0.5/reduced_energy;
-        x0 = inv_er_2 + (inv_er_2*inv_er_2 + beta*beta).sqrt();
-    }
+        inv_er_2 + (inv_er_2*inv_er_2 + beta*beta).sqrt()
+    } else {
+        beta
+    };
 
     //Newton-Raphson to determine distance of closest approach
     let mut err: f64 = tolerance + 1.;

@@ -758,7 +758,7 @@ impl Triangle2D {
 
     /// Calculates the shortest distance from this triangle to the point (x, y).
     pub fn distance_to(&self, x: f64, y: f64) -> f64 {
-        let mut distance_to = std::f64::MAX;
+        let mut distance_to = f64::MAX;
 
         for segment in &self.segments {
             let length_2 = (segment.2 - segment.0)*(segment.2 - segment.0) + (segment.3 - segment.1)*(segment.3 - segment.1);
