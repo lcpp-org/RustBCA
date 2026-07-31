@@ -317,7 +317,7 @@ fn lindhard_scharff_stopping_power_constant(Za: f64, Zb: f64) -> f64 {
 }
 
 pub fn lindhard_scharff_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
-    lindhard_scharff_stopping_power_constant(Za, Zb)*(E/Ma).sqrt()
+    LS_STOPPING_CONSTANT_TABLE[Za as usize * Z_MAX + Zb as usize]*(E/Ma).sqrt()
 }
 
 pub fn bethe_bloch_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
