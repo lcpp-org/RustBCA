@@ -454,8 +454,8 @@ pub fn subtract_electronic_stopping_energy<T: Geometry>(particle_1: &mut particl
         let n = material.number_densities(x, y, z);
 
         let delta_energy_electronic = match options.electronic_stopping_mode {
-            ElectronicStoppingMode::INTERPOLATED => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
-            ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
+            ElectronicStoppingMode::INTERPOLATED | ElectronicStoppingMode::LOW_ENERGY_NONLOCAL  | ElectronicStoppingMode::INTERPOLATEDPLUS{..} => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
+            //ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
             ElectronicStoppingMode::LOW_ENERGY_LOCAL => oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, interaction_potential),
             ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => {
 
