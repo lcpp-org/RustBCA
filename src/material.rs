@@ -266,10 +266,10 @@ impl <T: Geometry> Material<T> {
 
         let x = particle_1.pos.x;
         let y = particle_1.pos.y;
-        let z = particle_1.pos.y;
+        let z = particle_1.pos.z;
         let ck = self.electronic_stopping_correction_factor(x, y, z);
 
-        for (n, Zb) in self.number_densities(x, y, z).iter().zip(&self.Z) {
+        for Zb in &self.Z {
 
             let beta = (1. - 1./(1. + E/Ma/C.powi(2)).powi(2)).sqrt();
             let v = beta*C;
