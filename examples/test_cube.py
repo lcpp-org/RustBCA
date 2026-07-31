@@ -116,7 +116,7 @@ def main():
     run_sim = True
     track_trajectories = False
     a = 1000
-    num_samples = 100000
+    num_samples = 10000
     num_angles = 10
     energy = 200
     angles = np.linspace(0.0, 89.9, num_angles)
