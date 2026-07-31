@@ -53,7 +53,6 @@ pub fn interaction_potential(r: f64, a: f64, Za: f64, Zb: f64, interaction_poten
         InteractionPotential::FOUR_EIGHT{alpha, beta} => {
             four_eight(r, alpha, beta)
         }
-
     }
 }
 
