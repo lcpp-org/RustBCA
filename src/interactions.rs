@@ -10,7 +10,6 @@ pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
         InteractionPotential::WW => 50.*ANGSTROM,
         _ => 10.*ANGSTROM,
     }
-
 }
 
 fn smootherstep(x: f64, k: f64, x0: f64) -> f64 {
@@ -272,25 +271,31 @@ pub fn dphi(xi: f64, interaction_potential: InteractionPotential) -> f64 {
 pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         //ZBL screening length, Eckstein (4.1.8)
-        InteractionPotential::ZBL => zbl_screening_length(Za as u64, Zb as u64),
+        InteractionPotential::ZBL => zbl_screening_length_lookup(Za as u64, Zb as u64),
         //Lindhard/Firsov screening length, Eckstein (4.1.5)
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN | InteractionPotential::WW => lindhard_screening_length_lookup(Za as u64, Zb as u64),
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
         InteractionPotential::MORSE{D, alpha, r0} => alpha,
-        InteractionPotential::COULOMB{Za: Z1, Zb: Z2} => zbl_screening_length(Za as u64, Zb as u64),
+        InteractionPotential::COULOMB{Za: Z1, Zb: Z2} => zbl_screening_length_lookup(Za as u64, Zb as u64),
         InteractionPotential::KRC_MORSE{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
         InteractionPotential::FOUR_EIGHT{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
     }
 }
 
+// It turns out it's faster (~10% speedup) to just generate every possible screening length as a lookup table
+// LazyLock is a thread-safe value that is initialized whenever it is first accessed
+// It will block other threads while it runs, but it should run extremely quickly and only once
 const Z_MAX: usize = 120;
 static LINDHARD_SCREENING_LENGTH_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
     ||
     std::array::from_fn(
         |i| {
+            // standard 2D to 1D  array indexing
+            // I always have to look this up; copied from here
+            // (e.g. https://stackoverflow.com/questions/5494974/convert-1d-array-index-to-2d-array-index)
             let Za = i / Z_MAX;
             let Zb = i % Z_MAX;
-            lindhard_screening_length(Za as u64, Zb as u64)
+            lindhard_screening_length(Za as f64, Zb as f64)
         }
     )
 );
@@ -300,24 +305,24 @@ static ZBL_SCREENING_LENGTH_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
         |i| {
             let Za = i / Z_MAX;
             let Zb = i % Z_MAX;
-            zbl_screening_length(Za as u64, Zb as u64)
+            zbl_screening_length(Za as f64, Zb as f64)
         }
     )
 );
 
-pub fn zbl_screening_length(Za: u64, Zb: u64) -> f64{
-    0.88534*A0/((Za as f64).powf(0.23) + (Zb as f64).powf(0.23))
+pub fn zbl_screening_length(Za: f64, Zb: f64) -> f64{
+    0.88534*A0/(Za.powf(0.23) + Zb.powf(0.23))
 }
 
-pub fn lindhard_screening_length(Za: u64, Zb: u64) -> f64 {
-    0.8853*A0*((Za as f64).sqrt() + (Zb as f64).sqrt()).powf(-2./3.)
+pub fn lindhard_screening_length(Za: f64, Zb: f64) -> f64 {
+    0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.)
 }
 
 pub fn lindhard_screening_length_lookup(Za: u64, Zb: u64) -> f64 {
     LINDHARD_SCREENING_LENGTH_TABLE[Za as usize * Z_MAX + Zb as usize]
 }
 
-pub fn lindhard_screening_length_lookup(Za: u64, Zb: u64) -> f64{
+pub fn zbl_screening_length_lookup(Za: u64, Zb: u64) -> f64{
     ZBL_SCREENING_LENGTH_TABLE[Za as usize * Z_MAX + Zb as usize]
 }
 
