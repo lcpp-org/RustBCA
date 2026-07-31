@@ -144,6 +144,7 @@ options = {
             }
         ]
     ],
+    'seed': 0 # if <0, will generate a seed from thread-local PRNG; if >0, will be used as seed to PRNG
 }
 
 # material parameters are per-species
@@ -198,7 +199,7 @@ particle_parameters = {
     'm': [ion["m"]],
     # atomic number
     'Z': [ion["Z"]],
-    # incidenet energy 
+    # incident energy 
     'E': [incident_energy],
     # cutoff energy - if E < Ec, particle stops
     'Ec': [ion["Ec"]],

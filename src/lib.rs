@@ -69,6 +69,7 @@ pub mod enums;
 pub mod consts;
 pub mod structs;
 pub mod sphere;
+pub mod math;
 
 #[cfg(feature = "parry3d")]
 pub mod parry;
@@ -80,6 +81,7 @@ pub use crate::input::{Input2D, InputHomogeneous2D, Input1D, Input0D, Options, I
 pub use crate::output::{OutputUnits};
 pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
+pub use crate::math::*;
 
 #[cfg(feature = "parry3d")]
 pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, ParryTriMeshInput, InputParryTriMesh};
@@ -1561,34 +1563,24 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
 pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
 
     let direction = Vector3::new(*ux, *uy, *uz);
+    let n = Vector3::new(nx, ny, nz);
 
-    //Rotation to local RustBCA coordinates from global
-    //Here's how this works: a rotation matrix is found that maps the rustbca
-    //into-the-surface vector (1.0, 0.0, 0.0) onto the local into-the-surface vector (negative normal w.r.t. ray origin).
-    //That rotation is then applied to the particle direction, and can be undone later.
-    //Algorithm is from here:
-    //https://math.stackexchange.com/questions/180418/calculate-rotation-matrix-to-align-vector-a-to-vector-b-in-3d/180436#180436
+    let (b1, b2) = duff_orthonormal_basis(Vector::new(-nx, -ny, -nz));
+    let e1 = Vector3::new(b1.x, b1.y, b1.z);
+    let e2 = Vector3::new(b2.x, b2.y, b2.z);
+    let rotation_matrix_duff = Matrix3::from_columns(&[-n, e1, e2]).transpose();
+    // Duff et al. provide a robust algorithm that constructs an orthonormal basis from n
+    // That basis is used to construct an R such that R ex = -n, R ey = e1, R ez = e2.
+    // The transpose of this matrix gives the matrix we want, R^T n = ex.
+    // That is, R maps the global normal vector onto the RustBCA normal vector.
+    // And thus R maps a global particle velocity into the RustBCA frame.
 
-    let rotation_matrix = if (1.0 - nx).abs() > 0.0 {
-        Matrix3::<f64>::new(1. + (-ny*ny - nz*nz)/(1. - nx), -ny, -nz, ny, -ny*ny/(1. - nx) + 1., -ny*nz/(1. - nx), nz, -ny*nz/(1. - nx), -nz*nz/(1. - nx) + 1.)
-    } else {
-        //If c == -1.0, the correct rotation should simply be a 180 degree rotation
-        //around a non-x axis; y is chosen arbitrarily
-        Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
-    };
-
-    let incident = rotation_matrix*direction;
+    let incident = rotation_matrix_duff*direction;
 
     *ux = incident.x;
     *uy = incident.y;
     *uz = incident.z;
-    let mag = (ux.powi(2) + uy.powi(2) + uz.powi(2)).sqrt();
-
-    *ux /= mag;
-    *uy /= mag;
-    *uz /= mag;
 }
-
 
 
 #[cfg(all(feature = "python", feature = "parry3d"))]
@@ -1659,26 +1651,22 @@ pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f6
 pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
 
     let direction = Vector3::new(*ux, *uy, *uz);
+    let n = Vector3::new(nx, ny, nz);
 
-    //Rotation to local RustBCA coordinates from global
-    //Here's how this works: a rotation matrix is found that maps the rustbca
-    //into-the-surface vector (1.0, 0.0, 0.0) onto the local into-the-surface vector (negative normal w.r.t. ray origin).
-    //That rotation is then applied to the particle direction, and can be undone later.
-    //Algorithm is from here:
-    let rotation_matrix = if (1.0 - nx).abs() > 0.0 {
-        Matrix3::<f64>::new(1. + (-ny*ny - nz*nz)/(1. - nx), -ny, -nz, ny, -ny*ny/(1. - nx) + 1., -ny*nz/(1. - nx), nz, -ny*nz/(1. - nx), -nz*nz/(1. - nx) + 1.)
-    } else {
-        //If c == -1.0, the correct rotation should simply be a 180 degree rotation
-        //around a non-x axis; y is chosen arbitrarily
-        Rotation3::from_axis_angle(&Vector3::y_axis(), PI).into()
-    };
+    let (b1, b2) = duff_orthonormal_basis(Vector::new(-nx, -ny, -nz));
+    let e1 = Vector3::new(b1.x, b1.y, b1.z);
+    let e2 = Vector3::new(b2.x, b2.y, b2.z);
+    let rotation_matrix_duff = Matrix3::from_columns(&[-n, e1, e2]);
+    // Duff et al. provide a robust algorithm that constructs an orthonormal basis from n
+    // That basis is used to construct an R such that R ex = -n, R ey = e1, R ez = e2.
+    // This is the transpose of the matrix in rotate_given_surface_normal.
+    // Since, for rotation matrices, R^T = R^-1, this is the inverse transform.
 
-    // Note: transpose of R == R^-1
-    let u = rotation_matrix.transpose()*direction;
+    let incident = rotation_matrix_duff*direction;
 
-    *ux = u.x;
-    *uy = u.y;
-    *uz = u.z;
+    *ux = incident.x;
+    *uy = incident.y;
+    *uz = incident.z;
 }
 
 #[cfg(all(feature = "python", feature = "parry3d"))]

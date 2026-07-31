@@ -298,7 +298,7 @@ impl <T: Geometry> Material<T> {
 
             let stopping_power = match electronic_stopping_mode {
                 //Biersack-Varelas Interpolation
-                ElectronicStoppingMode::INTERPOLATED => 1./(1./S_high + 1./S_low)*ck,
+                ElectronicStoppingMode::INTERPOLATED => 1./(1./S_high + 1./(S_low*ck)),
                 //Oen-Robinson
                 ElectronicStoppingMode::LOW_ENERGY_LOCAL => S_low*ck,
                 //Lindhard-Scharff

@@ -2,7 +2,7 @@
 use super::*;
 #[cfg(test)]
 use float_cmp::*;
-
+use rand::RngExt;
 
 #[test]
 #[cfg(feature = "cpr_rootfinder")]
@@ -975,15 +975,15 @@ fn test_momentum_conservation() {
                         println!();
 
                         //These values are in  [angstrom amu / second], so very large.
-                        assert!(approx_eq!(f64, initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, epsilon = 1000.));
-                        assert!(approx_eq!(f64, initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, epsilon = 1000.));
-                        assert!(approx_eq!(f64, initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, epsilon = 1000.));
+                        assert!(approx_eq!(f64, initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, epsilon = 10.));
+                        assert!(approx_eq!(f64, initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, epsilon = 10.));
+                        assert!(approx_eq!(f64, initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, epsilon = 10.));
 
                         assert!(!particle_1.E.is_nan());
                         assert!(!particle_2.E.is_nan());
                         assert!(!initial_momentum.x.is_nan());
-                        assert!(!initial_momentum.x.is_nan());
-                        assert!(!initial_momentum.x.is_nan());
+                        assert!(!initial_momentum.y.is_nan());
+                        assert!(!initial_momentum.z.is_nan());
                     }
                 }
             }
@@ -1002,33 +1002,63 @@ fn test_rotate() {
     let x = 0.;
     let y = 0.;
     let z = 0.;
-    let cosx = (PI/4.).cos();
-    let cosy = (PI/4.).sin();
-    let cosz = 0.;
-    let psi = -PI/4.;
-    let phi = 0.;
+    let cosx = 1.0;
+    let cosy = 0.0;
+    let cosz = 0.0;
+    let psi = PI/4.;
+    let phi = 0.0; // Duff ONB gives e1=(1/2, -1/2, -√2/2) e2=(-1/2, 1/2, -√2/2)
+    // That means in order for the rotation tests to work, we need to re-align the orthoframe
+    // by rotating by a phi of 3 pi / 4.
 
-    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+    // Check that rotation in 2D works
+    // Duff ONB is not aligned to (x, y, z)
+    particle_1.rotate(psi, phi);
+    assert!(approx_eq!(f64, particle_1.dir.x, (2.0_f64).sqrt()/2., epsilon = 1E-9), "particle_1.dir.x: {} Should be ~√2/2.", particle_1.dir.x);
+    assert!(approx_eq!(f64, particle_1.dir.y, 0., epsilon = 1E-9), "particle.dir.y: {} Should be ~0.", particle_1.dir.y);
+    assert!(approx_eq!(f64, particle_1.dir.z, -(2.0_f64).sqrt()/2., epsilon = 1E-9), "particle_1.dir.z: {} Should be ~-√2/2.", particle_1.dir.z);
 
-    //Check that rotation in 2D works
-    particle.rotate(psi, phi);
-    assert!(approx_eq!(f64, particle.dir.x, 0., epsilon = 1E-12), "particle.dir.x: {} Should be ~0.", particle.dir.x);
-    assert!(approx_eq!(f64, particle.dir.y, 1., epsilon = 1E-12), "particle.dir.y: {} Should be ~1.", particle.dir.y);
+    let mut particle_2 = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+    particle_2.rotate(-psi, phi);
+    assert!(approx_eq!(f64, particle_2.dir.x, (2.0_f64).sqrt()/2., epsilon = 1E-9), "particle.dir.x: {} Should be ~√2/2.", particle_2.dir.x);
+    assert!(approx_eq!(f64, particle_2.dir.y, 0., epsilon = 1E-9), "particle.dir.y: {} Should be ~0.", particle_2.dir.y);
+    assert!(approx_eq!(f64, particle_2.dir.z, (2.0_f64).sqrt()/2., epsilon = 1E-9), "particle.dir.z: {} Should be ~-√2/2.", particle_2.dir.z);
 
-    //Check that rotating back by negative psi returns to the previous values
-    particle.rotate(-psi, phi);
-    assert!(approx_eq!(f64, particle.dir.x, cosx, epsilon = 1E-12), "particle.dir.x: {} Should be ~{}", particle.dir.x, cosx);
-    assert!(approx_eq!(f64, particle.dir.y, cosy, epsilon = 1E-12), "particle.dir.y: {} Should be ~{}", particle.dir.y, cosy);
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    for _ in 0..1000 {
+        let cosx: f64 = rng.random();
+        let cosy: f64 = rng.random();
+        let cosz: f64 = rng.random();
+        let random_phi: f64 = rng.random::<f64>()*PI*2.;
+        let mag = (cosx*cosx + cosy*cosy + cosz*cosz).sqrt();
 
-    //Check that azimuthal rotation by 180 degrees works correctly
-    let phi = PI;
-    particle.rotate(psi, phi);
-    assert!(approx_eq!(f64, particle.dir.x, 1., epsilon = 1E-12), "particle.dir.x: {} Should be ~1.", particle.dir.x);
-    assert!(approx_eq!(f64, particle.dir.y, 0., epsilon = 1E-12), "particle.dir.y: {} Should be ~0.", particle.dir.y);
+        // Test that rotating in psi by PI results in backwards travel
+        let mut particle_3 = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+        particle_3.rotate(PI, 0.0);
+        assert!(approx_eq!(f64, particle_3.dir.x, -cosx/mag, epsilon = 1e-9), "particle_3.dir.x: {}; Should be {}.", particle_3.dir.x, -cosx/mag);
+        assert!(approx_eq!(f64, particle_3.dir.y, -cosy/mag, epsilon = 1e-9), "particle_3.dir.y: {}; Should be {}.", particle_3.dir.y, -cosy/mag);
+        assert!(approx_eq!(f64, particle_3.dir.z, -cosz/mag, epsilon = 1e-9), "particle_3.dir.z: {}; Should be {}.", particle_3.dir.z, -cosz/mag);
 
-    //Check that particle direction vector remains normalized following rotations
-    assert!(approx_eq!(f64, particle.dir.x.powi(2) + particle.dir.y.powi(2) + particle.dir.z.powi(2), 1.), "Particle direction not normalized.");
+        //Check that azimuthal rotation results in zero direction change
+        let mut particle_4 = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+        particle_4.rotate(0.0, random_phi);
+        assert!(approx_eq!(f64, particle_4.dir.x, cosx/mag, epsilon = 1e-9), "particle_4.dir.x: {}; Should be {}.", particle_4.dir.x, cosx/mag);
+        assert!(approx_eq!(f64, particle_4.dir.y, cosy/mag, epsilon = 1e-9), "particle_4.dir.y: {}; Should be {}.", particle_4.dir.y, cosy/mag);
+        assert!(approx_eq!(f64, particle_4.dir.z, cosz/mag, epsilon = 1e-9), "particle_4.dir.z: {}; Should be {}.", particle_4.dir.z, cosz/mag);
 
+        // Check that rotation by random phi and rotation by +/- 45 degrees results in orthogonal directions
+        // If particle_5 is rotated by 45 degrees along the original orthonormal basis, and particle_6 -45, they should be orthogonal after
+        let mut particle_5 = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+        particle_5.rotate(PI/4., random_phi);
+        let mut particle_6 = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+        particle_6.rotate(-PI/4., random_phi);
+        assert!(approx_eq!(f64, particle_5.dir.dot(&particle_6.dir), 0.0, epsilon=1e-9), "dir_1 dot dir_2 = {}; should be orthogonal.", particle_5.dir.dot(&particle_6.dir));
+
+        //Check that particle direction vector remains normalized following rotations
+        assert!(approx_eq!(f64, particle_4.dir.x.powi(2) + particle_4.dir.y.powi(2) + particle_4.dir.z.powi(2), 1.), "Particle direction not normalized.");
+        assert!(approx_eq!(f64, particle_5.dir.x.powi(2) + particle_5.dir.y.powi(2) + particle_5.dir.z.powi(2), 1.), "Particle direction not normalized.");
+        assert!(approx_eq!(f64, particle_6.dir.x.powi(2) + particle_6.dir.y.powi(2) + particle_6.dir.z.powi(2), 1.), "Particle direction not normalized.");
+    }
 }
 
 #[test]

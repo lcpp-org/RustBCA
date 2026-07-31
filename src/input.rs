@@ -426,6 +426,14 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
         material.Ed = vec![material.Ed[0]; material.m.len()];
     }
 
+    for Ed_ in &material.Ed {
+        assert!(*Ed_ >= 0.0, "Input Error: Ed = {}; Ed cannot be less than zero.", Ed_);
+    }
+
+    for Eb_ in &material.Eb {
+        assert!(*Eb_ >= 0.0, "Input Error: Eb = {}; Eb cannot be less than zero.", Eb_);
+    }
+
     //Check that incompatible options are not on simultaneously
     if options.high_energy_free_flight_paths {
         assert!(options.electronic_stopping_mode == ElectronicStoppingMode::INTERPOLATED,
@@ -657,27 +665,27 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
                             y: match y {
                                 Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
                                 Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
-                                Distributions::POINT(x) => x*length_unit,
+                                Distributions::POINT(y) => y*length_unit,
                             },
                             z: match z {
                                 Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
                                 Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
-                                Distributions::POINT(x) => x*length_unit,
+                                Distributions::POINT(z) => z*length_unit,
                             },
                             ux: match cosx {
                                 Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
                                 Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
-                                Distributions::POINT(x) => x*length_unit
+                                Distributions::POINT(ux) => ux
                             },
                             uy: match cosy {
                                 Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
                                 Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
-                                Distributions::POINT(x) => x*length_unit,
+                                Distributions::POINT(uy) => uy,
                             },
                             uz: match cosz {
                                 Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
                                 Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
-                                Distributions::POINT(x) => x*length_unit,
+                                Distributions::POINT(uz) => uz,
                             },
                             interaction_index,
                             tag: 0,

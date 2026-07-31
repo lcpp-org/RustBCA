@@ -56,12 +56,12 @@ materials.py is intended to provide example input values only; all input values 
 >>> angle = 0.0 # deg
 >>> energy = 1000.0 # eV
 >>> num_samples = 10000
->>> sputtering_yield(argon, tungsten, energy, angle, num_samples) == 1.0243
+>>> sputtering_yield(argon, tungsten, energy, angle, num_samples) == 1.0291
 True
 >>> R_N, R_E = reflection_coefficient(argon, tungsten, energy, angle, num_samples)
->>> R_N == 0.3234
+>>> R_N == 0.3297
 True
->>> np.testing.assert_approx_equal(R_E, 0.09645129485419984)
+>>> np.testing.assert_approx_equal(R_E, 0.09767736052353852)
 ```
 
 For those eager to get started with the standalone code, try running one of the examples in the

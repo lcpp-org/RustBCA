@@ -365,28 +365,10 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     let sinx: f64 = (1. - cosx*cosx).sqrt();
     let cosphi: f64 = phi_azimuthal.cos();
 
-    // These formulas find the recoil one mfp away at an impact parameter p at angle phi
-    // To resolve the singularity, a different set of rotations is used when cosx == -1
-    // Because of this, the recoil location is not consistent between the two formulas at a given phi
-    // Since phi is sampled uniformly from (0, 2pi), this does not matter
-    // However, if a crystalline structure is ever added, this needs to be considered
-    let x_recoil = if cosx > -1. {
-        x + mfp*cosx - impact_parameter*(cosz*sinphi + cosy*cosphi)
-    } else {
-        x + mfp*cosx - impact_parameter*((1. + cosz - cosx*cosx)*cosphi - cosx*cosy*sinphi)/(1. + cosz)
-    };
-
-    let y_recoil = if cosx > -1. {
-        y + mfp*cosy + impact_parameter*((1. + cosx - cosy*cosy)*cosphi - cosy*cosz*sinphi)/(1. + cosx)
-    } else {
-        y + mfp*cosy + impact_parameter*((1. + cosz - cosy*cosy)*sinphi - cosx*cosy*cosphi)/(1. + cosz)
-    };
-
-    let z_recoil = if cosx > -1. {
-        z + mfp*cosz + impact_parameter*((1. + cosx - cosz*cosz)*sinphi - cosy*cosz*cosphi)/(1. + cosx)
-    } else {
-        z + mfp*cosz + impact_parameter*(cosx*cosphi + cosy*sinphi)
-    };
+    let (e1, e2) = math::duff_orthonormal_basis(particle_1.dir);
+    let x_recoil = x + mfp*cosx - impact_parameter*(e1.x*cosphi + e2.x*sinphi);
+    let y_recoil = y + mfp*cosy - impact_parameter*(e1.y*cosphi + e2.y*sinphi);
+    let z_recoil = z + mfp*cosz - impact_parameter*(e1.z*cosphi + e2.z*sinphi);
 
     //Choose recoil Z, M
     let (species_index, Z_recoil, M_recoil, Ec_recoil, Es_recoil, Ed_recoil, interaction_index) = material.choose(x_recoil, y_recoil, z_recoil, rng);
