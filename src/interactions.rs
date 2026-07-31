@@ -294,6 +294,16 @@ static LINDHARD_SCREENING_LENGTH_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock:
         }
     )
 );
+static ZBL_SCREENING_LENGTH_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
+    ||
+    std::array::from_fn(
+        |i| {
+            let Za = i / Z_MAX;
+            let Zb = i % Z_MAX;
+            zbl_screening_length(Za as u64, Zb as u64)
+        }
+    )
+);
 
 pub fn zbl_screening_length(Za: u64, Zb: u64) -> f64{
     0.88534*A0/((Za as f64).powf(0.23) + (Zb as f64).powf(0.23))
@@ -305,6 +315,10 @@ pub fn lindhard_screening_length(Za: u64, Zb: u64) -> f64 {
 
 pub fn lindhard_screening_length_lookup(Za: u64, Zb: u64) -> f64 {
     LINDHARD_SCREENING_LENGTH_TABLE[Za as usize * Z_MAX + Zb as usize]
+}
+
+pub fn lindhard_screening_length_lookup(Za: u64, Zb: u64) -> f64{
+    ZBL_SCREENING_LENGTH_TABLE[Za as usize * Z_MAX + Zb as usize]
 }
 
 /// Coefficients of inverse-polynomial interaction potentials.
