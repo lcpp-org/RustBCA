@@ -82,6 +82,7 @@ pub use crate::output::{OutputUnits};
 pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
 pub use crate::math::*;
+pub use crate::material::*;
 
 #[cfg(feature = "parry3d")]
 pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, ParryTriMeshInput, InputParryTriMesh};
@@ -99,6 +100,8 @@ pub fn libRustBCA(py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sputtering_yield, m)?)?;
     m.add_function(wrap_pyfunction!(reflection_coefficient, m)?)?;
     m.add_function(wrap_pyfunction!(compound_reflection_coefficient, m)?)?;
+    m.add_function(wrap_pyfunction!(reflect_single_ion_py, m)?)?;
+    m.add_function(wrap_pyfunction!(electronic_stopping_cross_sections, m)?)?;
     m.add_function(wrap_pyfunction!(reflect_single_ion_py, m)?)?;
     #[cfg(feature = "parry3d")]
     m.add_function(wrap_pyfunction!(rotate_given_surface_normal_py, m)?)?;
@@ -828,8 +831,28 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
     }
 }
 
+#[cfg(feature="python")]
+#[pyfunction]
+///electronic_stopping_cross_sections(Za, Zb, E, Ma, ck)
+/// uses RustBCA internal functions to calculate electronic stopping power cross-sections
+/// Args:
+///     Za (f64): atomic number of ion
+///     Zb (f64): atomic number of target
+///     E (f64): ion energy in eV
+///     Ma (f64): ion mass in AMU
+///     ck (f64): LS correction factor
+/// Returns:
+///     (Lindhard-Scharff [eV m^2], Bethe-Bloch [eV m^2], Biersack-Varelas [eV m^2])
+pub fn electronic_stopping_cross_sections(Za: f64, Zb: f64, E: f64, Ma: f64, ck: f64) -> (f64, f64, f64) {
+
+    let S_low = lindhard_scharff_stopping_power_cross_section(Za, Zb, E*EV, Ma*AMU);
+    let S_high = bethe_bloch_stopping_power_cross_section(Za, Zb, E*EV, Ma*AMU);
+
+    (S_low*ck/EV, S_high/EV, 1./(1./(S_high) + 1./(S_low*ck))/EV)
+}
+
 #[cfg(feature = "python")]
-///compound_\\\\\\_bca_list_py(ux, uy,  uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
+///compound_bca_list_py(ux, uy,  uz, energy, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
 /// runs a BCA simulation for a list of particles and outputs a list of sputtered, reflected, and implanted particles.
 /// Args:
 ///    energies (list(f64)): initial ion energies in eV.

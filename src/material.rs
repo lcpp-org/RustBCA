@@ -262,8 +262,7 @@ impl <T: Geometry> Material<T> {
         let mut stopping_powers = Vec::with_capacity(self.Z.len());
 
         //Bragg's rule: total stopping power is sum of stopping powers of individual atoms
-        //Therefore, compute each stopping power separately, and add them up
-
+        //Therefore, compute each stopping power separately, and add them up later
         let x = particle_1.pos.x;
         let y = particle_1.pos.y;
         let z = particle_1.pos.z;
@@ -271,46 +270,53 @@ impl <T: Geometry> Material<T> {
 
         for Zb in &self.Z {
 
-            let beta = (1. - 1./(1. + E/Ma/C.powi(2)).powi(2)).sqrt();
-            let v = beta*C;
-
-            // This term is an empirical fit to the mean ionization potential
-            let I0 = match *Zb < 13. {
-                true => 12. + 7./Zb,
-                false => 9.76 + 58.5*Zb.powf(-1.19),
-            };
-            let I = Zb*I0*Q;
-
-            //See Biersack and Haggmark - this looks like an empirical shell correction
-            let B = match *Zb < 3. {
-                true => 100.*Za/Zb,
-                false => 5.
-            };
-
-        //Bethe stopping modified by Biersack and Varelas
-            let prefactor = BETHE_BLOCH_PREFACTOR*Zb*Za*Za/beta/beta;
-            let eb = 2.*ME*v*v/I;
-            let S_high = prefactor*(eb + 1. + B/eb).ln();
-
-            //Lindhard-Scharff electronic stopping
-            //let S_low = LINDHARD_SCHARFF_PREFACTOR*(Za.powf(7./6.)*Zb)/(Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.)*(E/Q/Ma*AMU).sqrt();
-            let S_low = LINDHARD_SCHARFF_PREFACTOR*(Za*Za.cbrt().sqrt()*Zb)/(Za.cbrt().powi(2) + Zb.cbrt().powi(2)).powi(3).sqrt()*(E/Q/Ma*AMU).sqrt();
+            let S_low = lindhard_scharff_stopping_power_cross_section(Za, *Zb, E, Ma);
 
             let stopping_power = match electronic_stopping_mode {
                 //Biersack-Varelas Interpolation
-                ElectronicStoppingMode::INTERPOLATED => 1./(1./S_high + 1./(S_low*ck)),
-                //Oen-Robinson
-                ElectronicStoppingMode::LOW_ENERGY_LOCAL => S_low*ck,
-                //Lindhard-Scharff
-                ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => S_low*ck,
-                //Lindhard-Scharff and Oen-Robinson, using Lindhard Equipartition
-                ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => S_low*ck,
-            };
+                ElectronicStoppingMode::INTERPOLATED => {
 
+                    let S_high = bethe_bloch_stopping_power_cross_section(Za, *Zb, E, Ma);
+                    
+                    // correction applied only to LS component
+                    1./(1./S_high + 1./(S_low*ck))
+                },
+                //Lindhard-Scharff, Oen-Robinson, Lindhard Equipartition
+                ElectronicStoppingMode::LOW_ENERGY_LOCAL | ElectronicStoppingMode::LOW_ENERGY_NONLOCAL | ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => {
+                    S_low*ck
+                },
+            };
             stopping_powers.push(stopping_power);
         }
         stopping_powers
     }
+}
+
+pub fn lindhard_scharff_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
+    LINDHARD_SCHARFF_PREFACTOR*(Za*Za.cbrt().sqrt()*Zb)/(Za.cbrt().powi(2) + Zb.cbrt().powi(2)).powi(3).sqrt()*(E/Q/Ma*AMU).sqrt()
+}
+
+pub fn bethe_bloch_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
+    let beta = (1. - 1./(1. + E/Ma/C.powi(2)).powi(2)).sqrt();
+    let v = beta*C;
+
+    // This term is an empirical fit to the mean ionization potential
+    let I0 = match Zb < 13. {
+        true => 12. + 7./Zb,
+        false => 9.76 + 58.5*Zb.powf(-1.19),
+    };
+    let I = Zb*I0*Q;
+
+    //See Biersack and Haggmark - this looks like an empirical shell correction
+    let B = match Zb < 3. {
+        true => 100.*Za/Zb,
+        false => 5.
+    };
+
+    let prefactor = BETHE_BLOCH_PREFACTOR*Zb*Za*Za/beta/beta;
+    let eb = 2.*ME*v*v/I;
+
+    prefactor*(eb + 1. + B/eb).ln()
 }
 
 /// Calculate the effects of the planar surface binding potential of a material on a particle.
