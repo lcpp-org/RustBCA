@@ -1,5 +1,5 @@
 use super::*;
-use cached::macros::cached;
+use std::sync::LazyLock;
 
 /// Analytic solutions to outermost root of the interaction potential.
 pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
@@ -274,22 +274,37 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
         //ZBL screening length, Eckstein (4.1.8)
         InteractionPotential::ZBL => zbl_screening_length(Za as u64, Zb as u64),
         //Lindhard/Firsov screening length, Eckstein (4.1.5)
-        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN | InteractionPotential::WW => lindhard_screening_length(Za as u64, Zb as u64),
-        InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => lindhard_screening_length(Za as u64, Zb as u64),
+        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN | InteractionPotential::WW => lindhard_screening_length_lookup(Za as u64, Zb as u64),
+        InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
         InteractionPotential::MORSE{D, alpha, r0} => alpha,
         InteractionPotential::COULOMB{Za: Z1, Zb: Z2} => zbl_screening_length(Za as u64, Zb as u64),
-        InteractionPotential::KRC_MORSE{..} => 0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
-        InteractionPotential::FOUR_EIGHT{..} =>0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.),
+        InteractionPotential::KRC_MORSE{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
+        InteractionPotential::FOUR_EIGHT{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
     }
 }
 
-#[cached]
-fn zbl_screening_length(Za: u64, Zb: u64) -> f64{
+const Z_MAX: usize = 120;
+static LINDHARD_SCREENING_LENGTH_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
+    ||
+    std::array::from_fn(
+        |i| {
+            let Za = i / Z_MAX;
+            let Zb = i % Z_MAX;
+            lindhard_screening_length(Za as u64, Zb as u64)
+        }
+    )
+);
+
+pub fn zbl_screening_length(Za: u64, Zb: u64) -> f64{
     0.88534*A0/((Za as f64).powf(0.23) + (Zb as f64).powf(0.23))
 }
-#[cached]
-fn lindhard_screening_length(Za: u64, Zb: u64) -> f64 {
+
+pub fn lindhard_screening_length(Za: u64, Zb: u64) -> f64 {
     0.8853*A0*((Za as f64).sqrt() + (Zb as f64).sqrt()).powf(-2./3.)
+}
+
+pub fn lindhard_screening_length_lookup(Za: u64, Zb: u64) -> f64 {
+    LINDHARD_SCREENING_LENGTH_TABLE[Za as usize * Z_MAX + Zb as usize]
 }
 
 /// Coefficients of inverse-polynomial interaction potentials.
