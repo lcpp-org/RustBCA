@@ -173,13 +173,8 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
             }
 
             //Advance particle in space and track total distance traveled
-            #[cfg(not(feature = "accelerated_ions"))]
             let distance_traveled = particle_1.advance(
                 binary_collision_geometries[0].mfp, total_asymptotic_deflection);
-
-            #[cfg(feature = "accelerated_ions")]
-            let distance_traveled = particle_1.advance(
-                binary_collision_geometries[0].mfp + distance_to_target - material.geometry.get_energy_barrier_thickness(), total_asymptotic_deflection);
 
             //Subtract total energy from all simultaneous collisions and electronic stopping
             let energy_lost_to_electronic_stopping = bca::subtract_electronic_stopping_energy(&mut particle_1, material, distance_traveled,
