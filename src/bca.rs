@@ -222,7 +222,8 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
         let E: f64  = particle_1.E;
         let Ec: f64 = particle_1.Ec;
         //We just need the Lindhard screening length here, so the particular potential is not important
-        let a: f64 = interactions::screening_length(Za, Zb, InteractionPotential::MOLIERE);
+        let a: f64 = interactions::lindhard_screening_length_lookup(Za as u64, Zb as u64);
+
         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
 
         //Minimum energy transfer for generating scattering event set to cutoff energy
