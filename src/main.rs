@@ -41,7 +41,6 @@ use rand::{SeedableRng, rngs::ChaCha8Rng};
 //Load internal modules
 pub mod material;
 pub mod particle;
-pub mod tests;
 pub mod interactions;
 pub mod bca;
 pub mod geometry;

@@ -364,7 +364,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
 }
 
 #[no_mangle]
-pub extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut f64, uy: &mut f64, uz: &mut f64, E1: &mut f64, Z1: &mut f64, m1: &mut f64, Ec1: &mut f64, Es1: &mut f64, Z2: *mut f64, m2: *mut f64, Ec2: *mut f64, Es2: *mut f64, Eb2: *mut f64, n2: *mut f64) {
+pub unsafe extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut f64, uy: &mut f64, uz: &mut f64, E1: &mut f64, Z1: &mut f64, m1: &mut f64, Ec1: &mut f64, Es1: &mut f64, Z2: *mut f64, m2: *mut f64, Ec2: *mut f64, Es2: *mut f64, Eb2: *mut f64, n2: *mut f64) {
 
     assert!(E1 > &mut 0.0);
 
@@ -689,7 +689,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
 }
 
 #[no_mangle]
-pub extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track_recoils: &mut bool,
+pub unsafe extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track_recoils: &mut bool,
     ux: *mut f64, uy: *mut f64, uz: *mut f64, E1: *mut f64,
     Z1: *mut f64, m1: *mut f64, Ec1: *mut f64, Es1: *mut f64,
     num_species_target: &mut c_int,
@@ -1152,7 +1152,7 @@ pub fn reflect_single_ion_py(ion: &PyDict, target: &PyDict, vx: f64, vy: f64, vz
 
     let options = Options::default_options(false);
 
-    let velocity2 = vx.powf(2.) + vy.powf(2.) + vz.powf(2.); //m/s
+    let velocity2 = vx*vx + vy*vy + vz*vz; //m^2/s^2
     let energy_eV = 0.5*m1*AMU*velocity2/EV; //EV
 
     let ux = vx/velocity2.sqrt();

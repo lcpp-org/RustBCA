@@ -2,6 +2,7 @@
 use super::*;
 #[cfg(test)]
 use float_cmp::*;
+#[cfg(test)]
 use rand::RngExt;
 
 #[test]
@@ -780,7 +781,10 @@ fn test_momentum_conservation() {
         InteractionPotential::MORSE{D: 5.4971E-20, r0: 2.782E-10, alpha: 1.4198E10}
     ];
     
+    #[cfg(feature = "cpr_rootfinder")]
     let mut rootfinders = vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}; 4];
+    #[cfg(not(feature = "cpr_rootfinder"))]
+    let  rootfinders = vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}; 4];
 
     //[[{"CPR"={n0=2, nmax=100, epsilon=1E-9, complex_threshold=1E-3, truncation_threshold=1E-9, far_from_zero=1E9, interval_limit=1E-12, derivative_free=true}}]]
     #[cfg(feature = "cpr_rootfinder")]

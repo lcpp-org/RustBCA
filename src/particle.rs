@@ -1,7 +1,5 @@
 use super::*;
 
-/// Rustbca's internal representation of the particle_parameters input.
-
 fn default_vec_zero() -> Vec<usize> {
     vec![0]
 }

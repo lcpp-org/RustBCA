@@ -353,16 +353,14 @@ impl Geometry for HomogeneousMesh2D {
     fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
         if self.inside(x, y, z) {
             true
-        } else {
-            if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
-                let distance = ((x - p.x()).powi(2) +  (y - p.y()).powi(2)).sqrt();
-                distance < self.energy_barrier_thickness
-            } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
-                true
-            } else {
-                panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
-            }
-        }
+        } else if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+             let distance = ((x - p.x()).powi(2) +  (y - p.y()).powi(2)).sqrt();
+             distance < self.energy_barrier_thickness
+         } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+             true
+         } else {
+             panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
+         }
     }
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
         if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
@@ -401,7 +399,7 @@ impl Mesh2D {
     /// Finds the cell that is nearest to (x, y).
     fn nearest_to(&self, x: f64, y: f64, z: f64) -> &Cell2D {
 
-        let mut min_distance: f64 = std::f64::MAX;
+        let mut min_distance: f64 = f64::MAX;
         let mut index: usize = 0;
 
         for (cell_index, cell) in self.mesh.iter().enumerate() {
@@ -760,7 +758,7 @@ impl Triangle2D {
 
     /// Calculates the shortest distance from this triangle to the point (x, y).
     pub fn distance_to(&self, x: f64, y: f64) -> f64 {
-        let mut distance_to = std::f64::MAX;
+        let mut distance_to = f64::MAX;
 
         for segment in &self.segments {
             let length_2 = (segment.2 - segment.0)*(segment.2 - segment.0) + (segment.3 - segment.1)*(segment.3 - segment.1);

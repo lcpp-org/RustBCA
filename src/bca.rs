@@ -82,14 +82,6 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
             //Choose impact parameters and azimuthal angles for all collisions, and determine mean free path
             let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, material, options, rng);
 
-            #[cfg(feature = "accelerated_ions")]
-            let distance_to_target = if !material.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z) {
-                let (x, y, z) = material.geometry.closest_point(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
-                ((x - particle_1.pos.x).powi(2) + (y - particle_1.pos.y).powi(2) + (z - particle_1.pos.z).powi(2)).sqrt()
-            } else {
-                0.
-            };
-
             let mut total_energy_lost_to_recoils = 0.;
             let mut total_asymptotic_deflection = 0.;
             let mut normalized_distance_of_closest_approach = 0.;
@@ -159,7 +151,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
 
                         let n = material.total_number_density(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                         //We just need the lindhard screening length here, so the particular potential is not important
-                        let a: f64 = interactions::screening_length(Za, Zb, InteractionPotential::MOLIERE);
+                        let a: f64 = interactions::lindhard_screening_length_lookup(Za as u64, Zb as u64);
                         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
                         let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powi(3)/n/a/a;
 
@@ -181,13 +173,8 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
             }
 
             //Advance particle in space and track total distance traveled
-            #[cfg(not(feature = "accelerated_ions"))]
             let distance_traveled = particle_1.advance(
                 binary_collision_geometries[0].mfp, total_asymptotic_deflection);
-
-            #[cfg(feature = "accelerated_ions")]
-            let distance_traveled = particle_1.advance(
-                binary_collision_geometries[0].mfp + distance_to_target - material.geometry.get_energy_barrier_thickness(), total_asymptotic_deflection);
 
             //Subtract total energy from all simultaneous collisions and electronic stopping
             let energy_lost_to_electronic_stopping = bca::subtract_electronic_stopping_energy(&mut particle_1, material, distance_traveled,
@@ -235,7 +222,8 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
         let E: f64  = particle_1.E;
         let Ec: f64 = particle_1.Ec;
         //We just need the Lindhard screening length here, so the particular potential is not important
-        let a: f64 = interactions::screening_length(Za, Zb, InteractionPotential::MOLIERE);
+        let a: f64 = interactions::lindhard_screening_length_lookup(Za as u64, Zb as u64);
+
         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
 
         //Minimum energy transfer for generating scattering event set to cutoff energy
@@ -510,8 +498,8 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
         _ => x0*a*(theta/2.).sin()
     };
 
-    let psi = theta.sin().atan2(Ma/Mb + theta.cos());//.abs();
-    let psi_recoil = theta.sin().atan2(1. - theta.cos());//.abs();
+    let psi = theta.sin().atan2(Ma/Mb + theta.cos());
+    let psi_recoil = theta.sin().atan2(1. - theta.cos());
     let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powi(2)*E0*(theta/2.).sin().powi(2);
 
     Ok(BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asymptotic_deflection, x0))
@@ -525,7 +513,9 @@ fn scattering_integral_mw(x: f64, beta: f64, reduced_energy: f64, interaction_po
 }
 
 /// Gauss-Legendre scattering integrand.
-fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> Result<f64, anyhow::Error> {
+fn scattering_function_gl<F>(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: F) -> Result<f64, anyhow::Error> 
+    where F: Fn(f64) -> f64
+{
     let result = 4.*impact_parameter*u/(r0*(1. - interaction_potential(r0/(1. - u*u))/relative_energy - impact_parameter*impact_parameter*(1. - u*u).powi(2)/r0/r0).sqrt());
 
     if result.is_nan() {
@@ -537,7 +527,9 @@ fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energ
 }
 
 /// Gauss-Mehler scattering integrand.
-fn scattering_function_gm(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> Result<f64, anyhow::Error> {
+fn scattering_function_gm<F>(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: F) -> Result<f64, anyhow::Error> 
+    where F: Fn(f64) -> f64    
+{
     let result = impact_parameter/r0/(1. - interaction_potential(r0/u)/relative_energy - (impact_parameter*u/r0).powi(2)).sqrt();
 
     if result.is_nan() {
@@ -549,23 +541,27 @@ fn scattering_function_gm(u: f64, impact_parameter: f64, r0: f64, relative_energ
 }
 
 /// Compute the scattering integral for a given relative energy, distance of closest approach `r0`,  and interaction potential using a Gauss-Mehler, n-point quadrature.
-fn scattering_integral_gauss_mehler(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: &dyn Fn(f64) -> f64, n_points: usize) -> f64 {
+fn scattering_integral_gauss_mehler<F>(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: F, n_points: usize) -> f64 
+    where F: Fn(f64) -> f64 + Clone
+{
     let x: Vec<f64> = (1..=n_points).map(|i| ((2.*i as f64 - 1.)/4./n_points as f64*PI).cos()).collect();
     let w: Vec<f64> = (1..=n_points).map(|i| PI/n_points as f64*((2.*i as f64 - 1.)/4./n_points as f64*PI).sin()).collect();
 
     PI - x.iter().zip(w)
-        .map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential)
+        .map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential.clone())
         .with_context(|| format!("Numerical error: NaN in Gauss-Mehler scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
         .unwrap()).sum::<f64>()
 }
 
 /// Compute the scattering integral for a given relative energy, distance of closest approach `r0`,  and interaction potential using a Gauss-Legendre, 5-point quadrature.
-fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
+fn scattering_integral_gauss_legendre<F>(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: F) -> f64 
+    where F: Fn(f64) -> f64 + Clone
+{
     let x: Vec<f64> = [0., -0.538469, 0.538469, -0.90618, 0.90618].iter().map(|x| x/2. + 1./2.).collect();
     let w: Vec<f64> = [0.568889, 0.478629, 0.478629, 0.236927, 0.236927].iter().map(|w| w/2.).collect();
 
     PI - x.iter().zip(w)
-        .map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential)
+        .map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential.clone())
         .with_context(|| format!("Numerical error: NaN in Gauss-Legendre scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
         .unwrap()).sum::<f64>()
 }
@@ -582,18 +578,6 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
 
     let coefficients = interactions::polynomial_coefficients(relative_energy, impact_parameter, interaction_potential);
     let roots = real_polynomial_roots(coefficients.clone(), polynom_complex_threshold).unwrap();
-
-    /*
-    println!("p={}", impact_parameter/ANGSTROM);
-
-    for coefficient in &coefficients {
-        println!("{}", {coefficient});
-    }
-
-    for root in &roots {
-        println!("{} A", {root});
-    }
-    */
 
     let max_root = roots.iter().cloned().fold(f64::NAN, f64::max);
 
@@ -642,8 +626,6 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
         interactions::scaling_function(r, impact_parameter, interaction_potential)};
 
-    //Using upper bound const, ~10, construct upper bound as a plateau near 0 and linear increase away from that
-    //let upper_bound = f64::max(upper_bound_const*p, upper_bound_const*a);
     let upper_bound = impact_parameter + interactions::crossing_point_doca(interaction_potential);
 
     let roots = match derivative_free {
@@ -683,14 +665,16 @@ pub fn newton_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_par
     let f = |r: f64| -> f64 {interactions::distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
     let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
 
-    //Guess for large reduced energy from Mendenhall and Weller 1991
-    //For small energies, use pure Newton-Raphson with arbitrary guess of 1
-    let mut x0 = beta;
     let mut xn: f64;
-    if reduced_energy > 5. {
+
+    //Guess for large reduced energy from Mendenhall and Weller 1991
+    //For small energies, use pure Newton-Raphson with arbitrary guess of beta
+    let mut x0 = if reduced_energy > 5. {
         let inv_er_2 = 0.5/reduced_energy;
-        x0 = inv_er_2 + (inv_er_2*inv_er_2 + beta*beta).sqrt();
-    }
+        inv_er_2 + (inv_er_2*inv_er_2 + beta*beta).sqrt()
+    } else {
+        beta
+    };
 
     //Newton-Raphson to determine distance of closest approach
     let mut err: f64 = tolerance + 1.;
