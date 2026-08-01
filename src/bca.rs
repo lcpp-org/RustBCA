@@ -82,14 +82,6 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
             //Choose impact parameters and azimuthal angles for all collisions, and determine mean free path
             let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, material, options, rng);
 
-            #[cfg(feature = "accelerated_ions")]
-            let distance_to_target = if !material.inside(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z) {
-                let (x, y, z) = material.geometry.closest_point(particle_1.pos.x, particle_1.pos.y, particle_1.pos.z);
-                ((x - particle_1.pos.x).powi(2) + (y - particle_1.pos.y).powi(2) + (z - particle_1.pos.z).powi(2)).sqrt()
-            } else {
-                0.
-            };
-
             let mut total_energy_lost_to_recoils = 0.;
             let mut total_asymptotic_deflection = 0.;
             let mut normalized_distance_of_closest_approach = 0.;
