@@ -512,7 +512,9 @@ fn scattering_integral_mw(x: f64, beta: f64, reduced_energy: f64, interaction_po
 }
 
 /// Gauss-Legendre scattering integrand.
-fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> Result<f64, anyhow::Error> {
+fn scattering_function_gl<F>(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: F) -> Result<f64, anyhow::Error> 
+    where F: Fn(f64) -> f64
+{
     let result = 4.*impact_parameter*u/(r0*(1. - interaction_potential(r0/(1. - u*u))/relative_energy - impact_parameter*impact_parameter*(1. - u*u).powi(2)/r0/r0).sqrt());
 
     if result.is_nan() {
@@ -524,7 +526,9 @@ fn scattering_function_gl(u: f64, impact_parameter: f64, r0: f64, relative_energ
 }
 
 /// Gauss-Mehler scattering integrand.
-fn scattering_function_gm(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: &dyn Fn(f64) -> f64) -> Result<f64, anyhow::Error> {
+fn scattering_function_gm<F>(u: f64, impact_parameter: f64, r0: f64, relative_energy: f64, interaction_potential: F) -> Result<f64, anyhow::Error> 
+    where F: Fn(f64) -> f64    
+{
     let result = impact_parameter/r0/(1. - interaction_potential(r0/u)/relative_energy - (impact_parameter*u/r0).powi(2)).sqrt();
 
     if result.is_nan() {
@@ -536,23 +540,27 @@ fn scattering_function_gm(u: f64, impact_parameter: f64, r0: f64, relative_energ
 }
 
 /// Compute the scattering integral for a given relative energy, distance of closest approach `r0`,  and interaction potential using a Gauss-Mehler, n-point quadrature.
-fn scattering_integral_gauss_mehler(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: &dyn Fn(f64) -> f64, n_points: usize) -> f64 {
+fn scattering_integral_gauss_mehler<F>(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: F, n_points: usize) -> f64 
+    where F: Fn(f64) -> f64 + Clone
+{
     let x: Vec<f64> = (1..=n_points).map(|i| ((2.*i as f64 - 1.)/4./n_points as f64*PI).cos()).collect();
     let w: Vec<f64> = (1..=n_points).map(|i| PI/n_points as f64*((2.*i as f64 - 1.)/4./n_points as f64*PI).sin()).collect();
 
     PI - x.iter().zip(w)
-        .map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential)
+        .map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential.clone())
         .with_context(|| format!("Numerical error: NaN in Gauss-Mehler scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
         .unwrap()).sum::<f64>()
 }
 
 /// Compute the scattering integral for a given relative energy, distance of closest approach `r0`,  and interaction potential using a Gauss-Legendre, 5-point quadrature.
-fn scattering_integral_gauss_legendre(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: &dyn Fn(f64) -> f64) -> f64 {
+fn scattering_integral_gauss_legendre<F>(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: F) -> f64 
+    where F: Fn(f64) -> f64 + Clone
+{
     let x: Vec<f64> = [0., -0.538469, 0.538469, -0.90618, 0.90618].iter().map(|x| x/2. + 1./2.).collect();
     let w: Vec<f64> = [0.568889, 0.478629, 0.478629, 0.236927, 0.236927].iter().map(|w| w/2.).collect();
 
     PI - x.iter().zip(w)
-        .map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential)
+        .map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential.clone())
         .with_context(|| format!("Numerical error: NaN in Gauss-Legendre scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
         .unwrap()).sum::<f64>()
 }
