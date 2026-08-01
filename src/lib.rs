@@ -1152,7 +1152,7 @@ pub fn reflect_single_ion_py(ion: &PyDict, target: &PyDict, vx: f64, vy: f64, vz
 
     let options = Options::default_options(false);
 
-    let velocity2 = vx.powf(2.) + vy.powf(2.) + vz.powf(2.); //m/s
+    let velocity2 = vx*vx + vy*vy + vz*vz; //m^2/s^2
     let energy_eV = 0.5*m1*AMU*velocity2/EV; //EV
 
     let ux = vx/velocity2.sqrt();

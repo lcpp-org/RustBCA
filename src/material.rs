@@ -279,7 +279,7 @@ impl <T: Geometry> Material<T> {
 
                     let S_high = bethe_bloch_stopping_power_cross_section(Za, *Zb, E, Ma);
                     
-                    // correction applied only to LS component
+                    // ck correction applied only to LS component
                     1./(1./S_high + 1./(S_low*ck))
                 },
                 //Lindhard-Scharff, Oen-Robinson, Lindhard Equipartition
@@ -289,7 +289,7 @@ impl <T: Geometry> Material<T> {
                 ElectronicStoppingMode::INTERPOLATEDPLUS{ci} => {
                     let S_high = bethe_bloch_stopping_power_cross_section(Za, *Zb, E, Ma);
                     
-                    // correction applied only to LS component
+                    // ck correction applied only to LS component
                     (S_high.powf(-ci) + (S_low*ck).powf(-ci)).powf(-1./ci)
                 },
                 
