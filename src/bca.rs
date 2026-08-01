@@ -713,10 +713,10 @@ pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     //MAGIC algorithm
     //Since this is legacy code I don't think I will clean this up
     let C_ = match  interaction_potential {
-        InteractionPotential::MOLIERE => vec![ 0.6743, 0.009611, 0.005175, 6.314, 10.0 ],
-        InteractionPotential::KR_C => vec![ 0.7887, 0.01166, 0.006913, 17.16, 10.79 ],
-        InteractionPotential::ZBL => vec![ 0.99229, 0.011615, 0.0071222, 9.3066, 14.813 ],
-        InteractionPotential::TRIDYN => vec![1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
+        InteractionPotential::MOLIERE => [ 0.6743, 0.009611, 0.005175, 6.314, 10.0 ],
+        InteractionPotential::KR_C => [ 0.7887, 0.01166, 0.006913, 17.16, 10.79 ],
+        InteractionPotential::ZBL => [ 0.99229, 0.011615, 0.0071222, 9.3066, 14.813 ],
+        InteractionPotential::TRIDYN => [1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
         _ => panic!("Input error: unimplemented interaction potential {} for MAGIC algorithm. Use a screened Coulomb potential.",  interaction_potential)
     };
     let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
