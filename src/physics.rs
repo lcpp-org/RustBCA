@@ -75,5 +75,4 @@ pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Part
 
         bar.finish();
         println!("Finished!");
-
 }

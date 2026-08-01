@@ -151,7 +151,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
 
                         let n = material.total_number_density(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                         //We just need the lindhard screening length here, so the particular potential is not important
-                        let a: f64 = interactions::screening_length(Za, Zb, InteractionPotential::MOLIERE);
+                        let a: f64 = interactions::lindhard_screening_length_lookup(Za as u64, Zb as u64);
                         let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E;
                         let estimated_range_of_recoils = (reduced_energy.powf(0.3) + 0.1).powi(3)/n/a/a;
 
