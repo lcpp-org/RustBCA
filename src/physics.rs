@@ -22,7 +22,7 @@ pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::Part
         //Create and configure progress bar
         let bar: ProgressBar = ProgressBar::new(total_count);
         bar.set_style(ProgressStyle::default_bar()
-            .template("[{elapsed_precise}][{bar:40.cyan/blue}][{eta_precise}] {percent}%")
+            .template("[{elapsed_precise}][{bar:40.cyan/blue}][{eta_precise}] {percent}%").expect("")
             .progress_chars("#>-"));
 
         //Main loop
