@@ -7,6 +7,7 @@ use std::mem::discriminant;
 
 use std::alloc::{dealloc, Layout};
 use std::mem::align_of;
+use std::collections::HashMap;
 
 //Parallelization - currently only used in python library functions
 #[cfg(feature = "python")]
@@ -55,6 +56,10 @@ use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 #[cfg(feature = "python")]
 use pyo3::types::*;
+#[cfg(feature = "python")]
+use pyo3::exceptions::PyTypeError;
+#[cfg(feature = "python")]
+use pyo3::*;
 
 //Load internal modules
 pub mod material;
@@ -89,29 +94,56 @@ pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, 
 #[cfg(feature = "parry3d")]
 pub use parry3d_f64::na::{Point3, Vector3, Matrix3, Rotation3};
 
-#[cfg(feature = "python")]
+
 #[pymodule]
-pub fn libRustBCA(py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(simple_bca_py, m)?)?;
-    m.add_function(wrap_pyfunction!(simple_bca_list_py, m)?)?;
-    m.add_function(wrap_pyfunction!(compound_bca_list_py, m)?)?;
-    m.add_function(wrap_pyfunction!(compound_bca_list_tracked_py, m)?)?;
-    m.add_function(wrap_pyfunction!(compound_bca_list_1D_py, m)?)?;
-    m.add_function(wrap_pyfunction!(sputtering_yield, m)?)?;
-    m.add_function(wrap_pyfunction!(reflection_coefficient, m)?)?;
-    m.add_function(wrap_pyfunction!(compound_reflection_coefficient, m)?)?;
-    m.add_function(wrap_pyfunction!(reflect_single_ion_py, m)?)?;
-    m.add_function(wrap_pyfunction!(electronic_stopping_cross_sections, m)?)?;
-    m.add_function(wrap_pyfunction!(reflect_single_ion_py, m)?)?;
+mod libRustBCA {
+    use pyo3::prelude::*;
+
+    #[pymodule_export]
+    use super::simple_bca_py;
+
+    #[pymodule_export]
+    use super::simple_bca_list_py;
+
+    #[pymodule_export]
+    use super::compound_bca_list_py;
+
+    #[pymodule_export]
+    use super::compound_bca_list_1D_py;
+
+    #[pymodule_export]
+    use super::compound_bca_list_tracked_py;
+
+    #[pymodule_export]
+    use super::reflect_single_ion_py;
+
+    #[pymodule_export]  
+    use super::reflection_coefficient;
+
+    #[pymodule_export]
+    use super::compound_reflection_coefficient;
+
+    #[pymodule_export]
+    use super::sputtering_yield;
+
     #[cfg(feature = "parry3d")]
-    m.add_function(wrap_pyfunction!(rotate_given_surface_normal_py, m)?)?;
+    #[pymodule_export]
+    use super::rotate_given_surface_normal_py;
+
     #[cfg(feature = "parry3d")]
-    m.add_function(wrap_pyfunction!(rotate_given_surface_normal_vec_py, m)?)?;
+    #[pymodule_export]
+    use super::rotate_back_py;
+
     #[cfg(feature = "parry3d")]
-    m.add_function(wrap_pyfunction!(rotate_back_py, m)?)?;
+    #[pymodule_export]
+    use super::rotate_back_vec_py;
+
     #[cfg(feature = "parry3d")]
-    m.add_function(wrap_pyfunction!(rotate_back_vec_py, m)?)?;
-    Ok(())
+    #[pymodule_export]
+    use super::rotate_given_surface_normal_vec_py;
+
+    #[pymodule_export]
+    use super::electronic_stopping_cross_sections;
 }
 
 #[derive(Debug)]
@@ -833,6 +865,7 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
 
 #[cfg(feature="python")]
 #[pyfunction]
+#[pyo3(signature = (Za, Zb, E, Ma, ck=1.0, ci=1.0))]
 ///electronic_stopping_cross_sections(Za, Zb, E, Ma, ck)
 /// uses RustBCA internal functions to calculate electronic stopping power cross-sections
 /// Args:
@@ -844,7 +877,7 @@ pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64
 ///     ci (f64): BV custom interp. weight
 /// Returns:
 ///     (Lindhard-Scharff [eV m^2], Bethe-Bloch [eV m^2], Biersack-Varelas [eV m^2], Biersack-Varelas with custom interp. weight [eV m^2])
-pub fn electronic_stopping_cross_sections(Za: f64, Zb: f64, E: f64, Ma: f64, ck: f64, ci: f64) -> (f64, f64, f64, f64) {
+pub fn electronic_stopping_cross_sections<'py>(Za: f64, Zb: f64, E: f64, Ma: f64, ck: f64, ci: f64) -> (f64, f64, f64, f64) {
 
     let S_low = lindhard_scharff_stopping_power_cross_section(Za, Zb, E*EV, Ma*AMU);
     let S_high = bethe_bloch_stopping_power_cross_section(Za, Zb, E*EV, Ma*AMU);
@@ -876,7 +909,7 @@ pub fn electronic_stopping_cross_sections(Za: f64, Zb: f64, E: f64, Ma: f64, ck:
 ///      [Z, m (amu), E (eV), x, y, z, (angstrom), ux, uy, uz]
 ///    incident (list(bool)): whether each row of output was an incident ion or originated in the target
 #[pyfunction]
-pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, Z1: Vec<f64>, m1: Vec<f64>, Ec1: Vec<f64>, Es1: Vec<f64>, Z2: Vec<f64>, m2: Vec<f64>, Ec2: Vec<f64>, Es2: Vec<f64>, n2: Vec<f64>, Eb2: Vec<f64>) -> (Vec<[f64; 9]>, Vec<bool>) {
+pub fn compound_bca_list_py<'py>(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, Z1: Vec<f64>, m1: Vec<f64>, Ec1: Vec<f64>, Es1: Vec<f64>, Z2: Vec<f64>, m2: Vec<f64>, Ec2: Vec<f64>, Es2: Vec<f64>, n2: Vec<f64>, Eb2: Vec<f64>) -> (Vec<[f64; 9]>, Vec<bool>) {
     let mut total_output = vec![];
     let mut incident = vec![];
     let num_species_target = Z2.len();
@@ -1005,7 +1038,7 @@ pub fn compound_bca_list_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: 
 ///    incident (list(bool)): whether each row of output was an incident ion or originated in the target
 ///    incident_index (list(usize)): index of incident particle that caused this particle to be emitted
 #[pyfunction]
-pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, Z1: Vec<f64>, m1: Vec<f64>, Ec1: Vec<f64>, Es1: Vec<f64>, Z2: Vec<f64>, m2: Vec<f64>, Ec2: Vec<f64>, Es2: Vec<f64>, n2: Vec<f64>, Eb2: Vec<f64>) -> (Vec<[f64; 9]>, Vec<bool>, Vec<usize>) {
+pub fn compound_bca_list_tracked_py<'py>(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, Z1: Vec<f64>, m1: Vec<f64>, Ec1: Vec<f64>, Es1: Vec<f64>, Z2: Vec<f64>, m2: Vec<f64>, Ec2: Vec<f64>, Es2: Vec<f64>, n2: Vec<f64>, Eb2: Vec<f64>) -> (Vec<[f64; 9]>, Vec<bool>, Vec<usize>) {
     let mut total_output = vec![];
     let mut incident = vec![];
     let mut incident_index = vec![];
@@ -1126,7 +1159,7 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
 
 #[cfg(feature = "python")]
 ///reflect_single_ion_py(ion, target, vx, vy, vz)
-///Performs a single BCA ion trajectory in target material with specified incident velocity.
+///Performs a single BCA ion trajectory in target material with specified incident vhttps://claude.ai/chat/f1d70373-186f-4e3f-8462-d9d99e6832f4elocity.
 ///Args:
 ///    ion (dict): dictionary that defines ion parameters; examples can be found in scripts/materials.py.
 ///    target (dict): dictionary that defines target parameterrs; examples can be found in scripts/materials.py.
@@ -1134,19 +1167,22 @@ pub fn compound_bca_list_tracked_py(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f6
 ///Returns:
 ///    vx, vy, vz (float): final x, y, and z velocity in m/s. When ion implants in material, vx, vy, and vz will all be zero.
 #[pyfunction]
-pub fn reflect_single_ion_py(ion: &PyDict, target: &PyDict, vx: f64, vy: f64, vz: f64) -> (f64, f64, f64){
+pub fn reflect_single_ion_py<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDict>, vx: f64, vy: f64, vz: f64) -> (f64, f64, f64){
 
-    let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
-    let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
-    let Ec1 = unpack(ion.get_item("Ec").expect("Cannot get ion cutoff energy from dictionary. Ensure ion['Ec'] exists."));
-    let Es1 = unpack(ion.get_item("Es").expect("Cannot get ion surface binding energy from dictionary. Ensure ion['Es'] exists."));
+    let ion: HashMap<String, f64> = ion.extract().expect("");
+    let target: HashMap<String, f64> = target.extract().expect("");
 
-    let Z2 = unpack(target.get_item("Z").expect("Cannot get target Z from dictionary. Ensure target['Z'] exists."));
-    let m2 = unpack(target.get_item("m").expect("Cannot get target mass from dictionary. Ensure target['m'] exists."));
-    let Ec2 = unpack(target.get_item("Ec").expect("Cannot get target cutoff energy from dictionary. Ensure target['Ec'] exists."));
-    let Es2 = unpack(target.get_item("Es").expect("Cannot get target surface binding energy from dictionary. Ensure target['Es'] exists."));
-    let Eb2 = unpack(target.get_item("Eb").expect("Cannot get target bulk binding energy from dictionary. Ensure target['Eb'] exists."));
-    let n2 = unpack(target.get_item("n").expect("Cannot get target density from dictionary. Ensure target['n'] exists."));
+    let Z1 = *ion.get("Z").expect("");
+    let m1 = *ion.get("m").expect("");
+    let Ec1 = *ion.get("Ec").expect("");
+    let Es1 = *ion.get("Es").expect("");
+
+    let Z2 = *target.get("Z").expect("");
+    let m2 = *target.get("m").expect("");
+    let Ec2 = *target.get("Ec").expect("");
+    let Es2 = *target.get("Es").expect("");
+    let Eb2 = *target.get("Eb").expect("");
+    let n2 = *target.get("n").expect("");
 
     assert!(vx > 0.0, "Input error: vx must be greater than zero for incident particles to hit surface at x=0.");
 
@@ -1241,7 +1277,7 @@ pub fn reflect_single_ion_py(ion: &PyDict, target: &PyDict, vx: f64, vy: f64, vz
 ///    incident (list(bool)): whether each row of output was an incident ion or originated in the target
 /// stopped (list(bool)): whether each row of output is associated with a particle that stopped in the target
 #[pyfunction]
-pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energies: Vec<f64>, Z1: Vec<f64>, m1: Vec<f64>, Ec1: Vec<f64>, Es1: Vec<f64>, Z2: Vec<f64>, m2: Vec<f64>, Ec2: Vec<f64>, Es2: Vec<f64>, Eb2: Vec<f64>, n2: Vec<Vec<f64>>,  dx: Vec<f64>) -> (Vec<[f64; 9]>, Vec<bool>, Vec<bool>) {
+pub fn compound_bca_list_1D_py<'py>(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energies: Vec<f64>, Z1: Vec<f64>, m1: Vec<f64>, Ec1: Vec<f64>, Es1: Vec<f64>, Z2: Vec<f64>, m2: Vec<f64>, Ec2: Vec<f64>, Es2: Vec<f64>, Eb2: Vec<f64>, n2: Vec<Vec<f64>>,  dx: Vec<f64>) -> (Vec<[f64; 9]>, Vec<bool>, Vec<bool>) {
     let mut total_output = vec![];
     let mut incident = vec![];
     let mut stopped = vec![];
@@ -1379,7 +1415,7 @@ pub fn compound_bca_list_1D_py(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energie
 ///    sputtered, or reflected). Each row consists of:
 ///      [Z, m (amu), E (eV), x, y, z, (angstrom), ux, uy, uz]
 #[pyfunction]
-pub fn simple_bca_py(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
+pub fn simple_bca_py<'py>(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
     simple_bca(x, y, z, ux, uy, uz, E1, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
 }
 
@@ -1408,7 +1444,7 @@ pub fn simple_bca_py(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64,
 ///    sputtered, or reflected). Each row consists of:
 ///      [Z, m (amu), E (eV), x, y, z, (angstrom), ux, uy, uz]
 #[pyfunction]
-pub fn simple_bca_list_py(energies: Vec<f64>, usx: Vec<f64>, usy: Vec<f64>, usz: Vec<f64>, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
+pub fn simple_bca_list_py<'py>(energies: Vec<f64>, usx: Vec<f64>, usy: Vec<f64>, usz: Vec<f64>, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
 
     assert_eq!(energies.len(), usx.len());
     assert_eq!(energies.len(), usy.len());
@@ -1622,7 +1658,7 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 ///     uz (f64): particle direction in global frame normal z-component.
 /// Returns:
 ///    direction (f64, f64, f64): direction vector of particle in RustBCA coordinates.
-pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+pub fn rotate_given_surface_normal_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
     let mut ux = ux;
     let mut uy = uy;
     let mut uz = uz;
@@ -1646,7 +1682,7 @@ pub fn rotate_given_surface_normal_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f6
 /// Returns:
 ///    direction (list(f64), list(f64), list(f64)): direction vector of particle in RustBCA coordinates.
 ///    Note: non-incident particles will be returned with ux, uy, uz = (0, 0, 0)
-pub fn rotate_given_surface_normal_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+pub fn rotate_given_surface_normal_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
 
     let length = nx.len();
 
@@ -1708,7 +1744,7 @@ pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut 
 ///     uz (f64): particle direction in RustBCA frame normal z-component.
 /// Returns:
 ///    direction (f64, f64, f64): direction vector of particle in global coordinates.
-pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+pub fn rotate_back_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
     let mut ux = ux;
     let mut uy = uy;
     let mut uz = uz;
@@ -1731,7 +1767,7 @@ pub fn rotate_back_py(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (
 ///     uz (list(f64)): particle direction in global frame normal z-component.
 /// Returns:
 ///    direction (list(f64), list(f64), list(f64)): direction vector of particle in simulation coordinates.
-pub fn rotate_back_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+pub fn rotate_back_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
 
     let (ux_new, (uy_new, uz_new)) = (nx, ny, nz, ux, uy, uz).into_par_iter().map(|(nx_, ny_, nz_, ux_, uy_, uz_)| {
 
@@ -1747,14 +1783,8 @@ pub fn rotate_back_vec_py(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>
 }
 
 #[cfg(feature = "python")]
-/// A helper function to unpack a python float from a python any.
-fn unpack(python_float: &PyAny) -> f64 {
-    python_float.downcast::<PyFloat>().expect("Error unpacking Python float to f64. Check values.").value()
-}
-
-#[cfg(feature = "python")]
 #[pyfunction]
-/// sputteirng_yield(ion, target, energy, angle, num_samples)
+/// sputtering_yield(ion, target, energy, angle, num_samples)
 /// A routine the calculates the sputtering yield in atoms per ion of energetic ions incident upon materials using RustBCA.
 /// Args:
 ///     ion: a dictionary with the keys Z (atomic number), m (atomic mass in AMU), Ec (cutoff energy in eV), Es (surface binding energy in eV)
@@ -1762,21 +1792,22 @@ fn unpack(python_float: &PyAny) -> f64 {
 ///     energy: the incident energy of the ion in eV
 ///     angle: incident angle of the ion in degrees from surface normal
 ///     num_samples: number of ion trajectories to run; precision will go as 1/sqrt(N)
-pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> f64 {
+pub fn sputtering_yield<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDict>, energy: f64, angle: f64, num_samples: usize) -> f64 {
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
-    let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
-    let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
-    let Ec1 = unpack(ion.get_item("Ec").expect("Cannot get ion cutoff energy from dictionary. Ensure ion['Ec'] exists."));
-    let Es1 = unpack(ion.get_item("Es").expect("Cannot get ion surface binding energy from dictionary. Ensure ion['Es'] exists."));
+    let Z1: f64 = ion.get_item("Z").unwrap().expect("").extract().unwrap();
+    let m1: f64 = ion.get_item("m1").unwrap().expect("").extract().unwrap();
+    let Es1: f64 = ion.get_item("Es").unwrap().expect("").extract().unwrap();
+    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("").extract().unwrap();
 
-    let Z2 = unpack(target.get_item("Z").expect("Cannot get target Z from dictionary. Ensure target['Z'] exists."));
-    let m2 = unpack(target.get_item("m").expect("Cannot get target mass from dictionary. Ensure target['m'] exists."));
-    let Ec2 = unpack(target.get_item("Ec").expect("Cannot get target cutoff energy from dictionary. Ensure target['Ec'] exists."));
-    let Es2 = unpack(target.get_item("Es").expect("Cannot get target surface binding energy from dictionary. Ensure target['Es'] exists."));
-    let Eb2 = unpack(target.get_item("Eb").expect("Cannot get target bulk binding energy from dictionary. Ensure target['Eb'] exists."));
-    let n2 = unpack(target.get_item("n").expect("Cannot get target density from dictionary. Ensure target['n'] exists."));
+    let Z2: f64 = target.get_item("Z").unwrap().expect("").extract().unwrap();
+    let m2: f64 = target.get_item("m2").unwrap().expect("").extract().unwrap();
+    let Es2: f64 = target.get_item("Es").unwrap().expect("").extract().unwrap();
+    let Ec2: f64 = target.get_item("Ec").unwrap().expect("").extract().unwrap();
+    let Eb2: f64 = target.get_item("Eb").unwrap().expect("").extract().unwrap();
+    let n2: f64 = target.get_item("n").unwrap().expect("").extract().unwrap();
+
 
     let options = Options::default_options(true);
 
@@ -1863,21 +1894,21 @@ pub fn sputtering_yield(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, 
 /// Returns:
 ///     R_N (f64): reflection coefficient (number of particles reflected / number of incident particles)
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
-pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
+pub fn reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDict>, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
-    let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
-    let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
-    let Ec1 = unpack(ion.get_item("Ec").expect("Cannot get ion cutoff energy from dictionary. Ensure ion['Ec'] exists."));
-    let Es1 = unpack(ion.get_item("Es").expect("Cannot get ion surface binding energy from dictionary. Ensure ion['Es'] exists."));
+    let Z1: f64 = ion.get_item("Z").unwrap().expect("").extract().unwrap();
+    let m1: f64 = ion.get_item("m1").unwrap().expect("").extract().unwrap();
+    let Es1: f64 = ion.get_item("Es").unwrap().expect("").extract().unwrap();
+    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("").extract().unwrap();
 
-    let Z2 = unpack(target.get_item("Z").expect("Cannot get target Z from dictionary. Ensure target['Z'] exists."));
-    let m2 = unpack(target.get_item("m").expect("Cannot get target mass from dictionary. Ensure target['m'] exists."));
-    let Ec2 = unpack(target.get_item("Ec").expect("Cannot get target cutoff energy from dictionary. Ensure target['Ec'] exists."));
-    let Es2 = unpack(target.get_item("Es").expect("Cannot get target surface binding energy from dictionary. Ensure target['Es'] exists."));
-    let Eb2 = unpack(target.get_item("Eb").expect("Cannot get target bulk binding energy from dictionary. Ensure target['Eb'] exists."));
-    let n2 = unpack(target.get_item("n").expect("Cannot get target density from dictionary. Ensure target['n'] exists."));
+    let Z2: f64 = target.get_item("Z").unwrap().expect("").extract().unwrap();
+    let m2: f64 = target.get_item("m2").unwrap().expect("").extract().unwrap();
+    let Es2: f64 = target.get_item("Es").unwrap().expect("").extract().unwrap();
+    let Ec2: f64 = target.get_item("Ec").unwrap().expect("").extract().unwrap();
+    let Eb2: f64 = target.get_item("Eb").unwrap().expect("").extract().unwrap();
+    let n2: f64 = target.get_item("n").unwrap().expect("").extract().unwrap();
 
     let options = Options::default_options(false);
 
@@ -1982,20 +2013,22 @@ pub fn reflection_coefficient(ion: &PyDict, target: &PyDict, energy: f64, angle:
 /// Returns:
 ///     R_N (f64): reflection coefficient (number of particles reflected / number of incident particles)
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
-pub fn compound_reflection_coefficient(ion: &PyDict, targets: Vec<&PyDict>, target_number_densities: Vec<f64>, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
+pub fn compound_reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, targets: Vec<Bound<'py, PyDict>>, target_number_densities: Vec<f64>, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
-    let Z1 = unpack(ion.get_item("Z").expect("Cannot get ion Z from dictionary. Ensure ion['Z'] exists."));
-    let m1 = unpack(ion.get_item("m").expect("Cannot get ion mass from dictionary. Ensure ion['m'] exists."));
-    let Ec1 = unpack(ion.get_item("Ec").expect("Cannot get ion cutoff energy from dictionary. Ensure ion['Ec'] exists."));
-    let Es1 = unpack(ion.get_item("Es").expect("Cannot get ion surface binding energy from dictionary. Ensure ion['Es'] exists."));
 
-    let Z2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("Z").unwrap_or_else(|| panic!("Cannot get target Z from dictionary at index {}. Ensure target['Z'] exists.", index)))).collect();
-    let m2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("m").unwrap_or_else(|| panic!("Cannot get target m from dictionary at index {}. Ensure target['m'] exists.", index)))).collect();
-    let Ec2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("Ec").unwrap_or_else(|| panic!("Cannot get target Ec from dictionary at index {}. Ensure target['Ec'] exists.", index)))).collect();
-    let Es2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("Es").unwrap_or_else(|| panic!("Cannot get target Es from dictionary at index {}. Ensure target['Es'] exists.", index)))).collect();
-    let Eb2: Vec<f64> = targets.iter().enumerate().map( |(index, item)| unpack(item.get_item("Eb").unwrap_or_else(|| panic!("Cannot get target Eb from dictionary at index {}. Ensure target['Eb'] exists.", index)))).collect();
+    let Z1: f64 = ion.get_item("Z").unwrap().expect("").extract().unwrap();
+    let m1: f64 = ion.get_item("m1").unwrap().expect("").extract().unwrap();
+    let Es1: f64 = ion.get_item("Es").unwrap().expect("").extract().unwrap();
+    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("").extract().unwrap();
+
+    let Z2: Vec<f64> = targets.iter().map(|target| target.get_item("Z").unwrap().expect("").extract().unwrap()).collect::<Vec<f64>>();
+    let m2: Vec<f64> = targets.iter().map(|target| target.get_item("m").unwrap().expect("").extract().unwrap()).collect::<Vec<f64>>();
+    let Es2: Vec<f64> = targets.iter().map(|target| target.get_item("Es").unwrap().expect("").extract().unwrap()).collect::<Vec<f64>>();
+    let Ec2: Vec<f64> = targets.iter().map(|target| target.get_item("Ec").unwrap().expect("").extract().unwrap()).collect::<Vec<f64>>();
+    let Eb2: Vec<f64> = targets.iter().map(|target| target.get_item("Eb").unwrap().expect("").extract().unwrap()).collect::<Vec<f64>>();
+    let n2: Vec<f64> = targets.iter().map(|target| target.get_item("n").unwrap().expect("").extract().unwrap()).collect::<Vec<f64>>();
 
     let number_target_species = Z2.len();
 
