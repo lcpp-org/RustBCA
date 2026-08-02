@@ -66,6 +66,7 @@ pub mod enums;
 pub mod consts;
 pub mod structs;
 pub mod sphere;
+pub mod sphereincuboid;
 
 #[cfg(feature = "parry3d")]
 pub mod parry;
@@ -77,6 +78,7 @@ pub use crate::input::{Input2D, InputHomogeneous2D, Input1D, Input0D, Options, I
 pub use crate::output::{OutputUnits};
 pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
+pub use crate::sphereincuboid::{SphereInCuboid, SphereInCuboidInput, InputSphereInCuboid};
 
 #[cfg(feature = "parry3d")]
 pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, ParryTriMeshInput, InputParryTriMesh};

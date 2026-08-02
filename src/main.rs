@@ -48,6 +48,7 @@ pub mod enums;
 pub mod consts;
 pub mod structs;
 pub mod sphere;
+pub mod sphereincuboid;
 pub mod physics;
 
 #[cfg(feature = "parry3d")]
@@ -60,6 +61,7 @@ pub use crate::input::{Input2D, InputHomogeneous2D, Input1D, Input0D, Options, I
 pub use crate::output::{OutputUnits};
 pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D, HomogeneousMesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
+pub use crate::sphereincuboid::{SphereInCuboid, SphereInCuboidInput, InputSphereInCuboid};
 pub use crate::physics::{physics_loop};
 
 #[cfg(feature = "parry3d")]
@@ -77,6 +79,7 @@ fn main() {
             "1D" => GeometryType::MESH1D,
             "2D" => GeometryType::MESH2D,
             "SPHERE" => GeometryType::SPHERE,
+            "SPHEREINCUBOID" => GeometryType::SPHEREINCUBOID,
             #[cfg(feature = "parry3d")]
             "BALL" => GeometryType::BALL,
             #[cfg(feature = "parry3d")]
@@ -103,6 +106,10 @@ fn main() {
         GeometryType::SPHERE => {
             let (particle_input_array, material, options, output_units) = input::input::<Sphere>(input_file);
             physics_loop::<Sphere>(particle_input_array, material, options, output_units);
+        },
+        GeometryType::SPHEREINCUBOID => {
+            let (particle_input_array, material, options, output_units) = input::input::<SphereInCuboid>(input_file);
+            physics_loop::<SphereInCuboid>(particle_input_array, material, options, output_units);
         },
         #[cfg(feature = "parry3d")]
         GeometryType::BALL => {

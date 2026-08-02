@@ -5,6 +5,7 @@ pub enum MaterialType {
     MESH1D(material::Material<geometry::Mesh1D>),
     MESH2D(material::Material<geometry::Mesh2D>),
     SPHERE(material::Material<sphere::Sphere>),
+    SPHEREINCUBOID(material::Material<sphereincuboid::SphereInCuboid>),
     #[cfg(feature = "parry3d")]
     BALL(material::Material<parry::ParryBall>),
     #[cfg(feature = "parry3d")]
@@ -26,6 +27,7 @@ pub enum GeometryType {
     MESH1D,
     MESH2D,
     SPHERE,
+    SPHEREINCUBOID,
     #[cfg(feature = "parry3d")]
     BALL,
     #[cfg(feature = "parry3d")]
