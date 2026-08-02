@@ -2,7 +2,6 @@ use super::*;
 use rand::RngExt;
 use std::sync::LazyLock;
 use crate::math::triangular_index;
-const Z_MAX: usize = 88;
 
 ///This helper function is a workaround to issue #368 in serde
 fn default_surface_binding_model() -> SurfaceBindingModel {
@@ -305,10 +304,6 @@ impl <T: Geometry> Material<T> {
 fn lindhard_scharff_stopping_power_constant(Za: f64, Zb: f64) -> f64 {
     LINDHARD_SCHARFF_PREFACTOR*(Za*Za.cbrt().sqrt()*Zb)/(Za.cbrt().powi(2) + Zb.cbrt().powi(2)).powi(3).sqrt()*(AMU/Q).sqrt()
 }
-
-//https://math.stackexchange.com/questions/2388887/
-//num elements in a triangular NxN matrix (including diag)
-const TABLE_SIZE: usize = Z_MAX*(Z_MAX + 1)/2;
 
 // Generating lookup tables for all possibilities turns out to be faster than calculating on the fly
 // Tables for Za, Zb are upper-triangular

@@ -2,9 +2,6 @@ use super::*;
 use std::sync::LazyLock;
 use crate::math::triangular_index;
 
-const Z_MAX: usize = 88;
-const TABLE_SIZE: usize = Z_MAX*(Z_MAX + 1)/2;
-
 /// Analytic solutions to outermost root of the interaction potential.
 pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
 
@@ -236,18 +233,18 @@ pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f6
     }
 }
 
-static COULOMB_CONSTANT_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
+static COULOMB_CONSTANT_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
     ||
-    std::array::from_fn(
-        |i| {
-            // standard 2D to 1D  array indexing
-            // I always have to look this up; copied from here
-            // (e.g. https://stackoverflow.com/questions/5494974/convert-1d-array-index-to-2d-array-index)
-            let Za = i / Z_MAX;
-            let Zb = i % Z_MAX;
-            coulomb_constant(Za as f64, Zb as f64)
+    {
+        let mut array = [0.0; TABLE_SIZE];
+        for i in 0..Z_MAX {
+            for j in 0..=i {
+                let index = (i * (i + 1))/2 + j;
+                array[index] = coulomb_constant(i as f64, j as f64);
+            }
         }
-    )
+        array
+    }
 );
 
 fn coulomb_constant(Za: f64, Zb: f64) -> f64 {
@@ -256,12 +253,16 @@ fn coulomb_constant(Za: f64, Zb: f64) -> f64 {
 
 /// Screened coulomb interaction potential.
 pub fn screened_coulomb(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
-    COULOMB_CONSTANT_TABLE[Za as usize * Z_MAX + Zb as usize]/r*phi(r/a, interaction_potential)
+    let mut i = Za as usize;
+    let mut j = Zb as usize;
+    COULOMB_CONSTANT_TABLE[triangular_index(&mut i, &mut j)]/r*phi(r/a, interaction_potential)
 }
 
 /// Coulombic interaction potential.
 pub fn coulomb(r: f64, Za: f64, Zb: f64) -> f64 {
-    COULOMB_CONSTANT_TABLE[Za as usize * Z_MAX + Zb as usize]/r
+    let mut i = Za as usize;
+    let mut j = Zb as usize;
+    COULOMB_CONSTANT_TABLE[triangular_index(&mut i, &mut j)]/r
 }
 
 /// Screening functions for screened-coulomb interaction potentials.
@@ -303,7 +304,7 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
     }
 }
 
-// It turns out it's faster (~10% speedup) to just generate every possible screening length as a lookup table
+// It turns out it's faster to just generate every possible screening length as a lookup table
 // LazyLock is a thread-safe value that is initialized whenever it is first accessed
 // It will block other threads while it runs, but it should run extremely quickly and only once
 static LINDHARD_SCREENING_LENGTH_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
@@ -331,15 +332,18 @@ pub fn lindhard_screening_length_lookup(Za: u64, Zb: u64) -> f64 {
     LINDHARD_SCREENING_LENGTH_TABLE[triangular_index(&mut i, &mut j)]
 }
 
-static ZBL_SCREENING_LENGTH_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
+static ZBL_SCREENING_LENGTH_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
     ||
-    std::array::from_fn(
-        |i| {
-            let Za = i / Z_MAX;
-            let Zb = i % Z_MAX;
-            zbl_screening_length(Za as f64, Zb as f64)
+    {
+        let mut array = [0.0; TABLE_SIZE];
+        for i in 0..Z_MAX {
+            for j in 0..=i {
+                let index = (i * (i + 1))/2 + j;
+                array[index] = zbl_screening_length(i as f64, j as f64);
+            }
         }
-    )
+        array
+    }
 );
 
 pub fn zbl_screening_length(Za: f64, Zb: f64) -> f64{
@@ -348,7 +352,9 @@ pub fn zbl_screening_length(Za: f64, Zb: f64) -> f64{
 
 #[inline]
 pub fn zbl_screening_length_lookup(Za: u64, Zb: u64) -> f64{
-    ZBL_SCREENING_LENGTH_TABLE[Za as usize * Z_MAX + Zb as usize]
+    let mut i = Za as usize;
+    let mut j = Zb as usize;
+    ZBL_SCREENING_LENGTH_TABLE[triangular_index(&mut i, &mut j)]
 }
 
 /// Coefficients of inverse-polynomial interaction potentials.
