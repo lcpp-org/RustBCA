@@ -110,7 +110,6 @@ def main():
     print(f'Sputtering yield for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {Y} at/ion. Yamamura predicts { np.round(yamamura(ion, target, energy),3)} at/ion.')
     np.testing.assert_approx_equal(Y, 0.044)
 
-
     R_N, R_E = reflection_coefficient(ion, target, energy, angle, num_samples)
     print(f'Particle reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
     print(f'Energy reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_E}')
@@ -122,6 +121,33 @@ def main():
     print(f'Energy reflection coefficient for {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_E}')
     np.testing.assert_approx_equal(R_N, 0.424)
     np.testing.assert_approx_equal(R_E, 0.22840032456593984)
+
+    # test of triangular LUTs correctly handling Za > Zb
+    ion = neon
+    target = boron
+    angle = 60.0
+    num_samples = 10000
+    energy = 2500.0
+
+    Y = sputtering_yield(ion, target, energy, angle, num_samples)
+    R_N, R_E = reflection_coefficient(ion, target, energy, angle, num_samples)
+
+    np.testing.assert_approx_equal(Y, 3.3481)
+    np.testing.assert_approx_equal(R_N, 0.0878)
+    np.testing.assert_approx_equal(R_E, 0.013734709021659743)
+
+    ion = copper # testing with Es > 0
+    Y = sputtering_yield(ion, target, energy, angle, num_samples)
+    R_N, R_E = reflection_coefficient(ion, target, energy, angle, num_samples)
+
+    np.testing.assert_approx_equal(Y, 4.9431)
+    np.testing.assert_approx_equal(R_N, 0.0066)
+    np.testing.assert_approx_equal(R_E, 0.000298720196409247)
+
+    # reset species
+    ion = helium
+    ion['Eb'] = 0.0
+    target = tungsten
 
     vx0 = 1e5
     vy0 = 1e5

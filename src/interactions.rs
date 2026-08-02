@@ -239,6 +239,8 @@ static COULOMB_CONSTANT_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
         let mut array = [0.0; TABLE_SIZE];
         for i in 0..Z_MAX {
             for j in 0..=i {
+                //going from 1D to linear triangular upper array
+                //https://stackoverflow.com/questions/27086195
                 let index = (i * (i + 1))/2 + j;
                 array[index] = coulomb_constant(i as f64, j as f64);
             }
@@ -313,6 +315,8 @@ static LINDHARD_SCREENING_LENGTH_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::
         let mut array = [0.0; TABLE_SIZE];
         for i in 0..Z_MAX {
             for j in 0..=i {
+                //going from 1D to linear triangular upper array
+                //https://stackoverflow.com/questions/27086195
                 let index = (i * (i + 1))/2 + j;
                 array[index] = lindhard_screening_length(i as f64, j as f64);
             }
@@ -338,6 +342,8 @@ static ZBL_SCREENING_LENGTH_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
         let mut array = [0.0; TABLE_SIZE];
         for i in 0..Z_MAX {
             for j in 0..=i {
+                //going from 1D to linear triangular upper array
+                //https://stackoverflow.com/questions/27086195
                 let index = (i * (i + 1))/2 + j;
                 array[index] = zbl_screening_length(i as f64, j as f64);
             }
