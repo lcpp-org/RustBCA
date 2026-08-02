@@ -17,21 +17,21 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 rand = {version = "0.10.2", features=["chacha"]}
 rand_distr = "0.6.0"
-toml = "0.7.4"
+toml = "1.1.4"
 anyhow = "1.0.71"
-itertools = "0.10.5"
+itertools = "0.15.0"
 rayon = "1.10.0"
 geo = {version = "0.25", optional = false}
-indicatif = {version = "0.15.0", features=["rayon"]}
+indicatif = {version = "0.18.6", features=["rayon"]}
 serde = { version = "1.0.163", features = ["derive"] }
 hdf5 = {version = "0.7.1", optional = true}
 rcpr = { git = "https://github.com/drobnyjt/rcpr", optional = true}
-ndarray = {version = "0.14.0", features = ["serde"], optional = true}
+ndarray = {version = "0.17.2", features = ["serde"], optional = true}
 parry3d-f64 = {optional = true, version="0.2.0"}
 pyo3 = {version = "0.29.0", optional=true}
 
 [dev-dependencies]
-float-cmp = "0.8.0"
+float-cmp = "0.10.0"
 
 [profile.release]
 lto = "fat"
