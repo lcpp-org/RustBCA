@@ -93,7 +93,7 @@ pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, 
 #[cfg(feature = "parry3d")]
 pub use parry3d_f64::na::{Point3, Vector3, Matrix3, Rotation3};
 
-
+#[cfg(feature = "python")]
 #[pymodule]
 mod libRustBCA {
     use pyo3::prelude::*;
