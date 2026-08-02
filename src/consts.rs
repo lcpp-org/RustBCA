@@ -38,7 +38,7 @@ pub const LINDHARD_REDUCED_ENERGY_PREFACTOR: f64 = 4.*PI*EPS0/Q/Q;
 /// Maximum atomic number in RustBCA.
 #[cfg(not(feature = "extended_max_z"))]
 pub const Z_MAX: usize = 92;
-#[cfg(feature(="extended_max_z"))]
+#[cfg(feature="extended_max_z")]
 pub const Z_MAX: usize = 120;
 //https://math.stackexchange.com/questions/2388887/
 //num elements in a triangular NxN matrix (including diag)
