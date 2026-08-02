@@ -3,6 +3,7 @@ use rand::RngExt;
 use std::sync::LazyLock;
 use crate::math::triangular_index;
 
+
 ///This helper function is a workaround to issue #368 in serde
 fn default_surface_binding_model() -> SurfaceBindingModel {
     SurfaceBindingModel::TARGET
@@ -301,34 +302,37 @@ impl <T: Geometry> Material<T> {
     }
 }
 
+static LS_STOPPING_CONSTANT_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
+    ||
+    std::array::from_fn(
+        |i| {
+            let Za = i / Z_MAX;
+            let Zb = i % Z_MAX;
+            lindhard_scharff_stopping_power_constant(Za as f64, Zb as f64)
+        }
+    )
+);
+
 fn lindhard_scharff_stopping_power_constant(Za: f64, Zb: f64) -> f64 {
     LINDHARD_SCHARFF_PREFACTOR*(Za*Za.cbrt().sqrt()*Zb)/(Za.cbrt().powi(2) + Zb.cbrt().powi(2)).powi(3).sqrt()*(AMU/Q).sqrt()
 }
-
-// Generating lookup tables for all possibilities turns out to be faster than calculating on the fly
-// Tables for Za, Zb are upper-triangular
-static LS_STOPPING_CONSTANT_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
-    ||
-    {
-        let mut array = [0.0; TABLE_SIZE];
-        for i in 0..Z_MAX {
-            for j in 0..=i {
-                let index = (i * (i + 1))/2 + j;
-                array[index] = lindhard_scharff_stopping_power_constant(i as f64, j as f64);
-            }
-        }
-        array
-    }
-);
-
 #[inline]
 pub fn lindhard_scharff_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
-
-    let mut i = Za as usize;
-    let mut j = Zb as usize;
-
-    LS_STOPPING_CONSTANT_TABLE[triangular_index(&mut i, &mut j)]*(E/Ma).sqrt()
+    LS_STOPPING_CONSTANT_TABLE[Za as usize * Z_MAX + Zb as usize]*(E/Ma).sqrt()
 }
+static BV_EMPIRICAL_MEAN_IONIZATON_POT: LazyLock<[f64; Z_MAX]> = LazyLock::new(
+    ||
+    std::array::from_fn(
+        |Zb| {
+            let I0 = if (Zb as f64) < 13. {
+                12. + 7./ Zb as f64
+            } else {
+                9.76 + 58.5*(Zb as f64).powf(-1.19)
+            };
+            (Zb as f64)*I0*Q
+        }
+    )
+);
 
 static BV_EMPIRICAL_MEAN_IONIZATON_POT: LazyLock<[f64; Z_MAX]> = LazyLock::new(
     ||
