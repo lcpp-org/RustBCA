@@ -11,3 +11,10 @@ pub fn duff_orthonormal_basis(n: Vector) -> (Vector, Vector) {
     let b2 = Vector::new(b, sign + n.y*n.y*a, -n.y);
     (b1, b2)
 }
+
+pub fn triangular_index(i: &mut usize, j: &mut usize) -> usize {
+    if i < j {
+        std::mem::swap(i, j);
+    }
+    (*i*(*i + 1)/2) + *j
+}
