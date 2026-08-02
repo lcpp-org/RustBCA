@@ -7,7 +7,6 @@ use std::mem::discriminant;
 
 use std::alloc::{dealloc, Layout};
 use std::mem::align_of;
-use std::collections::HashMap;
 
 //Parallelization - currently only used in python library functions
 #[cfg(feature = "python")]
@@ -1168,21 +1167,18 @@ pub fn compound_bca_list_tracked_py<'py>(energies: Vec<f64>, ux: Vec<f64>, uy: V
 ///    vx, vy, vz (float): final x, y, and z velocity in m/s. When ion implants in material, vx, vy, and vz will all be zero.
 #[pyfunction]
 pub fn reflect_single_ion_py<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDict>, vx: f64, vy: f64, vz: f64) -> (f64, f64, f64){
+    
+    let Z1: f64 = ion.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from ion dict.").extract().unwrap();
+    let m1: f64 = ion.get_item("m").unwrap().expect("Error: Cannot get key 'm' from ion dict.").extract().unwrap();
+    let Es1: f64 = ion.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from ion dict.").extract().unwrap();
+    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from ion dict.").extract().unwrap();
 
-    let ion: HashMap<String, f64> = ion.extract().expect("");
-    let target: HashMap<String, f64> = target.extract().expect("");
-
-    let Z1 = *ion.get("Z").expect("");
-    let m1 = *ion.get("m").expect("");
-    let Ec1 = *ion.get("Ec").expect("");
-    let Es1 = *ion.get("Es").expect("");
-
-    let Z2 = *target.get("Z").expect("");
-    let m2 = *target.get("m").expect("");
-    let Ec2 = *target.get("Ec").expect("");
-    let Es2 = *target.get("Es").expect("");
-    let Eb2 = *target.get("Eb").expect("");
-    let n2 = *target.get("n").expect("");
+    let Z2: f64 = target.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from target dict.").extract().unwrap();
+    let m2: f64 = target.get_item("m").unwrap().expect("Error: Cannot get key 'm' from target dict.").extract().unwrap();
+    let Es2: f64 = target.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from target dict.").extract().unwrap();
+    let Ec2: f64 = target.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from target dict.").extract().unwrap();
+    let Eb2: f64 = target.get_item("Eb").unwrap().expect("Error: Cannot get key 'Eb' from target dict.").extract().unwrap();
+    let n2: f64 = target.get_item("n").unwrap().expect("Error: Cannot get key 'n' from target dict.").extract().unwrap();
 
     assert!(vx > 0.0, "Input error: vx must be greater than zero for incident particles to hit surface at x=0.");
 
@@ -1796,17 +1792,17 @@ pub fn sputtering_yield<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDic
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
-    let Z1: f64 = ion.get_item("Z").unwrap().expect("").extract().unwrap();
-    let m1: f64 = ion.get_item("m1").unwrap().expect("").extract().unwrap();
-    let Es1: f64 = ion.get_item("Es").unwrap().expect("").extract().unwrap();
-    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("").extract().unwrap();
+    let Z1: f64 = ion.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from ion dict.").extract().unwrap();
+    let m1: f64 = ion.get_item("m").unwrap().expect("Error: Cannot get key 'm' from ion dict.").extract().unwrap();
+    let Es1: f64 = ion.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from ion dict.").extract().unwrap();
+    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from ion dict.").extract().unwrap();
 
-    let Z2: f64 = target.get_item("Z").unwrap().expect("").extract().unwrap();
-    let m2: f64 = target.get_item("m2").unwrap().expect("").extract().unwrap();
-    let Es2: f64 = target.get_item("Es").unwrap().expect("").extract().unwrap();
-    let Ec2: f64 = target.get_item("Ec").unwrap().expect("").extract().unwrap();
-    let Eb2: f64 = target.get_item("Eb").unwrap().expect("").extract().unwrap();
-    let n2: f64 = target.get_item("n").unwrap().expect("").extract().unwrap();
+    let Z2: f64 = target.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from target dict.").extract().unwrap();
+    let m2: f64 = target.get_item("m").unwrap().expect("Error: Cannot get key 'm' from target dict.").extract().unwrap();
+    let Es2: f64 = target.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from target dict.").extract().unwrap();
+    let Ec2: f64 = target.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from target dict.").extract().unwrap();
+    let Eb2: f64 = target.get_item("Eb").unwrap().expect("Error: Cannot get key 'Eb' from target dict.").extract().unwrap();
+    let n2: f64 = target.get_item("n").unwrap().expect("Error: Cannot get key 'n' from target dict.").extract().unwrap();
 
 
     let options = Options::default_options(true);
@@ -1898,17 +1894,17 @@ pub fn reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py,
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
-    let Z1: f64 = ion.get_item("Z").unwrap().expect("").extract().unwrap();
-    let m1: f64 = ion.get_item("m1").unwrap().expect("").extract().unwrap();
-    let Es1: f64 = ion.get_item("Es").unwrap().expect("").extract().unwrap();
-    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("").extract().unwrap();
+    let Z1: f64 = ion.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from ion dict.").extract().unwrap();
+    let m1: f64 = ion.get_item("m").unwrap().expect("Error: Cannot get key 'm' from ion dict.").extract().unwrap();
+    let Es1: f64 = ion.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from ion dict.").extract().unwrap();
+    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from ion dict.").extract().unwrap();
 
-    let Z2: f64 = target.get_item("Z").unwrap().expect("").extract().unwrap();
-    let m2: f64 = target.get_item("m2").unwrap().expect("").extract().unwrap();
-    let Es2: f64 = target.get_item("Es").unwrap().expect("").extract().unwrap();
-    let Ec2: f64 = target.get_item("Ec").unwrap().expect("").extract().unwrap();
-    let Eb2: f64 = target.get_item("Eb").unwrap().expect("").extract().unwrap();
-    let n2: f64 = target.get_item("n").unwrap().expect("").extract().unwrap();
+    let Z2: f64 = target.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from target dict.").extract().unwrap();
+    let m2: f64 = target.get_item("m").unwrap().expect("Error: Cannot get key 'm' from target dict.").extract().unwrap();
+    let Es2: f64 = target.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from target dict.").extract().unwrap();
+    let Ec2: f64 = target.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from target dict.").extract().unwrap();
+    let Eb2: f64 = target.get_item("Eb").unwrap().expect("Error: Cannot get key 'Eb' from target dict.").extract().unwrap();
+    let n2: f64 = target.get_item("n").unwrap().expect("Error: Cannot get key 'n' from target dict.").extract().unwrap();
 
     let options = Options::default_options(false);
 
@@ -2017,18 +2013,46 @@ pub fn compound_reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, targets: V
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
+    let Z1: f64 = ion.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from ion dict.").extract().unwrap();
+    let m1: f64 = ion.get_item("m").unwrap().expect("Error: Cannot get key 'm1' from ion dict.").extract().unwrap();
+    let Es1: f64 = ion.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from ion dict.").extract().unwrap();
+    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from ion dict.").extract().unwrap();
 
-    let Z1: f64 = ion.get_item("Z").unwrap().expect("").extract().unwrap();
-    let m1: f64 = ion.get_item("m1").unwrap().expect("").extract().unwrap();
-    let Es1: f64 = ion.get_item("Es").unwrap().expect("").extract().unwrap();
-    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("").extract().unwrap();
-
-    let Z2: Vec<f64> = targets.iter().map(|target| target.get_item("Z").unwrap().expect("").extract().unwrap()).collect::<Vec<f64>>();
-    let m2: Vec<f64> = targets.iter().map(|target| target.get_item("m").unwrap().expect("").extract().unwrap()).collect::<Vec<f64>>();
-    let Es2: Vec<f64> = targets.iter().map(|target| target.get_item("Es").unwrap().expect("").extract().unwrap()).collect::<Vec<f64>>();
-    let Ec2: Vec<f64> = targets.iter().map(|target| target.get_item("Ec").unwrap().expect("").extract().unwrap()).collect::<Vec<f64>>();
-    let Eb2: Vec<f64> = targets.iter().map(|target| target.get_item("Eb").unwrap().expect("").extract().unwrap()).collect::<Vec<f64>>();
-    let n2: Vec<f64> = targets.iter().map(|target| target.get_item("n").unwrap().expect("").extract().unwrap()).collect::<Vec<f64>>();
+    let Z2: Vec<f64> = targets.iter()
+        .enumerate()
+        .map(|(index, target)| target.get_item("Z").unwrap()
+        .unwrap_or_else(|| panic!(
+            "Error: cannot get key 'Z' from target dict at index {}.", index
+        ))
+        .extract().unwrap()).collect::<Vec<f64>>();
+    let m2: Vec<f64> = targets.iter()
+        .enumerate()
+        .map(|(index, target)| target.get_item("m").unwrap()
+        .unwrap_or_else(|| panic!(
+            "Error: cannot get key 'm' from target dict at index {}.", index
+        ))
+        .extract().unwrap()).collect::<Vec<f64>>();
+    let Es2: Vec<f64> = targets.iter()
+        .enumerate()
+        .map(|(index, target)| target.get_item("Es").unwrap()
+        .unwrap_or_else(|| panic!(
+            "Error: cannot get key 'Es' from target dict at index {}.", index
+        ))
+        .extract().unwrap()).collect::<Vec<f64>>();
+    let Ec2: Vec<f64> = targets.iter()
+        .enumerate()
+        .map(|(index, target)| target.get_item("Ec").unwrap()
+        .unwrap_or_else(|| panic!(
+            "Error: cannot get key 'Ec' from target dict at index {}.", index
+        ))
+        .extract().unwrap()).collect::<Vec<f64>>();
+    let Eb2: Vec<f64> = targets.iter()
+        .enumerate()
+        .map(|(index, target)| target.get_item("Eb").unwrap()
+        .unwrap_or_else(|| panic!(
+            "Error: cannot get key 'Eb' from target dict at index {}.", index
+        ))
+        .extract().unwrap()).collect::<Vec<f64>>();
 
     let number_target_species = Z2.len();
 
