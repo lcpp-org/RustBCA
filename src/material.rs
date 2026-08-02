@@ -1,8 +1,6 @@
 use super::*;
 use rand::RngExt;
 use std::sync::LazyLock;
-use crate::math::triangular_index;
-
 
 ///This helper function is a workaround to issue #368 in serde
 fn default_surface_binding_model() -> SurfaceBindingModel {
