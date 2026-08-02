@@ -317,6 +317,7 @@ static LINDHARD_SCREENING_LENGTH_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock:
         }
     )
 );
+
 static ZBL_SCREENING_LENGTH_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
     ||
     std::array::from_fn(
@@ -336,10 +337,12 @@ pub fn lindhard_screening_length(Za: f64, Zb: f64) -> f64 {
     0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.)
 }
 
+#[inline]
 pub fn lindhard_screening_length_lookup(Za: u64, Zb: u64) -> f64 {
     LINDHARD_SCREENING_LENGTH_TABLE[Za as usize * Z_MAX + Zb as usize]
 }
 
+#[inline]
 pub fn zbl_screening_length_lookup(Za: u64, Zb: u64) -> f64{
     ZBL_SCREENING_LENGTH_TABLE[Za as usize * Z_MAX + Zb as usize]
 }

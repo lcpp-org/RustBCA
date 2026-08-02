@@ -316,11 +316,10 @@ static LS_STOPPING_CONSTANT_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
 fn lindhard_scharff_stopping_power_constant(Za: f64, Zb: f64) -> f64 {
     LINDHARD_SCHARFF_PREFACTOR*(Za*Za.cbrt().sqrt()*Zb)/(Za.cbrt().powi(2) + Zb.cbrt().powi(2)).powi(3).sqrt()*(AMU/Q).sqrt()
 }
-
+#[inline]
 pub fn lindhard_scharff_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
     LS_STOPPING_CONSTANT_TABLE[Za as usize * Z_MAX + Zb as usize]*(E/Ma).sqrt()
 }
-
 static BV_EMPIRICAL_MEAN_IONIZATON_POT: LazyLock<[f64; Z_MAX]> = LazyLock::new(
     ||
     std::array::from_fn(
