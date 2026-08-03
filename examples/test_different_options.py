@@ -279,7 +279,7 @@ def run_test(
 
 num_bins = 75
 num_samples = 100000
-run_sim = True
+run_sim = False
 show_plots = True
 
 # interaction potentials
@@ -294,14 +294,14 @@ else:
 
 Y_test = np.array([
     0.02593, 0.02104, 0.02467, 0.02731, 0.02593, 0.0218, 0.02211, 0.02288, 
-    0.03577, 0.02593, 0.02587, 0.0296, 0.0255, 0.02568, 0.02587, 0.02593, 
+    0.03577, 0.02593, 0.02587, 0.0296, 0.0255, 0.02593, 0.02587, 0.02593, 
     0.02905, 0.02593, 0.02593, 0.02593, 0.02593, 0.02593, 0.02593, 0.02593, 
     0.02593
 ])
 
 R_N_test = np.array([
     0.17442, 0.17032, 0.16802, 0.18216, 0.17442, 0.17437, 0.17449, 0.17777, 
-    0.28801, 0.17442, 0.17452, 0.22074, 0.17506, 0.17446, 0.17445, 0.17442, 
+    0.28801, 0.17442, 0.17452, 0.22074, 0.17506, 0.17442, 0.17445, 0.17442, 
     0.17722, 0.17442, 0.17442, 0.17442, 0.17442, 0.17442, 0.17442, 0.17442, 
     0.17442
 ])
@@ -415,10 +415,10 @@ for n in num_threads:
 
 sim_index_threads_stop = sim_index
 plt.figure(6)
-plt.plot(num_threads, sim_times[sim_index_threads_start]/np.array(sim_times[sim_index_threads_start:sim_index_threads_stop]), label="Amdahl's law; s=0.06")
+plt.plot(num_threads, sim_times[sim_index_threads_start]/np.array(sim_times[sim_index_threads_start:sim_index_threads_stop]), label='RustBCA (i5-8600k, 6 cores)')
 s = 0.06
 p = 1 - s
-plt.plot(num_threads, 1/(s + p/np.array(num_threads)), label='RustBCA (i5-8600k, 6 cores)')
+plt.plot(num_threads, 1/(s + p/np.array(num_threads)), label="Amdahl's law; s=0.06" )
 plt.xlabel('n threads')
 plt.ylabel('t [ms]')
 plt.legend()
