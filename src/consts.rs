@@ -35,3 +35,12 @@ pub const BETHE_BLOCH_PREFACTOR: f64 = 4.*PI*(Q*Q/(4.*PI*EPS0))*(Q*Q/(4.*PI*EPS0
 pub const LINDHARD_SCHARFF_PREFACTOR: f64 = 1.212*ANGSTROM*ANGSTROM*Q;
 /// Lindhard reduced energy prefactor, in SI units.
 pub const LINDHARD_REDUCED_ENERGY_PREFACTOR: f64 = 4.*PI*EPS0/Q/Q;
+/// Maximum atomic number in RustBCA.
+#[cfg(not(feature = "extended_max_z"))]
+pub const Z_MAX: usize = 92;
+#[cfg(feature="extended_max_z")]
+pub const Z_MAX: usize = 120;
+//https://math.stackexchange.com/questions/2388887/
+//num elements in a triangular NxN matrix (including diag)
+/// LUT size; triangular matrix of size Z_MAX * Z_MAX
+pub const TABLE_SIZE: usize = Z_MAX*(Z_MAX + 1)/2;

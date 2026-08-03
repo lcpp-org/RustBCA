@@ -300,8 +300,6 @@ impl <T: Geometry> Material<T> {
     }
 }
 
-const Z_MAX: usize = 120;
-// Generating lookup tables for all possibilities turns out to be faster than calculating on the fly
 static LS_STOPPING_CONSTANT_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
     ||
     std::array::from_fn(
@@ -320,7 +318,8 @@ fn lindhard_scharff_stopping_power_constant(Za: f64, Zb: f64) -> f64 {
 pub fn lindhard_scharff_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
     LS_STOPPING_CONSTANT_TABLE[Za as usize * Z_MAX + Zb as usize]*(E/Ma).sqrt()
 }
-static BV_EMPIRICAL_MEAN_IONIZATON_POT: LazyLock<[f64; Z_MAX]> = LazyLock::new(
+
+static BV_EMPIRICAL_MEAN_IONIZATON_POT_TABLE: LazyLock<[f64; Z_MAX]> = LazyLock::new(
     ||
     std::array::from_fn(
         |Zb| {
@@ -338,7 +337,7 @@ pub fn bethe_bloch_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f6
     let beta = (1. - 1./(1. + E/Ma/C.powi(2)).powi(2)).sqrt();
     let v = beta*C;
 
-    let I = BV_EMPIRICAL_MEAN_IONIZATON_POT[Zb as usize];
+    let I = BV_EMPIRICAL_MEAN_IONIZATON_POT_TABLE[Zb as usize];
 
     //See Biersack and Haggmark - this looks like an empirical shell correction
     let B = if Zb < 3. {

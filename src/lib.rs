@@ -52,13 +52,7 @@ use std::f64::consts::SQRT_2;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
-use pyo3::wrap_pyfunction;
-#[cfg(feature = "python")]
 use pyo3::types::*;
-#[cfg(feature = "python")]
-use pyo3::exceptions::PyTypeError;
-#[cfg(feature = "python")]
-use pyo3::*;
 
 //Load internal modules
 pub mod material;
@@ -96,7 +90,6 @@ pub use parry3d_f64::na::{Point3, Vector3, Matrix3, Rotation3};
 #[cfg(feature = "python")]
 #[pymodule]
 mod libRustBCA {
-    use pyo3::prelude::*;
 
     #[pymodule_export]
     use super::simple_bca_py;
@@ -143,6 +136,9 @@ mod libRustBCA {
 
     #[pymodule_export]
     use super::electronic_stopping_cross_sections;
+
+    #[pymodule_export]
+    use super::scattering_integrals;
 }
 
 #[derive(Debug)]
@@ -2164,4 +2160,21 @@ fn moller_knuth_two_sum(a: f64, b: f64) -> (f64, f64) {
     let delta_a = a - a_prime;
     let r = delta_a + delta_b;
     (s, r)
+}
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature = (Za, Zb, Ma, Mb, E0, p, n_gl_points=100))]
+fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_gl_points: usize) -> (f64, f64, f64, f64) {
+    let E0 = E0*EV;
+    let p = p*ANGSTROM;
+
+    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 1000, 1E-12).unwrap();
+
+    //Compute center of mass deflection angle with each algorithm
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C, n_gl_points);
+    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+
+    (theta_gm, theta_gl, theta_mw, theta_magic)
 }
