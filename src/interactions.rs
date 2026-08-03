@@ -1,6 +1,6 @@
 use super::*;
 use std::sync::LazyLock;
-use crate::math::triangular_index;
+use math::triangular_index;
 
 /// Analytic solutions to outermost root of the interaction potential.
 pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
@@ -239,8 +239,6 @@ static COULOMB_CONSTANT_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
         let mut array = [0.0; TABLE_SIZE];
         for i in 0..Z_MAX {
             for j in 0..=i {
-                //going from 1D to linear triangular upper array
-                //https://stackoverflow.com/questions/27086195
                 let index = (i * (i + 1))/2 + j;
                 array[index] = coulomb_constant(i as f64, j as f64);
             }
@@ -257,14 +255,13 @@ fn coulomb_constant(Za: f64, Zb: f64) -> f64 {
 pub fn screened_coulomb(r: f64, a: f64, Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
     let mut i = Za as usize;
     let mut j = Zb as usize;
-    COULOMB_CONSTANT_TABLE[triangular_index(&mut i, &mut j)]/r*phi(r/a, interaction_potential)
+    let index = triangular_index(&mut i, &mut j);
+    COULOMB_CONSTANT_TABLE[index]/r*phi(r/a, interaction_potential)
 }
 
 /// Coulombic interaction potential.
 pub fn coulomb(r: f64, Za: f64, Zb: f64) -> f64 {
-    let mut i = Za as usize;
-    let mut j = Zb as usize;
-    COULOMB_CONSTANT_TABLE[triangular_index(&mut i, &mut j)]/r
+    COULOMB_CONSTANT_TABLE[Za as usize * Z_MAX + Zb as usize]/r
 }
 
 /// Screening functions for screened-coulomb interaction potentials.
@@ -306,24 +303,37 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
     }
 }
 
-// It turns out it's faster to just generate every possible screening length as a lookup table
+// It turns out it's faster (~10% speedup) to just generate every possible screening length as a lookup table
 // LazyLock is a thread-safe value that is initialized whenever it is first accessed
 // It will block other threads while it runs, but it should run extremely quickly and only once
-static LINDHARD_SCREENING_LENGTH_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
+static LINDHARD_SCREENING_LENGTH_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
     ||
-    {
-        let mut array = [0.0; TABLE_SIZE];
-        for i in 0..Z_MAX {
-            for j in 0..=i {
-                //going from 1D to linear triangular upper array
-                //https://stackoverflow.com/questions/27086195
-                let index = (i * (i + 1))/2 + j;
-                array[index] = lindhard_screening_length(i as f64, j as f64);
-            }
+    std::array::from_fn(
+        |i| {
+            // standard 2D to 1D  array indexing
+            // I always have to look this up; copied from here
+            // (e.g. https://stackoverflow.com/questions/5494974/convert-1d-array-index-to-2d-array-index)
+            let Za = i / Z_MAX;
+            let Zb = i % Z_MAX;
+            lindhard_screening_length(Za as f64, Zb as f64)
         }
-        array
-    }
+    )
 );
+
+static ZBL_SCREENING_LENGTH_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
+    ||
+    std::array::from_fn(
+        |i| {
+            let Za = i / Z_MAX;
+            let Zb = i % Z_MAX;
+            zbl_screening_length(Za as f64, Zb as f64)
+        }
+    )
+);
+
+pub fn zbl_screening_length(Za: f64, Zb: f64) -> f64{
+    0.88534*A0/(Za.powf(0.23) + Zb.powf(0.23))
+}
 
 pub fn lindhard_screening_length(Za: f64, Zb: f64) -> f64 {
     0.8853*A0*(Za.sqrt() + Zb.sqrt()).powf(-2./3.)
@@ -331,36 +341,12 @@ pub fn lindhard_screening_length(Za: f64, Zb: f64) -> f64 {
 
 #[inline]
 pub fn lindhard_screening_length_lookup(Za: u64, Zb: u64) -> f64 {
-    let mut i = Za as usize;
-    let mut j = Zb as usize;
-    LINDHARD_SCREENING_LENGTH_TABLE[triangular_index(&mut i, &mut j)]
-}
-
-static ZBL_SCREENING_LENGTH_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
-    ||
-    {
-        let mut array = [0.0; TABLE_SIZE];
-        for i in 0..Z_MAX {
-            for j in 0..=i {
-                //going from 1D to linear triangular upper array
-                //https://stackoverflow.com/questions/27086195
-                let index = (i * (i + 1))/2 + j;
-                array[index] = zbl_screening_length(i as f64, j as f64);
-            }
-        }
-        array
-    }
-);
-
-pub fn zbl_screening_length(Za: f64, Zb: f64) -> f64{
-    0.88534*A0/(Za.powf(0.23) + Zb.powf(0.23))
+    LINDHARD_SCREENING_LENGTH_TABLE[Za as usize * Z_MAX + Zb as usize]
 }
 
 #[inline]
 pub fn zbl_screening_length_lookup(Za: u64, Zb: u64) -> f64{
-    let mut i = Za as usize;
-    let mut j = Zb as usize;
-    ZBL_SCREENING_LENGTH_TABLE[triangular_index(&mut i, &mut j)]
+    ZBL_SCREENING_LENGTH_TABLE[Za as usize * Z_MAX + Zb as usize]
 }
 
 /// Coefficients of inverse-polynomial interaction potentials.
