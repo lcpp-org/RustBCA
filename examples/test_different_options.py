@@ -279,7 +279,7 @@ def run_test(
 
 num_bins = 75
 num_samples = 100000
-run_sim = False
+run_sim = True
 show_plots = True
 
 # interaction potentials
