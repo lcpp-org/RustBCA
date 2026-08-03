@@ -2168,7 +2168,7 @@ fn moller_knuth_two_sum(a: f64, b: f64) -> (f64, f64) {
     let r = delta_a + delta_b;
     (s, r)
 }
-
+#[cfg(feature = "python")]
 #[pyfunction]
 fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64) -> (f64, f64, f64, f64) {
     let E0 = E0*EV;
