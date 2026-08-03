@@ -52,13 +52,7 @@ use std::f64::consts::SQRT_2;
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
-use pyo3::wrap_pyfunction;
-#[cfg(feature = "python")]
 use pyo3::types::*;
-#[cfg(feature = "python")]
-use pyo3::exceptions::PyTypeError;
-#[cfg(feature = "python")]
-use pyo3::*;
 
 //Load internal modules
 pub mod material;
@@ -96,7 +90,6 @@ pub use parry3d_f64::na::{Point3, Vector3, Matrix3, Rotation3};
 #[cfg(feature = "python")]
 #[pymodule]
 mod libRustBCA {
-    use pyo3::prelude::*;
 
     #[pymodule_export]
     use super::simple_bca_py;
@@ -2170,36 +2163,15 @@ fn moller_knuth_two_sum(a: f64, b: f64) -> (f64, f64) {
 }
 #[cfg(feature = "python")]
 #[pyfunction]
-fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64) -> (f64, f64, f64, f64) {
+#[pyo3(signature = (Za, Zb, Ma, Mb, E0, p, n_gl_points=100))]
+fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_gl_points: usize) -> (f64, f64, f64, f64) {
     let E0 = E0*EV;
     let p = p*ANGSTROM;
-
-    let options = Options {
-        name: "test".to_string(),
-        track_trajectories: false,
-        track_recoils: true,
-        track_recoil_trajectories: false,
-        write_buffer_size: 8000,
-        weak_collision_order: 0,
-        suppress_deep_recoils: false,
-        high_energy_free_flight_paths: false,
-        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
-        mean_free_path_model: MeanFreePathModel::LIQUID,
-        interaction_potential:  vec![vec![InteractionPotential::KR_C]],
-        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
-        num_threads: 1,
-        num_chunks: 1,
-        use_hdf5: false,
-        root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
-        track_displacements: false,
-        track_energy_losses: false,
-        seed: 0,
-    };
 
     let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 1000, 1E-12).unwrap();
 
     //Compute center of mass deflection angle with each algorithm
-    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C, 100);
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C, n_gl_points);
     let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
     let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
     let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
