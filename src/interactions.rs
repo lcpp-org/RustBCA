@@ -308,7 +308,7 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
 // It turns out it's faster (~10% speedup) to just generate every possible screening length as a lookup table
 // LazyLock is a thread-safe value that is initialized whenever it is first accessed
 // It will block other threads while it runs, but it should run extremely quickly and only once
-/*
+
 static LINDHARD_SCREENING_LENGTH_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
     ||
     {
@@ -329,23 +329,6 @@ pub fn lindhard_screening_length_lookup(Za: u64, Zb: u64) -> f64 {
     
     LINDHARD_SCREENING_LENGTH_TABLE[triangular_index(&mut i, &mut j)]
 }
-*/
-
-static LINDHARD_SCREENING_LENGTH_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
-    ||
-    std::array::from_fn(
-        |i| {
-            let Za = i / Z_MAX;
-            let Zb = i % Z_MAX;
-            lindhard_screening_length(Za as f64, Zb as f64)
-        }
-    )
-);
-
-pub fn lindhard_screening_length_lookup(Za: u64, Zb: u64) -> f64 {
-    LINDHARD_SCREENING_LENGTH_TABLE[Za as usize * Z_MAX + Zb as usize]
-}
-
 
 static ZBL_SCREENING_LENGTH_TABLE: LazyLock<[f64; TABLE_SIZE]> = LazyLock::new(
     ||
