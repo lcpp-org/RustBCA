@@ -42,6 +42,7 @@ jobs:
         python3 -m pip install .
         python3 -c "from libRustBCA import *;"
         python3 examples/test_rustbca.py
+        python3 examples/test_scattering_integrals.py
         python3 examples/test_cube.py
         python3 examples/make_input_file_and_run.py
         python3 examples/test_electronic_stopping.py
