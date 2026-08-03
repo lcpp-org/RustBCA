@@ -143,6 +143,9 @@ mod libRustBCA {
 
     #[pymodule_export]
     use super::electronic_stopping_cross_sections;
+
+    #[pymodule_export]
+    use super::scattering_integrals;
 }
 
 #[derive(Debug)]
@@ -2164,4 +2167,42 @@ fn moller_knuth_two_sum(a: f64, b: f64) -> (f64, f64) {
     let delta_a = a - a_prime;
     let r = delta_a + delta_b;
     (s, r)
+}
+
+#[pyfunction]
+fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64) -> (f64, f64, f64, f64) {
+    let E0 = E0*EV;
+    let p = p*ANGSTROM;
+
+    let options = Options {
+        name: "test".to_string(),
+        track_trajectories: false,
+        track_recoils: true,
+        track_recoil_trajectories: false,
+        write_buffer_size: 8000,
+        weak_collision_order: 0,
+        suppress_deep_recoils: false,
+        high_energy_free_flight_paths: false,
+        electronic_stopping_mode: ElectronicStoppingMode::INTERPOLATED,
+        mean_free_path_model: MeanFreePathModel::LIQUID,
+        interaction_potential:  vec![vec![InteractionPotential::KR_C]],
+        scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
+        num_threads: 1,
+        num_chunks: 1,
+        use_hdf5: false,
+        root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
+        track_displacements: false,
+        track_energy_losses: false,
+        seed: 0,
+    };
+
+    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 1000, 1E-12).unwrap();
+
+    //Compute center of mass deflection angle with each algorithm
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C, 100);
+    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+
+    (theta_gm, theta_gl, theta_mw, theta_magic)
 }
