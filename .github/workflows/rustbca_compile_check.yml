@@ -46,6 +46,7 @@ jobs:
         python3 examples/test_cube.py
         python3 examples/make_input_file_and_run.py
         python3 examples/test_electronic_stopping.py
+        python3 examples/test_different_options.py
     - name: Test Fortran and C bindings
       run : |
         cargo build --release --lib --features parry3d
