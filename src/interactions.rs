@@ -97,7 +97,7 @@ fn diff_doca_function_transformed(x0: f64, beta: f64, reduced_energy: f64, inter
 pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+            //let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
             let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
             let beta: f64 = impact_parameter/a;
             doca_function(r/a, beta, reduced_energy, interaction_potential)
@@ -132,7 +132,7 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
     }
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+            //let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
             let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
             let beta: f64 = impact_parameter/a;
             doca_function_transformed(r/a, beta, reduced_energy, interaction_potential)
@@ -191,7 +191,7 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
 pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN |InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+            //let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
             //let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
             let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
             let beta: f64 = impact_parameter/a;
@@ -211,7 +211,7 @@ pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f
 pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+            //let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
             //let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
             let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
             let beta: f64 = impact_parameter/a;
@@ -547,6 +547,7 @@ fn kr_c(xi: f64) -> f64 {
     0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp()
 }
 
+
 fn zbl(xi: f64) -> f64 {
     0.02817*(-0.20162*xi).exp() + 0.28022*(-0.40290*xi).exp() + 0.50986*(-0.94229*xi).exp() + 0.18175*(-3.1998*xi).exp()
 }
@@ -562,6 +563,7 @@ fn diff_moliere(xi: f64) -> f64 {
 fn diff_kr_c(xi: f64) -> f64 {
     -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp()
 }
+
 
 fn diff_zbl(xi: f64) -> f64 {
     -0.20162*0.02817*(-0.20162*xi).exp() -0.40290*0.28022*(-0.40290*xi).exp() -0.94229*0.50986*(-0.94229*xi).exp() -3.1998*0.18175*(-3.1998*xi).exp()

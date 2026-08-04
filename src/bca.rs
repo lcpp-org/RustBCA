@@ -1,5 +1,6 @@
 use super::*;
 use rand::RngExt;
+use std::sync::LazyLock;
 
 #[cfg(feature = "cpr_rootfinder")]
 use rcpr::chebyshev::*;
@@ -390,9 +391,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         return doca/interactions::screening_length(Z1, Z2, interaction_potential);
     }
 
-    let root_finder = if relative_energy < interactions::energy_threshold_single_root(interaction_potential) {
-            options.root_finder[particle_1.interaction_index][particle_2.interaction_index]
-        } else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-6}};
+    let root_finder = options.root_finder[particle_1.interaction_index][particle_2.interaction_index];
 
     #[cfg(feature = "cpr_rootfinder")]
     match root_finder {
@@ -440,13 +439,13 @@ pub fn subtract_electronic_stopping_energy<T: Geometry>(particle_1: &mut particl
         let n = material.number_densities(x, y, z);
 
         let delta_energy_electronic = match options.electronic_stopping_mode {
-            ElectronicStoppingMode::INTERPOLATED | ElectronicStoppingMode::LOW_ENERGY_NONLOCAL  | ElectronicStoppingMode::INTERPOLATEDPLUS{..} => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
+            ElectronicStoppingMode::INTERPOLATED | ElectronicStoppingMode::LOW_ENERGY_NONLOCAL  | ElectronicStoppingMode::INTERPOLATEDPLUS{..} => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).sum::<f64>()*distance_traveled,
             //ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
             ElectronicStoppingMode::LOW_ENERGY_LOCAL => oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, interaction_potential),
             ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => {
 
                 let delta_energy_local = oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, interaction_potential);
-                let delta_energy_nonlocal = electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled;
+                let delta_energy_nonlocal = electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).sum::<f64>()*distance_traveled;
 
                 0.5*delta_energy_local + 0.5*delta_energy_nonlocal
             },
@@ -552,14 +551,22 @@ fn scattering_integral_gauss_mehler<F>(impact_parameter: f64, relative_energy: f
         .unwrap()).sum::<f64>()
 }
 
+static GL_X: LazyLock<[f64; 5]> = LazyLock::new(
+    ||
+    [0., -0.538469, 0.538469, -0.90618, 0.90618].map(|x| x/2. + 1./2.).into()
+);
+
+static GL_W: LazyLock<[f64; 5]> = LazyLock::new(
+    ||
+    [0.568889, 0.478629, 0.478629, 0.236927, 0.236927].map(|w| w/2.).into()
+);
+
 /// Compute the scattering integral for a given relative energy, distance of closest approach `r0`,  and interaction potential using a Gauss-Legendre, 5-point quadrature.
 fn scattering_integral_gauss_legendre<F>(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: F) -> f64 
     where F: Fn(f64) -> f64 + Clone
 {
-    let x: Vec<f64> = [0., -0.538469, 0.538469, -0.90618, 0.90618].iter().map(|x| x/2. + 1./2.).collect();
-    let w: Vec<f64> = [0.568889, 0.478629, 0.478629, 0.236927, 0.236927].iter().map(|w| w/2.).collect();
 
-    PI - x.iter().zip(w)
+    PI - &GL_X.iter().zip(GL_W.iter())
         .map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential.clone())
         .with_context(|| format!("Numerical error: NaN in Gauss-Legendre scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
         .unwrap()).sum::<f64>()

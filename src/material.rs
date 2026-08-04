@@ -252,7 +252,7 @@ impl <T: Geometry> Material<T> {
         }
         panic!("Input error: method choose() operation failed to choose a valid species. Check densities.");
     }
-
+    
     /// Calculate the electronic stopping cross-sections using the mode set in [options].
     pub fn electronic_stopping_cross_sections(&self, particle_1: &super::particle::Particle, electronic_stopping_mode: ElectronicStoppingMode) -> Vec<f64> {
 
