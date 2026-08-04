@@ -150,20 +150,20 @@ impl <T: Geometry> Material<T> {
     /// Finds the average, concentration-weighted atomic number, Z_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_Z(&self, x: f64, y: f64, z: f64) -> f64 {
         let concentrations = self.geometry.get_concentrations(x, y, z);
-        self.Z.iter().zip(concentrations).map(|(charge, concentration)| charge*concentration).collect::<Vec<f64>>().iter().sum()
+        self.Z.iter().zip(concentrations).map(|(charge, concentration)| charge*concentration).sum()
     }
 
     /// Finds the average, concentration-weighted atomic mass, m_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_mass(&self, x: f64, y: f64, z: f64) -> f64 {
         let concentrations = self.geometry.get_concentrations(x, y, z);
-        self.m.iter().zip(concentrations).map(|(mass, concentration)| mass*concentration).collect::<Vec<f64>>().iter().sum()
+        self.m.iter().zip(concentrations).map(|(mass, concentration)| mass*concentration).sum()
     }
 
     /// Finds the average, concentration-weighted bulk binding energy of the triangle that contains or is nearest to (x, y).
     pub fn average_bulk_binding_energy(&self, x: f64, y: f64, z: f64) -> f64 {
         //returns average bulk binding energy
         let concentrations = self.geometry.get_concentrations(x, y, z);
-        self.Eb.iter().zip(concentrations).map(|(bulk_binding_energy, concentration)| bulk_binding_energy*concentration).collect::<Vec<f64>>().iter().sum()
+        self.Eb.iter().zip(concentrations).map(|(bulk_binding_energy, concentration)| bulk_binding_energy*concentration).sum()
     }
 
     pub fn actual_bulk_binding_energy(&self, species_index: usize, x: f64, y: f64, z: f64) -> f64 {
@@ -194,7 +194,7 @@ impl <T: Geometry> Material<T> {
                 if particle.Es == 0. {
                     0.
                 } else {
-                    self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum()
+                    self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).sum()
                 }
             },
             SurfaceBindingModel::INDIVIDUAL => particle.Es,
@@ -202,7 +202,7 @@ impl <T: Geometry> Material<T> {
                 if (particle.Es == 0.) | (self.Es.iter().sum::<f64>() == 0.) {
                     0.
                 } else {
-                    0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum::<f64>())
+                    0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).sum::<f64>())
                 }
             },
             SurfaceBindingModel::ISOTROPIC{calculation} | SurfaceBindingModel::PLANAR{calculation} => {
@@ -213,7 +213,7 @@ impl <T: Geometry> Material<T> {
                         if particle.Es == 0. {
                             0.
                         } else {
-                            self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum()
+                            self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).sum()
                         }
                     },
 
@@ -221,7 +221,7 @@ impl <T: Geometry> Material<T> {
                         if (particle.Es == 0.) | (self.Es.iter().sum::<f64>() == 0.) {
                             0.
                         } else {
-                            0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum::<f64>())
+                            0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).sum::<f64>())
                         }
                     },
                 }
@@ -252,7 +252,7 @@ impl <T: Geometry> Material<T> {
         }
         panic!("Input error: method choose() operation failed to choose a valid species. Check densities.");
     }
-    
+
     /// Calculate the electronic stopping cross-sections using the mode set in [options].
     pub fn electronic_stopping_cross_sections(&self, particle_1: &super::particle::Particle, electronic_stopping_mode: ElectronicStoppingMode) -> Vec<f64> {
 
