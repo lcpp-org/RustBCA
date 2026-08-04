@@ -112,7 +112,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                     }
 
                     //Energy transfer to recoil
-                    particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
+                    particle_2.E = binary_collision_result.recoil_energy - material.actual_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                     particle_2.energy_origin = particle_2.E;
 
                     //Accumulate energy losses and asymptotic deflections for primary particle
@@ -349,7 +349,6 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     let cosx: f64 = particle_1.dir.x;
     let cosy: f64 = particle_1.dir.y;
     let cosz: f64 = particle_1.dir.z;
-    let sinx: f64 = (1. - cosx*cosx).sqrt();
     let (sinphi, cosphi) = phi_azimuthal.sin_cos();
 
     let (e1, e2) = math::duff_orthonormal_basis(particle_1.dir);
