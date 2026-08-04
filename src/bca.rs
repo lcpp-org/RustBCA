@@ -405,7 +405,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
-        Rootfinder::DEFAULTNEWTON => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-3)
+        Rootfinder::DEFAULTNEWTON => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-6)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
     }
@@ -415,7 +415,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
-        Rootfinder::DEFAULTNEWTON => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-3)
+        Rootfinder::DEFAULTNEWTON => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-6)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
         _ => panic!("Input error: unimplemented root-finder. Choose NEWTON or build with cpr_rootfinder to enable CPR and POLYNOMIAL")
