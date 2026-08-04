@@ -542,13 +542,19 @@ fn scattering_function_gm<F>(u: f64, impact_parameter: f64, r0: f64, relative_en
 fn scattering_integral_gauss_mehler<F>(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: F, n_points: usize) -> f64 
     where F: Fn(f64) -> f64 + Clone
 {
-    let x: Vec<f64> = (1..=n_points).map(|i| ((2.*i as f64 - 1.)/4./n_points as f64*PI).cos()).collect();
-    let w: Vec<f64> = (1..=n_points).map(|i| PI/n_points as f64*((2.*i as f64 - 1.)/4./n_points as f64*PI).sin()).collect();
-
-    PI - x.iter().zip(w)
-        .map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential.clone())
-        .with_context(|| format!("Numerical error: NaN in Gauss-Mehler scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
-        .unwrap()).sum::<f64>()
+    PI - (1..=n_points).map(
+        |i| {
+            let x = ((2.*i as f64 - 1.)/4./n_points as f64*PI).cos();
+            let w = PI/n_points as f64*((2.*i as f64 - 1.)/4./n_points as f64*PI).sin();
+            (x, w)
+        }
+    ).map(
+        |(x, w)| {
+            w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential.clone())
+            .with_context(|| format!("Numerical error: NaN in Gauss-Mehler scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
+            .unwrap()
+        }
+    ).sum::<f64>()
 }
 
 static GL_X: LazyLock<[f64; 5]> = LazyLock::new(
