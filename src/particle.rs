@@ -235,16 +235,13 @@ impl Particle {
         let cosy: f64 = self.dir.y;
         let cosz: f64 = self.dir.z;
         // PI rotation here enforces particle deflection in opposite direction of recoil location
-        let cosphi: f64 = (phi + PI).cos();
-        let sinphi: f64 = (phi + PI).sin();
-
-        let cpsi: f64 = psi.cos();
-        let spsi: f64 = psi.sin();
+        let (sinphi, cosphi) = (phi + PI).sin_cos();
+        let (sinpsi, cospsi) = psi.sin_cos();
 
         let (e1, e2) = math::duff_orthonormal_basis(self.dir);
-        let cosx_new = cpsi*cosx - spsi*(cosphi*e1.x + sinphi*e2.x);
-        let cosy_new = cpsi*cosy - spsi*(cosphi*e1.y + sinphi*e2.y);
-        let cosz_new = cpsi*cosz - spsi*(cosphi*e1.z + sinphi*e2.z);
+        let cosx_new = cospsi*cosx - sinpsi*(cosphi*e1.x + sinphi*e2.x);
+        let cosy_new = cospsi*cosy - sinpsi*(cosphi*e1.y + sinphi*e2.y);
+        let cosz_new = cospsi*cosz - sinpsi*(cosphi*e1.z + sinphi*e2.z);
 
         let dir_new = Vector {x: cosx_new, y: cosy_new, z: cosz_new};
 

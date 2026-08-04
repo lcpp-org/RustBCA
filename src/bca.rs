@@ -346,12 +346,11 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     let phi_azimuthal = binary_collision_geometry.phi_azimuthal;
 
     //Determine cosines and sines
-    let sinphi: f64 = phi_azimuthal.sin();
     let cosx: f64 = particle_1.dir.x;
     let cosy: f64 = particle_1.dir.y;
     let cosz: f64 = particle_1.dir.z;
     let sinx: f64 = (1. - cosx*cosx).sqrt();
-    let cosphi: f64 = phi_azimuthal.cos();
+    let (sinphi, cosphi) = phi_azimuthal.sin_cos();
 
     let (e1, e2) = math::duff_orthonormal_basis(particle_1.dir);
     let x_recoil = x + mfp*cosx - impact_parameter*(e1.x*cosphi + e2.x*sinphi);
@@ -491,16 +490,18 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     if theta.is_nan() {
         return Err(anyhow!("Numerical error: CoM deflection angle is NaN for {}. Check input parameters.", binary_collision_geometry));
     }
+    let (sin_theta, cos_theta) = theta.sin_cos();
+    let sin_2_theta = (theta/2.).sin();
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
     let asymptotic_deflection = match interaction_potential {
         InteractionPotential::COULOMB{..} => 0.,
-        _ => x0*a*(theta/2.).sin()
+        _ => x0*a*sin_2_theta
     };
-
-    let psi = theta.sin().atan2(Ma/Mb + theta.cos());
-    let psi_recoil = theta.sin().atan2(1. - theta.cos());
-    let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powi(2)*E0*(theta/2.).sin().powi(2);
+    
+    let psi = sin_theta.atan2(Ma/Mb + cos_theta);
+    let psi_recoil = sin_theta.atan2(1. - cos_theta);
+    let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powi(2)*E0*sin_2_theta.powi(2);
 
     Ok(BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asymptotic_deflection, x0))
 }
