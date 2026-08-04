@@ -203,9 +203,6 @@ pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             diff_doca_lennard_jones_65_6(r, impact_parameter, relative_energy, sigma, epsilon)
         },
-        InteractionPotential::MORSE{D, alpha, r0} => {
-            diff_doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
-        },
         _ => panic!("Input error: {} does not have an implemented derivative. Try using the derivative free CPR-rootfinder.", interaction_potential)
     }
 }
@@ -225,9 +222,6 @@ pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f6
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             diff_doca_lennard_jones_65_6(r, impact_parameter, relative_energy, sigma, epsilon)
-        },
-        InteractionPotential::MORSE{D, alpha, r0} => {
-            diff_doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
         },
         _ => panic!("Input error: {} does not have an implemented derivative. Try using the derivative free CPR-rootfinder.", interaction_potential)
     }
@@ -365,16 +359,12 @@ pub fn zbl_screening_length_lookup(Za: u64, Zb: u64) -> f64{
 pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> Vec<f64> {
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
-            let impact_parameter_angstroms = impact_parameter/ANGSTROM;
             let epsilon_ev = epsilon/EV;
-            let sigma_angstroms = sigma/ANGSTROM;
             let relative_energy_ev = relative_energy/EV;
             vec![1.0, -impact_parameter.powi(2), 0.0, 4.*epsilon_ev*sigma.powi(6)/relative_energy_ev, 0.0, 0.0, -4.*epsilon_ev*sigma.powi(12)/relative_energy_ev]
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
-            let impact_parameter_angstroms = impact_parameter/ANGSTROM;
             let epsilon_ev = epsilon/EV;
-            let sigma_angstroms = sigma/ANGSTROM;
             let relative_energy_ev = relative_energy/EV;
             vec![1., 0., 0., 0., -impact_parameter.powi(2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon_ev*sigma.powi(6)/relative_energy_ev, -4.*epsilon_ev*sigma.powf(6.5)/relative_energy_ev]
         },
@@ -451,11 +441,6 @@ pub fn doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, a
 /// Distance of closest approach function for Morse potential.
 pub fn doca_krc_morse(r: f64, impact_parameter: f64, relative_energy: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, k: f64, x0: f64) -> f64 {
     (r*alpha).powi(2) - (r*alpha).powi(2)/relative_energy*krc_morse(r, a, Za, Zb, D, alpha, r0, k, x0) - (impact_parameter*alpha).powi(2)
-}
-
-/// First derivative w.r.t. `r` of the distance of closest approach function for Morse potential.
-pub fn diff_doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, alpha: f64, r0: f64) -> f64 {
-    2.*alpha.powi(2)*r - 2.*alpha.powi(2)*D*r*(-2.*alpha*(r - r0) - 1.).exp()*(alpha*r*(alpha*(r - r0)).exp() - 2.*(alpha*(r - r0)).exp() - r*alpha + 1.)
 }
 
 /// Distance of closest approach function for LJ 6.5-6 potential.

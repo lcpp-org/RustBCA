@@ -112,7 +112,8 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                     }
 
                     //Energy transfer to recoil
-                    particle_2.E = binary_collision_result.recoil_energy - material.actual_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
+                    particle_2.E = binary_collision_result.recoil_energy - material.actual_bulk_binding_energy(species_index, particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
+                    //particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                     particle_2.energy_origin = particle_2.E;
 
                     //Accumulate energy losses and asymptotic deflections for primary particle
@@ -207,7 +208,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
     let mut binary_collision_geometries = Vec::with_capacity(options.weak_collision_order + 1);
 
     //Each weak collision gets its own aziumuthal angle in annuli around collision point
-    for k in 0..options.weak_collision_order + 1 {
+    for _ in 0..options.weak_collision_order + 1 {
         phis_azimuthal.push(2.*PI*rng.random::<f64>());
     }
 
@@ -217,7 +218,6 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
         let Mb: f64  = material.average_mass(x, y, z);
         let Za: f64  = particle_1.Z;
         let Zb: f64  = material.average_Z(x, y, z);
-        let n: &Vec<f64>  = material.number_densities(x, y, z);
         let ck: f64 = material.electronic_stopping_correction_factor(x, y, z);
         let E: f64  = particle_1.E;
         let Ec: f64 = particle_1.Ec;
@@ -471,7 +471,6 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     let Ma: f64 = particle_1.m;
     let Mb: f64 = particle_2.m;
     let E0: f64 = particle_1.E;
-    let mu: f64 = Mb/(Ma + Mb);
 
     let interaction_potential = options.interaction_potential[particle_1.interaction_index][particle_2.interaction_index];
     let scattering_integral = options.scattering_integral[particle_1.interaction_index][particle_2.interaction_index];
@@ -678,7 +677,7 @@ pub fn newton_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_par
 
     //Newton-Raphson to determine distance of closest approach
     let mut err: f64 = tolerance + 1.;
-    for k in 0..max_iterations {
+    for _ in 0..max_iterations {
         xn = x0 - f(x0*a)/df(x0*a);
         err = (xn - x0)*(xn - x0);
         x0 = xn;

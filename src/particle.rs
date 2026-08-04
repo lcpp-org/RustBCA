@@ -293,13 +293,3 @@ pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
     particle.E += Es;
 }
 
-/// Calcualte the refraction angle based on the surface binding energy of the material.
-pub fn refraction_angle(costheta: f64, energy_old: f64, energy_new: f64) -> f64 {
-    let costheta = if costheta.abs() > 1. {costheta.signum()} else {costheta};
-    let sintheta0 = (1. - costheta*costheta).sqrt();
-    let sintheta1 = sintheta0*(energy_old/energy_new).sqrt();
-    let delta_theta = sintheta1.asin() - sintheta0.asin();
-    assert!(!delta_theta.is_nan(), "Numerical error: refraction returned NaN.");
-    let sign = -costheta.signum();
-    sign*delta_theta
-}

@@ -367,7 +367,6 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
 
     //Actual surface binding energies
     let Es = material.actual_surface_binding_energy(particle_1, x_old, y_old, z_old);
-    let Ec = particle_1.Ec;
 
     let inside_now = material.inside_energy_barrier(x, y, z);
     let inside_old = material.inside_energy_barrier(x_old, y_old, z_old);
