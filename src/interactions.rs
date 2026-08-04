@@ -97,7 +97,6 @@ fn diff_doca_function_transformed(x0: f64, beta: f64, reduced_energy: f64, inter
 pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            //let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
             let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
             let beta: f64 = impact_parameter/a;
             doca_function(r/a, beta, reduced_energy, interaction_potential)
@@ -132,7 +131,6 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
     }
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            //let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
             let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
             let beta: f64 = impact_parameter/a;
             doca_function_transformed(r/a, beta, reduced_energy, interaction_potential)
@@ -191,8 +189,6 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
 pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN |InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            //let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
-            //let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
             let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
             let beta: f64 = impact_parameter/a;
             diff_doca_function(r/a, beta, reduced_energy, interaction_potential)
@@ -211,8 +207,6 @@ pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f
 pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            //let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
-            //let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
             let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
             let beta: f64 = impact_parameter/a;
             diff_doca_function_transformed(r/a, beta, reduced_energy, interaction_potential)

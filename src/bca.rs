@@ -1,6 +1,5 @@
 use super::*;
 use rand::RngExt;
-use std::sync::LazyLock;
 
 #[cfg(feature = "cpr_rootfinder")]
 use rcpr::chebyshev::*;
@@ -557,21 +556,10 @@ fn scattering_integral_gauss_mehler<F>(impact_parameter: f64, relative_energy: f
     ).sum::<f64>()
 }
 
-static GL_X: LazyLock<[f64; 5]> = LazyLock::new(
-    ||
-    [0., -0.538469, 0.538469, -0.90618, 0.90618].map(|x| x/2. + 1./2.).into()
-);
-
-static GL_W: LazyLock<[f64; 5]> = LazyLock::new(
-    ||
-    [0.568889, 0.478629, 0.478629, 0.236927, 0.236927].map(|w| w/2.).into()
-);
-
 /// Compute the scattering integral for a given relative energy, distance of closest approach `r0`,  and interaction potential using a Gauss-Legendre, 5-point quadrature.
 fn scattering_integral_gauss_legendre<F>(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: F) -> f64 
     where F: Fn(f64) -> f64 + Clone
 {
-
     PI - &GL_X.iter().zip(GL_W.iter())
         .map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential.clone())
         .with_context(|| format!("Numerical error: NaN in Gauss-Legendre scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))

@@ -44,3 +44,7 @@ pub const Z_MAX: usize = 120;
 //num elements in a triangular NxN matrix (including diag)
 /// LUT size; triangular matrix of size Z_MAX * Z_MAX
 pub const TABLE_SIZE: usize = Z_MAX*(Z_MAX + 1)/2;
+/// Gauss-Legendre Points
+pub const GL_X: [f64; 5] = [0./2. + 1./2., -0.538469/2. + 1./2., 0.538469/2. + 1./2., -0.90618/2. + 1./2., 0.90618/2. + 1./2.];
+/// Gauss-Legendre Weights
+pub const GL_W: [f64; 5] = [0.568889/2., 0.478629/2., 0.478629/2., 0.236927/2., 0.236927/2.];
