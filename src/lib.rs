@@ -2191,10 +2191,10 @@ fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_g
 
 #[cfg(feature = "python")]
 #[pyfunction]
-#[pyo3(signature=(input, geometry_type="1D"))]
-fn rustbca_py<'py>(input: &Bound<'py, PyDict>, geometry_type: &str) {
+#[pyo3(signature=(input, geometry_mode="1D"))]
+fn rustbca_py<'py>(input: &Bound<'py, PyDict>, geometry_mode: &str) {
 
-    match geometry_type {
+    match geometry_mode {
         "1D" => {
             let input: <Mesh1D as geometry::Geometry>::InputFileFormat = depythonize(&input).unwrap();
             let (particle_input_array, material, options, output_units) = input::process_input_file(input);
@@ -2209,10 +2209,10 @@ fn rustbca_py<'py>(input: &Bound<'py, PyDict>, geometry_type: &str) {
 
 #[cfg(feature = "python")]
 #[pyfunction]
-#[pyo3(signature=(input, geometry_type="1D"))]
-fn rustbca_local_py<'py>(python: Python<'py>, input: &Bound<'py, PyDict>, geometry_type: &str) -> PyResult<Bound<'py, PyAny>> {
+#[pyo3(signature=(input, geometry_mode="1D"))]
+fn rustbca_local_py<'py>(python: Python<'py>, input: &Bound<'py, PyDict>, geometry_mode: &str) -> PyResult<Bound<'py, PyAny>> {
 
-    match geometry_type {
+    match geometry_mode {
         "1D" => {
             let input: <Mesh1D as geometry::Geometry>::InputFileFormat = depythonize(&input).unwrap();
             let (particle_input_array, material, options, output_units) = input::process_input_file(input);
