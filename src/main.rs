@@ -97,6 +97,7 @@ fn main() {
             //Initialize threads with rayon
             println!("Initializing with {} threads...", options.num_threads);
             let _ = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global();
+            println!("Processing {} ions...", particle_input_array.len());
             physics_loop::<Mesh0D>(particle_input_array, material, options, output_units);
         },
         GeometryType::MESH1D => {
