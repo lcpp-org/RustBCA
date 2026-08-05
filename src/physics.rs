@@ -3,7 +3,7 @@ use rayon::iter::*;
 use indicatif::{ProgressBar, ProgressStyle};
 
 pub fn silent_physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::ParticleInput>, material: material::Material<T>, options: Options, output_units: OutputUnits) -> Vec<particle::Particle> {
-    
+
     let mut finished_particles: Vec<particle::Particle> = Vec::new();
 
     finished_particles.par_extend(
@@ -83,8 +83,6 @@ pub fn process_finished_particles_to_arrays(finished_particles: Vec<particle::Pa
 }
 
 pub fn physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::ParticleInput>, material: material::Material<T>, options: Options, output_units: OutputUnits) {
-
-        println!("Processing {} ions...", particle_input_array.len());
 
         let total_count: u64 = particle_input_array.len() as u64;
         assert!(total_count/options.num_chunks > 0, "Input error: chunk size == 0 - reduce num_chunks or increase particle count.");
