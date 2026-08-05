@@ -55,6 +55,8 @@ use pyo3::prelude::*;
 use pyo3::types::*;
 #[cfg(feature = "python")]
 use pythonize::*;
+#[cfg(feature = "python")]
+use pyo3::exceptions::PyValueError;
 
 //Load internal modules
 pub mod material;
@@ -2192,7 +2194,7 @@ fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_g
 #[cfg(feature = "python")]
 #[pyfunction]
 #[pyo3(signature=(input, geometry_mode="1D"))]
-fn rustbca_py<'py>(input: &Bound<'py, PyDict>, geometry_mode: &str) {
+fn rustbca_py<'py>(python: Python<'py>, input: &Bound<'py, PyDict>, geometry_mode: &str) -> PyResult<()> {
 
     match geometry_mode {
         "1D" => {
@@ -2202,8 +2204,9 @@ fn rustbca_py<'py>(input: &Bound<'py, PyDict>, geometry_mode: &str) {
             pool.install( ||
                 physics::physics_loop::<Mesh1D>(particle_input_array, material, options, output_units)
             );
-        }
-        _ => panic!("Input Error: unimplemented geometry mode for rustbca_py. Try `1D`")
+            Ok(())
+        },
+       _ => Err(PyValueError::new_err(format!("Input Error: Unimplemented geometry mode {}; try '1D'", geometry_mode)))
     }
 }
 
@@ -2223,6 +2226,6 @@ fn rustbca_local_py<'py>(python: Python<'py>, input: &Bound<'py, PyDict>, geomet
             let finished_particles_container = physics::process_finished_particles_to_arrays(finished_particles, output_units);
             Ok(pythonize(python, &finished_particles_container)?)
         }
-        _ => panic!("Input Error: unimplemented geometry mode for rustbca_py. Try `1D`")
+        _ => Err(PyValueError::new_err(format!("Input Error: Unimplemented geometry mode {}; try '1D'", geometry_mode)))
     }
 }
