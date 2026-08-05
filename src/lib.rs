@@ -53,6 +53,8 @@ use std::f64::consts::SQRT_2;
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
 use pyo3::types::*;
+#[cfg(feature = "python")]
+use pythonize::*;
 
 //Load internal modules
 pub mod material;
@@ -68,9 +70,7 @@ pub mod consts;
 pub mod structs;
 pub mod sphere;
 pub mod math;
-
-#[cfg(feature = "parry3d")]
-pub mod parry;
+pub mod physics;
 
 pub use crate::enums::*;
 pub use crate::consts::*;
@@ -81,6 +81,10 @@ pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
 pub use crate::math::*;
 pub use crate::material::*;
+pub use crate::physics::*;
+
+#[cfg(feature = "parry3d")]
+pub mod parry;
 
 #[cfg(feature = "parry3d")]
 pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, ParryTriMeshInput, InputParryTriMesh};
@@ -139,6 +143,12 @@ mod libRustBCA {
 
     #[pymodule_export]
     use super::scattering_integrals;
+
+    #[pymodule_export]
+    use super::rustbca_py;
+
+    #[pymodule_export]
+    use super::rustbca_local_py;
 }
 
 #[derive(Debug)]
@@ -2177,4 +2187,42 @@ fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_g
     let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
 
     (theta_gm, theta_gl, theta_mw, theta_magic)
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature=(input, geometry_type="1D", output_path=""))]
+fn rustbca_py<'py>(input: &Bound<'py, PyDict>, geometry_type: &str, output_path: &str) {
+
+    match geometry_type {
+        "1D" => {
+            let input: <Mesh1D as geometry::Geometry>::InputFileFormat = depythonize(&input).unwrap();
+            let (particle_input_array, material, options, output_units) = input::process_input_file(input);
+            let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build().unwrap();
+            pool.install( ||
+                physics::physics_loop::<Mesh1D>(particle_input_array, material, options, output_units)
+            );
+        }
+        _ => panic!("Input Error: unimplemented geometry mode for rustbca_py. Try `1D`")
+    }
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature=(input, geometry_type="1D"))]
+fn rustbca_local_py<'py>(python: Python<'py>, input: &Bound<'py, PyDict>, geometry_type: &str) -> PyResult<Bound<'py, PyAny>> {
+
+    match geometry_type {
+        "1D" => {
+            let input: <Mesh1D as geometry::Geometry>::InputFileFormat = depythonize(&input).unwrap();
+            let (particle_input_array, material, options, output_units) = input::process_input_file(input);
+            let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build().unwrap();
+            let finished_particles = pool.install(||
+                physics::silent_physics_loop::<Mesh1D>(particle_input_array, material, options, output_units.clone())
+            );
+            let finished_particles_container = physics::process_finished_particles_to_arrays(finished_particles, output_units);
+            Ok(pythonize(python, &finished_particles_container)?)
+        }
+        _ => panic!("Input Error: unimplemented geometry mode for rustbca_py. Try `1D`")
+    }
 }

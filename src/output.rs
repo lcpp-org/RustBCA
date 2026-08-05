@@ -1,6 +1,7 @@
 use super::*;
 use std::fs::File;
 
+#[derive(Clone, Debug)]
 pub struct OutputUnits {
     pub length_unit: f64,
     pub energy_unit: f64,

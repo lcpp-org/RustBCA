@@ -255,6 +255,17 @@ elif mode == '0D':
     'geometry_input': geometry_0D
 }
 
+input_data['options']['name'] = 'rustbca_input_file'
+rustbca_py(input_data, mode)
+s = np.genfromtxt('rustbca_input_filesputtered.output', delimiter=',')
+
+arrays = rustbca_local_py(input_data, mode)
+sputtered = arrays['sputtered']
+
+np.testing.assert_approx_equal(s[0, 2], np.array(arrays['energy'])[sputtered][0])
+
+input_data['options']['name'] = 'input_file'
+
 # Attempt to cleanup line endings
 input_string = dumps(input_data).replace('\r', '')
 with  open('examples/input_file.toml', 'w') as input_file:
@@ -265,6 +276,9 @@ if run_sim:
 
 # Read output files - ensure arrays are at least 2D for indexing
 sputtered = np.atleast_2d(np.genfromtxt('input_filesputtered.output', delimiter=','))
+
+np.testing.assert_approx_equal(sputtered[0, 2], s[0, 2])
+
 reflected = np.atleast_2d(np.genfromtxt('input_filereflected.output', delimiter=','))
 implanted = np.atleast_2d(np.genfromtxt('input_filedeposited.output', delimiter=','))
 
