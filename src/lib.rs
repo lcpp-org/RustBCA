@@ -2191,8 +2191,8 @@ fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_g
 
 #[cfg(feature = "python")]
 #[pyfunction]
-#[pyo3(signature=(input, geometry_type="1D", output_path=""))]
-fn rustbca_py<'py>(input: &Bound<'py, PyDict>, geometry_type: &str, output_path: &str) {
+#[pyo3(signature=(input, geometry_type="1D"))]
+fn rustbca_py<'py>(input: &Bound<'py, PyDict>, geometry_type: &str) {
 
     match geometry_type {
         "1D" => {
