@@ -69,6 +69,20 @@ pub use crate::math::duff_orthonormal_basis;
 #[cfg(feature = "parry3d")]
 pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, ParryTriMeshInput, InputParryTriMesh};
 
+
+macro_rules! main_loop {
+    ($geometry_type:ident, $input_file:expr) => {
+        {
+            let (particle_input_array, material, options, output_units) = input::input::<$geometry_type>($input_file);
+            //Initialize threads with rayon
+            println!("Processing {} ions...", particle_input_array.len());
+            println!("Initializing with {} threads...", options.num_threads);
+            let _ = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global();
+            physics_loop::<$geometry_type>(particle_input_array, material, options, output_units);
+        }
+    }
+}
+
 fn main() {
 
     let args: Vec<String> = env::args().collect();
@@ -92,57 +106,14 @@ fn main() {
     };
 
      match geometry_type {
-        GeometryType::MESH0D => {
-            let (particle_input_array, material, options, output_units) = input::input::<geometry::Mesh0D>(input_file);
-            //Initialize threads with rayon
-            println!("Processing {} ions...", particle_input_array.len());
-            println!("Initializing with {} threads...", options.num_threads);
-            let _ = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global();
-            physics_loop::<Mesh0D>(particle_input_array, material, options, output_units);
-        },
-        GeometryType::MESH1D => {
-            let (particle_input_array, material, options, output_units) = input::input::<geometry::Mesh1D>(input_file);
-            println!("Processing {} ions...", particle_input_array.len());
-            println!("Initializing with {} threads...", options.num_threads);
-            let _ = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global();
-            physics_loop::<Mesh1D>(particle_input_array, material, options, output_units);
-        },
-        GeometryType::MESH2D => {
-            let (particle_input_array, material, options, output_units) = input::input::<geometry::Mesh2D>(input_file);
-            println!("Processing {} ions...", particle_input_array.len());
-            println!("Initializing with {} threads...", options.num_threads);
-            let _ = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global();
-            physics_loop::<Mesh2D>(particle_input_array, material, options, output_units);
-        },
-        GeometryType::SPHERE => {
-            let (particle_input_array, material, options, output_units) = input::input::<Sphere>(input_file);
-            println!("Processing {} ions...", particle_input_array.len());
-            println!("Initializing with {} threads...", options.num_threads);
-            let _ = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global();
-            physics_loop::<Sphere>(particle_input_array, material, options, output_units);
-        },
+        GeometryType::MESH0D => main_loop!(Mesh0D, input_file),
+        GeometryType::MESH1D => main_loop!(Mesh1D, input_file),
+        GeometryType::MESH2D => main_loop!(Mesh2D, input_file),
+        GeometryType::SPHERE => main_loop!(Sphere, input_file),
         #[cfg(feature = "parry3d")]
-        GeometryType::BALL => {
-            let (particle_input_array, material, options, output_units) = input::input::<ParryBall>(input_file);
-            println!("Processing {} ions...", particle_input_array.len());
-            println!("Initializing with {} threads...", options.num_threads);
-            let _ = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global();
-            physics_loop::<ParryBall>(particle_input_array, material, options, output_units);
-        }
+        GeometryType::BALL => main_loop!(ParryBall, input_file),
         #[cfg(feature = "parry3d")]
-        GeometryType::TRIMESH => {
-            let (particle_input_array, material, options, output_units) = input::input::<ParryTriMesh>(input_file);
-            println!("Processing {} ions...", particle_input_array.len());
-            println!("Initializing with {} threads...", options.num_threads);
-            let _ = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global();
-            physics_loop::<ParryTriMesh>(particle_input_array, material, options, output_units);
-        }
-        GeometryType::HOMOGENEOUS2D => {
-            let (particle_input_array, material, options, output_units) = input::input::<geometry::HomogeneousMesh2D>(input_file);
-            println!("Processing {} ions...", particle_input_array.len());
-            println!("Initializing with {} threads...", options.num_threads);
-            let _ = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global();
-            physics_loop::<HomogeneousMesh2D>(particle_input_array, material, options, output_units);
-        }
+        GeometryType::TRIMESH => main_loop!(ParryTriMesh, input_file),
+        GeometryType::HOMOGENEOUS2D => main_loop!(HomogeneousMesh2D, input_file),
     }
 }

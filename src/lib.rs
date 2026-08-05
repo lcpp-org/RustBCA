@@ -2200,23 +2200,72 @@ fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_g
 
     Ok((theta_gm, theta_gl, theta_mw, theta_magic))
 }
+#[cfg(feature = "python")]
+macro_rules! geometry_typed_loops {
+    ($geometry_type:ty, $input:expr, $python:expr) => {
+        {
+            let input: <$geometry_type as geometry::Geometry>::InputFileFormat = depythonize(&$input).unwrap();
+            let (particle_input_array, material, options, output_units) = input::process_input_file(input);
+            let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build().unwrap();
+            pool.install( ||
+                physics::physics_loop::<$geometry_type>(particle_input_array, material, options, output_units)
+            );
+            Ok(())
+        }
+    }
+}
 
 #[cfg(feature = "python")]
 #[pyfunction]
 #[pyo3(signature=(input, geometry_mode="1D"))]
 fn rustbca_py<'py>(python: Python<'py>, input: &Bound<'py, PyDict>, geometry_mode: &str) -> PyResult<()> {
-
     match geometry_mode {
-        "1D" => {
-            let input: <Mesh1D as geometry::Geometry>::InputFileFormat = depythonize(&input).unwrap();
+        "0D" => geometry_typed_loops!(Mesh0D, input, python),
+        "1D" => geometry_typed_loops!(Mesh1D, input, python),
+        "2D" => geometry_typed_loops!(Mesh2D, input, python),
+        "HOMOGENEOUS2D" => geometry_typed_loops!(Mesh2D, input, python),
+        "SPHERE" => geometry_typed_loops!(Sphere, input, python),
+        #[cfg(feature="parry3d")]
+        "BALL" => geometry_typed_loops!(ParryBall, input, python),
+        #[cfg(feature="parry3d")]
+        "TRIMESH" => geometry_typed_loops!(ParryTriMesh, input, python),
+       _ => Err(PyValueError::new_err(format!("Input Error: Unimplemented geometry mode {}; try '1D'", geometry_mode)))
+    }
+}
+
+/*
+Notes on macros - this is the first I have written, so I'm taking notes here as I go.
+macro_rules! makes a macro - here, the macro is called geometry_types_silent_loops
+macros pattern match an argument and replace it with anything you want
+I want it to take a tuple of a string (e.g., "1D") and a type (e.g., Mesh1D)
+and plop those into corresponding match arms.
+The first line tells the macro to expect an argument with that pattern.
+arguments are $<name>:<designator>. Designators:
+block
+expr is used for expressions
+ident is used for variable/function names
+item
+literal is used for literal constants
+pat (pattern)
+path
+stmt (statement)
+tt (token tree)
+ty (type)
+vis (visibility qualifier)
+*/
+#[cfg(feature = "python")]
+macro_rules! geometry_typed_silent_loops {
+    ($geometry_type:ty, $input:expr, $python:expr) => {
+        {
+            let input: <$geometry_type as geometry::Geometry>::InputFileFormat = depythonize(&$input).unwrap();
             let (particle_input_array, material, options, output_units) = input::process_input_file(input);
             let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build().unwrap();
-            pool.install( ||
-                physics::physics_loop::<Mesh1D>(particle_input_array, material, options, output_units)
+            let finished_particles = pool.install( ||
+                physics::silent_physics_loop::<$geometry_type>(particle_input_array, material, options, output_units.clone())
             );
-            Ok(())
-        },
-       _ => Err(PyValueError::new_err(format!("Input Error: Unimplemented geometry mode {}; try '1D'", geometry_mode)))
+            let finished_particles_container = physics::process_finished_particles_to_arrays(finished_particles, output_units);
+            Ok(pythonize($python, &finished_particles_container)?)
+        }
     }
 }
 
@@ -2226,16 +2275,15 @@ fn rustbca_py<'py>(python: Python<'py>, input: &Bound<'py, PyDict>, geometry_mod
 fn rustbca_local_py<'py>(python: Python<'py>, input: &Bound<'py, PyDict>, geometry_mode: &str) -> PyResult<Bound<'py, PyAny>> {
 
     match geometry_mode {
-        "1D" => {
-            let input: <Mesh1D as geometry::Geometry>::InputFileFormat = depythonize(&input).unwrap();
-            let (particle_input_array, material, options, output_units) = input::process_input_file(input);
-            let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build().unwrap();
-            let finished_particles = pool.install(||
-                physics::silent_physics_loop::<Mesh1D>(particle_input_array, material, options, output_units.clone())
-            );
-            let finished_particles_container = physics::process_finished_particles_to_arrays(finished_particles, output_units);
-            Ok(pythonize(python, &finished_particles_container)?)
-        }
+        "0D" => geometry_typed_silent_loops!(Mesh0D, input, python),
+        "1D" => geometry_typed_silent_loops!(Mesh1D, input, python),
+        "2D" => geometry_typed_silent_loops!(Mesh2D, input, python),
+        "HOMOGENEOUS2D" => geometry_typed_silent_loops!(Mesh2D, input, python),
+        "SPHERE" => geometry_typed_silent_loops!(Sphere, input, python),
+        #[cfg(feature="parry3d")]
+        "BALL" => geometry_typed_silent_loops!(ParryBall, input, python),
+        #[cfg(feature="parry3d")]
+        "TRIMESH" => geometry_typed_silent_loops!(ParryTriMesh, input, python),
         _ => Err(PyValueError::new_err(format!("Input Error: Unimplemented geometry mode {}; try '1D'", geometry_mode)))
     }
 }
