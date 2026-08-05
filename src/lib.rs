@@ -56,7 +56,7 @@ use pyo3::types::*;
 #[cfg(feature = "python")]
 use pythonize::*;
 #[cfg(feature = "python")]
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyValueError, PyRuntimeError};
 
 //Load internal modules
 pub mod material;
@@ -2143,7 +2143,6 @@ pub fn compound_reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, targets: V
 
                 let mut residue = residue.lock().unwrap();
                 *residue = *residue + residue_part;
-
             }
         }
     });
@@ -2173,22 +2172,33 @@ fn moller_knuth_two_sum(a: f64, b: f64) -> (f64, f64) {
     let r = delta_a + delta_b;
     (s, r)
 }
+
 #[cfg(feature = "python")]
 #[pyfunction]
-#[pyo3(signature = (Za, Zb, Ma, Mb, E0, p, n_gl_points=100))]
-fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_gl_points: usize) -> (f64, f64, f64, f64) {
+#[pyo3(signature = (Za, Zb, Ma, Mb, E0, p, n_gl_points=100, interaction_potential="KR_C"))]
+fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_gl_points: usize, interaction_potential: &str) -> PyResult<(f64, f64, f64, f64)> {
     let E0 = E0*EV;
     let p = p*ANGSTROM;
 
-    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 1000, 1E-12).unwrap();
+    let potential = match interaction_potential {
+        "KR_C" => InteractionPotential::KR_C,
+        "LENZ_JENSEN" => InteractionPotential::LENZ_JENSEN,
+        "MOLIERE" => InteractionPotential::MOLIERE,
+        "ZBL" => InteractionPotential::ZBL,
+        _ => return Err(PyValueError::new_err(format!("Unimplemented interaction potential {}; try 'KR_C'", interaction_potential)))
+    };
+
+    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, potential, 1000, 1E-12).map_err(
+        |error| PyRuntimeError::new_err(format!("Rootfinder failed to find distance of closest approach; check input values."))
+    )?;
 
     //Compute center of mass deflection angle with each algorithm
-    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C, n_gl_points);
-    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
-    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
-    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, potential, n_gl_points);
+    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, potential);
+    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, potential);
+    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, potential);
 
-    (theta_gm, theta_gl, theta_mw, theta_magic)
+    Ok((theta_gm, theta_gl, theta_mw, theta_magic))
 }
 
 #[cfg(feature = "python")]
