@@ -235,16 +235,13 @@ impl Particle {
         let cosy: f64 = self.dir.y;
         let cosz: f64 = self.dir.z;
         // PI rotation here enforces particle deflection in opposite direction of recoil location
-        let cosphi: f64 = (phi + PI).cos();
-        let sinphi: f64 = (phi + PI).sin();
-
-        let cpsi: f64 = psi.cos();
-        let spsi: f64 = psi.sin();
+        let (sinphi, cosphi) = (phi + PI).sin_cos();
+        let (sinpsi, cospsi) = psi.sin_cos();
 
         let (e1, e2) = math::duff_orthonormal_basis(self.dir);
-        let cosx_new = cpsi*cosx - spsi*(cosphi*e1.x + sinphi*e2.x);
-        let cosy_new = cpsi*cosy - spsi*(cosphi*e1.y + sinphi*e2.y);
-        let cosz_new = cpsi*cosz - spsi*(cosphi*e1.z + sinphi*e2.z);
+        let cosx_new = cospsi*cosx - sinpsi*(cosphi*e1.x + sinphi*e2.x);
+        let cosy_new = cospsi*cosy - sinpsi*(cosphi*e1.y + sinphi*e2.y);
+        let cosz_new = cospsi*cosz - sinpsi*(cosphi*e1.z + sinphi*e2.z);
 
         let dir_new = Vector {x: cosx_new, y: cosy_new, z: cosz_new};
 
@@ -296,13 +293,3 @@ pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
     particle.E += Es;
 }
 
-/// Calcualte the refraction angle based on the surface binding energy of the material.
-pub fn refraction_angle(costheta: f64, energy_old: f64, energy_new: f64) -> f64 {
-    let costheta = if costheta.abs() > 1. {costheta.signum()} else {costheta};
-    let sintheta0 = (1. - costheta*costheta).sqrt();
-    let sintheta1 = sintheta0*(energy_old/energy_new).sqrt();
-    let delta_theta = sintheta1.asin() - sintheta0.asin();
-    assert!(!delta_theta.is_nan(), "Numerical error: refraction returned NaN.");
-    let sign = -costheta.signum();
-    sign*delta_theta
-}

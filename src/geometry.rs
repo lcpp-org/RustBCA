@@ -481,26 +481,6 @@ impl Geometry for Mesh2D {
             cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));
         }
 
-        /*
-        for ((coordinate_set, densities), ck) in triangles.iter().zip(densities).zip(electronic_stopping_correction_factors) {
-            let coordinate_set_converted = (
-                coordinate_set.0*length_unit,
-                coordinate_set.1*length_unit,
-                coordinate_set.2*length_unit,
-                coordinate_set.3*length_unit,
-                coordinate_set.4*length_unit,
-                coordinate_set.5*length_unit,
-            );
-
-            let total_density: f64 = densities.iter().sum();
-            let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
-
-            cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));
-        }
-        */
-
-
-
         let mut boundary_points_converted = Vec::with_capacity(material_boundary_point_indices.len());
         for index in material_boundary_point_indices.iter() {
             boundary_points_converted.push((points[*index].0*length_unit, points[*index].1*length_unit));

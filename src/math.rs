@@ -3,6 +3,7 @@ use super::*;
 /// it should avoid all numerical / consistency issues
 /// Duff et al., JCGT 2017
 /// http://jcgt.org/published/0006/01/01/
+#[inline]
 pub fn duff_orthonormal_basis(n: Vector) -> (Vector, Vector) {
     let sign = (1.0_f64).copysign(n.z);
     let a = -1.0_f64 / (sign + n.z);
@@ -11,7 +12,7 @@ pub fn duff_orthonormal_basis(n: Vector) -> (Vector, Vector) {
     let b2 = Vector::new(b, sign + n.y*n.y*a, -n.y);
     (b1, b2)
 }
-
+#[inline]
 pub fn triangular_index(i: &mut usize, j: &mut usize) -> usize {
     if i < j {
         std::mem::swap(i, j);

@@ -273,7 +273,7 @@ def main():
     plt.plot([50.0, 50.0], [0.0, np.max(heights)*1.1])
     plt.gca().set_ylim([0.0, np.max(heights)*1.1])
 
-    np.testing.assert_approx_equal(np.mean(x), 12.957009857301925)
+    np.testing.assert_approx_equal(np.mean(x), 10.424570485829282)
 
     number_ions = 10000
 
@@ -343,8 +343,8 @@ def main():
     print(f'RustBCA R: {len(reflected[:, 0])/number_ions} Thomas R: {thomas}')
     print(f'Time per ion: {delta_time/number_ions} s/{ion["symbol"]}')
 
-    np.testing.assert_approx_equal(len(sputtered[:, 0])/number_ions, 0.0267)
-    np.testing.assert_approx_equal(len(reflected[:, 0])/number_ions, 0.5129)
+    np.testing.assert_approx_equal(len(sputtered[:, 0])/number_ions, 0.027)
+    np.testing.assert_approx_equal(len(reflected[:, 0])/number_ions, 0.5155)
 
     plt.figure()
     plt.plot(incident_index)

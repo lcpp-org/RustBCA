@@ -97,7 +97,6 @@ fn diff_doca_function_transformed(x0: f64, beta: f64, reduced_energy: f64, inter
 pub fn distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
             let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
             let beta: f64 = impact_parameter/a;
             doca_function(r/a, beta, reduced_energy, interaction_potential)
@@ -132,7 +131,6 @@ pub fn distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za
     }
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
             let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
             let beta: f64 = impact_parameter/a;
             doca_function_transformed(r/a, beta, reduced_energy, interaction_potential)
@@ -191,8 +189,6 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
 pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN |InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
-            //let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
             let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
             let beta: f64 = impact_parameter/a;
             diff_doca_function(r/a, beta, reduced_energy, interaction_potential)
@@ -203,9 +199,6 @@ pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             diff_doca_lennard_jones_65_6(r, impact_parameter, relative_energy, sigma, epsilon)
         },
-        InteractionPotential::MORSE{D, alpha, r0} => {
-            diff_doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
-        },
         _ => panic!("Input error: {} does not have an implemented derivative. Try using the derivative free CPR-rootfinder.", interaction_potential)
     }
 }
@@ -214,8 +207,6 @@ pub fn diff_distance_of_closest_approach_function(r: f64, a: f64, Za: f64, Zb: f
 pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f64, Za: f64, Zb: f64, relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::ZBL | InteractionPotential::TRIDYN => {
-            let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
-            //let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
             let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a/Za/Zb*relative_energy;
             let beta: f64 = impact_parameter/a;
             diff_doca_function_transformed(r/a, beta, reduced_energy, interaction_potential)
@@ -225,9 +216,6 @@ pub fn diff_distance_of_closest_approach_function_singularity_free(r: f64, a: f6
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
             diff_doca_lennard_jones_65_6(r, impact_parameter, relative_energy, sigma, epsilon)
-        },
-        InteractionPotential::MORSE{D, alpha, r0} => {
-            diff_doca_morse(r, impact_parameter, relative_energy, D, alpha, r0)
         },
         _ => panic!("Input error: {} does not have an implemented derivative. Try using the derivative free CPR-rootfinder.", interaction_potential)
     }
@@ -365,16 +353,12 @@ pub fn zbl_screening_length_lookup(Za: u64, Zb: u64) -> f64{
 pub fn polynomial_coefficients(relative_energy: f64, impact_parameter: f64, interaction_potential: InteractionPotential) -> Vec<f64> {
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{sigma, epsilon} => {
-            let impact_parameter_angstroms = impact_parameter/ANGSTROM;
             let epsilon_ev = epsilon/EV;
-            let sigma_angstroms = sigma/ANGSTROM;
             let relative_energy_ev = relative_energy/EV;
             vec![1.0, -impact_parameter.powi(2), 0.0, 4.*epsilon_ev*sigma.powi(6)/relative_energy_ev, 0.0, 0.0, -4.*epsilon_ev*sigma.powi(12)/relative_energy_ev]
         },
         InteractionPotential::LENNARD_JONES_65_6{sigma, epsilon} => {
-            let impact_parameter_angstroms = impact_parameter/ANGSTROM;
             let epsilon_ev = epsilon/EV;
-            let sigma_angstroms = sigma/ANGSTROM;
             let relative_energy_ev = relative_energy/EV;
             vec![1., 0., 0., 0., -impact_parameter.powi(2), 0., 0., 0., 0., 0., 0., 0., 4.*epsilon_ev*sigma.powi(6)/relative_energy_ev, -4.*epsilon_ev*sigma.powf(6.5)/relative_energy_ev]
         },
@@ -451,11 +435,6 @@ pub fn doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, a
 /// Distance of closest approach function for Morse potential.
 pub fn doca_krc_morse(r: f64, impact_parameter: f64, relative_energy: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, k: f64, x0: f64) -> f64 {
     (r*alpha).powi(2) - (r*alpha).powi(2)/relative_energy*krc_morse(r, a, Za, Zb, D, alpha, r0, k, x0) - (impact_parameter*alpha).powi(2)
-}
-
-/// First derivative w.r.t. `r` of the distance of closest approach function for Morse potential.
-pub fn diff_doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, alpha: f64, r0: f64) -> f64 {
-    2.*alpha.powi(2)*r - 2.*alpha.powi(2)*D*r*(-2.*alpha*(r - r0) - 1.).exp()*(alpha*r*(alpha*(r - r0)).exp() - 2.*(alpha*(r - r0)).exp() - r*alpha + 1.)
 }
 
 /// Distance of closest approach function for LJ 6.5-6 potential.
@@ -562,6 +541,7 @@ fn kr_c(xi: f64) -> f64 {
     0.190945*(-0.278544*xi).exp() + 0.473674*(-0.637174*xi).exp() + 0.335381*(-1.919249*xi).exp()
 }
 
+
 fn zbl(xi: f64) -> f64 {
     0.02817*(-0.20162*xi).exp() + 0.28022*(-0.40290*xi).exp() + 0.50986*(-0.94229*xi).exp() + 0.18175*(-3.1998*xi).exp()
 }
@@ -577,6 +557,7 @@ fn diff_moliere(xi: f64) -> f64 {
 fn diff_kr_c(xi: f64) -> f64 {
     -0.278544*0.190945*(-0.278544*xi).exp() - 0.637174*0.473674*(-0.637174*xi).exp() - 0.335381*1.919249*(-1.919249*xi).exp()
 }
+
 
 fn diff_zbl(xi: f64) -> f64 {
     -0.20162*0.02817*(-0.20162*xi).exp() -0.40290*0.28022*(-0.40290*xi).exp() -0.94229*0.50986*(-0.94229*xi).exp() -3.1998*0.18175*(-3.1998*xi).exp()

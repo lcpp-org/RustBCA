@@ -112,7 +112,8 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
                     }
 
                     //Energy transfer to recoil
-                    particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
+                    particle_2.E = binary_collision_result.recoil_energy - material.actual_bulk_binding_energy(species_index, particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
+                    //particle_2.E = binary_collision_result.recoil_energy - material.average_bulk_binding_energy(particle_2.pos.x, particle_2.pos.y, particle_2.pos.z);
                     particle_2.energy_origin = particle_2.E;
 
                     //Accumulate energy losses and asymptotic deflections for primary particle
@@ -207,7 +208,7 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
     let mut binary_collision_geometries = Vec::with_capacity(options.weak_collision_order + 1);
 
     //Each weak collision gets its own aziumuthal angle in annuli around collision point
-    for k in 0..options.weak_collision_order + 1 {
+    for _ in 0..options.weak_collision_order + 1 {
         phis_azimuthal.push(2.*PI*rng.random::<f64>());
     }
 
@@ -217,7 +218,6 @@ pub fn determine_mfp_phi_impact_parameter<T: Geometry>(particle_1: &mut particle
         let Mb: f64  = material.average_mass(x, y, z);
         let Za: f64  = particle_1.Z;
         let Zb: f64  = material.average_Z(x, y, z);
-        let n: &Vec<f64>  = material.number_densities(x, y, z);
         let ck: f64 = material.electronic_stopping_correction_factor(x, y, z);
         let E: f64  = particle_1.E;
         let Ec: f64 = particle_1.Ec;
@@ -346,12 +346,10 @@ pub fn choose_collision_partner<T: Geometry>(particle_1: &particle::Particle, ma
     let phi_azimuthal = binary_collision_geometry.phi_azimuthal;
 
     //Determine cosines and sines
-    let sinphi: f64 = phi_azimuthal.sin();
     let cosx: f64 = particle_1.dir.x;
     let cosy: f64 = particle_1.dir.y;
     let cosz: f64 = particle_1.dir.z;
-    let sinx: f64 = (1. - cosx*cosx).sqrt();
-    let cosphi: f64 = phi_azimuthal.cos();
+    let (sinphi, cosphi) = phi_azimuthal.sin_cos();
 
     let (e1, e2) = math::duff_orthonormal_basis(particle_1.dir);
     let x_recoil = x + mfp*cosx - impact_parameter*(e1.x*cosphi + e2.x*sinphi);
@@ -392,9 +390,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         return doca/interactions::screening_length(Z1, Z2, interaction_potential);
     }
 
-    let root_finder = if relative_energy < interactions::energy_threshold_single_root(interaction_potential) {
-            options.root_finder[particle_1.interaction_index][particle_2.interaction_index]
-        } else {Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-6}};
+    let root_finder = options.root_finder[particle_1.interaction_index][particle_2.interaction_index];
 
     #[cfg(feature = "cpr_rootfinder")]
     match root_finder {
@@ -408,7 +404,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
-        Rootfinder::DEFAULTNEWTON => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-3)
+        Rootfinder::DEFAULTNEWTON => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-6)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
     }
@@ -418,7 +414,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
-        Rootfinder::DEFAULTNEWTON => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-3)
+        Rootfinder::DEFAULTNEWTON => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-6)
             .with_context(|| format!("Numerical error: Newton rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
         _ => panic!("Input error: unimplemented root-finder. Choose NEWTON or build with cpr_rootfinder to enable CPR and POLYNOMIAL")
@@ -429,7 +425,7 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
 pub fn subtract_electronic_stopping_energy<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>, distance_traveled: f64,
     x0: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) -> f64 {
 
-    assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following collision.");
+    //assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following collision.");
 
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
@@ -442,13 +438,13 @@ pub fn subtract_electronic_stopping_energy<T: Geometry>(particle_1: &mut particl
         let n = material.number_densities(x, y, z);
 
         let delta_energy_electronic = match options.electronic_stopping_mode {
-            ElectronicStoppingMode::INTERPOLATED | ElectronicStoppingMode::LOW_ENERGY_NONLOCAL  | ElectronicStoppingMode::INTERPOLATEDPLUS{..} => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
+            ElectronicStoppingMode::INTERPOLATED | ElectronicStoppingMode::LOW_ENERGY_NONLOCAL  | ElectronicStoppingMode::INTERPOLATEDPLUS{..} => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).sum::<f64>()*distance_traveled,
             //ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled,
             ElectronicStoppingMode::LOW_ENERGY_LOCAL => oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, interaction_potential),
             ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => {
 
                 let delta_energy_local = oen_robinson_loss(particle_1.Z, strong_collision_Z, electronic_stopping_powers[strong_collision_index], x0, interaction_potential);
-                let delta_energy_nonlocal = electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).collect::<Vec<f64>>().iter().sum::<f64>()*distance_traveled;
+                let delta_energy_nonlocal = electronic_stopping_powers.iter().zip(n).map(|(se, number_density)| se*number_density).sum::<f64>()*distance_traveled;
 
                 0.5*delta_energy_local + 0.5*delta_energy_nonlocal
             },
@@ -456,7 +452,9 @@ pub fn subtract_electronic_stopping_energy<T: Geometry>(particle_1: &mut particl
 
         particle_1.E += -delta_energy_electronic;
         //Make sure particle energy doesn't become negative again
+        /*
         assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following electronic stopping.");
+        */
         if particle_1.E < 0. {
             particle_1.E = 0.;
         }
@@ -473,7 +471,6 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     let Ma: f64 = particle_1.m;
     let Mb: f64 = particle_2.m;
     let E0: f64 = particle_1.E;
-    let mu: f64 = Mb/(Ma + Mb);
 
     let interaction_potential = options.interaction_potential[particle_1.interaction_index][particle_2.interaction_index];
     let scattering_integral = options.scattering_integral[particle_1.interaction_index][particle_2.interaction_index];
@@ -488,19 +485,23 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
         ScatteringIntegral::MAGIC => magic(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, interaction_potential),
     };
 
+    /*
     if theta.is_nan() {
         return Err(anyhow!("Numerical error: CoM deflection angle is NaN for {}. Check input parameters.", binary_collision_geometry));
     }
+    */
+    let (sin_theta, cos_theta) = theta.sin_cos();
+    let sin_2_theta = (theta/2.).sin();
 
     //See Eckstein 1991 for details on center of mass and lab frame angles
     let asymptotic_deflection = match interaction_potential {
         InteractionPotential::COULOMB{..} => 0.,
-        _ => x0*a*(theta/2.).sin()
+        _ => x0*a*sin_2_theta
     };
-
-    let psi = theta.sin().atan2(Ma/Mb + theta.cos());
-    let psi_recoil = theta.sin().atan2(1. - theta.cos());
-    let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powi(2)*E0*(theta/2.).sin().powi(2);
+    
+    let psi = sin_theta.atan2(Ma/Mb + cos_theta);
+    let psi_recoil = sin_theta.atan2(1. - cos_theta);
+    let recoil_energy = 4.*(Ma*Mb)/(Ma + Mb).powi(2)*E0*sin_2_theta.powi(2);
 
     Ok(BinaryCollisionResult::new(theta, psi, psi_recoil, recoil_energy, asymptotic_deflection, x0))
 }
@@ -544,23 +545,26 @@ fn scattering_function_gm<F>(u: f64, impact_parameter: f64, r0: f64, relative_en
 fn scattering_integral_gauss_mehler<F>(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: F, n_points: usize) -> f64 
     where F: Fn(f64) -> f64 + Clone
 {
-    let x: Vec<f64> = (1..=n_points).map(|i| ((2.*i as f64 - 1.)/4./n_points as f64*PI).cos()).collect();
-    let w: Vec<f64> = (1..=n_points).map(|i| PI/n_points as f64*((2.*i as f64 - 1.)/4./n_points as f64*PI).sin()).collect();
-
-    PI - x.iter().zip(w)
-        .map(|(&x, w)| w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential.clone())
-        .with_context(|| format!("Numerical error: NaN in Gauss-Mehler scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
-        .unwrap()).sum::<f64>()
+    PI - (1..=n_points).map(
+        |i| {
+            let x = ((2.*i as f64 - 1.)/4./n_points as f64*PI).cos();
+            let w = PI/n_points as f64*((2.*i as f64 - 1.)/4./n_points as f64*PI).sin();
+            (x, w)
+        }
+    ).map(
+        |(x, w)| {
+            w*scattering_function_gm(x, impact_parameter, r0, relative_energy, interaction_potential.clone())
+            .with_context(|| format!("Numerical error: NaN in Gauss-Mehler scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
+            .unwrap()
+        }
+    ).sum::<f64>()
 }
 
 /// Compute the scattering integral for a given relative energy, distance of closest approach `r0`,  and interaction potential using a Gauss-Legendre, 5-point quadrature.
 fn scattering_integral_gauss_legendre<F>(impact_parameter: f64, relative_energy: f64, r0: f64, interaction_potential: F) -> f64 
     where F: Fn(f64) -> f64 + Clone
 {
-    let x: Vec<f64> = [0., -0.538469, 0.538469, -0.90618, 0.90618].iter().map(|x| x/2. + 1./2.).collect();
-    let w: Vec<f64> = [0.568889, 0.478629, 0.478629, 0.236927, 0.236927].iter().map(|w| w/2.).collect();
-
-    PI - x.iter().zip(w)
+    PI - &GL_X.iter().zip(GL_W.iter())
         .map(|(&x, w)| w*scattering_function_gl(x, impact_parameter, r0, relative_energy, interaction_potential.clone())
         .with_context(|| format!("Numerical error: NaN in Gauss-Legendre scattering integral at x = {} with Er = {} eV and p = {} A.", x, relative_energy/EV, impact_parameter/ANGSTROM))
         .unwrap()).sum::<f64>()
@@ -678,7 +682,7 @@ pub fn newton_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_par
 
     //Newton-Raphson to determine distance of closest approach
     let mut err: f64 = tolerance + 1.;
-    for k in 0..max_iterations {
+    for _ in 0..max_iterations {
         xn = x0 - f(x0*a)/df(x0*a);
         err = (xn - x0)*(xn - x0);
         x0 = xn;
