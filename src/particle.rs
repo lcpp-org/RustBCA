@@ -239,13 +239,9 @@ impl Particle {
         let (sinpsi, cospsi) = psi.sin_cos();
 
         let (e1, e2) = math::duff_orthonormal_basis(self.dir);
-        let cosx_new = cospsi*cosx - sinpsi*(cosphi*e1.x + sinphi*e2.x);
-        let cosy_new = cospsi*cosy - sinpsi*(cosphi*e1.y + sinphi*e2.y);
-        let cosz_new = cospsi*cosz - sinpsi*(cosphi*e1.z + sinphi*e2.z);
-
-        let dir_new = Vector {x: cosx_new, y: cosy_new, z: cosz_new};
-
-        self.dir.assign(&dir_new);
+        self.dir.x = cospsi*cosx - sinpsi*(cosphi*e1.x + sinphi*e2.x);
+        self.dir.y = cospsi*cosy - sinpsi*(cosphi*e1.y + sinphi*e2.y);
+        self.dir.z = cospsi*cosz - sinpsi*(cosphi*e1.z + sinphi*e2.z);
         self.dir.normalize();
     }
 
@@ -283,7 +279,6 @@ pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
     let E = particle.E;
 
     let costheta = particle.dir.dot(&normal);
-
     let u1x = (E/(E + Es)).sqrt()*particle.dir.x + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.x;
     let u1y = (E/(E + Es)).sqrt()*particle.dir.y + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.y;
     let u1z = (E/(E + Es)).sqrt()*particle.dir.z + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.z;
