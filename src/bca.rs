@@ -485,11 +485,6 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
         ScatteringIntegral::MAGIC => magic(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, interaction_potential),
     };
 
-    /*
-    if theta.is_nan() {
-        return Err(anyhow!("Numerical error: CoM deflection angle is NaN for {}. Check input parameters.", binary_collision_geometry));
-    }
-    */
     let (sin_theta, cos_theta) = theta.sin_cos();
     let sin_2_theta = (theta/2.).sin();
 
