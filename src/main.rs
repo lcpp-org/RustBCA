@@ -11,10 +11,6 @@ use anyhow::{Result, Context, anyhow};
 //Serializing/Deserializing crate
 use serde::*;
 
-//Array input via hdf5
-#[cfg(feature = "hdf5_input")]
-use hdf5::*;
-
 //Parallelization
 //use rayon::prelude::*;
 //use rayon::ThreadPoolBuilder;

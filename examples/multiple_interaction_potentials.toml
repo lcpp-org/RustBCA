@@ -22,7 +22,6 @@ root_finder = [
   [{"NEWTON"={max_iterations=100, tolerance=1E-6}}, {"POLYNOMIAL"={complex_threshold=1E-12}}],
   [{"POLYNOMIAL"={complex_threshold=1E-12}}, {"NEWTON"={max_iterations=100, tolerance=1E-6}}]
 ]
-use_hdf5 = false
 num_threads = 4
 num_chunks = 10
 track_displacements = false

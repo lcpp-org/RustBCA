@@ -4,26 +4,6 @@ fn default_vec_zero() -> Vec<usize> {
     vec![0]
 }
 
-#[cfg(feature = "hdf5_input")]
-#[derive(Deserialize, Clone)]
-pub struct ParticleParameters {
-    pub particle_input_filename: String,
-    pub length_unit: String,
-    pub energy_unit: String,
-    pub mass_unit: String,
-    pub N: Vec<usize>,
-    pub m: Vec<f64>,
-    pub Z: Vec<f64>,
-    pub E: Vec<Distributions>,
-    pub Ec: Vec<f64>,
-    pub Es: Vec<f64>,
-    pub pos: Vec<(Distributions, Distributions, Distributions)>,
-    pub dir: Vec<(Distributions, Distributions, Distributions)>,
-    #[serde(default = "default_vec_zero")]
-    pub interaction_index: Vec<usize>,
-}
-
-#[cfg(not(feature = "hdf5_input"))]
 #[derive(Deserialize, Clone)]
 pub struct ParticleParameters {
     pub length_unit: String,
@@ -41,9 +21,7 @@ pub struct ParticleParameters {
     pub interaction_index: Vec<usize>,
 }
 
-/// HDF5 version of particle input.
 #[derive(Clone, PartialEq, Debug, Copy)]
-#[cfg_attr(feature = "hdf5_input", derive(hdf5::H5Type))]
 #[repr(C)]
 pub struct ParticleInput {
     pub m: f64,
@@ -279,6 +257,7 @@ pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
     let E = particle.E;
 
     let costheta = particle.dir.dot(&normal);
+
     let u1x = (E/(E + Es)).sqrt()*particle.dir.x + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.x;
     let u1y = (E/(E + Es)).sqrt()*particle.dir.y + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.y;
     let u1z = (E/(E + Es)).sqrt()*particle.dir.z + ((-(E).sqrt()*costheta + (E*costheta.powi(2) + Es).sqrt())/(E + Es).sqrt())*normal.z;

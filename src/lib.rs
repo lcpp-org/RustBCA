@@ -20,10 +20,6 @@ use anyhow::{Result, Context, anyhow};
 //Serializing/Deserializing crate
 use serde::*;
 
-//Array input via hdf5
-#[cfg(feature = "hdf5_input")]
-use hdf5::*;
-
 //I/O
 use std::fs::OpenOptions;
 use std::io::prelude::*;
@@ -2188,17 +2184,17 @@ fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_g
         _ => return Err(PyValueError::new_err(format!("Unimplemented interaction potential {}; try 'KR_C'", interaction_potential)))
     };
 
-    let screening_length = interactions::screening_length(Za, Zb, interaction_potential);
+    let screening_length = interactions::screening_length(Za, Zb, potential);
 
     let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, potential, 1000, 1E-12).map_err(
         |error| PyRuntimeError::new_err(format!("Rootfinder failed to find distance of closest approach; check input values."))
     )?;
 
     //Compute center of mass deflection angle with each algorithm
-    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, a, potential, n_gl_points);
-    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, a, potential);
-    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, a, potential);
-    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, a, potential);
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, screening_length, potential, n_gl_points);
+    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, screening_length, potential);
+    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, screening_length, potential);
+    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, screening_length, potential);
 
     Ok((theta_gm, theta_gl, theta_mw, theta_magic))
 }
