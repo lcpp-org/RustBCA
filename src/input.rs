@@ -381,9 +381,7 @@ impl Options {
     }
 }
 
-pub fn input<T: Geometry>(input_file: String) -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits)
-where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
-
+pub fn read_input_file<T: Geometry>(input_file: String) -> <T as Geometry>::InputFileFormat {
     //Read input file, convert to string, and open with toml
     let mut input_toml = String::new();
     let mut file = OpenOptions::new()
@@ -394,7 +392,19 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
         .unwrap_or_else(|_| panic!("Input errror: could not open input file {}.", &input_file));
     file.read_to_string(&mut input_toml).context("Could not convert TOML file to string.").unwrap();
 
-    let input: <T as Geometry>::InputFileFormat = InputFile::new(&input_toml);
+    InputFile::new(&input_toml)
+}
+
+pub fn input<T: Geometry>(input_file: String) -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits)
+where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
+
+    let input: <T as Geometry>::InputFileFormat = read_input_file::<T>(input_file);
+
+    process_input_file(input)
+
+}
+
+pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits) {
 
     //Unpack toml information into structs
     let options = (*input.get_options()).clone();

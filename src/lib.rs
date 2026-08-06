@@ -9,10 +9,10 @@ use std::alloc::{dealloc, Layout};
 use std::mem::align_of;
 
 //Parallelization - currently only used in python library functions
+//#[cfg(feature = "python")]
+//use rayon::ThreadPoolBuilder;
 #[cfg(feature = "python")]
-use rayon::prelude::*;
-#[cfg(feature = "python")]
-use rayon::*;
+use rayon::iter::{IndexedParallelIterator, ParallelExtend, IntoParallelIterator, ParallelIterator};
 
 //Error handling crate
 use anyhow::{Result, Context, anyhow};
@@ -53,6 +53,10 @@ use std::f64::consts::SQRT_2;
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
 use pyo3::types::*;
+#[cfg(feature = "python")]
+use pythonize::*;
+#[cfg(feature = "python")]
+use pyo3::exceptions::{PyValueError, PyRuntimeError};
 
 //Load internal modules
 pub mod material;
@@ -68,9 +72,7 @@ pub mod consts;
 pub mod structs;
 pub mod sphere;
 pub mod math;
-
-#[cfg(feature = "parry3d")]
-pub mod parry;
+pub mod physics;
 
 pub use crate::enums::*;
 pub use crate::consts::*;
@@ -81,6 +83,10 @@ pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
 pub use crate::math::*;
 pub use crate::material::*;
+pub use crate::physics::*;
+
+#[cfg(feature = "parry3d")]
+pub mod parry;
 
 #[cfg(feature = "parry3d")]
 pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, ParryTriMeshInput, InputParryTriMesh};
@@ -139,6 +145,12 @@ mod libRustBCA {
 
     #[pymodule_export]
     use super::scattering_integrals;
+
+    #[pymodule_export]
+    use super::rustbca_py;
+
+    #[pymodule_export]
+    use super::rustbca_local_py;
 }
 
 #[derive(Debug)]
@@ -2131,7 +2143,6 @@ pub fn compound_reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, targets: V
 
                 let mut residue = residue.lock().unwrap();
                 *residue = *residue + residue_part;
-
             }
         }
     });
@@ -2161,20 +2172,118 @@ fn moller_knuth_two_sum(a: f64, b: f64) -> (f64, f64) {
     let r = delta_a + delta_b;
     (s, r)
 }
+
 #[cfg(feature = "python")]
 #[pyfunction]
-#[pyo3(signature = (Za, Zb, Ma, Mb, E0, p, n_gl_points=100))]
-fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_gl_points: usize) -> (f64, f64, f64, f64) {
+#[pyo3(signature = (Za, Zb, Ma, Mb, E0, p, n_gl_points=100, interaction_potential="KR_C"))]
+fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_gl_points: usize, interaction_potential: &str) -> PyResult<(f64, f64, f64, f64)> {
     let E0 = E0*EV;
     let p = p*ANGSTROM;
 
-    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 1000, 1E-12).unwrap();
+    let potential = match interaction_potential {
+        "KR_C" => InteractionPotential::KR_C,
+        "LENZ_JENSEN" => InteractionPotential::LENZ_JENSEN,
+        "MOLIERE" => InteractionPotential::MOLIERE,
+        "ZBL" => InteractionPotential::ZBL,
+        _ => return Err(PyValueError::new_err(format!("Unimplemented interaction potential {}; try 'KR_C'", interaction_potential)))
+    };
+
+    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, potential, 1000, 1E-12).map_err(
+        |error| PyRuntimeError::new_err(format!("Rootfinder failed to find distance of closest approach; check input values."))
+    )?;
 
     //Compute center of mass deflection angle with each algorithm
-    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C, n_gl_points);
-    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
-    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
-    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, potential, n_gl_points);
+    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, potential);
+    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, potential);
+    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, potential);
 
-    (theta_gm, theta_gl, theta_mw, theta_magic)
+    Ok((theta_gm, theta_gl, theta_mw, theta_magic))
+}
+#[cfg(feature = "python")]
+macro_rules! geometry_typed_loops {
+    ($geometry_type:ty, $input:expr, $python:expr) => {
+        {
+            let input: <$geometry_type as geometry::Geometry>::InputFileFormat = depythonize(&$input).unwrap();
+            let (particle_input_array, material, options, output_units) = input::process_input_file(input);
+            let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build().unwrap();
+            pool.install( ||
+                physics::physics_loop::<$geometry_type>(particle_input_array, material, options, output_units)
+            );
+            Ok(())
+        }
+    }
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature=(input, geometry_mode="1D"))]
+fn rustbca_py<'py>(python: Python<'py>, input: &Bound<'py, PyDict>, geometry_mode: &str) -> PyResult<()> {
+    match geometry_mode {
+        "0D" => geometry_typed_loops!(Mesh0D, input, python),
+        "1D" => geometry_typed_loops!(Mesh1D, input, python),
+        "2D" => geometry_typed_loops!(Mesh2D, input, python),
+        "HOMOGENEOUS2D" => geometry_typed_loops!(Mesh2D, input, python),
+        "SPHERE" => geometry_typed_loops!(Sphere, input, python),
+        #[cfg(feature="parry3d")]
+        "BALL" => geometry_typed_loops!(ParryBall, input, python),
+        #[cfg(feature="parry3d")]
+        "TRIMESH" => geometry_typed_loops!(ParryTriMesh, input, python),
+       _ => Err(PyValueError::new_err(format!("Input Error: Unimplemented geometry mode {}; try '1D'", geometry_mode)))
+    }
+}
+
+/*
+Notes on macros - this is the first I have written, so I'm taking notes here as I go.
+macro_rules! makes a macro - here, the macro is called geometry_types_silent_loops
+macros pattern match an argument and replace it with anything you want
+I want it to take a tuple of a string (e.g., "1D") and a type (e.g., Mesh1D)
+and plop those into corresponding match arms.
+The first line tells the macro to expect an argument with that pattern.
+arguments are $<name>:<designator>. Designators:
+block
+expr is used for expressions
+ident is used for variable/function names
+item
+literal is used for literal constants
+pat (pattern)
+path
+stmt (statement)
+tt (token tree)
+ty (type)
+vis (visibility qualifier)
+*/
+#[cfg(feature = "python")]
+macro_rules! geometry_typed_silent_loops {
+    ($geometry_type:ty, $input:expr, $python:expr) => {
+        {
+            let input: <$geometry_type as geometry::Geometry>::InputFileFormat = depythonize(&$input).unwrap();
+            let (particle_input_array, material, options, output_units) = input::process_input_file(input);
+            let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build().unwrap();
+            let finished_particles = pool.install( ||
+                physics::silent_physics_loop::<$geometry_type>(particle_input_array, material, options, output_units.clone())
+            );
+            let finished_particles_container = physics::process_finished_particles_to_arrays(finished_particles, output_units);
+            Ok(pythonize($python, &finished_particles_container)?)
+        }
+    }
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature=(input, geometry_mode="1D"))]
+fn rustbca_local_py<'py>(python: Python<'py>, input: &Bound<'py, PyDict>, geometry_mode: &str) -> PyResult<Bound<'py, PyAny>> {
+
+    match geometry_mode {
+        "0D" => geometry_typed_silent_loops!(Mesh0D, input, python),
+        "1D" => geometry_typed_silent_loops!(Mesh1D, input, python),
+        "2D" => geometry_typed_silent_loops!(Mesh2D, input, python),
+        "HOMOGENEOUS2D" => geometry_typed_silent_loops!(Mesh2D, input, python),
+        "SPHERE" => geometry_typed_silent_loops!(Sphere, input, python),
+        #[cfg(feature="parry3d")]
+        "BALL" => geometry_typed_silent_loops!(ParryBall, input, python),
+        #[cfg(feature="parry3d")]
+        "TRIMESH" => geometry_typed_silent_loops!(ParryTriMesh, input, python),
+        _ => Err(PyValueError::new_err(format!("Input Error: Unimplemented geometry mode {}; try '1D'", geometry_mode)))
+    }
 }

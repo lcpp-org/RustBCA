@@ -51,6 +51,8 @@ It creates an input file as a nested dictionary which is written to
 a TOML file using tomlkit.
 
 It runs the input file with cargo run --release and reads the output files.
+
+It also runs with rustbca_py and ensures the output files are identical.
 '''
 
 def run_test(
@@ -274,6 +276,19 @@ def run_test(
     sputtered = np.atleast_2d(np.genfromtxt(f'input_file_{index}sputtered.output', delimiter=','))
     reflected = np.atleast_2d(np.genfromtxt(f'input_file_{index}reflected.output', delimiter=','))
     implanted = np.atleast_2d(np.genfromtxt(f'input_file_{index}deposited.output', delimiter=','))
+
+    input_data['options']['name'] = f'python_{index}'
+    if run_sim:
+        rustbca_py(input_data, geometry_mode=mode)
+
+    # Read output files - ensure arrays are at least 2D for indexing
+    sputtered_py = np.atleast_2d(np.genfromtxt(f'python_{index}sputtered.output', delimiter=','))
+    reflected_py = np.atleast_2d(np.genfromtxt(f'python_{index}reflected.output', delimiter=','))
+    implanted_py = np.atleast_2d(np.genfromtxt(f'python_{index}deposited.output', delimiter=','))
+
+    np.testing.assert_allclose(sputtered, sputtered_py)
+    np.testing.assert_allclose(reflected, reflected_py)
+    np.testing.assert_allclose(implanted, implanted_py)
 
     return sputtered, reflected, implanted
 
