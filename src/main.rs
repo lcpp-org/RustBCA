@@ -6,7 +6,6 @@ use std::{env, fmt};
 use std::mem::discriminant;
 
 //Progress bar crate - works with rayon
-use indicatif::{ProgressBar, ProgressStyle};
 
 //Error handling crate
 use anyhow::{Result, Context, anyhow};
@@ -105,7 +104,8 @@ fn main() {
         _ => panic!("Too many command line arguments. RustBCA accepts 0 (use 'input.toml') 1 (<input file name>) or 2 (<geometry type> <input file name>)"),
     };
 
-     match geometry_type {
+    // This invokes the above macro that expands into the physics loop invocation for each type
+    match geometry_type {
         GeometryType::MESH0D => main_loop!(Mesh0D, input_file),
         GeometryType::MESH1D => main_loop!(Mesh1D, input_file),
         GeometryType::MESH2D => main_loop!(Mesh2D, input_file),

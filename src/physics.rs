@@ -1,5 +1,4 @@
 use super::*;
-use rayon::iter::*;
 use indicatif::{ProgressBar, ProgressStyle};
 
 pub fn silent_physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::ParticleInput>, material: material::Material<T>, options: Options, output_units: OutputUnits) -> Vec<particle::Particle> {
