@@ -9,10 +9,10 @@ use std::alloc::{dealloc, Layout};
 use std::mem::align_of;
 
 //Parallelization - currently only used in python library functions
+//#[cfg(feature = "python")]
+//use rayon::ThreadPoolBuilder;
 #[cfg(feature = "python")]
-use rayon::prelude::*;
-#[cfg(feature = "python")]
-use rayon::*;
+use rayon::iter::{IndexedParallelIterator, ParallelExtend, IntoParallelIterator, ParallelIterator};
 
 //Error handling crate
 use anyhow::{Result, Context, anyhow};

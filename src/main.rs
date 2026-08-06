@@ -5,8 +5,6 @@
 use std::{env, fmt};
 use std::mem::discriminant;
 
-//Progress bar crate - works with rayon
-
 //Error handling crate
 use anyhow::{Result, Context, anyhow};
 
@@ -18,8 +16,8 @@ use serde::*;
 use hdf5::*;
 
 //Parallelization
-use rayon::prelude::*;
-use rayon::*;
+//use rayon::prelude::*;
+//use rayon::ThreadPoolBuilder;
 
 //I/O
 use std::fs::OpenOptions;

@@ -1,5 +1,6 @@
 use super::*;
 use indicatif::{ProgressBar, ProgressStyle};
+use rayon::iter::{IndexedParallelIterator, ParallelExtend, IntoParallelIterator, ParallelIterator};
 
 pub fn silent_physics_loop<T: Geometry + Sync>(particle_input_array: Vec<particle::ParticleInput>, material: material::Material<T>, options: Options, output_units: OutputUnits) -> Vec<particle::Particle> {
 
@@ -53,7 +54,6 @@ impl FinishedParticlesContainer {
         }
     }
 }
-
 
 pub fn process_finished_particles_to_arrays(finished_particles: Vec<particle::Particle>, output_units: OutputUnits) -> FinishedParticlesContainer {
     let mut finished_particles_container = FinishedParticlesContainer::new();
