@@ -4,4 +4,5 @@ Cargo.lock
 *.output
 **/*.rs.bk
 *.pdb
-src/*egg*
+src/RustBCA.egg-info
+src/RustBCA.egg-info/*
