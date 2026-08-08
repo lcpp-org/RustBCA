@@ -20,10 +20,6 @@ use anyhow::{Result, Context, anyhow};
 //Serializing/Deserializing crate
 use serde::*;
 
-//Array input via hdf5
-#[cfg(feature = "hdf5_input")]
-use hdf5::*;
-
 //I/O
 use std::fs::OpenOptions;
 use std::io::prelude::*;
@@ -229,7 +225,7 @@ pub struct OutputTaggedBCA {
     pub incident: *mut bool,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_output_tagged_bca(output: OutputTaggedBCA) {
     let length = output.len;
 
@@ -249,7 +245,7 @@ pub extern "C" fn drop_output_tagged_bca(output: OutputTaggedBCA) {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn drop_output_bca(output: OutputBCA) {
     let length = output.len;
 
@@ -262,7 +258,7 @@ pub extern "C" fn drop_output_bca(output: OutputBCA) {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTaggedBCA {
 
     let mut total_output = vec![];
@@ -402,7 +398,7 @@ pub extern "C" fn compound_tagged_bca_list_c(input: InputTaggedBCA) -> OutputTag
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux: &mut f64, uy: &mut f64, uz: &mut f64, E1: &mut f64, Z1: &mut f64, m1: &mut f64, Ec1: &mut f64, Es1: &mut f64, Z2: *mut f64, m2: *mut f64, Ec2: *mut f64, Es2: *mut f64, Eb2: *mut f64, n2: *mut f64) {
 
     assert!(E1 > &mut 0.0);
@@ -484,7 +480,7 @@ pub unsafe extern "C" fn reflect_single_ion_c(num_species_target: &mut c_int, ux
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
 
     let x = -2.*(input.n2*1E30).powf(-1./3.);
@@ -602,7 +598,7 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
 
     let mut total_output = vec![];
@@ -727,7 +723,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int, track_recoils: &mut bool,
     ux: *mut f64, uy: *mut f64, uz: *mut f64, E1: *mut f64,
     Z1: *mut f64, m1: *mut f64, Ec1: *mut f64, Es1: *mut f64,
@@ -856,7 +852,7 @@ pub unsafe extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int
     particles
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn simple_bca_c(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> OutputBCA {
     let mut output = simple_bca(x, y, z, ux, uy, uz, E1, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2);
 
@@ -1623,7 +1619,7 @@ pub fn simple_compound_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1
 }
 
 #[cfg(feature = "parry3d")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
 
     let direction = Vector3::new(*ux, *uy, *uz);
@@ -1711,7 +1707,7 @@ pub fn rotate_given_surface_normal_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: V
 }
 
 #[cfg(feature = "parry3d")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut f64, uz: &mut f64) {
 
     let direction = Vector3::new(*ux, *uy, *uz);
@@ -2188,15 +2184,17 @@ fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_g
         _ => return Err(PyValueError::new_err(format!("Unimplemented interaction potential {}; try 'KR_C'", interaction_potential)))
     };
 
+    let screening_length = interactions::screening_length(Za, Zb, potential);
+
     let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, potential, 1000, 1E-12).map_err(
         |error| PyRuntimeError::new_err(format!("Rootfinder failed to find distance of closest approach; check input values."))
     )?;
 
     //Compute center of mass deflection angle with each algorithm
-    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, potential, n_gl_points);
-    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, potential);
-    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, potential);
-    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, potential);
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, screening_length, potential, n_gl_points);
+    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, screening_length, potential);
+    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, screening_length, potential);
+    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, screening_length, potential);
 
     Ok((theta_gm, theta_gl, theta_mw, theta_magic))
 }

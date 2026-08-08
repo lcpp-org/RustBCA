@@ -1,9 +1,9 @@
 [package]
 name = "RustBCA"
-version = "2.9.0"
+version = "3.0.0"
 default-run = "RustBCA"
 authors = ["Jon Drobny <drobny2@illinois.edu>", "Jon Drobny <jdrobny@tae.com>"]
-edition = "2021"
+edition = "2024"
 
 [[bin]]
 name = "RustBCA"
@@ -24,7 +24,6 @@ rayon = "1.10.0"
 geo = {version = "0.25", optional = false}
 indicatif = {version = "0.18.6", features=["rayon"]}
 serde = { version = "1.0.163", features = ["derive"] }
-hdf5 = {version = "0.7.1", optional = true}
 rcpr = { git = "https://github.com/drobnyjt/rcpr", optional = true}
 ndarray = {version = "0.17.2", features = ["serde"], optional = true}
 parry3d-f64 = {optional = true, version="0.2.0"}
@@ -41,7 +40,6 @@ opt-level = 3
 debug = false
 
 [features]
-hdf5_input = ["hdf5"]
 cpr_rootfinder = ["rcpr"]
 distributions = ["ndarray"]
 no_list_output = []

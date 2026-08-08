@@ -12,7 +12,6 @@ electronic_stopping_mode = "LOW_ENERGY_NONLOCAL"
 mean_free_path_model = {"THRESHOLD"={density=1E28}}
 interaction_potential = [["KR_C"]]
 scattering_integral = [["MENDENHALL_WELLER"]]
-use_hdf5 = false
 root_finder = [[{"NEWTON"={max_iterations=100, tolerance=1E-6}}]]
 num_threads = 4
 num_chunks = 100

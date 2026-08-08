@@ -4,26 +4,6 @@ fn default_vec_zero() -> Vec<usize> {
     vec![0]
 }
 
-#[cfg(feature = "hdf5_input")]
-#[derive(Deserialize, Clone)]
-pub struct ParticleParameters {
-    pub particle_input_filename: String,
-    pub length_unit: String,
-    pub energy_unit: String,
-    pub mass_unit: String,
-    pub N: Vec<usize>,
-    pub m: Vec<f64>,
-    pub Z: Vec<f64>,
-    pub E: Vec<Distributions>,
-    pub Ec: Vec<f64>,
-    pub Es: Vec<f64>,
-    pub pos: Vec<(Distributions, Distributions, Distributions)>,
-    pub dir: Vec<(Distributions, Distributions, Distributions)>,
-    #[serde(default = "default_vec_zero")]
-    pub interaction_index: Vec<usize>,
-}
-
-#[cfg(not(feature = "hdf5_input"))]
 #[derive(Deserialize, Clone)]
 pub struct ParticleParameters {
     pub length_unit: String,
@@ -41,9 +21,7 @@ pub struct ParticleParameters {
     pub interaction_index: Vec<usize>,
 }
 
-/// HDF5 version of particle input.
 #[derive(Clone, PartialEq, Debug, Copy)]
-#[cfg_attr(feature = "hdf5_input", derive(hdf5::H5Type))]
 #[repr(C)]
 pub struct ParticleInput {
     pub m: f64,
@@ -239,13 +217,9 @@ impl Particle {
         let (sinpsi, cospsi) = psi.sin_cos();
 
         let (e1, e2) = math::duff_orthonormal_basis(self.dir);
-        let cosx_new = cospsi*cosx - sinpsi*(cosphi*e1.x + sinphi*e2.x);
-        let cosy_new = cospsi*cosy - sinpsi*(cosphi*e1.y + sinphi*e2.y);
-        let cosz_new = cospsi*cosz - sinpsi*(cosphi*e1.z + sinphi*e2.z);
-
-        let dir_new = Vector {x: cosx_new, y: cosy_new, z: cosz_new};
-
-        self.dir.assign(&dir_new);
+        self.dir.x = cospsi*cosx - sinpsi*(cosphi*e1.x + sinphi*e2.x);
+        self.dir.y = cospsi*cosy - sinpsi*(cosphi*e1.y + sinphi*e2.y);
+        self.dir.z = cospsi*cosz - sinpsi*(cosphi*e1.z + sinphi*e2.z);
         self.dir.normalize();
     }
 

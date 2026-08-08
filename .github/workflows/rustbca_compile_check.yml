@@ -32,9 +32,6 @@ jobs:
     - name: Install Python libraries
       run: |
         python3 -m pip install numpy shapely scipy matplotlib toml tomlkit
-    - name: Install HDF5 Libraries
-      run: |
-        sudo apt install libhdf5-dev
     - name: test Python Bindings and run testing scripts
       run: |
         python3 -m pip install setuptools_rust testresources setuptools wheel
@@ -59,7 +56,7 @@ jobs:
         ./a.out
     - name: Test RustBCA
       run: |
-        cargo test --features cpr_rootfinder,hdf5_input,distributions,parry3d
+        cargo test --features cpr_rootfinder,distributions,parry3d
     - name: Run Examples
       run: |
         cargo run --release 0D examples/boron_nitride_0D.toml

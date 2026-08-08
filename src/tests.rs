@@ -226,7 +226,6 @@ fn test_distributions() {
         scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
         num_threads: 1,
         num_chunks: 1,
-        use_hdf5: false,
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}]],
         track_displacements: false,
         track_energy_losses: true,
@@ -882,7 +881,6 @@ fn test_momentum_conservation() {
                             scattering_integral: vec![vec![scattering_integral]],
                             num_threads: 1,
                             num_chunks: 1,
-                            use_hdf5: false,
                             root_finder: vec![vec![root_finder]],
                             track_displacements: false,
                             track_energy_losses: false,
@@ -905,7 +903,6 @@ fn test_momentum_conservation() {
                             scattering_integral: vec![vec![scattering_integral]],
                             num_threads: 1,
                             num_chunks: 1,
-                            use_hdf5: false,
                             root_finder: vec![vec![root_finder]],
                             track_displacements: false,
                             track_energy_losses: false,
@@ -1118,7 +1115,6 @@ fn test_quadrature() {
         scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
         num_threads: 1,
         num_chunks: 1,
-        use_hdf5: false,
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
         track_displacements: false,
         track_energy_losses: false,
@@ -1141,7 +1137,6 @@ fn test_quadrature() {
         scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
         num_threads: 1,
         num_chunks: 1,
-        use_hdf5: false,
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
         track_displacements: false,
         track_energy_losses: false,
@@ -1163,20 +1158,24 @@ fn test_quadrature() {
         z_num: 11,
     };
 
-    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 100, 1E-12).unwrap();
+    let interaction_potential = InteractionPotential::KR_C;
+
+    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-12).unwrap();
 
     //If cpr_rootfinder is enabled, compare Newton to CPR - they should be nearly identical
     #[cfg(feature = "cpr_rootfinder")]
-    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 2, 10000, 1E-6, 1E-6, 1E-9, 1E9, 1E-13, true) {
+    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 2, 10000, 1E-6, 1E-6, 1E-9, 1E9, 1E-13, true) {
         println!("CPR: {} Newton: {}", x0_cpr, x0_newton);
         assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-3));
     };
 
+    let a = interactions::screening_length(Za, Zb, interaction_potential);
+
     //Compute center of mass deflection angle with each algorithm
-    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C, 10);
-    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
-    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
-    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, a, interaction_potential, 10);
+    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, a, interaction_potential);
+    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, a, interaction_potential);
+    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, a, interaction_potential);
 
     //Gauss-Mehler and Gauss-Legendre should be very close to each other
     assert!(approx_eq!(f64, theta_gm, theta_gl, epsilon=0.001));

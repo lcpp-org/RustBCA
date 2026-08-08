@@ -425,8 +425,6 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
 pub fn subtract_electronic_stopping_energy<T: Geometry>(particle_1: &mut particle::Particle, material: &material::Material<T>, distance_traveled: f64,
     x0: f64, strong_collision_Z: f64, strong_collision_index: usize, options: &Options) -> f64 {
 
-    //assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following collision.");
-
     let x = particle_1.pos.x;
     let y = particle_1.pos.y;
     let z = particle_1.pos.z;
@@ -452,9 +450,7 @@ pub fn subtract_electronic_stopping_energy<T: Geometry>(particle_1: &mut particl
 
         particle_1.E += -delta_energy_electronic;
         //Make sure particle energy doesn't become negative again
-        /*
-        assert!(!particle_1.E.is_nan(), "Numerical error: particle energy is NaN following electronic stopping.");
-        */
+
         if particle_1.E < 0. {
             particle_1.E = 0.;
         }
@@ -479,17 +475,12 @@ pub fn calculate_binary_collision(particle_1: &particle::Particle, particle_2: &
     let x0 = distance_of_closest_approach(particle_1, particle_2, binary_collision_geometry, options);
 
     let theta: f64 = match  scattering_integral {
-        ScatteringIntegral::MENDENHALL_WELLER => mendenhall_weller(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, interaction_potential),
-        ScatteringIntegral::GAUSS_MEHLER{n_points} => gauss_mehler(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, interaction_potential, n_points),
-        ScatteringIntegral::GAUSS_LEGENDRE => gauss_legendre(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, interaction_potential),
-        ScatteringIntegral::MAGIC => magic(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, interaction_potential),
+        ScatteringIntegral::MENDENHALL_WELLER => mendenhall_weller(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, a, interaction_potential),
+        ScatteringIntegral::GAUSS_MEHLER{n_points} => gauss_mehler(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, a, interaction_potential, n_points),
+        ScatteringIntegral::GAUSS_LEGENDRE => gauss_legendre(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, a, interaction_potential),
+        ScatteringIntegral::MAGIC => magic(Za, Zb, Ma, Mb, E0, binary_collision_geometry.impact_parameter, x0, a, interaction_potential),
     };
 
-    /*
-    if theta.is_nan() {
-        return Err(anyhow!("Numerical error: CoM deflection angle is NaN for {}. Check input parameters.", binary_collision_geometry));
-    }
-    */
     let (sin_theta, cos_theta) = theta.sin_cos();
     let sin_2_theta = (theta/2.).sin();
 
@@ -695,8 +686,7 @@ pub fn newton_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_par
 }
 
 /// Gauss-Mehler quadrature.
-pub fn gauss_mehler(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: InteractionPotential, n_points: usize) -> f64 {
-    let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+pub fn gauss_mehler(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, a: f64, interaction_potential: InteractionPotential, n_points: usize) -> f64 {
     let r0 = x0*a;
     let V = |r| {interactions::interaction_potential(r, a, Za, Zb, interaction_potential)};
     let relative_energy = E0*Mb/(Ma + Mb);
@@ -704,8 +694,7 @@ pub fn gauss_mehler(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_paramete
 }
 
 /// Gauss-Legendre quadrature.
-pub fn gauss_legendre(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: InteractionPotential) -> f64 {
-    let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
+pub fn gauss_legendre(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, a: f64, interaction_potential: InteractionPotential) -> f64 {
     let r0 = x0*a;
     let V = |r| {interactions::interaction_potential(r, a, Za, Zb, interaction_potential)};
     let relative_energy = E0*Mb/(Ma + Mb);
@@ -713,7 +702,7 @@ pub fn gauss_legendre(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
 }
 
 /// Ziegler's MAGIC algorithm for approximating the scattering integral.
-pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: InteractionPotential) -> f64 {
+pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, a: f64, interaction_potential: InteractionPotential) -> f64 {
     //MAGIC algorithm
     //Since this is legacy code I don't think I will clean this up
     let C_ = match  interaction_potential {
@@ -723,7 +712,6 @@ pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
         InteractionPotential::TRIDYN => [1.0144, 0.235809, 0.126, 69350., 83550.], //Undocumented Tridyn constants
         _ => panic!("Input error: unimplemented interaction potential {} for MAGIC algorithm. Use a screened Coulomb potential.",  interaction_potential)
     };
-    let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
     let beta: f64 = impact_parameter/a;
     let V0 = Za*Zb*Q*Q/4.0/PI/EPS0/a;
     let relative_energy = E0*Mb/(Ma + Mb);
@@ -740,9 +728,8 @@ pub fn magic(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
 }
 
 /// Mendenhall-Weller quadrature.
-pub fn mendenhall_weller(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, interaction_potential: InteractionPotential) -> f64 {
+pub fn mendenhall_weller(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64, x0: f64, a: f64, interaction_potential: InteractionPotential) -> f64 {
     //Lindhard screening length and reduced energy
-    let a: f64 = interactions::screening_length(Za, Zb, interaction_potential);
     let reduced_energy: f64 = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
     let beta: f64 = impact_parameter/a;
 
