@@ -1162,8 +1162,7 @@ pub fn compound_bca_list_tracked_py<'py>(energies: Vec<f64>, ux: Vec<f64>, uy: V
 
 #[cfg(feature = "python")]
 ///reflect_single_ion_py(ion, target, vx, vy, vz)
-///Performs a single BCA ion trajectory in target material with specified incident vhttps://claude.ai/chat/f1d70373-186f-4e3f-8462-d9d99e6832f4elocity.
-///Args:
+///Performs a single BCA ion trajectory in target material with specified incident veloci
 ///    ion (dict): dictionary that defines ion parameters; examples can be found in scripts/materials.py.
 ///    target (dict): dictionary that defines target parameterrs; examples can be found in scripts/materials.py.
 ///    vx, vy, vz (float): initial x, y, and z velocity in m/s.
@@ -1339,7 +1338,7 @@ pub fn compound_bca_list_1D_py<'py>(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, en
     };
 
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
-    for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {();
+    for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {
 
         let mut energy_out;
 
