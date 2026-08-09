@@ -515,12 +515,7 @@ pub extern "C" fn simple_bca_list_c(input: InputSimpleBCA) -> OutputBCA {
 
     let velocities = unsafe { slice::from_raw_parts(input.velocities, input.len) };
 
-    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
-        Ok(seed) if seed == "-1" => rand::random(),
-        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
-        Err(env::VarError::NotPresent) => 0_u64,
-        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
-    };
+    let seed: u64 = get_seed().unwrap();
 
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     for velocity in velocities {
@@ -640,12 +635,7 @@ pub extern "C" fn compound_bca_list_c(input: InputCompoundBCA) -> OutputBCA {
 
     let velocities = unsafe { slice::from_raw_parts(input.velocities, input.len) };
 
-    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
-        Ok(seed) if seed == "-1" => rand::random(),
-        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
-        Err(env::VarError::NotPresent) => 0_u64,
-        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
-    };
+    let seed: u64 = get_seed().unwrap();
 
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     for velocity in velocities {
@@ -784,12 +774,7 @@ pub unsafe extern "C" fn compound_bca_list_fortran(num_incident_ions: &mut c_int
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
-        Ok(seed) if seed == "-1" => rand::random(),
-        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
-        Err(env::VarError::NotPresent) => 0_u64,
-        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
-    };
+    let seed: u64 = get_seed().unwrap();
 
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     for (((((((E1_, ux_), uy_), uz_), Z1_), Ec1_), Es1_), m1_) in E1.iter().zip(ux).zip(uy).zip(uz).zip(Z1).zip(Ec1).zip(Es1).zip(m1) {
@@ -960,12 +945,8 @@ pub fn compound_bca_list_py<'py>(energies: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>,
 
     let m = material::Material::<Mesh0D>::new(&material_parameters, &geometry_input);
 
-    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
-        Ok(seed) if seed == "-1" => rand::random(),
-        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
-        Err(env::VarError::NotPresent) => 0_u64,
-        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
-    };
+    let seed: u64 = get_seed().unwrap();
+
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
 
     for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {
@@ -1093,12 +1074,7 @@ pub fn compound_bca_list_tracked_py<'py>(energies: Vec<f64>, ux: Vec<f64>, uy: V
 
     let mut finished_particles: Vec<particle::Particle> = Vec::new();
 
-    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
-        Ok(seed) if seed == "-1" => rand::random(),
-        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
-        Err(env::VarError::NotPresent) => 0_u64,
-        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
-    };
+    let seed: u64 = get_seed().unwrap();
 
     let incident_particles: Vec<particle::Particle> = izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1)
         .enumerate()
@@ -1276,7 +1252,7 @@ pub fn reflect_single_ion_py<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, 
 ///    incident (list(bool)): whether each row of output was an incident ion or originated in the target
 /// stopped (list(bool)): whether each row of output is associated with a particle that stopped in the target
 #[pyfunction]
-pub fn compound_bca_list_1D_py<'py>(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energies: Vec<f64>, Z1: Vec<f64>, m1: Vec<f64>, Ec1: Vec<f64>, Es1: Vec<f64>, Z2: Vec<f64>, m2: Vec<f64>, Ec2: Vec<f64>, Es2: Vec<f64>, Eb2: Vec<f64>, n2: Vec<Vec<f64>>,  dx: Vec<f64>) -> (Vec<[f64; 9]>, Vec<bool>, Vec<bool>) {
+pub fn compound_bca_list_1D_py<'py>(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, energies: Vec<f64>, Z1: Vec<f64>, m1: Vec<f64>, Ec1: Vec<f64>, Es1: Vec<f64>, Z2: Vec<f64>, m2: Vec<f64>, Ec2: Vec<f64>, Es2: Vec<f64>, Eb2: Vec<f64>, n2: Vec<Vec<f64>>,  dx: Vec<f64>) -> PyResult<(Vec<[f64; 9]>, Vec<bool>, Vec<bool>)> {
     let mut total_output = vec![];
     let mut incident = vec![];
     let mut stopped = vec![];
@@ -1330,12 +1306,7 @@ pub fn compound_bca_list_1D_py<'py>(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, en
 
     let x = -m.geometry.top_energy_barrier_thickness/2.;
 
-    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
-        Ok(seed) if seed == "-1" => rand::random(),
-        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
-        Err(env::VarError::NotPresent) => 0_u64,
-        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
-    };
+    let seed: u64 = get_seed().map_err(|error| PyValueError::new_err(""))?;
 
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     for (energy, ux_, uy_, uz_, Z1_, Ec1_, Es1_, m1_) in izip!(energies, ux, uy, uz, Z1, Ec1, Es1, m1) {
@@ -1383,7 +1354,7 @@ pub fn compound_bca_list_1D_py<'py>(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, en
             }
         }
     }
-    (total_output, incident, stopped)
+    Ok((total_output, incident, stopped))
 }
 
 #[cfg(feature = "python")]
@@ -1414,8 +1385,8 @@ pub fn compound_bca_list_1D_py<'py>(ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>, en
 ///    sputtered, or reflected). Each row consists of:
 ///      [Z, m (amu), E (eV), x, y, z, (angstrom), ux, uy, uz]
 #[pyfunction]
-pub fn simple_bca_py<'py>(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
-    simple_bca(x, y, z, ux, uy, uz, E1, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2)
+pub fn simple_bca_py<'py>(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> PyResult<Vec<[f64; 9]>> {
+    Ok(simple_bca(x, y, z, ux, uy, uz, E1, Z1, m1, Ec1, Es1, Z2, m2, Ec2, Es2, n2, Eb2))
 }
 
 #[cfg(feature = "python")]
@@ -1443,7 +1414,7 @@ pub fn simple_bca_py<'py>(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1:
 ///    sputtered, or reflected). Each row consists of:
 ///      [Z, m (amu), E (eV), x, y, z, (angstrom), ux, uy, uz]
 #[pyfunction]
-pub fn simple_bca_list_py<'py>(energies: Vec<f64>, usx: Vec<f64>, usy: Vec<f64>, usz: Vec<f64>, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
+pub fn simple_bca_list_py<'py>(energies: Vec<f64>, usx: Vec<f64>, usy: Vec<f64>, usz: Vec<f64>, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> PyResult<Vec<[f64; 9]>> {
 
     assert_eq!(energies.len(), usx.len());
     assert_eq!(energies.len(), usy.len());
@@ -1460,7 +1431,7 @@ pub fn simple_bca_list_py<'py>(energies: Vec<f64>, usx: Vec<f64>, usy: Vec<f64>,
             total_output.push(particle);
         }
     }
-    total_output
+    Ok(total_output)
 }
 
 pub fn simple_bca(x: f64, y: f64, z: f64, ux: f64, uy: f64, uz: f64, E1: f64, Z1: f64, m1: f64, Ec1: f64, Es1: f64, Z2: f64, m2: f64, Ec2: f64, Es2: f64, n2: f64, Eb2: f64) -> Vec<[f64; 9]> {
@@ -1657,12 +1628,12 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 ///     uz (f64): particle direction in global frame normal z-component.
 /// Returns:
 ///    direction (f64, f64, f64): direction vector of particle in RustBCA coordinates.
-pub fn rotate_given_surface_normal_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+pub fn rotate_given_surface_normal_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> PyResult<(f64, f64, f64)> {
     let mut ux = ux;
     let mut uy = uy;
     let mut uz = uz;
     rotate_given_surface_normal(nx, ny, nz, &mut ux, &mut uy, &mut uz);
-    (ux, uy, uz)
+    Ok((ux, uy, uz))
 }
 
 #[cfg(all(feature = "python", feature = "parry3d"))]
@@ -1681,7 +1652,7 @@ pub fn rotate_given_surface_normal_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, u
 /// Returns:
 ///    direction (list(f64), list(f64), list(f64)): direction vector of particle in RustBCA coordinates.
 ///    Note: non-incident particles will be returned with ux, uy, uz = (0, 0, 0)
-pub fn rotate_given_surface_normal_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+pub fn rotate_given_surface_normal_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> PyResult<(Vec<f64>, Vec<f64>, Vec<f64>)> {
 
     let length = nx.len();
 
@@ -1702,7 +1673,7 @@ pub fn rotate_given_surface_normal_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: V
 
     });
 
-    (ux_new, uy_new, uz_new)
+    Ok((ux_new, uy_new, uz_new))
 }
 
 #[cfg(feature = "parry3d")]
@@ -1743,12 +1714,12 @@ pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut 
 ///     uz (f64): particle direction in RustBCA frame normal z-component.
 /// Returns:
 ///    direction (f64, f64, f64): direction vector of particle in global coordinates.
-pub fn rotate_back_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+pub fn rotate_back_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> PyResult<(f64, f64, f64)> {
     let mut ux = ux;
     let mut uy = uy;
     let mut uz = uz;
     rotate_back(nx, ny, nz, &mut ux, &mut uy, &mut uz);
-    (ux, uy, uz)
+    Ok((ux, uy, uz))
 }
 
 #[cfg(all(feature = "python", feature = "parry3d"))]
@@ -1766,7 +1737,7 @@ pub fn rotate_back_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64)
 ///     uz (list(f64)): particle direction in global frame normal z-component.
 /// Returns:
 ///    direction (list(f64), list(f64), list(f64)): direction vector of particle in simulation coordinates.
-pub fn rotate_back_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+pub fn rotate_back_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> PyResult<(Vec<f64>, Vec<f64>, Vec<f64>)> {
 
     let (ux_new, (uy_new, uz_new)) = (nx, ny, nz, ux, uy, uz).into_par_iter().map(|(nx_, ny_, nz_, ux_, uy_, uz_)| {
 
@@ -1778,7 +1749,7 @@ pub fn rotate_back_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec
         (ux_mut, (uy_mut, uz_mut))
     }).unzip();
 
-    (ux_new, uy_new, uz_new)
+    Ok((ux_new, uy_new, uz_new))
 }
 
 #[cfg(feature = "python")]
@@ -1791,7 +1762,7 @@ pub fn rotate_back_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec
 ///     energy: the incident energy of the ion in eV
 ///     angle: incident angle of the ion in degrees from surface normal
 ///     num_samples: number of ion trajectories to run; precision will go as 1/sqrt(N)
-pub fn sputtering_yield<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDict>, energy: f64, angle: f64, num_samples: usize) -> f64 {
+pub fn sputtering_yield<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDict>, energy: f64, angle: f64, num_samples: usize) -> PyResult<f64> {
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
@@ -1843,12 +1814,7 @@ pub fn sputtering_yield<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDic
 
     let num_sputtered = Mutex::new(0);
 
-    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
-        Ok(seed) if seed == "-1" => rand::random(),
-        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
-        Err(env::VarError::NotPresent) => 0_u64,
-        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
-    };
+    let seed: u64 = get_seed().map_err(|error| PyValueError::new_err(""))?;
 
     (0..num_samples as u64).into_par_iter()
     .for_each_init(
@@ -1877,7 +1843,7 @@ pub fn sputtering_yield<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDic
         }
     });
     let num_sputtered = *num_sputtered.lock().unwrap();
-    num_sputtered as f64 / num_samples as f64
+    Ok(num_sputtered as f64 / num_samples as f64)
 }
 
 #[cfg(feature = "python")]
@@ -1893,21 +1859,21 @@ pub fn sputtering_yield<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDic
 /// Returns:
 ///     R_N (f64): reflection coefficient (number of particles reflected / number of incident particles)
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
-pub fn reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDict>, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
+pub fn reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDict>, energy: f64, angle: f64, num_samples: usize) -> PyResult<(f64, f64)> {
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
-    let Z1: f64 = ion.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from ion dict.").extract().unwrap();
-    let m1: f64 = ion.get_item("m").unwrap().expect("Error: Cannot get key 'm' from ion dict.").extract().unwrap();
-    let Es1: f64 = ion.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from ion dict.").extract().unwrap();
-    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from ion dict.").extract().unwrap();
+    let Z1: f64 = ion.get_item("Z")?.expect("Error: Cannot get key 'Z' from ion dict.").extract()?;
+    let m1: f64 = ion.get_item("m")?.expect("Error: Cannot get key 'm' from ion dict.").extract()?;
+    let Es1: f64 = ion.get_item("Es")?.expect("Error: Cannot get key 'Es' from ion dict.").extract()?;
+    let Ec1: f64 = ion.get_item("Ec")?.expect("Error: Cannot get key 'Ec' from ion dict.").extract()?;
 
-    let Z2: f64 = target.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from target dict.").extract().unwrap();
-    let m2: f64 = target.get_item("m").unwrap().expect("Error: Cannot get key 'm' from target dict.").extract().unwrap();
-    let Es2: f64 = target.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from target dict.").extract().unwrap();
-    let Ec2: f64 = target.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from target dict.").extract().unwrap();
-    let Eb2: f64 = target.get_item("Eb").unwrap().expect("Error: Cannot get key 'Eb' from target dict.").extract().unwrap();
-    let n2: f64 = target.get_item("n").unwrap().expect("Error: Cannot get key 'n' from target dict.").extract().unwrap();
+    let Z2: f64 = target.get_item("Z")?.expect("Error: Cannot get key 'Z' from target dict.").extract()?;
+    let m2: f64 = target.get_item("m")?.expect("Error: Cannot get key 'm' from target dict.").extract()?;
+    let Es2: f64 = target.get_item("Es")?.expect("Error: Cannot get key 'Es' from target dict.").extract()?;
+    let Ec2: f64 = target.get_item("Ec")?.expect("Error: Cannot get key 'Ec' from target dict.").extract()?;
+    let Eb2: f64 = target.get_item("Eb")?.expect("Error: Cannot get key 'Eb' from target dict.").extract()?;
+    let n2: f64 = target.get_item("n")?.expect("Error: Cannot get key 'n' from target dict.").extract()?;
 
     let options = Options::default_options(false);
 
@@ -1949,12 +1915,7 @@ pub fn reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py,
     let energy_reflected = Mutex::new(0.0);
     let residue = Mutex::new(0.0);
 
-    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
-        Ok(seed) if seed == "-1" => rand::random(),
-        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64."),
-        Err(env::VarError::NotPresent) => 0_u64,
-        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
-    };
+    let seed: u64 = get_seed().map_err(|error| PyValueError::new_err(""))?;
 
     (0..num_samples as u64).into_par_iter()
     .for_each_init(
@@ -1978,6 +1939,7 @@ pub fn reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py,
             if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && particle.incident {
                 let mut num_reflected = num_reflected.lock().unwrap();
                 *num_reflected += 1;
+
                 let mut energy_reflected = energy_reflected.lock().unwrap();
 
                 let residue_part;
@@ -1987,15 +1949,25 @@ pub fn reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py,
 
                 let mut residue = residue.lock().unwrap();
                 *residue = *residue + residue_part;
-
             }
-        }
+        };
     });
-    let num_reflected = *num_reflected.lock().unwrap();
-    let energy_reflected = *energy_reflected.lock().unwrap();
-    let residue = *residue.lock().unwrap();
+    if let (Ok(num_reflected), Ok(energy_reflected), Ok(residue)) = (num_reflected.lock(), energy_reflected.lock(), residue.lock()) {
+        return Ok((*num_reflected as f64 / num_samples as f64, (*energy_reflected + *residue) / EV / energy / num_samples as f64))
+    } else {
+        return Err(PyValueError::new_err("Check input values."))
+    }
 
-    (num_reflected as f64 / num_samples as f64, (energy_reflected + residue) / EV / energy / num_samples as f64)
+    
+}
+
+fn get_seed() -> Result<u64> {
+    match env::var("LIBRUSTBCA_SEED") {
+        Ok(seed) if seed == "-1" => Ok(rand::random()),
+        Ok(seed) => Ok(seed.parse::<u64>()?),
+        Err(env::VarError::NotPresent) => Ok(0_u64),
+        Err(env::VarError::NotUnicode(_)) => Err(anyhow!("LIBRUSTBCA_SEED not unicode."))
+    }
 }
 
 #[cfg(feature = "python")]
@@ -2012,14 +1984,14 @@ pub fn reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py,
 /// Returns:
 ///     R_N (f64): reflection coefficient (number of particles reflected / number of incident particles)
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
-pub fn compound_reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, targets: Vec<Bound<'py, PyDict>>, target_number_densities: Vec<f64>, energy: f64, angle: f64, num_samples: usize) -> (f64, f64) {
+pub fn compound_reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, targets: Vec<Bound<'py, PyDict>>, target_number_densities: Vec<f64>, energy: f64, angle: f64, num_samples: usize) -> PyResult<(f64, f64)> {
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
-    let Z1: f64 = ion.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from ion dict.").extract().unwrap();
-    let m1: f64 = ion.get_item("m").unwrap().expect("Error: Cannot get key 'm1' from ion dict.").extract().unwrap();
-    let Es1: f64 = ion.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from ion dict.").extract().unwrap();
-    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from ion dict.").extract().unwrap();
+    let Z1: f64 = ion.get_item("Z")?.expect("Error: Cannot get key 'Z' from ion dict.").extract()?;
+    let m1: f64 = ion.get_item("m")?.expect("Error: Cannot get key 'm1' from ion dict.").extract()?;
+    let Es1: f64 = ion.get_item("Es")?.expect("Error: Cannot get key 'Es' from ion dict.").extract()?;
+    let Ec1: f64 = ion.get_item("Ec")?.expect("Error: Cannot get key 'Ec' from ion dict.").extract()?;
 
     let Z2: Vec<f64> = targets.iter()
         .enumerate()
@@ -2099,12 +2071,7 @@ pub fn compound_reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, targets: V
     let energy_reflected = Mutex::new(0.0);
     let residue = Mutex::new(0.0);
 
-    let seed: u64 = match env::var("LIBRUSTBCA_SEED") {
-        Ok(seed) if seed == "-1" => rand::random(),
-        Ok(seed) => seed.parse().expect("Value Error: LIBRUSTBCA_SEED not parsable as u64 or not -1."),
-        Err(env::VarError::NotPresent) => 0_u64,
-        Err(env::VarError::NotUnicode(_)) => panic!("Value Error: LIBRUSTBCA_SEED not valid unicode.")
-    };
+    let seed: u64 = get_seed().map_err(|error| PyValueError::new_err(""))?;
 
     (0..num_samples as u64).into_par_iter()
     .for_each_init(
@@ -2145,7 +2112,7 @@ pub fn compound_reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, targets: V
     let energy_reflected = *energy_reflected.lock().unwrap();
     let residue = *residue.lock().unwrap();
 
-    (num_reflected as f64 / num_samples as f64, (energy_reflected + residue) / EV / energy / num_samples as f64)
+    Ok((num_reflected as f64 / num_samples as f64, (energy_reflected + residue) / EV / energy / num_samples as f64))
 }
 
 /// Moller-Knuth TwoSum Floating-Point Adder with Residual (FPAR)
