@@ -1628,12 +1628,12 @@ pub extern "C" fn rotate_given_surface_normal(nx: f64, ny: f64, nz: f64, ux: &mu
 ///     uz (f64): particle direction in global frame normal z-component.
 /// Returns:
 ///    direction (f64, f64, f64): direction vector of particle in RustBCA coordinates.
-pub fn rotate_given_surface_normal_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+pub fn rotate_given_surface_normal_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> PyResult<(f64, f64, f64)> {
     let mut ux = ux;
     let mut uy = uy;
     let mut uz = uz;
     rotate_given_surface_normal(nx, ny, nz, &mut ux, &mut uy, &mut uz);
-    (ux, uy, uz)
+    Ok((ux, uy, uz))
 }
 
 #[cfg(all(feature = "python", feature = "parry3d"))]
@@ -1652,7 +1652,7 @@ pub fn rotate_given_surface_normal_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, u
 /// Returns:
 ///    direction (list(f64), list(f64), list(f64)): direction vector of particle in RustBCA coordinates.
 ///    Note: non-incident particles will be returned with ux, uy, uz = (0, 0, 0)
-pub fn rotate_given_surface_normal_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+pub fn rotate_given_surface_normal_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> PyResult<(Vec<f64>, Vec<f64>, Vec<f64>)> {
 
     let length = nx.len();
 
@@ -1673,7 +1673,7 @@ pub fn rotate_given_surface_normal_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: V
 
     });
 
-    (ux_new, uy_new, uz_new)
+    Ok((ux_new, uy_new, uz_new))
 }
 
 #[cfg(feature = "parry3d")]
@@ -1714,12 +1714,12 @@ pub extern "C" fn rotate_back(nx: f64, ny: f64, nz: f64, ux: &mut f64, uy: &mut 
 ///     uz (f64): particle direction in RustBCA frame normal z-component.
 /// Returns:
 ///    direction (f64, f64, f64): direction vector of particle in global coordinates.
-pub fn rotate_back_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> (f64, f64, f64) {
+pub fn rotate_back_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64) -> PyResult<(f64, f64, f64)> {
     let mut ux = ux;
     let mut uy = uy;
     let mut uz = uz;
     rotate_back(nx, ny, nz, &mut ux, &mut uy, &mut uz);
-    (ux, uy, uz)
+    Ok((ux, uy, uz))
 }
 
 #[cfg(all(feature = "python", feature = "parry3d"))]
@@ -1737,7 +1737,7 @@ pub fn rotate_back_py<'py>(nx: f64, ny: f64, nz: f64, ux: f64, uy: f64, uz: f64)
 ///     uz (list(f64)): particle direction in global frame normal z-component.
 /// Returns:
 ///    direction (list(f64), list(f64), list(f64)): direction vector of particle in simulation coordinates.
-pub fn rotate_back_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+pub fn rotate_back_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>) -> PyResult<(Vec<f64>, Vec<f64>, Vec<f64>)> {
 
     let (ux_new, (uy_new, uz_new)) = (nx, ny, nz, ux, uy, uz).into_par_iter().map(|(nx_, ny_, nz_, ux_, uy_, uz_)| {
 
@@ -1749,7 +1749,7 @@ pub fn rotate_back_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec
         (ux_mut, (uy_mut, uz_mut))
     }).unzip();
 
-    (ux_new, uy_new, uz_new)
+    Ok((ux_new, uy_new, uz_new))
 }
 
 #[cfg(feature = "python")]
