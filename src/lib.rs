@@ -1766,18 +1766,17 @@ pub fn sputtering_yield<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDic
 
     assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
 
-    let Z1: f64 = ion.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from ion dict.").extract().unwrap();
-    let m1: f64 = ion.get_item("m").unwrap().expect("Error: Cannot get key 'm' from ion dict.").extract().unwrap();
-    let Es1: f64 = ion.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from ion dict.").extract().unwrap();
-    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from ion dict.").extract().unwrap();
+    let Z1: f64 = ion.get_item("Z")?.expect("Error: Cannot get key 'Z' from ion dict.").extract()?;
+    let m1: f64 = ion.get_item("m")?.expect("Error: Cannot get key 'm' from ion dict.").extract()?;
+    let Es1: f64 = ion.get_item("Es")?.expect("Error: Cannot get key 'Es' from ion dict.").extract()?;
+    let Ec1: f64 = ion.get_item("Ec")?.expect("Error: Cannot get key 'Ec' from ion dict.").extract()?;
 
-    let Z2: f64 = target.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from target dict.").extract().unwrap();
-    let m2: f64 = target.get_item("m").unwrap().expect("Error: Cannot get key 'm' from target dict.").extract().unwrap();
-    let Es2: f64 = target.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from target dict.").extract().unwrap();
-    let Ec2: f64 = target.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from target dict.").extract().unwrap();
-    let Eb2: f64 = target.get_item("Eb").unwrap().expect("Error: Cannot get key 'Eb' from target dict.").extract().unwrap();
-    let n2: f64 = target.get_item("n").unwrap().expect("Error: Cannot get key 'n' from target dict.").extract().unwrap();
-
+    let Z2: f64 = target.get_item("Z")?.expect("Error: Cannot get key 'Z' from target dict.").extract()?;
+    let m2: f64 = target.get_item("m")?.expect("Error: Cannot get key 'm' from target dict.").extract()?;
+    let Es2: f64 = target.get_item("Es")?.expect("Error: Cannot get key 'Es' from target dict.").extract()?;
+    let Ec2: f64 = target.get_item("Ec")?.expect("Error: Cannot get key 'Ec' from target dict.").extract()?;
+    let Eb2: f64 = target.get_item("Eb")?.expect("Error: Cannot get key 'Eb' from target dict.").extract()?;
+    let n2: f64 = target.get_item("n")?.expect("Error: Cannot get key 'n' from target dict.").extract()?;
 
     let options = Options::default_options(true);
 
