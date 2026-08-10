@@ -80,6 +80,7 @@ pub fn single_ion_bca<T: Geometry>(particle: particle::Particle, material: &mate
         while !particle_1.stopped & !particle_1.left {
 
             //Choose impact parameters and azimuthal angles for all collisions, and determine mean free path
+
             let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, material, options, rng);
 
             let mut total_energy_lost_to_recoils = 0.;
