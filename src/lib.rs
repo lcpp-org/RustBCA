@@ -1811,38 +1811,33 @@ pub fn sputtering_yield<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDic
 
     let x = -m.geometry.energy_barrier_thickness;
 
-    let num_sputtered = Mutex::new(0);
-
     let seed: u64 = get_seed().map_err(|error| PyValueError::new_err(""))?;
 
-    (0..num_samples as u64).into_par_iter()
-    .for_each_init(
+    Ok((0..num_samples as u64).into_par_iter()
+    .map_init(
         || ChaCha8Rng::seed_from_u64(seed), |rng, index| {
 
-        let p = particle::Particle::default_incident(
-            m1,
-            Z1,
-            energy,
-            Ec1,
-            Es1,
-            x,
-            ux,
-            uy,
-            uz
-        );
-        
-        rng.set_stream(index);
-        let output = bca::single_ion_bca(p, &m, &options, rng);
+            let p = particle::Particle::default_incident(
+                m1,
+                Z1,
+                energy,
+                Ec1,
+                Es1,
+                x,
+                ux,
+                uy,
+                uz
+            );
+            
 
-        for particle in output {
-            if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && (!particle.incident) {
-                let mut num_sputtered = num_sputtered.lock().unwrap();
-                *num_sputtered += 1;
-            }
+            rng.set_stream(index);
+            let output = bca::single_ion_bca(p, &m, &options, rng);
+
+            output.iter()
+                .filter(|particle| particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && !particle.incident)
+                .count()
         }
-    });
-    let num_sputtered = *num_sputtered.lock().unwrap();
-    Ok(num_sputtered as f64 / num_samples as f64)
+    ).sum::<usize>() as f64 / num_samples as f64)
 }
 
 #[cfg(feature = "python")]
