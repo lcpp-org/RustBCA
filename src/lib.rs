@@ -167,9 +167,10 @@ macro_rules! geometry_typed_silent_loops {
 macro_rules! geometry_typed_loops {
     ($geometry_type:ty, $input:expr, $python:expr) => {
         {
-            let input: <$geometry_type as geometry::Geometry>::InputFileFormat = depythonize(&$input).unwrap();
+            let input: <$geometry_type as geometry::Geometry>::InputFileFormat = depythonize(&$input)?;
             let (particle_input_array, material, options, output_units) = input::process_input_file(input);
-            let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build().unwrap();
+            let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build()
+                .map_err(|e| PyRuntimeError::new_err(format!("Failed to initialize thread pool.")))?;
             pool.install( ||
                 physics::physics_loop::<$geometry_type>(particle_input_array, material, options, output_units)
             );
