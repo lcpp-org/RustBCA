@@ -1,4 +1,4 @@
-name: RustBCA Compile check
+name: RustBCA Test Suite
 
 on:
   workflow_dispatch:
