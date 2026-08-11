@@ -21,7 +21,7 @@ Check out the `RustBCA` [Wiki] for detailed information, installation
 instructions, use cases, examples, and more. See the RustBCA paper at the
 Journal of Open Source Software by clicking the badge below:
 
-[![DOI](https://joss.theoj.org/papers/10.21105/joss.03298/status.svg)](https://doi.org/10.21105/joss.03298)
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.03298/status.svg)](https://doi.org/10.21105/joss.03298) [![README doctests](https://github.com/lcpp-org/RustBCA/actions/workflows/readme_doctests.yml/badge.svg?branch=main)](https://github.com/lcpp-org/RustBCA/actions/workflows/readme_doctests.yml) [![RustBCA Test Suite](https://github.com/lcpp-org/RustBCA/actions/workflows/rustbca_compile_check.yml/badge.svg)](https://github.com/lcpp-org/RustBCA/actions/workflows/rustbca_compile_check.yml)
 
 Selected citations of RustBCA as of 8/10/26:
 * [Validation of hybrid-PIC Simulations for Advanced Beam-Driven FRC Modeling](https://iopscience.iop.org/article/10.1088/1741-4326/ae96c0/meta), R. E. Groenewald, et al. (2026)
