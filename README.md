@@ -23,7 +23,11 @@ Journal of Open Source Software by clicking the badge below:
 
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.03298/status.svg)](https://doi.org/10.21105/joss.03298)
 
-Selected citations of RustBCA as of 5/24/23:
+Selected citations of RustBCA as of 8/10/26:
+* [Validation of hybrid-PIC Simulations for Advanced Beam-Driven FRC Modeling](https://iopscience.iop.org/article/10.1088/1741-4326/ae96c0/meta), R. E. Groenewald, et al. (2026)
+* [(Preprint): Comparative qualification of advanced plasma-facing materials for fusion pilot plants through public- and private-sector experiments in DIII-D](https://arxiv.org/abs/2607.23400), F. Effenberg, et al. (2026)
+* [Understanding carbon sourcing and transport originating from the helicon antenna surfaces during high-power helicon discharge in DIII-D Tokamak](https://iopscience.iop.org/article/10.1088/1741-4326/ae9322/meta), A. Kumarm et al. (2026)
+* [Molecular dynamics simulations of reflection and sputtering behavior of boron under deuterium ion irradiation](https://www.sciencedirect.com/science/article/pii/S0022311526001327?casa_token=axebkNZe94gAAAAA:WG47RTEOepmq2gZnvPnpFWGfsLHOY1gibRY-Ed0wLXl6zEyUkQPFZnOGrRJhtR-3SVkh57p62Z4) H. Schamis, et al. (2026)
 * [Simulation of liquid lithium divertor geometry using SOLPS-ITER](https://doi.org/10.1109/TPS.2022.3166402), JD Lore et al. (2022)
 * [Characterizing W sources in the all-W wall, all-RF WEST tokamak environment](https://doi.org/10.1088/1361-6587/ac8acc), CC Klepper et al. (2022)
 * [hPIC2: A hardware-accelerated, hybrid particle-in-cell code for dynamic plasma-material interactions](https://doi.org/10.1016/j.cpc.2022.108569), LT Meredith et al. (2023)
@@ -31,6 +35,7 @@ Selected citations of RustBCA as of 5/24/23:
 * [Modeling the effect of nitrogen recycling on the erosion and leakage of tungsten impurities from the SAS-VW divertor in DIII-D during nitrogen gas injection](https://doi.org/10.1016/j.nme.2022.101254), MS Parsons et al. (2023)
 * [Enabling attractive-repulsive potentials in binary-collision-approximation monte-carlo codes for ion-surface interactions](https://doi.org/10.1088/2053-1591/ad1262), J Drobny and D Curreli (2023)
 * [Multi-physics modeling of tungsten collector probe samples during the WEST C4 He campaign](https://doi.org.10.1088/1741-4326/ad6c5b), A. Lasa et al. (2024)
+* [Integrated modeling of RF-induced tungsten erosion at ICRH antenna structures in the WEST tokamak*](https://iopscience.iop.org/article/10.1088/1741-4326/ade455/meta), A. Kumar et al., (2025)
 
 ## Getting started
 
@@ -134,6 +139,7 @@ The following features are implemented in `RustBCA`:
   * nonlocal (Lindhard-Scharff),
   * and equipartition
 * Biersack-Varelas interpolation is also included for electronic stopping up to ~1 GeV/nucleon. Note that high energy physics beyond electronic stopping are not included, and that Biersack-Varelas may not be as accurate as other methods.
+* A modified Biersack-Varelas form which includes an interpolation parameter, `c_i`, that can be used to better match available stopping data for the Bragg peak. 
 * Biersack-Haggmark treatment of high-energy free-flight paths between collisions can be included to greatly speed up high-energy simulations (i.e., by neglecting very small angle scattering).
 * A wide range of interaction potentials are provided, including:
   * the Kr-C, ZBL, Lenz-Jensen, and Moliere universal, screened-Coulomb potentials.
@@ -157,7 +163,8 @@ The following features are implemented in `RustBCA`:
   * full trajectory tracking for both the incident ions and target atoms,
   * and many other parameters such as position of origin of sputtered particles and energy loss along trajectories.
 * Optionally, the code can produce energy-angle and implantation distributions when built with the `--features distributions` flag and disable space-intensive particle list output with `--features no_list_output`.
-* Library functions for modeling ion reflection, implantation, and sputtering in C++/C, Python, and Fortran codes.
+* Library functions for running RustBCA in-memory in C++/C, Python, and Fortran codes.
+* A seeded PRNG such that RustBCA results are exactly reproducible on any machine for any number of threads
 
 ## Installation
 
@@ -170,8 +177,6 @@ cargo build --release
 
 will add an executable at `target/release/`.
 
-[HDF5] for particle list input has been tested on Windows, but version 1.10.6 must be used.
-
 #### Manual Dependences
 
 * [rustup], the [Rust] toolchain (includes `cargo`, the [Rust] package manager, `rustc`, the [Rust] compiler, and more).
@@ -182,7 +187,6 @@ will add an executable at `target/release/`.
 
 #### Optional Dependencies
 
-* [HDF5] libraries
 * For manipulating input files and running associated scripts, the following are suggested:
   * [Python] 3.6+
   * [Python] libraries: `numpy`, `matplotlib`, `toml`, `shapely`, and `scipy`.
@@ -216,9 +220,9 @@ git clone https://github.com/lcpp-org/RustBCA
 cd RustBCA
 cargo build --release
 ```
-8. (Optional) Build `RustBCA` with optional dependencies, `hdf5` and/or `rcpr`:
+8. (Optional) Build `RustBCA` with optional dependencies such as `rcpr`:
 ```bash
-cargo build --release --features cpr_rootfinder,hdf5
+cargo build --release --features cpr_rootfinder
 ```
 9. `input.toml` is the input file - see the [Input File](https://github.com/lcpp-org/RustBCA/wiki/Standalone-Code:-Input-File) page for more information
 10. Run the required tests using:
@@ -284,7 +288,7 @@ Additionally, `RustBCA` accepts an input file type (one of: `0D`, `1D`, `2D`, `T
 ```bash
 ./RustBCA 0D /path/to/input.toml
 ```
-**Warning: RustBCA defaults to the 2D triangular mesh input mode.** For more details, see [Input Files](https://github.com/lcpp-org/RustBCA/wiki/Standalone-Code:-Input-File).
+**Note: RustBCA defaults to the 2D triangular mesh input mode.** For more details, see [Input Files](https://github.com/lcpp-org/RustBCA/wiki/Standalone-Code:-Input-File).
 Also have a look at the examples on the [Wiki] to see some examples of RustBCA input files.
 
 [BCA]: https://en.wikipedia.org/wiki/Binary_collision_approximation
