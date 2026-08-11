@@ -23,7 +23,11 @@ Journal of Open Source Software by clicking the badge below:
 
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.03298/status.svg)](https://doi.org/10.21105/joss.03298)
 
-Selected citations of RustBCA as of 5/24/23:
+Selected citations of RustBCA as of 8/10/26:
+* [Validation of hybrid-PIC Simulations for Advanced Beam-Driven FRC Modeling](https://iopscience.iop.org/article/10.1088/1741-4326/ae96c0/meta), R. E. Groenewald, et al. (2026)
+* [(Preprint): Comparative qualification of advanced plasma-facing materials for fusion pilot plants through public- and private-sector experiments in DIII-D](https://arxiv.org/abs/2607.23400), F. Effenberg, et al. (2026)
+* [Understanding carbon sourcing and transport originating from the helicon antenna surfaces during high-power helicon discharge in DIII-D Tokamak](https://iopscience.iop.org/article/10.1088/1741-4326/ae9322/meta), A. Kumarm et al. (2026)
+* [Molecular dynamics simulations of reflection and sputtering behavior of boron under deuterium ion irradiation](https://www.sciencedirect.com/science/article/pii/S0022311526001327?casa_token=axebkNZe94gAAAAA:WG47RTEOepmq2gZnvPnpFWGfsLHOY1gibRY-Ed0wLXl6zEyUkQPFZnOGrRJhtR-3SVkh57p62Z4) H. Schamis, et al. (2026)
 * [Simulation of liquid lithium divertor geometry using SOLPS-ITER](https://doi.org/10.1109/TPS.2022.3166402), JD Lore et al. (2022)
 * [Characterizing W sources in the all-W wall, all-RF WEST tokamak environment](https://doi.org/10.1088/1361-6587/ac8acc), CC Klepper et al. (2022)
 * [hPIC2: A hardware-accelerated, hybrid particle-in-cell code for dynamic plasma-material interactions](https://doi.org/10.1016/j.cpc.2022.108569), LT Meredith et al. (2023)
@@ -31,6 +35,7 @@ Selected citations of RustBCA as of 5/24/23:
 * [Modeling the effect of nitrogen recycling on the erosion and leakage of tungsten impurities from the SAS-VW divertor in DIII-D during nitrogen gas injection](https://doi.org/10.1016/j.nme.2022.101254), MS Parsons et al. (2023)
 * [Enabling attractive-repulsive potentials in binary-collision-approximation monte-carlo codes for ion-surface interactions](https://doi.org/10.1088/2053-1591/ad1262), J Drobny and D Curreli (2023)
 * [Multi-physics modeling of tungsten collector probe samples during the WEST C4 He campaign](https://doi.org.10.1088/1741-4326/ad6c5b), A. Lasa et al. (2024)
+* [Integrated modeling of RF-induced tungsten erosion at ICRH antenna structures in the WEST tokamak*](https://iopscience.iop.org/article/10.1088/1741-4326/ade455/meta), A. Kumar et al., (2025)
 
 ## Getting started
 
