@@ -134,6 +134,7 @@ The following features are implemented in `RustBCA`:
   * nonlocal (Lindhard-Scharff),
   * and equipartition
 * Biersack-Varelas interpolation is also included for electronic stopping up to ~1 GeV/nucleon. Note that high energy physics beyond electronic stopping are not included, and that Biersack-Varelas may not be as accurate as other methods.
+* A modified Biersack-Varelas form which includes an interpolation parameter, `c_i`, that can be used to better match available stopping data for the Bragg peak. 
 * Biersack-Haggmark treatment of high-energy free-flight paths between collisions can be included to greatly speed up high-energy simulations (i.e., by neglecting very small angle scattering).
 * A wide range of interaction potentials are provided, including:
   * the Kr-C, ZBL, Lenz-Jensen, and Moliere universal, screened-Coulomb potentials.
@@ -157,7 +158,8 @@ The following features are implemented in `RustBCA`:
   * full trajectory tracking for both the incident ions and target atoms,
   * and many other parameters such as position of origin of sputtered particles and energy loss along trajectories.
 * Optionally, the code can produce energy-angle and implantation distributions when built with the `--features distributions` flag and disable space-intensive particle list output with `--features no_list_output`.
-* Library functions for modeling ion reflection, implantation, and sputtering in C++/C, Python, and Fortran codes.
+* Library functions for running RustBCA in-memory in C++/C, Python, and Fortran codes.
+* A seeded PRNG such that RustBCA results are exactly reproducible on any machine for any number of threads
 
 ## Installation
 
@@ -170,8 +172,6 @@ cargo build --release
 
 will add an executable at `target/release/`.
 
-[HDF5] for particle list input has been tested on Windows, but version 1.10.6 must be used.
-
 #### Manual Dependences
 
 * [rustup], the [Rust] toolchain (includes `cargo`, the [Rust] package manager, `rustc`, the [Rust] compiler, and more).
@@ -182,7 +182,6 @@ will add an executable at `target/release/`.
 
 #### Optional Dependencies
 
-* [HDF5] libraries
 * For manipulating input files and running associated scripts, the following are suggested:
   * [Python] 3.6+
   * [Python] libraries: `numpy`, `matplotlib`, `toml`, `shapely`, and `scipy`.
@@ -216,9 +215,9 @@ git clone https://github.com/lcpp-org/RustBCA
 cd RustBCA
 cargo build --release
 ```
-8. (Optional) Build `RustBCA` with optional dependencies, `hdf5` and/or `rcpr`:
+8. (Optional) Build `RustBCA` with optional dependencies such as `rcpr`:
 ```bash
-cargo build --release --features cpr_rootfinder,hdf5
+cargo build --release --features cpr_rootfinder
 ```
 9. `input.toml` is the input file - see the [Input File](https://github.com/lcpp-org/RustBCA/wiki/Standalone-Code:-Input-File) page for more information
 10. Run the required tests using:
@@ -284,7 +283,7 @@ Additionally, `RustBCA` accepts an input file type (one of: `0D`, `1D`, `2D`, `T
 ```bash
 ./RustBCA 0D /path/to/input.toml
 ```
-**Warning: RustBCA defaults to the 2D triangular mesh input mode.** For more details, see [Input Files](https://github.com/lcpp-org/RustBCA/wiki/Standalone-Code:-Input-File).
+**Note: RustBCA defaults to the 2D triangular mesh input mode.** For more details, see [Input Files](https://github.com/lcpp-org/RustBCA/wiki/Standalone-Code:-Input-File).
 Also have a look at the examples on the [Wiki] to see some examples of RustBCA input files.
 
 [BCA]: https://en.wikipedia.org/wiki/Binary_collision_approximation
