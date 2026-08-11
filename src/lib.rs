@@ -1945,6 +1945,25 @@ fn get_seed() -> Result<u64> {
     }
 }
 
+macro_rules! get_vec_from_dicts {
+    ($dicts:expr, $key:expr) => {
+        $dicts.iter()
+        .enumerate()
+        .map(|(index, dict)| dict.get_item($key)?
+        // Error propagation is tricky here, because get_item returns Result<Option<...>>
+        .ok_or_else(|| PyValueError::new_err(format!("Failed to get key {} from dict at index {}.", $key, index)))?
+        .extract()).collect::<PyResult<Vec<f64>>>()
+    }
+}
+
+macro_rules! get_value_from_dict {
+    ($dict:expr, $key:expr) => {
+        $dict.get_item($key)?
+        .ok_or_else(|| PyValueError::new_err(format!("Failed to get key {} from dict.", $key)))?
+        .extract()
+    }
+}
+
 #[cfg(feature = "python")]
 #[pyfunction]
 /// compound_reflection_coefficient(ion, target_species, target_number_densities, energy, angle, num_samples)
@@ -1961,48 +1980,24 @@ fn get_seed() -> Result<u64> {
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
 pub fn compound_reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, targets: Vec<Bound<'py, PyDict>>, target_number_densities: Vec<f64>, energy: f64, angle: f64, num_samples: usize) -> PyResult<(f64, f64)> {
 
-    assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
+    if angle.abs() > 90.0 {
+        return Err(PyValueError::new_err(
+            format!(
+                "Incident angle cannot exceed 90 degrees; {} given.", angle
+            )
+        ))
+    }
 
-    let Z1: f64 = ion.get_item("Z")?.expect("Error: Cannot get key 'Z' from ion dict.").extract()?;
-    let m1: f64 = ion.get_item("m")?.expect("Error: Cannot get key 'm1' from ion dict.").extract()?;
-    let Es1: f64 = ion.get_item("Es")?.expect("Error: Cannot get key 'Es' from ion dict.").extract()?;
-    let Ec1: f64 = ion.get_item("Ec")?.expect("Error: Cannot get key 'Ec' from ion dict.").extract()?;
+    let Z1: f64 = get_value_from_dict!(ion, "Z")?;
+    let m1: f64 = get_value_from_dict!(ion, "m")?;
+    let Es1: f64 = get_value_from_dict!(ion, "Es")?;
+    let Ec1: f64 = get_value_from_dict!(ion, "Ec")?;
 
-    let Z2: Vec<f64> = targets.iter()
-        .enumerate()
-        .map(|(index, target)| target.get_item("Z").unwrap()
-        .unwrap_or_else(|| panic!(
-            "Error: cannot get key 'Z' from target dict at index {}.", index
-        ))
-        .extract().unwrap()).collect::<Vec<f64>>();
-    let m2: Vec<f64> = targets.iter()
-        .enumerate()
-        .map(|(index, target)| target.get_item("m").unwrap()
-        .unwrap_or_else(|| panic!(
-            "Error: cannot get key 'm' from target dict at index {}.", index
-        ))
-        .extract().unwrap()).collect::<Vec<f64>>();
-    let Es2: Vec<f64> = targets.iter()
-        .enumerate()
-        .map(|(index, target)| target.get_item("Es").unwrap()
-        .unwrap_or_else(|| panic!(
-            "Error: cannot get key 'Es' from target dict at index {}.", index
-        ))
-        .extract().unwrap()).collect::<Vec<f64>>();
-    let Ec2: Vec<f64> = targets.iter()
-        .enumerate()
-        .map(|(index, target)| target.get_item("Ec").unwrap()
-        .unwrap_or_else(|| panic!(
-            "Error: cannot get key 'Ec' from target dict at index {}.", index
-        ))
-        .extract().unwrap()).collect::<Vec<f64>>();
-    let Eb2: Vec<f64> = targets.iter()
-        .enumerate()
-        .map(|(index, target)| target.get_item("Eb").unwrap()
-        .unwrap_or_else(|| panic!(
-            "Error: cannot get key 'Eb' from target dict at index {}.", index
-        ))
-        .extract().unwrap()).collect::<Vec<f64>>();
+    let Z2: Vec<f64> = get_vec_from_dicts!(targets, "Z")?;
+    let m2: Vec<f64> = get_vec_from_dicts!(targets, "m")?;
+    let Es2: Vec<f64> = get_vec_from_dicts!(targets, "Es")?;
+    let Ec2: Vec<f64> = get_vec_from_dicts!(targets, "Ec")?;
+    let Eb2: Vec<f64> = get_vec_from_dicts!(targets, "Eb")?;
 
     let number_target_species = Z2.len();
 
