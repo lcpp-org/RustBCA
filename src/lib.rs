@@ -30,9 +30,6 @@ use std::os::raw::c_int;
 
 //standard slice
 use std::slice;
-//Mutex for multithreading in ergonomic Python library functions
-#[cfg(feature = "python")]
-use std::sync::Mutex;
 
 //itertools
 use itertools::{izip};
@@ -1905,54 +1902,38 @@ pub fn reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py,
 
     let x = -m.geometry.energy_barrier_thickness;
 
-    let num_reflected = Mutex::new(0);
-    let energy_reflected = Mutex::new(0.0);
-    let residue = Mutex::new(0.0);
-
     let seed: u64 = get_seed().map_err(|error| PyValueError::new_err(""))?;
 
-    (0..num_samples as u64).into_par_iter()
-    .for_each_init(
+    let (num_reflected, energy_reflected): (Vec<usize>, Vec<f64>) = (0..num_samples as u64).into_par_iter()
+    .map_init(
         || ChaCha8Rng::seed_from_u64(seed), |rng, index| {
-        let p = particle::Particle::default_incident(
-            m1,
-            Z1,
-            energy,
-            Ec1,
-            Es1,
-            x,
-            ux,
-            uy,
-            uz
-        );
-        
-        rng.set_stream(index);
-        let output = bca::single_ion_bca(p, &m, &options, rng);
+            let p = particle::Particle::default_incident(
+                m1,
+                Z1,
+                energy,
+                Ec1,
+                Es1,
+                x,
+                ux,
+                uy,
+                uz
+            );
+            
+            rng.set_stream(index);
+            let output = bca::single_ion_bca(p, &m, &options, rng);
 
-        for particle in output {
-            if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && particle.incident {
-                let mut num_reflected = num_reflected.lock().unwrap();
-                *num_reflected += 1;
-
-                let mut energy_reflected = energy_reflected.lock().unwrap();
-
-                let residue_part;
-
-                // Use Moller-Knuth TwoSum to preserve deterministic fp reduce
-                (*energy_reflected, residue_part) = moller_knuth_two_sum(*energy_reflected, particle.E);
-
-                let mut residue = residue.lock().unwrap();
-                *residue = *residue + residue_part;
+            let mut count = 0;
+            let mut energy = 0.0;
+            for particle in output.into_iter().filter(|particle| particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && particle.incident) {
+                count += 1;
+                energy += particle.E;
             }
-        };
-    });
-    if let (Ok(num_reflected), Ok(energy_reflected), Ok(residue)) = (num_reflected.lock(), energy_reflected.lock(), residue.lock()) {
-        return Ok((*num_reflected as f64 / num_samples as f64, (*energy_reflected + *residue) / EV / energy / num_samples as f64))
-    } else {
-        return Err(PyValueError::new_err("Check input values."))
-    }
 
-    
+            (count, energy)
+        }
+    ).collect();
+    // map_init preserves order - that means we don't have to use TwoSum for reproducibility
+    Ok((num_reflected.into_iter().sum::<usize>() as f64 / num_samples as f64, energy_reflected.iter().sum::<f64>() / EV / energy / num_samples as f64))
 }
 
 fn get_seed() -> Result<u64> {
@@ -2061,52 +2042,38 @@ pub fn compound_reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, targets: V
 
     let x = -m.geometry.energy_barrier_thickness;
 
-    let num_reflected = Mutex::new(0);
-    let energy_reflected = Mutex::new(0.0);
-    let residue = Mutex::new(0.0);
-
     let seed: u64 = get_seed().map_err(|error| PyValueError::new_err(""))?;
 
-    (0..num_samples as u64).into_par_iter()
-    .for_each_init(
+    let (num_reflected, energy_reflected): (Vec<usize>, Vec<f64>) = (0..num_samples as u64).into_par_iter()
+    .map_init(
         || ChaCha8Rng::seed_from_u64(seed), |rng, index| {
+            let p = particle::Particle::default_incident(
+                m1,
+                Z1,
+                energy,
+                Ec1,
+                Es1,
+                x,
+                ux,
+                uy,
+                uz
+            );
+            
+            rng.set_stream(index);
+            let output = bca::single_ion_bca(p, &m, &options, rng);
 
-        let p = particle::Particle::default_incident(
-            m1,
-            Z1,
-            energy,
-            Ec1,
-            Es1,
-            x,
-            ux,
-            uy,
-            uz
-        );
-        
-        rng.set_stream(index);
-        let output = bca::single_ion_bca(p, &m, &options, rng);
-
-        for particle in output {
-            if particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && particle.incident {
-                let mut num_reflected = num_reflected.lock().unwrap();
-                *num_reflected += 1;
-                let mut energy_reflected = energy_reflected.lock().unwrap();
-
-                let residue_part;
-
-                // Use Moller-Knuth TwoSum to preserve deterministic fp reduce
-                (*energy_reflected, residue_part) = moller_knuth_two_sum(*energy_reflected, particle.E);
-
-                let mut residue = residue.lock().unwrap();
-                *residue = *residue + residue_part;
+            let mut count = 0;
+            let mut energy = 0.0;
+            for particle in output.into_iter().filter(|particle| particle.E > 0.0 && particle.dir.x < 0.0 && particle.left && particle.incident) {
+                count += 1;
+                energy += particle.E;
             }
-        }
-    });
-    let num_reflected = *num_reflected.lock().unwrap();
-    let energy_reflected = *energy_reflected.lock().unwrap();
-    let residue = *residue.lock().unwrap();
 
-    Ok((num_reflected as f64 / num_samples as f64, (energy_reflected + residue) / EV / energy / num_samples as f64))
+            (count, energy)
+        }
+    ).collect();
+    // map_init preserves order - that means we don't have to use TwoSum for reproducibility
+    Ok((num_reflected.into_iter().sum::<usize>() as f64 / num_samples as f64, energy_reflected.iter().sum::<f64>() / EV / energy / num_samples as f64))
 }
 
 /// Moller-Knuth TwoSum Floating-Point Adder with Residual (FPAR)
