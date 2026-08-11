@@ -229,11 +229,6 @@ impl <T: Geometry> Material<T> {
         }
     }
 
-    ///The minimum cutoff energy of all species that make up the material.
-    pub fn minimum_cutoff_energy(&self) -> f64 {
-        self.Ec.clone().into_iter().min_by(f64::total_cmp).unwrap()
-    }
-
     ///Choose the parameters of a target atom as a concentration-weighted random draw from the species in the triangle that contains or is nearest to (x, y).
     pub fn choose(&self, x: f64, y: f64, z: f64, rng: &mut ChaCha8Rng) -> (usize, f64, f64, f64, f64, f64, usize) {
         let random_number: f64 = rng.random::<f64>();
