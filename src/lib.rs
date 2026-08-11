@@ -146,6 +146,60 @@ mod libRustBCA {
     use super::rustbca_local_py;
 }
 
+#[cfg(feature = "python")]
+macro_rules! geometry_typed_silent_loops {
+    ($geometry_type:ty, $input:expr, $python:expr) => {
+        {
+            let input: <$geometry_type as geometry::Geometry>::InputFileFormat = depythonize(&$input)?;
+            let (particle_input_array, material, options, output_units) = input::process_input_file(input);
+            let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build()
+                .map_err(|e| PyRuntimeError::new_err(format!("Failed to initialize thread pool.")))?;
+            let finished_particles = pool.install( ||
+                physics::silent_physics_loop::<$geometry_type>(particle_input_array, material, options, output_units.clone())
+            );
+            let finished_particles_container = physics::process_finished_particles_to_arrays(finished_particles, output_units);
+            Ok(pythonize($python, &finished_particles_container)?)
+        }
+    }
+}
+
+#[cfg(feature = "python")]
+macro_rules! geometry_typed_loops {
+    ($geometry_type:ty, $input:expr, $python:expr) => {
+        {
+            let input: <$geometry_type as geometry::Geometry>::InputFileFormat = depythonize(&$input)?;
+            let (particle_input_array, material, options, output_units) = input::process_input_file(input);
+            let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build()
+                .map_err(|e| PyRuntimeError::new_err(format!("Failed to initialize thread pool.")))?;
+            pool.install( ||
+                physics::physics_loop::<$geometry_type>(particle_input_array, material, options, output_units)
+            );
+            Ok(())
+        }
+    }
+}
+
+#[cfg(feature = "python")]
+macro_rules! get_vec_from_dicts {
+    ($dicts:expr, $key:expr) => {
+        $dicts.iter()
+        .enumerate()
+        .map(|(index, dict)| dict.get_item($key)?
+        // Error propagation is tricky here, because get_item returns Result<Option<...>>
+        .ok_or_else(|| PyValueError::new_err(format!("Failed to get key {} from dict at index {}.", $key, index)))?
+        .extract()).collect::<PyResult<Vec<f64>>>()
+    }
+}
+
+#[cfg(feature = "python")]
+macro_rules! get_value_from_dict {
+    ($dict:expr, $key:expr) => {
+        $dict.get_item($key)?
+        .ok_or_else(|| PyValueError::new_err(format!("Failed to get key {} from dict.", $key)))?
+        .extract()
+    }
+}
+
 #[derive(Debug)]
 #[repr(C)]
 pub struct InputSimpleBCA {
@@ -1761,19 +1815,25 @@ pub fn rotate_back_vec_py<'py>(nx: Vec<f64>, ny: Vec<f64>, nz: Vec<f64>, ux: Vec
 ///     num_samples: number of ion trajectories to run; precision will go as 1/sqrt(N)
 pub fn sputtering_yield<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDict>, energy: f64, angle: f64, num_samples: usize) -> PyResult<f64> {
 
-    assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
+    if angle.abs() > 90.0 {
+        return Err(PyValueError::new_err(
+            format!(
+                "Incident angle cannot exceed 90 degrees; {} given.", angle
+            )
+        ))
+    }
 
-    let Z1: f64 = ion.get_item("Z")?.expect("Error: Cannot get key 'Z' from ion dict.").extract()?;
-    let m1: f64 = ion.get_item("m")?.expect("Error: Cannot get key 'm' from ion dict.").extract()?;
-    let Es1: f64 = ion.get_item("Es")?.expect("Error: Cannot get key 'Es' from ion dict.").extract()?;
-    let Ec1: f64 = ion.get_item("Ec")?.expect("Error: Cannot get key 'Ec' from ion dict.").extract()?;
+    let Z1: f64 = get_value_from_dict!(ion, "Z")?;
+    let m1: f64 = get_value_from_dict!(ion, "m")?;
+    let Es1: f64 = get_value_from_dict!(ion, "Es")?;
+    let Ec1: f64 = get_value_from_dict!(ion, "Ec")?;
 
-    let Z2: f64 = target.get_item("Z")?.expect("Error: Cannot get key 'Z' from target dict.").extract()?;
-    let m2: f64 = target.get_item("m")?.expect("Error: Cannot get key 'm' from target dict.").extract()?;
-    let Es2: f64 = target.get_item("Es")?.expect("Error: Cannot get key 'Es' from target dict.").extract()?;
-    let Ec2: f64 = target.get_item("Ec")?.expect("Error: Cannot get key 'Ec' from target dict.").extract()?;
-    let Eb2: f64 = target.get_item("Eb")?.expect("Error: Cannot get key 'Eb' from target dict.").extract()?;
-    let n2: f64 = target.get_item("n")?.expect("Error: Cannot get key 'n' from target dict.").extract()?;
+    let Z2: f64 = get_value_from_dict!(target, "Z")?;
+    let m2: f64 = get_value_from_dict!(target, "m")?;
+    let Es2: f64 = get_value_from_dict!(target, "Es")?;
+    let Ec2: f64 = get_value_from_dict!(target, "Ec")?;
+    let Eb2: f64 = get_value_from_dict!(target, "Eb")?;
+    let n2: f64 = get_value_from_dict!(target, "n")?;
 
     let options = Options::default_options(true);
 
@@ -1852,19 +1912,25 @@ pub fn sputtering_yield<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDic
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
 pub fn reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDict>, energy: f64, angle: f64, num_samples: usize) -> PyResult<(f64, f64)> {
 
-    assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
+    if angle.abs() > 90.0 {
+        return Err(PyValueError::new_err(
+            format!(
+                "Incident angle cannot exceed 90 degrees; {} given.", angle
+            )
+        ))
+    }
 
-    let Z1: f64 = ion.get_item("Z")?.expect("Error: Cannot get key 'Z' from ion dict.").extract()?;
-    let m1: f64 = ion.get_item("m")?.expect("Error: Cannot get key 'm' from ion dict.").extract()?;
-    let Es1: f64 = ion.get_item("Es")?.expect("Error: Cannot get key 'Es' from ion dict.").extract()?;
-    let Ec1: f64 = ion.get_item("Ec")?.expect("Error: Cannot get key 'Ec' from ion dict.").extract()?;
+    let Z1: f64 = get_value_from_dict!(ion, "Z")?;
+    let m1: f64 = get_value_from_dict!(ion, "m")?;
+    let Es1: f64 = get_value_from_dict!(ion, "Es")?;
+    let Ec1: f64 = get_value_from_dict!(ion, "Ec")?;
 
-    let Z2: f64 = target.get_item("Z")?.expect("Error: Cannot get key 'Z' from target dict.").extract()?;
-    let m2: f64 = target.get_item("m")?.expect("Error: Cannot get key 'm' from target dict.").extract()?;
-    let Es2: f64 = target.get_item("Es")?.expect("Error: Cannot get key 'Es' from target dict.").extract()?;
-    let Ec2: f64 = target.get_item("Ec")?.expect("Error: Cannot get key 'Ec' from target dict.").extract()?;
-    let Eb2: f64 = target.get_item("Eb")?.expect("Error: Cannot get key 'Eb' from target dict.").extract()?;
-    let n2: f64 = target.get_item("n")?.expect("Error: Cannot get key 'n' from target dict.").extract()?;
+    let Z2: f64 = get_value_from_dict!(target, "Z")?;
+    let m2: f64 = get_value_from_dict!(target, "m")?;
+    let Es2: f64 = get_value_from_dict!(target, "Es")?;
+    let Ec2: f64 = get_value_from_dict!(target, "Ec")?;
+    let Eb2: f64 = get_value_from_dict!(target, "Eb")?;
+    let n2: f64 = get_value_from_dict!(target, "n")?;
 
     let options = Options::default_options(false);
 
@@ -1961,48 +2027,24 @@ fn get_seed() -> Result<u64> {
 ///     R_E (f64): energy reflection coefficient (sum of reflected particle energies / total incident energy)
 pub fn compound_reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, targets: Vec<Bound<'py, PyDict>>, target_number_densities: Vec<f64>, energy: f64, angle: f64, num_samples: usize) -> PyResult<(f64, f64)> {
 
-    assert!(angle.abs() <= 90.0, "Incident angle w.r.t. surface normal, {}, cannot exceed 90 degrees.", angle);
+    if angle.abs() > 90.0 {
+        return Err(PyValueError::new_err(
+            format!(
+                "Incident angle cannot exceed 90 degrees; {} given.", angle
+            )
+        ))
+    }
 
-    let Z1: f64 = ion.get_item("Z")?.expect("Error: Cannot get key 'Z' from ion dict.").extract()?;
-    let m1: f64 = ion.get_item("m")?.expect("Error: Cannot get key 'm1' from ion dict.").extract()?;
-    let Es1: f64 = ion.get_item("Es")?.expect("Error: Cannot get key 'Es' from ion dict.").extract()?;
-    let Ec1: f64 = ion.get_item("Ec")?.expect("Error: Cannot get key 'Ec' from ion dict.").extract()?;
+    let Z1: f64 = get_value_from_dict!(ion, "Z")?;
+    let m1: f64 = get_value_from_dict!(ion, "m")?;
+    let Es1: f64 = get_value_from_dict!(ion, "Es")?;
+    let Ec1: f64 = get_value_from_dict!(ion, "Ec")?;
 
-    let Z2: Vec<f64> = targets.iter()
-        .enumerate()
-        .map(|(index, target)| target.get_item("Z").unwrap()
-        .unwrap_or_else(|| panic!(
-            "Error: cannot get key 'Z' from target dict at index {}.", index
-        ))
-        .extract().unwrap()).collect::<Vec<f64>>();
-    let m2: Vec<f64> = targets.iter()
-        .enumerate()
-        .map(|(index, target)| target.get_item("m").unwrap()
-        .unwrap_or_else(|| panic!(
-            "Error: cannot get key 'm' from target dict at index {}.", index
-        ))
-        .extract().unwrap()).collect::<Vec<f64>>();
-    let Es2: Vec<f64> = targets.iter()
-        .enumerate()
-        .map(|(index, target)| target.get_item("Es").unwrap()
-        .unwrap_or_else(|| panic!(
-            "Error: cannot get key 'Es' from target dict at index {}.", index
-        ))
-        .extract().unwrap()).collect::<Vec<f64>>();
-    let Ec2: Vec<f64> = targets.iter()
-        .enumerate()
-        .map(|(index, target)| target.get_item("Ec").unwrap()
-        .unwrap_or_else(|| panic!(
-            "Error: cannot get key 'Ec' from target dict at index {}.", index
-        ))
-        .extract().unwrap()).collect::<Vec<f64>>();
-    let Eb2: Vec<f64> = targets.iter()
-        .enumerate()
-        .map(|(index, target)| target.get_item("Eb").unwrap()
-        .unwrap_or_else(|| panic!(
-            "Error: cannot get key 'Eb' from target dict at index {}.", index
-        ))
-        .extract().unwrap()).collect::<Vec<f64>>();
+    let Z2: Vec<f64> = get_vec_from_dicts!(targets, "Z")?;
+    let m2: Vec<f64> = get_vec_from_dicts!(targets, "m")?;
+    let Es2: Vec<f64> = get_vec_from_dicts!(targets, "Es")?;
+    let Ec2: Vec<f64> = get_vec_from_dicts!(targets, "Ec")?;
+    let Eb2: Vec<f64> = get_vec_from_dicts!(targets, "Eb")?;
 
     let number_target_species = Z2.len();
 
@@ -2125,20 +2167,6 @@ fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_g
 
     Ok((theta_gm, theta_gl, theta_mw, theta_magic))
 }
-#[cfg(feature = "python")]
-macro_rules! geometry_typed_loops {
-    ($geometry_type:ty, $input:expr, $python:expr) => {
-        {
-            let input: <$geometry_type as geometry::Geometry>::InputFileFormat = depythonize(&$input).unwrap();
-            let (particle_input_array, material, options, output_units) = input::process_input_file(input);
-            let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build().unwrap();
-            pool.install( ||
-                physics::physics_loop::<$geometry_type>(particle_input_array, material, options, output_units)
-            );
-            Ok(())
-        }
-    }
-}
 
 #[cfg(feature = "python")]
 #[pyfunction]
@@ -2155,42 +2183,6 @@ fn rustbca_py<'py>(python: Python<'py>, input: &Bound<'py, PyDict>, geometry_mod
         #[cfg(feature="parry3d")]
         "TRIMESH" => geometry_typed_loops!(ParryTriMesh, input, python),
        _ => Err(PyValueError::new_err(format!("Input Error: Unimplemented geometry mode {}; try '1D'", geometry_mode)))
-    }
-}
-
-/*
-Notes on macros - this is the first I have written, so I'm taking notes here as I go.
-macro_rules! makes a macro - here, the macro is called geometry_types_silent_loops
-macros pattern match an argument and replace it with anything you want
-I want it to take a tuple of a string (e.g., "1D") and a type (e.g., Mesh1D)
-and plop those into corresponding match arms.
-The first line tells the macro to expect an argument with that pattern.
-arguments are $<name>:<designator>. Designators:
-block
-expr is used for expressions
-ident is used for variable/function names
-item
-literal is used for literal constants
-pat (pattern)
-path
-stmt (statement)
-tt (token tree)
-ty (type)
-vis (visibility qualifier)
-*/
-#[cfg(feature = "python")]
-macro_rules! geometry_typed_silent_loops {
-    ($geometry_type:ty, $input:expr, $python:expr) => {
-        {
-            let input: <$geometry_type as geometry::Geometry>::InputFileFormat = depythonize(&$input).unwrap();
-            let (particle_input_array, material, options, output_units) = input::process_input_file(input);
-            let pool = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build().unwrap();
-            let finished_particles = pool.install( ||
-                physics::silent_physics_loop::<$geometry_type>(particle_input_array, material, options, output_units.clone())
-            );
-            let finished_particles_container = physics::process_finished_particles_to_arrays(finished_particles, output_units);
-            Ok(pythonize($python, &finished_particles_container)?)
-        }
     }
 }
 
