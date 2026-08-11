@@ -57,20 +57,18 @@ impl Geometry for Mesh0D {
             "NM" => NM,
             "M" => 1.,
             _ => input.length_unit.parse()
-                .expect(format!(
-                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M",
-                        &input.length_unit.as_str()
-                    ).as_str()),
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M",
+                        &input.length_unit.as_str())),
         };
 
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
 
         let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
-        assert!(densities.len() > 0, "Input Error: density list empty.");
+        assert!(!densities.is_empty(), "Input Error: density list empty.");
 
         let total_density: f64 = densities.iter().sum();
 
-        let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
+        let energy_barrier_thickness = 1./total_density.cbrt()/SQRTPI*2.;
 
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
 
@@ -136,7 +134,7 @@ impl Geometry for Mesh1D {
 
         let layer_thicknesses = geometry_input.layer_thicknesses.clone();
         let electronic_stopping_correction_factors = geometry_input.electronic_stopping_correction_factors.clone();
-        assert!(electronic_stopping_correction_factors.len() > 0, "Input Error: Electronic stopping correction factor list empty.");
+        assert!(!electronic_stopping_correction_factors.is_empty(), "Input Error: Electronic stopping correction factor list empty.");
         let n = layer_thicknesses.len();
 
         let mut layers: Vec<Layer1D> =  Vec::with_capacity(n);
@@ -150,9 +148,7 @@ impl Geometry for Mesh1D {
             "NM" => NM,
             "M" => 1.,
             _ => geometry_input.length_unit.parse()
-                .expect(format!(
-                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &geometry_input.length_unit.as_str()
-                    ).as_str()),
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &geometry_input.length_unit.as_str())),
         };
 
         let densities: Vec<Vec<f64>> = geometry_input.densities
@@ -180,8 +176,8 @@ impl Geometry for Mesh1D {
             layer_top = layer_bottom;
         }
 
-        let top_energy_barrier_thickness = layers[0].densities.iter().sum::<f64>().powf(-1./3.)/SQRTPI*2.;
-        let bottom_energy_barrier_thickness = layers[layers.len() - 1].densities.iter().sum::<f64>().powf(-1./3.)/SQRTPI*2.;
+        let top_energy_barrier_thickness = 1./layers[0].densities.iter().sum::<f64>().cbrt()/SQRTPI*2.;
+        let bottom_energy_barrier_thickness = 1./layers[layers.len() - 1].densities.iter().sum::<f64>().cbrt()/SQRTPI*2.;
 
         Mesh1D {
             layers,
@@ -299,10 +295,8 @@ impl Geometry for HomogeneousMesh2D {
             "NM" => NM,
             "M" => 1.,
             _ => input.length_unit.parse()
-                .expect(format!(
-                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M",
-                        &input.length_unit.as_str()
-                    ).as_str()),
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M",
+                        &input.length_unit.as_str())),
         };
 
         let boundary_points_converted: Vec<(f64, f64)> = input.points.iter().map(|(x, y)| (x*length_unit, y*length_unit)).collect();
@@ -315,7 +309,7 @@ impl Geometry for HomogeneousMesh2D {
 
         let total_density: f64 = densities.iter().sum();
 
-        let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
+        let energy_barrier_thickness = 1./total_density.cbrt()/SQRTPI*2.;
 
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
 
@@ -359,22 +353,20 @@ impl Geometry for HomogeneousMesh2D {
     fn inside_energy_barrier(&self, x: f64, y: f64, z: f64) -> bool {
         if self.inside(x, y, z) {
             true
-        } else {
-            if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
-                let distance = ((x - p.x()).powf(2.) +  (y - p.y()).powf(2.)).sqrt();
-                distance < self.energy_barrier_thickness
-            } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
-                true
-            } else {
-                panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
-            }
-        }
+        } else if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+             let distance = ((x - p.x()).powi(2) +  (y - p.y()).powi(2)).sqrt();
+             distance < self.energy_barrier_thickness
+         } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
+             true
+         } else {
+             panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
+         }
     }
     fn closest_point(&self, x: f64, y: f64, z: f64) -> (f64, f64, f64) {
         if let Closest::SinglePoint(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
             (p.x(), p.y(), z)
         } else if let Closest::Intersection(p) = self.boundary.closest_point(&point!(x: x, y: y)) {
-            return (p.x(), p.y(), z)
+            (p.x(), p.y(), z)
         } else {
             panic!("Geometry error: closest point routine failed to find single closest point to ({}, {}, {}).", x, y, z);
         }
@@ -407,7 +399,7 @@ impl Mesh2D {
     /// Finds the cell that is nearest to (x, y).
     fn nearest_to(&self, x: f64, y: f64, z: f64) -> &Cell2D {
 
-        let mut min_distance: f64 = std::f64::MAX;
+        let mut min_distance: f64 = f64::MAX;
         let mut index: usize = 0;
 
         for (cell_index, cell) in self.mesh.iter().enumerate() {
@@ -418,7 +410,7 @@ impl Mesh2D {
             }
         }
 
-        return &self.mesh[index];
+        &self.mesh[index]
     }
 }
 
@@ -435,7 +427,7 @@ impl Geometry for Mesh2D {
 
         let simulation_boundary_points = geometry_input.simulation_boundary_points.clone();
         let electronic_stopping_correction_factors = geometry_input.electronic_stopping_correction_factors.clone();
-        assert!(electronic_stopping_correction_factors.len() > 0, "Input Error: Electronic stopping correction factor list empty.");
+        assert!(!electronic_stopping_correction_factors.is_empty(), "Input Error: Electronic stopping correction factor list empty.");
         let n = triangles.len();
 
         let mut cells: Vec<Cell2D> =  Vec::with_capacity(n);
@@ -449,9 +441,7 @@ impl Geometry for Mesh2D {
             "NM" => NM,
             "M" => 1.,
             _ => geometry_input.length_unit.parse()
-                .expect(format!(
-                        "Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &geometry_input.length_unit.as_str()
-                    ).as_str()),
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse length unit {}. Use a valid float or one of ANGSTROM, NM, MICRON, CM, MM, M", &geometry_input.length_unit.as_str())),
         };
 
         let densities: Vec<Vec<f64>> = geometry_input.densities
@@ -491,26 +481,6 @@ impl Geometry for Mesh2D {
             cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));
         }
 
-        /*
-        for ((coordinate_set, densities), ck) in triangles.iter().zip(densities).zip(electronic_stopping_correction_factors) {
-            let coordinate_set_converted = (
-                coordinate_set.0*length_unit,
-                coordinate_set.1*length_unit,
-                coordinate_set.2*length_unit,
-                coordinate_set.3*length_unit,
-                coordinate_set.4*length_unit,
-                coordinate_set.5*length_unit,
-            );
-
-            let total_density: f64 = densities.iter().sum();
-            let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
-
-            cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));
-        }
-        */
-
-
-
         let mut boundary_points_converted = Vec::with_capacity(material_boundary_point_indices.len());
         for index in material_boundary_point_indices.iter() {
             boundary_points_converted.push((points[*index].0*length_unit, points[*index].1*length_unit));
@@ -527,9 +497,9 @@ impl Geometry for Mesh2D {
 
         Mesh2D {
             mesh: cells,
-            boundary: boundary,
-            simulation_boundary: simulation_boundary,
-            energy_barrier_thickness: energy_barrier_thickness,
+            boundary,
+            simulation_boundary,
+            energy_barrier_thickness,
         }
     }
 
@@ -581,7 +551,7 @@ impl Geometry for Mesh2D {
             }
             panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
         } else {
-            return self.nearest_to(x, y, z).electronic_stopping_correction_factor;
+            self.nearest_to(x, y, z).electronic_stopping_correction_factor
         }
     }
 
@@ -595,7 +565,7 @@ impl Geometry for Mesh2D {
             }
             panic!("Geometry error: point ({}, {}) not found in any cell of the mesh.", x, y);
         } else {
-            return self.nearest_to(x, y, z).densities.iter().sum::<f64>();
+            self.nearest_to(x, y, z).densities.iter().sum::<f64>()
         }
     }
 
@@ -609,7 +579,7 @@ impl Geometry for Mesh2D {
             }
             panic!("Geometry error: method inside() is returning true for points outside all cells. Check boundary points.")
         } else {
-            return &self.nearest_to(x, y, z).concentrations;
+            &self.nearest_to(x, y, z).concentrations
         }
     }
 
@@ -758,7 +728,7 @@ impl Triangle2D {
         let b = ((y3 - y1)*(x - x3) + (x1 - x3)*(y - y3)) / ((y2 - y3)*(x1 - x3) + (x3 - x2)*(y1 - y3));
         let c = 1. - a - b;
 
-         (0. <= a) & (a <= 1.) & (0. <= b) & (b <= 1.) & (0. <= c) & (c <= 1.)
+         (0. ..=1.).contains(&a) & (0. ..=1.).contains(&b) & (0. ..=1.).contains(&c)
     }
 
     /// Returns a point (x, y) that is the centroid of the triangle.
@@ -768,7 +738,7 @@ impl Triangle2D {
 
     /// Calculates the shortest distance from this triangle to the point (x, y).
     pub fn distance_to(&self, x: f64, y: f64) -> f64 {
-        let mut distance_to = std::f64::MAX;
+        let mut distance_to = f64::MAX;
 
         for segment in &self.segments {
             let length_2 = (segment.2 - segment.0)*(segment.2 - segment.0) + (segment.3 - segment.1)*(segment.3 - segment.1);

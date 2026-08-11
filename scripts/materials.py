@@ -1,3 +1,7 @@
+import sys, os
+if os.environ.get("SUPPRESS_RUSTBCA_MATERIALS_WARNING") != "1":
+    print('materials.py is intended to provide example input values only; all input values should be verified by the user before running. This warning can be suppressed by setting the environment variable SUPPRESS_RUSTBCA_MATERIALS_WARNING to 1.', file=sys.stderr)
+
 titanium = {
     'symbol': 'Ti',
     'name': 'titanium',

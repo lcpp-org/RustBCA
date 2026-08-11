@@ -2,7 +2,8 @@
 use super::*;
 #[cfg(test)]
 use float_cmp::*;
-
+#[cfg(test)]
+use rand::RngExt;
 
 #[test]
 #[cfg(feature = "cpr_rootfinder")]
@@ -225,10 +226,10 @@ fn test_distributions() {
         scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
         num_threads: 1,
         num_chunks: 1,
-        use_hdf5: false,
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}]],
         track_displacements: false,
         track_energy_losses: true,
+        seed: 0,
         energy_min: 0.0,
         energy_max: 10.0,
         energy_num: 11,
@@ -779,7 +780,10 @@ fn test_momentum_conservation() {
         InteractionPotential::MORSE{D: 5.4971E-20, r0: 2.782E-10, alpha: 1.4198E10}
     ];
     
+    #[cfg(feature = "cpr_rootfinder")]
     let mut rootfinders = vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}; 4];
+    #[cfg(not(feature = "cpr_rootfinder"))]
+    let  rootfinders = vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}; 4];
 
     //[[{"CPR"={n0=2, nmax=100, epsilon=1E-9, complex_threshold=1E-3, truncation_threshold=1E-9, far_from_zero=1E9, interval_limit=1E-12, derivative_free=true}}]]
     #[cfg(feature = "cpr_rootfinder")]
@@ -877,10 +881,10 @@ fn test_momentum_conservation() {
                             scattering_integral: vec![vec![scattering_integral]],
                             num_threads: 1,
                             num_chunks: 1,
-                            use_hdf5: false,
                             root_finder: vec![vec![root_finder]],
                             track_displacements: false,
                             track_energy_losses: false,
+                            seed: 0,
                         };
 
                         #[cfg(feature = "distributions")]
@@ -899,10 +903,10 @@ fn test_momentum_conservation() {
                             scattering_integral: vec![vec![scattering_integral]],
                             num_threads: 1,
                             num_chunks: 1,
-                            use_hdf5: false,
                             root_finder: vec![vec![root_finder]],
                             track_displacements: false,
                             track_energy_losses: false,
+                            seed: 0,
                             energy_min: 0.0,
                             energy_max: 10.0,
                             energy_num: 11,
@@ -920,14 +924,16 @@ fn test_momentum_conservation() {
                             z_num: 11,
                         };
 
-                        let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options);
+                        static SEED: u64 = 0;
+                        let mut rng = ChaCha8Rng::seed_from_u64(SEED);
+                        let binary_collision_geometries = bca::determine_mfp_phi_impact_parameter(&mut particle_1, &material_1, &options, &mut rng);
 
                         println!("Phi: {} rad p: {} Angstrom mfp: {} Angstrom", binary_collision_geometries[0].phi_azimuthal,
                             binary_collision_geometries[0].impact_parameter/ANGSTROM,
                             binary_collision_geometries[0].mfp/ANGSTROM);
 
                         let (species_index, mut particle_2) = bca::choose_collision_partner(&mut particle_1, &material_1,
-                            &binary_collision_geometries[0], &options);
+                            &binary_collision_geometries[0], &options, &mut rng);
 
                         let mom1_0 = particle_1.get_momentum();
                         let mom2_0 = particle_2.get_momentum();
@@ -970,15 +976,15 @@ fn test_momentum_conservation() {
                         println!();
 
                         //These values are in  [angstrom amu / second], so very large.
-                        assert!(approx_eq!(f64, initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, epsilon = 1000.));
-                        assert!(approx_eq!(f64, initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, epsilon = 1000.));
-                        assert!(approx_eq!(f64, initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, epsilon = 1000.));
+                        assert!(approx_eq!(f64, initial_momentum.x/ANGSTROM/AMU, final_momentum.x/ANGSTROM/AMU, epsilon = 10.));
+                        assert!(approx_eq!(f64, initial_momentum.y/ANGSTROM/AMU, final_momentum.y/ANGSTROM/AMU, epsilon = 10.));
+                        assert!(approx_eq!(f64, initial_momentum.z/ANGSTROM/AMU, final_momentum.z/ANGSTROM/AMU, epsilon = 10.));
 
                         assert!(!particle_1.E.is_nan());
                         assert!(!particle_2.E.is_nan());
                         assert!(!initial_momentum.x.is_nan());
-                        assert!(!initial_momentum.x.is_nan());
-                        assert!(!initial_momentum.x.is_nan());
+                        assert!(!initial_momentum.y.is_nan());
+                        assert!(!initial_momentum.z.is_nan());
                     }
                 }
             }
@@ -997,33 +1003,63 @@ fn test_rotate() {
     let x = 0.;
     let y = 0.;
     let z = 0.;
-    let cosx = (PI/4.).cos();
-    let cosy = (PI/4.).sin();
-    let cosz = 0.;
-    let psi = -PI/4.;
-    let phi = 0.;
+    let cosx = 1.0;
+    let cosy = 0.0;
+    let cosz = 0.0;
+    let psi = PI/4.;
+    let phi = 0.0; // Duff ONB gives e1=(1/2, -1/2, -√2/2) e2=(-1/2, 1/2, -√2/2)
+    // That means in order for the rotation tests to work, we need to re-align the orthoframe
+    // by rotating by a phi of 3 pi / 4.
 
-    let mut particle = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+    let mut particle_1 = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+    // Check that rotation in 2D works
+    // Duff ONB is not aligned to (x, y, z)
+    particle_1.rotate(psi, phi);
+    assert!(approx_eq!(f64, particle_1.dir.x, (2.0_f64).sqrt()/2., epsilon = 1E-9), "particle_1.dir.x: {} Should be ~√2/2.", particle_1.dir.x);
+    assert!(approx_eq!(f64, particle_1.dir.y, 0., epsilon = 1E-9), "particle.dir.y: {} Should be ~0.", particle_1.dir.y);
+    assert!(approx_eq!(f64, particle_1.dir.z, -(2.0_f64).sqrt()/2., epsilon = 1E-9), "particle_1.dir.z: {} Should be ~-√2/2.", particle_1.dir.z);
 
-    //Check that rotation in 2D works
-    particle.rotate(psi, phi);
-    assert!(approx_eq!(f64, particle.dir.x, 0., epsilon = 1E-12), "particle.dir.x: {} Should be ~0.", particle.dir.x);
-    assert!(approx_eq!(f64, particle.dir.y, 1., epsilon = 1E-12), "particle.dir.y: {} Should be ~1.", particle.dir.y);
+    let mut particle_2 = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+    particle_2.rotate(-psi, phi);
+    assert!(approx_eq!(f64, particle_2.dir.x, (2.0_f64).sqrt()/2., epsilon = 1E-9), "particle.dir.x: {} Should be ~√2/2.", particle_2.dir.x);
+    assert!(approx_eq!(f64, particle_2.dir.y, 0., epsilon = 1E-9), "particle.dir.y: {} Should be ~0.", particle_2.dir.y);
+    assert!(approx_eq!(f64, particle_2.dir.z, (2.0_f64).sqrt()/2., epsilon = 1E-9), "particle.dir.z: {} Should be ~-√2/2.", particle_2.dir.z);
 
-    //Check that rotating back by negative psi returns to the previous values
-    particle.rotate(-psi, phi);
-    assert!(approx_eq!(f64, particle.dir.x, cosx, epsilon = 1E-12), "particle.dir.x: {} Should be ~{}", particle.dir.x, cosx);
-    assert!(approx_eq!(f64, particle.dir.y, cosy, epsilon = 1E-12), "particle.dir.y: {} Should be ~{}", particle.dir.y, cosy);
+    let mut rng = ChaCha8Rng::seed_from_u64(0);
+    for _ in 0..1000 {
+        let cosx: f64 = rng.random();
+        let cosy: f64 = rng.random();
+        let cosz: f64 = rng.random();
+        let random_phi: f64 = rng.random::<f64>()*PI*2.;
+        let mag = (cosx*cosx + cosy*cosy + cosz*cosz).sqrt();
 
-    //Check that azimuthal rotation by 180 degrees works correctly
-    let phi = PI;
-    particle.rotate(psi, phi);
-    assert!(approx_eq!(f64, particle.dir.x, 1., epsilon = 1E-12), "particle.dir.x: {} Should be ~1.", particle.dir.x);
-    assert!(approx_eq!(f64, particle.dir.y, 0., epsilon = 1E-12), "particle.dir.y: {} Should be ~0.", particle.dir.y);
+        // Test that rotating in psi by PI results in backwards travel
+        let mut particle_3 = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+        particle_3.rotate(PI, 0.0);
+        assert!(approx_eq!(f64, particle_3.dir.x, -cosx/mag, epsilon = 1e-9), "particle_3.dir.x: {}; Should be {}.", particle_3.dir.x, -cosx/mag);
+        assert!(approx_eq!(f64, particle_3.dir.y, -cosy/mag, epsilon = 1e-9), "particle_3.dir.y: {}; Should be {}.", particle_3.dir.y, -cosy/mag);
+        assert!(approx_eq!(f64, particle_3.dir.z, -cosz/mag, epsilon = 1e-9), "particle_3.dir.z: {}; Should be {}.", particle_3.dir.z, -cosz/mag);
 
-    //Check that particle direction vector remains normalized following rotations
-    assert!(approx_eq!(f64, particle.dir.x.powi(2) + particle.dir.y.powi(2) + particle.dir.z.powi(2), 1.), "Particle direction not normalized.");
+        //Check that azimuthal rotation results in zero direction change
+        let mut particle_4 = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+        particle_4.rotate(0.0, random_phi);
+        assert!(approx_eq!(f64, particle_4.dir.x, cosx/mag, epsilon = 1e-9), "particle_4.dir.x: {}; Should be {}.", particle_4.dir.x, cosx/mag);
+        assert!(approx_eq!(f64, particle_4.dir.y, cosy/mag, epsilon = 1e-9), "particle_4.dir.y: {}; Should be {}.", particle_4.dir.y, cosy/mag);
+        assert!(approx_eq!(f64, particle_4.dir.z, cosz/mag, epsilon = 1e-9), "particle_4.dir.z: {}; Should be {}.", particle_4.dir.z, cosz/mag);
 
+        // Check that rotation by random phi and rotation by +/- 45 degrees results in orthogonal directions
+        // If particle_5 is rotated by 45 degrees along the original orthonormal basis, and particle_6 -45, they should be orthogonal after
+        let mut particle_5 = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+        particle_5.rotate(PI/4., random_phi);
+        let mut particle_6 = particle::Particle::new(mass, Z, E, Ec, Es, Ed, x, y, z, cosx, cosy, cosz, false, false, 0);
+        particle_6.rotate(-PI/4., random_phi);
+        assert!(approx_eq!(f64, particle_5.dir.dot(&particle_6.dir), 0.0, epsilon=1e-9), "dir_1 dot dir_2 = {}; should be orthogonal.", particle_5.dir.dot(&particle_6.dir));
+
+        //Check that particle direction vector remains normalized following rotations
+        assert!(approx_eq!(f64, particle_4.dir.x.powi(2) + particle_4.dir.y.powi(2) + particle_4.dir.z.powi(2), 1.), "Particle direction not normalized.");
+        assert!(approx_eq!(f64, particle_5.dir.x.powi(2) + particle_5.dir.y.powi(2) + particle_5.dir.z.powi(2), 1.), "Particle direction not normalized.");
+        assert!(approx_eq!(f64, particle_6.dir.x.powi(2) + particle_6.dir.y.powi(2) + particle_6.dir.z.powi(2), 1.), "Particle direction not normalized.");
+    }
 }
 
 #[test]
@@ -1079,10 +1115,10 @@ fn test_quadrature() {
         scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
         num_threads: 1,
         num_chunks: 1,
-        use_hdf5: false,
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
         track_displacements: false,
         track_energy_losses: false,
+        seed: 0,
     };
 
     #[cfg(feature = "distributions")]
@@ -1101,10 +1137,10 @@ fn test_quadrature() {
         scattering_integral: vec![vec![ScatteringIntegral::MENDENHALL_WELLER]],
         num_threads: 1,
         num_chunks: 1,
-        use_hdf5: false,
         root_finder: vec![vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-14}]],
         track_displacements: false,
         track_energy_losses: false,
+        seed: 0,
         energy_min: 0.0,
         energy_max: 10.0,
         energy_num: 11,
@@ -1122,20 +1158,24 @@ fn test_quadrature() {
         z_num: 11,
     };
 
-    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 100, 1E-12).unwrap();
+    let interaction_potential = InteractionPotential::KR_C;
+
+    let x0_newton = bca::newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 100, 1E-12).unwrap();
 
     //If cpr_rootfinder is enabled, compare Newton to CPR - they should be nearly identical
     #[cfg(feature = "cpr_rootfinder")]
-    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, InteractionPotential::KR_C, 2, 10000, 1E-6, 1E-6, 1E-9, 1E9, 1E-13, true) {
+    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 2, 10000, 1E-6, 1E-6, 1E-9, 1E9, 1E-13, true) {
         println!("CPR: {} Newton: {}", x0_cpr, x0_newton);
         assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-3));
     };
 
+    let a = interactions::screening_length(Za, Zb, interaction_potential);
+
     //Compute center of mass deflection angle with each algorithm
-    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C, 10);
-    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
-    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
-    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, InteractionPotential::KR_C);
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0_newton, a, interaction_potential, 10);
+    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0_newton, a, interaction_potential);
+    let theta_mw = bca::mendenhall_weller(Za, Zb, Ma, Mb, E0, p, x0_newton, a, interaction_potential);
+    let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, a, interaction_potential);
 
     //Gauss-Mehler and Gauss-Legendre should be very close to each other
     assert!(approx_eq!(f64, theta_gm, theta_gl, epsilon=0.001));

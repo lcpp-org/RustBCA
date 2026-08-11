@@ -5,22 +5,15 @@
 use std::{env, fmt};
 use std::mem::discriminant;
 
-//Progress bar crate - works with rayon
-use indicatif::{ProgressBar, ProgressStyle};
-
 //Error handling crate
 use anyhow::{Result, Context, anyhow};
 
 //Serializing/Deserializing crate
 use serde::*;
 
-//Array input via hdf5
-#[cfg(feature = "hdf5_input")]
-use hdf5::*;
-
 //Parallelization
-use rayon::prelude::*;
-use rayon::*;
+//use rayon::prelude::*;
+//use rayon::ThreadPoolBuilder;
 
 //I/O
 use std::fs::OpenOptions;
@@ -35,10 +28,12 @@ use std::f64::consts::FRAC_2_SQRT_PI;
 use std::f64::consts::PI;
 use std::f64::consts::SQRT_2;
 
+//RNG
+use rand::{SeedableRng, rngs::ChaCha8Rng};
+
 //Load internal modules
 pub mod material;
 pub mod particle;
-pub mod tests;
 pub mod interactions;
 pub mod bca;
 pub mod geometry;
@@ -49,6 +44,7 @@ pub mod consts;
 pub mod structs;
 pub mod sphere;
 pub mod physics;
+pub mod math;
 
 #[cfg(feature = "parry3d")]
 pub mod parry;
@@ -61,9 +57,24 @@ pub use crate::output::{OutputUnits};
 pub use crate::geometry::{Geometry, GeometryElement, Mesh0D, Mesh1D, Mesh2D, HomogeneousMesh2D};
 pub use crate::sphere::{Sphere, SphereInput, InputSphere};
 pub use crate::physics::{physics_loop};
+pub use crate::math::duff_orthonormal_basis;
 
 #[cfg(feature = "parry3d")]
 pub use crate::parry::{ParryBall, ParryBallInput, InputParryBall, ParryTriMesh, ParryTriMeshInput, InputParryTriMesh};
+
+
+macro_rules! main_loop {
+    ($geometry_type:ident, $input_file:expr) => {
+        {
+            let (particle_input_array, material, options, output_units) = input::input::<$geometry_type>($input_file);
+            //Initialize threads with rayon
+            println!("Processing {} ions...", particle_input_array.len());
+            println!("Initializing with {} threads...", options.num_threads);
+            let _ = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global();
+            physics_loop::<$geometry_type>(particle_input_array, material, options, output_units);
+        }
+    }
+}
 
 fn main() {
 
@@ -87,36 +98,16 @@ fn main() {
         _ => panic!("Too many command line arguments. RustBCA accepts 0 (use 'input.toml') 1 (<input file name>) or 2 (<geometry type> <input file name>)"),
     };
 
-     match geometry_type {
-        GeometryType::MESH0D => {
-            let (particle_input_array, material, options, output_units) = input::input::<geometry::Mesh0D>(input_file);
-            physics_loop::<Mesh0D>(particle_input_array, material, options, output_units);
-        },
-        GeometryType::MESH1D => {
-            let (particle_input_array, material, options, output_units) = input::input::<geometry::Mesh1D>(input_file);
-            physics_loop::<Mesh1D>(particle_input_array, material, options, output_units);
-        },
-        GeometryType::MESH2D => {
-            let (particle_input_array, material, options, output_units) = input::input::<geometry::Mesh2D>(input_file);
-            physics_loop::<Mesh2D>(particle_input_array, material, options, output_units);
-        },
-        GeometryType::SPHERE => {
-            let (particle_input_array, material, options, output_units) = input::input::<Sphere>(input_file);
-            physics_loop::<Sphere>(particle_input_array, material, options, output_units);
-        },
+    // This invokes the above macro that expands into the physics loop invocation for each type
+    match geometry_type {
+        GeometryType::MESH0D => main_loop!(Mesh0D, input_file),
+        GeometryType::MESH1D => main_loop!(Mesh1D, input_file),
+        GeometryType::MESH2D => main_loop!(Mesh2D, input_file),
+        GeometryType::SPHERE => main_loop!(Sphere, input_file),
         #[cfg(feature = "parry3d")]
-        GeometryType::BALL => {
-            let (particle_input_array, material, options, output_units) = input::input::<ParryBall>(input_file);
-            physics_loop::<ParryBall>(particle_input_array, material, options, output_units);
-        }
+        GeometryType::BALL => main_loop!(ParryBall, input_file),
         #[cfg(feature = "parry3d")]
-        GeometryType::TRIMESH => {
-            let (particle_input_array, material, options, output_units) = input::input::<ParryTriMesh>(input_file);
-            physics_loop::<ParryTriMesh>(particle_input_array, material, options, output_units);
-        }
-        GeometryType::HOMOGENEOUS2D => {
-            let (particle_input_array, material, options, output_units) = input::input::<geometry::HomogeneousMesh2D>(input_file);
-            physics_loop::<HomogeneousMesh2D>(particle_input_array, material, options, output_units);
-        }
+        GeometryType::TRIMESH => main_loop!(ParryTriMesh, input_file),
+        GeometryType::HOMOGENEOUS2D => main_loop!(HomogeneousMesh2D, input_file),
     }
 }

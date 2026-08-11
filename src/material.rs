@@ -1,4 +1,6 @@
 use super::*;
+use rand::RngExt;
+use std::sync::LazyLock;
 
 ///This helper function is a workaround to issue #368 in serde
 fn default_surface_binding_model() -> SurfaceBindingModel {
@@ -60,18 +62,14 @@ impl <T: Geometry> Material<T> {
             "KEV" => EV*1E3,
             "MEV" => EV*1E6,
             _ => material_parameters.energy_unit.parse()
-                .expect(format!(
-                        "Input errror: could nor parse energy unit {}. Use a valid float or one of EV, J, KEV, MEV", &material_parameters.energy_unit.as_str()
-                    ).as_str()),
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse energy unit {}. Use a valid float or one of EV, J, KEV, MEV", &material_parameters.energy_unit.as_str())),
         };
 
         let mass_unit: f64 = match material_parameters.mass_unit.as_str() {
             "AMU" => AMU,
             "KG" => 1.,
             _ => material_parameters.mass_unit.parse()
-                .expect(format!(
-                        "Input errror: could nor parse mass unit {}. Use a valid float or one of AMU, KG", &material_parameters.mass_unit.as_str()
-                    ).as_str()),
+                .unwrap_or_else(|_| panic!("Input errror: could nor parse mass unit {}. Use a valid float or one of AMU, KG", &material_parameters.mass_unit.as_str())),
         };
 
         Material {
@@ -93,7 +91,7 @@ impl <T: Geometry> Material<T> {
 
         let total_number_density: f64 = self.geometry.get_total_density(x, y, z);
 
-        return self.geometry.get_densities(x, y, z).iter().map(|&i| i / total_number_density).collect();
+        self.geometry.get_densities(x, y, z).iter().map(|&i| i / total_number_density).collect()
     }
 
     /// Gets cumulative concentrations of triangle that contains or is nearest to (x, y).
@@ -106,22 +104,22 @@ impl <T: Geometry> Material<T> {
             sum += concentration;
             cumulative_concentrations.push(sum);
         }
-        return cumulative_concentrations;
+        cumulative_concentrations
     }
 
     /// Determines whether (x, y) is inside the material.
     pub fn inside(&self, x: f64, y: f64, z: f64) -> bool {
-        return self.geometry.inside(x, y, z);
+        self.geometry.inside(x, y, z)
     }
 
     /// Gets electronic stopping correction factor for LS and OR
     pub fn electronic_stopping_correction_factor(&self, x: f64, y: f64, z: f64) -> f64 {
-        return self.geometry.get_ck(x, y, z);
+        self.geometry.get_ck(x, y, z)
     }
 
     /// Determines the local mean free path from the formula sum(n(x, y))^(-1/3)
     pub fn mfp(&self, x: f64, y: f64, z: f64) -> f64 {
-        return self.total_number_density(x, y, z).powf(-1./3.);
+        1./self.total_number_density(x, y, z).cbrt()
     }
 
     /// Total number density of triangle that contains or is nearest to (x, y).
@@ -131,7 +129,7 @@ impl <T: Geometry> Material<T> {
 
     /// Lists number density of each species of triangle that contains or is nearest to (x, y).
     pub fn number_densities(&self, x: f64, y: f64, z: f64) -> &Vec<f64> {
-        return &self.geometry.get_densities(x, y, z);
+        self.geometry.get_densities(x, y, z)
     }
 
     /// Determines whether a point (x, y) is inside the energy barrier of the material.
@@ -141,7 +139,7 @@ impl <T: Geometry> Material<T> {
 
     /// Determines whether a point (x, y) is inside the simulation boundary.
     pub fn inside_simulation_boundary(&self, x:f64, y: f64, z: f64) -> bool {
-        return self.geometry.inside_simulation_boundary(x, y, z);
+        self.geometry.inside_simulation_boundary(x, y, z)
     }
 
     /// Finds the closest point on the material boundary to the point (x, y).
@@ -152,20 +150,20 @@ impl <T: Geometry> Material<T> {
     /// Finds the average, concentration-weighted atomic number, Z_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_Z(&self, x: f64, y: f64, z: f64) -> f64 {
         let concentrations = self.geometry.get_concentrations(x, y, z);
-        return self.Z.iter().zip(concentrations).map(|(charge, concentration)| charge*concentration).collect::<Vec<f64>>().iter().sum();
+        self.Z.iter().zip(concentrations).map(|(charge, concentration)| charge*concentration).sum()
     }
 
     /// Finds the average, concentration-weighted atomic mass, m_effective, of the triangle that contains or is nearest to (x, y).
     pub fn average_mass(&self, x: f64, y: f64, z: f64) -> f64 {
         let concentrations = self.geometry.get_concentrations(x, y, z);
-        return self.m.iter().zip(concentrations).map(|(mass, concentration)| mass*concentration).collect::<Vec<f64>>().iter().sum();
+        self.m.iter().zip(concentrations).map(|(mass, concentration)| mass*concentration).sum()
     }
 
     /// Finds the average, concentration-weighted bulk binding energy of the triangle that contains or is nearest to (x, y).
     pub fn average_bulk_binding_energy(&self, x: f64, y: f64, z: f64) -> f64 {
         //returns average bulk binding energy
         let concentrations = self.geometry.get_concentrations(x, y, z);
-        return self.Eb.iter().zip(concentrations).map(|(bulk_binding_energy, concentration)| bulk_binding_energy*concentration).collect::<Vec<f64>>().iter().sum();
+        self.Eb.iter().zip(concentrations).map(|(bulk_binding_energy, concentration)| bulk_binding_energy*concentration).sum()
     }
 
     pub fn actual_bulk_binding_energy(&self, species_index: usize, x: f64, y: f64, z: f64) -> f64 {
@@ -183,7 +181,7 @@ impl <T: Geometry> Material<T> {
         }
     }
 
-    /// Finds the concentration-dependent surface binding energy of the triangle that contains or is nearest to (x, y).
+    /// Finds the concentration-dependent surface binding energy of the geometry element that contains or is nearest to (x, y, z).
     /// The surface binding energy is calculated using one of three methods:
     /// 1. INDIVIDUAL: the surface binding energies are set individually for each species, as Es.
     /// 2. TARGET: the surface binding energy is calculated as the local concentration-weighted average of the target surface binding energies, unless the particle has Es = 0, in which case it is 0.
@@ -196,7 +194,7 @@ impl <T: Geometry> Material<T> {
                 if particle.Es == 0. {
                     0.
                 } else {
-                    self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum()
+                    self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).sum()
                 }
             },
             SurfaceBindingModel::INDIVIDUAL => particle.Es,
@@ -204,7 +202,7 @@ impl <T: Geometry> Material<T> {
                 if (particle.Es == 0.) | (self.Es.iter().sum::<f64>() == 0.) {
                     0.
                 } else {
-                    0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum::<f64>())
+                    0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).sum::<f64>())
                 }
             },
             SurfaceBindingModel::ISOTROPIC{calculation} | SurfaceBindingModel::PLANAR{calculation} => {
@@ -215,7 +213,7 @@ impl <T: Geometry> Material<T> {
                         if particle.Es == 0. {
                             0.
                         } else {
-                            self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum()
+                            self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).sum()
                         }
                     },
 
@@ -223,7 +221,7 @@ impl <T: Geometry> Material<T> {
                         if (particle.Es == 0.) | (self.Es.iter().sum::<f64>() == 0.) {
                             0.
                         } else {
-                            0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).collect::<Vec<f64>>().iter().sum::<f64>())
+                            0.5*(particle.Es + self.Es.iter().zip(concentrations).map(|(surface_binding_energy, concentration)| surface_binding_energy*concentration).sum::<f64>())
                         }
                     },
                 }
@@ -239,12 +237,12 @@ impl <T: Geometry> Material<T> {
                 min_Ec = *Ec;
             }
         }
-        return min_Ec;
+        min_Ec
     }
 
     ///Choose the parameters of a target atom as a concentration-weighted random draw from the species in the triangle that contains or is nearest to (x, y).
-    pub fn choose(&self, x: f64, y: f64, z: f64) -> (usize, f64, f64, f64, f64, f64, usize) {
-        let random_number: f64 = rand::random::<f64>();
+    pub fn choose(&self, x: f64, y: f64, z: f64, rng: &mut ChaCha8Rng) -> (usize, f64, f64, f64, f64, f64, usize) {
+        let random_number: f64 = rng.random::<f64>();
         let cumulative_concentrations = self.get_cumulative_concentrations(x, y, z);
 
         for (component_index, cumulative_concentration) in cumulative_concentrations.iter().enumerate() {
@@ -265,54 +263,92 @@ impl <T: Geometry> Material<T> {
         let mut stopping_powers = Vec::with_capacity(self.Z.len());
 
         //Bragg's rule: total stopping power is sum of stopping powers of individual atoms
-        //Therefore, compute each stopping power separately, and add them up
-
+        //Therefore, compute each stopping power separately, and add them up later
         let x = particle_1.pos.x;
         let y = particle_1.pos.y;
-        let z = particle_1.pos.y;
+        let z = particle_1.pos.z;
         let ck = self.electronic_stopping_correction_factor(x, y, z);
 
-        for (n, Zb) in self.number_densities(x, y, z).iter().zip(&self.Z) {
+        for Zb in &self.Z {
 
-            let beta = (1. - (1. + E/Ma/C.powi(2)).powf(-2.)).sqrt();
-            let v = beta*C;
-
-            // This term is an empirical fit to the mean ionization potential
-            let I0 = match *Zb < 13. {
-                true => 12. + 7./Zb,
-                false => 9.76 + 58.5*Zb.powf(-1.19),
-            };
-            let I = Zb*I0*Q;
-
-            //See Biersack and Haggmark - this looks like an empirical shell correction
-            let B = match *Zb < 3. {
-                true => 100.*Za/Zb,
-                false => 5.
-            };
-
-        //Bethe stopping modified by Biersack and Varelas
-            let prefactor = BETHE_BLOCH_PREFACTOR*Zb*Za*Za/beta/beta;
-            let eb = 2.*ME*v*v/I;
-            let S_high = prefactor*(eb + 1. + B/eb).ln();
-
-            //Lindhard-Scharff electronic stopping
-            let S_low = LINDHARD_SCHARFF_PREFACTOR*(Za.powf(7./6.)*Zb)/(Za.powf(2./3.) + Zb.powf(2./3.)).powf(3./2.)*(E/Q/Ma*AMU).sqrt();
+            let S_low = lindhard_scharff_stopping_power_cross_section(Za, *Zb, E, Ma);
 
             let stopping_power = match electronic_stopping_mode {
                 //Biersack-Varelas Interpolation
-                ElectronicStoppingMode::INTERPOLATED => 1./(1./S_high + 1./S_low*ck),
-                //Oen-Robinson
-                ElectronicStoppingMode::LOW_ENERGY_LOCAL => S_low*ck,
-                //Lindhard-Scharff
-                ElectronicStoppingMode::LOW_ENERGY_NONLOCAL => S_low*ck,
-                //Lindhard-Scharff and Oen-Robinson, using Lindhard Equipartition
-                ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => S_low*ck,
-            };
+                ElectronicStoppingMode::INTERPOLATED => {
 
+                    let S_high = bethe_bloch_stopping_power_cross_section(Za, *Zb, E, Ma);
+                    
+                    // ck correction applied only to LS component
+                    1./(1./S_high + 1./(S_low*ck))
+                },
+                //Lindhard-Scharff, Oen-Robinson, Lindhard Equipartition
+                ElectronicStoppingMode::LOW_ENERGY_LOCAL | ElectronicStoppingMode::LOW_ENERGY_NONLOCAL | ElectronicStoppingMode::LOW_ENERGY_EQUIPARTITION => {
+                    S_low*ck
+                },
+                ElectronicStoppingMode::INTERPOLATEDPLUS{ci} => {
+                    let S_high = bethe_bloch_stopping_power_cross_section(Za, *Zb, E, Ma);
+                    
+                    // ck correction applied only to LS component
+                    (S_high.powf(-ci) + (S_low*ck).powf(-ci)).powf(-1./ci)
+                },
+                
+            };
             stopping_powers.push(stopping_power);
         }
-        return stopping_powers;
+        stopping_powers
     }
+}
+
+static LS_STOPPING_CONSTANT_TABLE: LazyLock<[f64; Z_MAX*Z_MAX]> = LazyLock::new(
+    ||
+    std::array::from_fn(
+        |i| {
+            let Za = i / Z_MAX;
+            let Zb = i % Z_MAX;
+            lindhard_scharff_stopping_power_constant(Za as f64, Zb as f64)
+        }
+    )
+);
+
+fn lindhard_scharff_stopping_power_constant(Za: f64, Zb: f64) -> f64 {
+    LINDHARD_SCHARFF_PREFACTOR*(Za*Za.cbrt().sqrt()*Zb)/(Za.cbrt().powi(2) + Zb.cbrt().powi(2)).powi(3).sqrt()*(AMU/Q).sqrt()
+}
+#[inline]
+pub fn lindhard_scharff_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
+    LS_STOPPING_CONSTANT_TABLE[Za as usize * Z_MAX + Zb as usize]*(E/Ma).sqrt()
+}
+
+static BV_EMPIRICAL_MEAN_IONIZATON_POT_TABLE: LazyLock<[f64; Z_MAX]> = LazyLock::new(
+    ||
+    std::array::from_fn(
+        |Zb| {
+            let I0 = if (Zb as f64) < 13. {
+                12. + 7./ Zb as f64
+            } else {
+                9.76 + 58.5*(Zb as f64).powf(-1.19)
+            };
+            (Zb as f64)*I0*Q
+        }
+    )
+);
+
+pub fn bethe_bloch_stopping_power_cross_section(Za: f64, Zb: f64, E: f64, Ma: f64) -> f64 {
+    let beta = (1. - 1./(1. + E/Ma/C.powi(2)).powi(2)).sqrt();
+    let v = beta*C;
+
+    let I = BV_EMPIRICAL_MEAN_IONIZATON_POT_TABLE[Zb as usize];
+
+    //See Biersack and Haggmark - this looks like an empirical shell correction
+    let B = if Zb < 3. {
+        100.*Za/Zb
+    } else {
+        5.
+    };
+
+    let prefactor = BETHE_BLOCH_PREFACTOR*Zb*Za*Za/beta/beta;
+    let eb = 2.*ME*v*v/I;
+    prefactor*(eb + 1. + B/eb).ln()
 }
 
 /// Calculate the effects of the planar surface binding potential of a material on a particle.
@@ -331,7 +367,6 @@ pub fn surface_binding_energy<T: Geometry>(particle_1: &mut particle::Particle, 
 
     //Actual surface binding energies
     let Es = material.actual_surface_binding_energy(particle_1, x_old, y_old, z_old);
-    let Ec = particle_1.Ec;
 
     let inside_now = material.inside_energy_barrier(x, y, z);
     let inside_old = material.inside_energy_barrier(x_old, y_old, z_old);

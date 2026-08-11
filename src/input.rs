@@ -1,5 +1,6 @@
 use super::*;
-use rand_distr::{Normal, Distribution, Uniform};
+use rand::distr::{Uniform};
+use rand_distr::{Normal, Distribution};
 
 pub trait InputFile: GeometryInput {
     fn new(string: &str) -> Self;
@@ -153,6 +154,11 @@ impl InputFile for Input1D {
 }
 
 ///This helper function is a workaround to issue #368 in serde
+fn default_seed() -> i32 {
+    0
+}
+
+///This helper function is a workaround to issue #368 in serde
 fn default_false() -> bool {
     false
 }
@@ -240,11 +246,11 @@ pub struct Options {
     #[serde(default = "one_u64")]
     pub num_chunks: u64,
     #[serde(default = "default_false")]
-    pub use_hdf5: bool,
-    #[serde(default = "default_false")]
     pub track_displacements: bool,
     #[serde(default = "default_false")]
     pub track_energy_losses: bool,
+    #[serde(default = "default_seed")]
+    pub seed: i32
 }
 
 #[cfg(not(feature = "distributions"))]
@@ -253,7 +259,7 @@ impl Options {
         Options {
             name: "default".to_string(),
             track_trajectories: false,
-            track_recoils: track_recoils,
+            track_recoils,
             track_recoil_trajectories: false,
             write_buffer_size: default_buffer_size(),
             weak_collision_order: zero_usize(),
@@ -266,9 +272,9 @@ impl Options {
             root_finder: default_rootfinder(),
             num_threads: 1,
             num_chunks: 1,
-            use_hdf5: false,
             track_displacements: false,
-            track_energy_losses: false
+            track_energy_losses: false,
+            seed: default_seed(),
         }
     }
 }
@@ -306,8 +312,6 @@ pub struct Options {
     #[serde(default = "one_u64")]
     pub num_chunks: u64,
     #[serde(default = "default_false")]
-    pub use_hdf5: bool,
-    #[serde(default = "default_false")]
     pub track_displacements: bool,
     #[serde(default = "default_false")]
     pub track_energy_losses: bool,
@@ -326,6 +330,8 @@ pub struct Options {
     pub x_num: usize,
     pub y_num: usize,
     pub z_num: usize,
+    #[serde(default = "default_seed")]
+    pub seed: i32
 }
 
 #[cfg(feature = "distributions")]
@@ -347,7 +353,6 @@ impl Options {
             root_finder: default_rootfinder(),
             num_threads: 1,
             num_chunks: 1,
-            use_hdf5: false,
             track_displacements: false,
             track_energy_losses: false,
             energy_min: 0.0,
@@ -365,13 +370,12 @@ impl Options {
             x_num: 0,
             y_num: 0,
             z_num: 0,
+            seed: default_seed()
         }
     }
 }
 
-pub fn input<T: Geometry>(input_file: String) -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits)
-where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
-
+pub fn read_input_file<T: Geometry>(input_file: String) -> <T as Geometry>::InputFileFormat {
     //Read input file, convert to string, and open with toml
     let mut input_toml = String::new();
     let mut file = OpenOptions::new()
@@ -379,16 +383,35 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
         .write(false)
         .create(false)
         .open(&input_file)
-        .expect(format!("Input errror: could not open input file {}.", &input_file).as_str());
+        .unwrap_or_else(|_| panic!("Input errror: could not open input file {}.", &input_file));
     file.read_to_string(&mut input_toml).context("Could not convert TOML file to string.").unwrap();
 
-    let input: <T as Geometry>::InputFileFormat = InputFile::new(&input_toml);
+    InputFile::new(&input_toml)
+}
+
+pub fn input<T: Geometry>(input_file: String) -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits)
+where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
+
+    let input: <T as Geometry>::InputFileFormat = read_input_file::<T>(input_file);
+
+    process_input_file(input)
+
+}
+
+pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) -> (Vec<particle::ParticleInput>, material::Material<T>, Options, OutputUnits) {
 
     //Unpack toml information into structs
     let options = (*input.get_options()).clone();
     let mut particle_parameters = (*input.get_particle_parameters()).clone();
     let material_parameters = (*input.get_material_parameters()).clone();
     let mut material: material::Material<T> = material::Material::<T>::new(&material_parameters, input.get_geometry_input());
+
+    // Initialize RNG
+    let mut rng = if options.seed < 0 {
+            ChaCha8Rng::seed_from_u64(rand::random())
+    } else {
+            ChaCha8Rng::seed_from_u64(u64::try_from(options.seed).expect("Value Error: seed not u64."))
+    };
 
     //Ensure nonsensical threads/chunks options crash on input
     assert!(options.num_threads > 0, "Input error: num_threads must be greater than zero.");
@@ -405,6 +428,14 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
 
     if material.Ed.len() <= 1 {
         material.Ed = vec![material.Ed[0]; material.m.len()];
+    }
+
+    for Ed_ in &material.Ed {
+        assert!(*Ed_ >= 0.0, "Input Error: Ed = {}; Ed cannot be less than zero.", Ed_);
+    }
+
+    for Eb_ in &material.Eb {
+        assert!(*Eb_ >= 0.0, "Input Error: Eb = {}; Eb cannot be less than zero.", Eb_);
     }
 
     //Check that incompatible options are not on simultaneously
@@ -495,10 +526,8 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
         "NM" => NM,
         "M" => 1.,
         _ => particle_parameters.length_unit.parse()
-            .expect(format!(
-                    "Input errror: could nor parse length unit {}. Use a valid float or one of
-                    ANGSTROM, NM, MICRON, CM, MM, M", &particle_parameters.length_unit.as_str()
-                ).as_str()),
+            .unwrap_or_else(|_| panic!("Input errror: could nor parse length unit {}. Use a valid float or one of
+                    ANGSTROM, NM, MICRON, CM, MM, M", &particle_parameters.length_unit.as_str())),
     };
 
     let energy_unit: f64 = match particle_parameters.energy_unit.as_str() {
@@ -507,174 +536,83 @@ where <T as Geometry>::InputFileFormat: Deserialize<'static> + 'static {
         "KEV" => EV*1E3,
         "MEV" => EV*1E6,
         _ => particle_parameters.energy_unit.parse()
-            .expect(format!(
-                    "Input errror: could nor parse energy unit {}. Use a valid float or one of EV, J, KEV, MEV", &particle_parameters.energy_unit.as_str()
-                ).as_str()),
+            .unwrap_or_else(|_| panic!("Input errror: could nor parse energy unit {}. Use a valid float or one of EV, J, KEV, MEV", &particle_parameters.energy_unit.as_str())),
     };
 
     let mass_unit: f64 = match particle_parameters.mass_unit.as_str() {
         "AMU" => AMU,
         "KG" => 1.0,
         _ => particle_parameters.mass_unit.parse()
-            .expect(format!(
-                    "Input errror: could nor parse mass unit {}. Use a valid float or one of AMU, KG", &particle_parameters.mass_unit.as_str()
-                ).as_str()),
+            .unwrap_or_else(|_| panic!("Input errror: could nor parse mass unit {}. Use a valid float or one of AMU, KG", &particle_parameters.mass_unit.as_str())),
     };
 
-    //HDF5
-    #[cfg(feature = "hdf5_input")]
     let particle_input_array: Vec<particle::ParticleInput> = {
-        if options.use_hdf5 {
-            let particle_input_filename = particle_parameters.particle_input_filename.as_str();
-            let _e = hdf5::silence_errors();
-            let particle_input_file = hdf5::File::open(particle_input_filename)
-                .context("Input error: cannot open HDF5 file.")
-                .unwrap();
-            let particle_input = particle_input_file.dataset("particles")
-                .context("Input error: cannot read from HDF5 file.")
-                .unwrap();
-            particle_input.read_raw::<particle::ParticleInput>().unwrap()
 
-        } else {
-            let mut particle_input: Vec<particle::ParticleInput> = Vec::new();
+    let mut particle_input: Vec<particle::ParticleInput> = Vec::new();
 
-            for particle_index in 0..N {
-                let N_ = particle_parameters.N[particle_index];
-                let m = particle_parameters.m[particle_index];
-                let Z = particle_parameters.Z[particle_index];
-                let E = particle_parameters.E[particle_index];
-                let Ec = particle_parameters.Ec[particle_index];
-                let Es = particle_parameters.Es[particle_index];
-                let interaction_index = particle_parameters.interaction_index[particle_index];
+        for particle_index in 0..N {
+            let N_ = particle_parameters.N[particle_index];
+            let m = particle_parameters.m[particle_index];
+            let Z = particle_parameters.Z[particle_index];
+            let E = particle_parameters.E[particle_index];
+            let Ec = particle_parameters.Ec[particle_index];
+            let Es = particle_parameters.Es[particle_index];
+            let interaction_index = particle_parameters.interaction_index[particle_index];
+            let (x, y, z) = particle_parameters.pos[particle_index];
+            let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
 
-                let (x, y, z) = particle_parameters.pos[particle_index];
-                let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
+            for sub_particle_index in 0..N_ {
 
-                for sub_particle_index in 0..N_ {
-                    //Add new particle to particle vector
-                    particle_input.push(
-                        particle::ParticleInput{
-                            m: m*mass_unit,
-                            Z: Z,
-                            E: match E {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*energy_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*energy_unit},
-                                Distributions::POINT(E) => E*energy_unit,
-                            },
-                            Ec: Ec*energy_unit,
-                            Es: Es*energy_unit,
-                            x: match x {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(x) => x*length_unit,
-                            },
-                            y: match y {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(y) => y*length_unit,
-                            },
-                            z: match z {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(z) => z*length_unit,
-                            },
-                            ux: match cosx {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(ux) => ux,
-                            },
-                            uy: match cosy {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(uy) => uy,
-                            },
-                            uz: match cosz {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(uz) => uz,
-                            },
-                            interaction_index: interaction_index,
-                            tag: 0,
-                            weight: 1.0,
-                        }
-                    );
-                }
+                //Add new particle to particle vector
+                particle_input.push(
+                    particle::ParticleInput{
+                        m: m*mass_unit,
+                        Z,
+                        E: match E {
+                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*energy_unit},
+                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*energy_unit},
+                            Distributions::POINT(x) => x*energy_unit,
+                        },
+                        Ec: Ec*energy_unit,
+                        Es: Es*energy_unit,
+                        x: match x {
+                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
+                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
+                            Distributions::POINT(x) => x*length_unit,
+                        },
+                        y: match y {
+                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
+                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
+                            Distributions::POINT(y) => y*length_unit,
+                        },
+                        z: match z {
+                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
+                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
+                            Distributions::POINT(z) => z*length_unit,
+                        },
+                        ux: match cosx {
+                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
+                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
+                            Distributions::POINT(ux) => ux
+                        },
+                        uy: match cosy {
+                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
+                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
+                            Distributions::POINT(uy) => uy,
+                        },
+                        uz: match cosz {
+                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
+                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
+                            Distributions::POINT(uz) => uz,
+                        },
+                        interaction_index,
+                        tag: 0,
+                        weight: 1.0,
+                    }
+                );
             }
-            particle_input
         }
-    };
-
-    #[cfg(not(feature = "hdf5_input"))]
-    let particle_input_array: Vec<particle::ParticleInput> = {
-        if options.use_hdf5 {
-            panic!("HDF5 particle input not enabled. Enable with: cargo build --features hdf5_input")
-        } else {
-            let mut particle_input: Vec<particle::ParticleInput> = Vec::new();
-
-            for particle_index in 0..N {
-                let N_ = particle_parameters.N[particle_index];
-                let m = particle_parameters.m[particle_index];
-                let Z = particle_parameters.Z[particle_index];
-                let E = particle_parameters.E[particle_index];
-                let Ec = particle_parameters.Ec[particle_index];
-                let Es = particle_parameters.Es[particle_index];
-                let interaction_index = particle_parameters.interaction_index[particle_index];
-                let (x, y, z) = particle_parameters.pos[particle_index];
-                let (cosx, cosy, cosz) = particle_parameters.dir[particle_index];
-
-                for sub_particle_index in 0..N_ {
-
-                    //Add new particle to particle vector
-                    particle_input.push(
-                        particle::ParticleInput{
-                            m: m*mass_unit,
-                            Z: Z,
-                            E: match E {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*energy_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*energy_unit},
-                                Distributions::POINT(x) => x*energy_unit,
-                            },
-                            Ec: Ec*energy_unit,
-                            Es: Es*energy_unit,
-                            x: match x {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(x) => x*length_unit,
-                            },
-                            y: match y {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(x) => x*length_unit,
-                            },
-                            z: match z {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(x) => x*length_unit,
-                            },
-                            ux: match cosx {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(x) => x*length_unit
-                            },
-                            uy: match cosy {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(x) => x*length_unit,
-                            },
-                            uz: match cosz {
-                                Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::UNIFORM{min, max} => {let uniform = Uniform::from(min..max);  uniform.sample(&mut rand::thread_rng())*length_unit},
-                                Distributions::POINT(x) => x*length_unit,
-                            },
-                            interaction_index: interaction_index,
-                            tag: 0,
-                            weight: 1.0,
-                        }
-                    );
-                }
-            }
-            particle_input
-        }
+        particle_input
     };
     (particle_input_array, material, options, OutputUnits {length_unit, energy_unit, mass_unit})
 }

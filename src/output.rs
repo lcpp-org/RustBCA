@@ -1,6 +1,7 @@
 use super::*;
 use std::fs::File;
 
+#[derive(Clone, Debug)]
 pub struct OutputUnits {
     pub length_unit: f64,
     pub energy_unit: f64,
@@ -223,11 +224,11 @@ impl SummaryPerSpecies {
     pub fn print(&mut self, options: &Options, output_units: &OutputUnits) {
         //Write to summary file
         writeln!(self.summary_stream_file, "mass, reflected, sputtered, deposited")
-            .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
+            .unwrap_or_else(|_| panic!("Output error: could not write to {}summary.output.", options.name));
 
         for (mass, reflected, sputtered, deposited) in izip!(&self.m, &self.reflected, &self.sputtered, &self.deposited) {
             writeln!(self.summary_stream_file, "{}, {}, {}, {},", mass/output_units.mass_unit, reflected, sputtered, deposited)
-                .expect(format!("Output error: could not write to {}summary.output.", options.name).as_str());
+                .unwrap_or_else(|_| panic!("Output error: could not write to {}summary.output.", options.name));
         }
         self.summary_stream_file.flush().unwrap();
     }
@@ -346,7 +347,7 @@ pub fn output_lists(output_list_streams: &mut OutputListStreams, particle: parti
             particle.m/mass_unit, particle.Z, particle.energy_origin/energy_unit,
             particle.pos_origin.x/length_unit, particle.pos_origin.y/length_unit, particle.pos_origin.z/length_unit,
             particle.pos.x/length_unit, particle.pos.y/length_unit, particle.pos.z/length_unit
-        ).expect(format!("Output error: could not write to {}displacements.output.", options.name).as_str());
+        ).unwrap_or_else(|_| panic!("Output error: could not write to {}displacements.output.", options.name));
     }
 
     //Incident particle, left simulation: reflected
@@ -357,7 +358,7 @@ pub fn output_lists(output_list_streams: &mut OutputListStreams, particle: parti
             particle.pos.x/length_unit, particle.pos.y/length_unit, particle.pos.z/length_unit,
             particle.dir.x, particle.dir.y, particle.dir.z,
             particle.number_collision_events
-        ).expect(format!("Output error: could not write to {}reflected.output.", options.name).as_str());
+        ).unwrap_or_else(|_| panic!("Output error: could not write to {}reflected.output.", options.name));
     }
 
     //Incident particle, stopped in material: deposited
@@ -367,7 +368,7 @@ pub fn output_lists(output_list_streams: &mut OutputListStreams, particle: parti
             particle.m/mass_unit, particle.Z,
             particle.pos.x/length_unit, particle.pos.y/length_unit, particle.pos.z/length_unit,
             particle.number_collision_events
-        ).expect(format!("Output error: could not write to {}deposited.output.", options.name).as_str());
+        ).unwrap_or_else(|_| panic!("Output error: could not write to {}deposited.output.", options.name));
     }
 
     //Not an incident particle, left material: sputtered
@@ -379,20 +380,20 @@ pub fn output_lists(output_list_streams: &mut OutputListStreams, particle: parti
             particle.dir.x, particle.dir.y, particle.dir.z,
             particle.number_collision_events,
             particle.pos_origin.x/length_unit, particle.pos_origin.y/length_unit, particle.pos_origin.z/length_unit
-        ).expect(format!("Output error: could not write to {}sputtered.output.", options.name).as_str());
+        ).unwrap_or_else(|_| panic!("Output error: could not write to {}sputtered.output.", options.name));
     }
 
     //Trajectory output
     if particle.track_trajectories {
         writeln!(output_list_streams.trajectory_data_stream, "{}", particle.trajectory.len())
-            .expect(format!("Output error: could not write to {}trajectory_data.output.", options.name).as_str());
+            .unwrap_or_else(|_| panic!("Output error: could not write to {}trajectory_data.output.", options.name));
 
         for pos in particle.trajectory {
             writeln!(
                 output_list_streams.trajectory_file_stream, "{},{},{},{},{},{}",
                 particle.m/mass_unit, particle.Z, pos.E/energy_unit,
                 pos.x/length_unit, pos.y/length_unit, pos.z/length_unit,
-            ).expect(format!("Output error: could not write to {}trajectories.output.", options.name).as_str());
+            ).unwrap_or_else(|_| panic!("Output error: could not write to {}trajectories.output.", options.name));
         }
     }
 
@@ -403,7 +404,7 @@ pub fn output_lists(output_list_streams: &mut OutputListStreams, particle: parti
                 particle.m/mass_unit, particle.Z,
                 energy_loss.En/energy_unit, energy_loss.Ee/energy_unit,
                 energy_loss.x/length_unit, energy_loss.y/length_unit, energy_loss.z/length_unit,
-            ).expect(format!("Output error: could not write to {}energy_loss.output.", options.name).as_str());
+            ).unwrap_or_else(|_| panic!("Output error: could not write to {}energy_loss.output.", options.name));
         }
     }
 }

@@ -1,31 +1,9 @@
 use super::*;
 
-/// Rustbca's internal representation of the particle_parameters input.
-
 fn default_vec_zero() -> Vec<usize> {
     vec![0]
 }
 
-#[cfg(feature = "hdf5_input")]
-#[derive(Deserialize, Clone)]
-pub struct ParticleParameters {
-    pub particle_input_filename: String,
-    pub length_unit: String,
-    pub energy_unit: String,
-    pub mass_unit: String,
-    pub N: Vec<usize>,
-    pub m: Vec<f64>,
-    pub Z: Vec<f64>,
-    pub E: Vec<Distributions>,
-    pub Ec: Vec<f64>,
-    pub Es: Vec<f64>,
-    pub pos: Vec<(Distributions, Distributions, Distributions)>,
-    pub dir: Vec<(Distributions, Distributions, Distributions)>,
-    #[serde(default = "default_vec_zero")]
-    pub interaction_index: Vec<usize>,
-}
-
-#[cfg(not(feature = "hdf5_input"))]
 #[derive(Deserialize, Clone)]
 pub struct ParticleParameters {
     pub length_unit: String,
@@ -43,9 +21,7 @@ pub struct ParticleParameters {
     pub interaction_index: Vec<usize>,
 }
 
-/// HDF5 version of particle input.
 #[derive(Clone, PartialEq, Debug, Copy)]
-#[cfg_attr(feature = "hdf5_input", derive(hdf5::H5Type))]
 #[repr(C)]
 pub struct ParticleInput {
     pub m: f64,
@@ -179,7 +155,7 @@ impl Particle {
 
         Particle {
             m: m_amu*AMU,
-            Z: Z,
+            Z,
             E: E_eV*EV,
             Ec: Ec_eV*EV,
             Es: Es_eV*EV,
@@ -236,37 +212,14 @@ impl Particle {
         let cosx: f64 = self.dir.x;
         let cosy: f64 = self.dir.y;
         let cosz: f64 = self.dir.z;
-        let cosphi: f64 = (phi + PI).cos();
-        let sinphi: f64 = (phi + PI).sin();
+        // PI rotation here enforces particle deflection in opposite direction of recoil location
+        let (sinphi, cosphi) = (phi + PI).sin_cos();
+        let (sinpsi, cospsi) = psi.sin_cos();
 
-        let cpsi: f64 = psi.cos();
-        let spsi: f64 = psi.sin();
-
-        // To resolve the singularity, a different set of rotations is used when cosx == -1
-        // Because of this, the recoil location is not consistent between the two formulas at a given phi
-        // Since phi is sampled uniformly from (0, 2pi), this does not matter
-        // However, if a crystalline structure is ever added, this needs to be considered
-        let cosx_new = if cosx > -1. {
-            cpsi*cosx - spsi*(cosz*sinphi + cosy*cosphi)
-        } else {
-            cpsi*cosx - spsi*((1. + cosz - cosx*cosx)*cosphi - cosx*cosy*sinphi)/(1. + cosz)
-        };
-
-        let cosy_new = if cosx > -1. {
-            cpsi*cosy + spsi*((1. + cosx - cosy*cosy)*cosphi - cosy*cosz*sinphi)/(1. + cosx)
-        } else {
-            cpsi*cosy + spsi*((1. + cosz - cosy*cosy)*sinphi - cosx*cosy*cosphi)/(1. + cosz)
-        };
-
-        let cosz_new = if cosx > -1. {
-            cpsi*cosz + spsi*((1. + cosx - cosz*cosz)*sinphi - cosy*cosz*cosphi)/(1. + cosx)
-        } else {
-            cpsi*cosz + spsi*(cosx*cosphi + cosy*sinphi)
-        };
-
-        let dir_new = Vector {x: cosx_new, y: cosy_new, z: cosz_new};
-
-        self.dir.assign(&dir_new);
+        let (e1, e2) = math::duff_orthonormal_basis(self.dir);
+        self.dir.x = cospsi*cosx - sinpsi*(cosphi*e1.x + sinphi*e2.x);
+        self.dir.y = cospsi*cosy - sinpsi*(cosphi*e1.y + sinphi*e2.y);
+        self.dir.z = cospsi*cosz - sinpsi*(cosphi*e1.z + sinphi*e2.z);
         self.dir.normalize();
     }
 
@@ -296,7 +249,7 @@ impl Particle {
         self.dir_old.y = self.dir.y;
         self.dir_old.z = self.dir.z;
 
-        return distance_traveled;
+        distance_traveled
     }
 }
 
@@ -314,13 +267,3 @@ pub fn surface_refraction(particle: &mut Particle, normal: Vector, Es: f64) {
     particle.E += Es;
 }
 
-/// Calcualte the refraction angle based on the surface binding energy of the material.
-pub fn refraction_angle(costheta: f64, energy_old: f64, energy_new: f64) -> f64 {
-    let costheta = if costheta.abs() > 1. {costheta.signum()} else {costheta};
-    let sintheta0 = (1. - costheta*costheta).sqrt();
-    let sintheta1 = sintheta0*(energy_old/energy_new).sqrt();
-    let delta_theta = sintheta1.asin() - sintheta0.asin();
-    assert!(!delta_theta.is_nan(), "Numerical error: refraction returned NaN.");
-    let sign = -costheta.signum();
-    return sign*delta_theta;
-}

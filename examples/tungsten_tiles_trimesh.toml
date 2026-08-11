@@ -10,7 +10,6 @@ suppress_deep_recoils = false
 high_energy_free_flight_paths = false
 num_threads = 4
 num_chunks = 5
-use_hdf5 = false
 electronic_stopping_mode = "LOW_ENERGY_NONLOCAL"
 mean_free_path_model = "LIQUID"
 interaction_potential = [["KR_C"]]

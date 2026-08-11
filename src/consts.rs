@@ -35,3 +35,13 @@ pub const BETHE_BLOCH_PREFACTOR: f64 = 4.*PI*(Q*Q/(4.*PI*EPS0))*(Q*Q/(4.*PI*EPS0
 pub const LINDHARD_SCHARFF_PREFACTOR: f64 = 1.212*ANGSTROM*ANGSTROM*Q;
 /// Lindhard reduced energy prefactor, in SI units.
 pub const LINDHARD_REDUCED_ENERGY_PREFACTOR: f64 = 4.*PI*EPS0/Q/Q;
+/// Maximum atomic number in RustBCA.
+pub const Z_MAX: usize = 120;
+//https://math.stackexchange.com/questions/2388887/
+//num elements in a triangular NxN matrix (including diag)
+/// LUT size; triangular matrix of size Z_MAX * Z_MAX
+pub const TABLE_SIZE: usize = Z_MAX*(Z_MAX + 1)/2;
+/// Gauss-Legendre Points
+pub const GL_X: [f64; 5] = [0./2. + 1./2., -0.538469/2. + 1./2., 0.538469/2. + 1./2., -0.90618/2. + 1./2., 0.90618/2. + 1./2.];
+/// Gauss-Legendre Weights
+pub const GL_W: [f64; 5] = [0.568889/2., 0.478629/2., 0.478629/2., 0.236927/2., 0.236927/2.];

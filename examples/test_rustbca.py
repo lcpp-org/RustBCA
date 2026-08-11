@@ -12,6 +12,7 @@ import time
 
 def main():
 
+    os.environ["LIBRUSTBCA_SEED"]="0"
 
     #test rotation to and from RustBCA coordinates
 
@@ -26,15 +27,21 @@ def main():
     uz = 0.0
 
     print(f'Before rotation: ({ux}, {uy}, {uz})')
-    ux, uy, uz = rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
-    print(f'After rotation: ({ux}, {uy}, {uz})')
-    ux, uy, uz = rotate_back_py(nx, ny, nz, ux, uy, uz)
-    print(f'After rotation back: ({ux}, {uy}, {uz})')
+    ux1, uy1, uz1 = rotate_given_surface_normal_py(nx, ny, nz, ux, uy, uz)
+    print(f'After rotation: ({ux1}, {uy1}, {uz1})')
+    ux2, uy2, uz2 = rotate_back_py(nx, ny, nz, ux1, uy1, uz1)
+    print(f'After rotation back: ({ux2}, {uy2}, {uz2})')
 
     #After rotating and rotating back, effect should be where you started (minus fp error)
-    assert(abs(ux - 1.0) < 1e-6)
-    assert(abs(uy) < 1e-6)
-    assert(abs(uz) < 1e-6)
+    np.testing.assert_allclose(ux2 - 1.0, 0.0)
+    np.testing.assert_allclose(uy2, 0.0, atol=1e-9)
+    np.testing.assert_allclose(uz2, 0.0, atol=1e-9)
+
+
+    #If ux is (1, 0, 0), this transform should just swap u with -n
+    #np.testing.assert_approx_equal(ux1, -nx)
+    #np.testing.assert_approx_equal(uy1, -ny)
+    #np.testing.assert_approx_equal(uz1, -nz)
 
     #test vectorized rotation to and from RustBCA coordinates
 
@@ -45,21 +52,46 @@ def main():
     ny = [-np.sqrt(2)/2]*num_rot_test
     nz = [0.0]*num_rot_test
 
+    np.random.seed(0)
+    nx = np.random.uniform(-1.0, 0.0, num_rot_test)
+    ny = np.random.uniform(-1.0, 1.0, num_rot_test)
+    nz = np.random.uniform(-1.0, 1.0, num_rot_test)
+    mags = np.sqrt(nx*nx + ny*ny + nz*nz)
+    nx /= mags
+    ny /= mags
+    nz /= mags
+
     #ux, uy, uz is the particle direction (simulation coordinates)
-    ux = [1.0]*num_rot_test
-    uy = [0.0]*num_rot_test
-    uz = [0.0]*num_rot_test
+    np.random.seed(0)
+    ux = np.random.uniform(-1.0, 1.0, num_rot_test)
+    uy = np.random.uniform(-1.0, 1.0, num_rot_test)
+    uz = np.random.uniform(-1.0, 1.0, num_rot_test)
+    mags = np.sqrt(ux*ux + uy*uy + uz*uz)
+    ux /= mags
+    uy /= mags
+    uz /= mags
 
     start = time.time()
-    ux, uy, uz = rotate_given_surface_normal_vec_py(nx, ny, nz, ux, uy, uz)
-    ux, uy, uz = rotate_back_vec_py(nx, ny, nz, ux, uy, uz)
+    ux1, uy1, uz1 = rotate_given_surface_normal_vec_py(nx, ny, nz, ux, uy, uz)
+    ux2, uy2, uz2 = rotate_back_vec_py(nx, ny, nz, ux1, uy1, uz1)
     stop = time.time()
     print(f'Time to rotate: {(stop - start)/num_rot_test} sec/vector')
 
+    # ensure that R n = (-1, 0, 0)
+    nx1, ny1, nz1 = rotate_given_surface_normal_vec_py(nx, ny, nz, nx, ny, nz)
+    np.testing.assert_allclose(nx1, -1.0)
+    np.testing.assert_allclose(ny1, 0.0, atol=1e-12)
+    np.testing.assert_allclose(nz1, 0.0, atol=1e-12)
+
+    # ensure angle between n and u remains constant
+    cosine = nx*ux + ny*uy + nz*uz
+    cosine1 = -np.array(ux1) # here n becomes (-1, 0, 0)
+    np.testing.assert_allclose(cosine, cosine1)
+
     #After rotating and rotating back, effect should be where you started (minus fp error)
-    assert(abs(ux[0] - 1.0) < 1e-6)
-    assert(abs(uy[0]) < 1e-6)
-    assert(abs(uz[0]) < 1e-6)
+    np.testing.assert_allclose(ux, ux2)
+    np.testing.assert_allclose(uy, uy2)
+    np.testing.assert_allclose(uz, uz2)
 
     #scripts/materials.py has a number of potential ions and targets
     ion = helium
@@ -76,14 +108,46 @@ def main():
     Y = sputtering_yield(ion, target, energy, angle, num_samples)
 
     print(f'Sputtering yield for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {Y} at/ion. Yamamura predicts { np.round(yamamura(ion, target, energy),3)} at/ion.')
+    np.testing.assert_approx_equal(Y, 0.044)
 
     R_N, R_E = reflection_coefficient(ion, target, energy, angle, num_samples)
     print(f'Particle reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
     print(f'Energy reflection coefficient for {ion["symbol"]} on {target["symbol"]} at {energy} eV is {R_E}')
+    np.testing.assert_approx_equal(R_N, 0.426)
+    np.testing.assert_approx_equal(R_E, 0.23367711096087937)
 
     R_N, R_E = compound_reflection_coefficient(ion, [target, ion], [target['n'], 0.1*target['n']], energy, angle, num_samples)
     print(f'Particle reflection coefficient for {ion["symbol"]} on {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_N}. Thomas predicts {np.round(thomas_reflection(ion, target, energy), 3)}.')
     print(f'Energy reflection coefficient for {ion["symbol"]}x{target["symbol"]} where x=0.1 at {energy} eV is {R_E}')
+    np.testing.assert_approx_equal(R_N, 0.424)
+    np.testing.assert_approx_equal(R_E, 0.22840032456593984)
+
+    # test of triangular LUTs correctly handling Za > Zb
+    ion = neon
+    target = boron
+    angle = 60.0
+    num_samples = 10000
+    energy = 2500.0
+
+    Y = sputtering_yield(ion, target, energy, angle, num_samples)
+    R_N, R_E = reflection_coefficient(ion, target, energy, angle, num_samples)
+
+    np.testing.assert_approx_equal(Y, 3.3481)
+    np.testing.assert_approx_equal(R_N, 0.0878)
+    np.testing.assert_approx_equal(R_E, 0.013734709021659743)
+
+    ion = copper # testing with Es > 0
+    Y = sputtering_yield(ion, target, energy, angle, num_samples)
+    R_N, R_E = reflection_coefficient(ion, target, energy, angle, num_samples)
+
+    np.testing.assert_approx_equal(Y, 4.9431)
+    np.testing.assert_approx_equal(R_N, 0.0066)
+    np.testing.assert_approx_equal(R_E, 0.000298720196409247)
+
+    # reset species
+    ion = helium
+    ion['Eb'] = 0.0
+    target = tungsten
 
     vx0 = 1e5
     vy0 = 1e5
@@ -94,7 +158,7 @@ def main():
     print(f'(vx, vy, vz) after reflection: ({vx1}, {vy1}, {vz1})')
 
     #For smooth distributions and good statistics, you should use at least 10k ions
-    number_ions = 10000
+    number_ions = 100000
 
     #1 keV is above the He on W sputtering threshold of ~150 eV
     energies_eV = 1000.0*np.ones(number_ions)
@@ -112,6 +176,7 @@ def main():
 
     start = time.time()
     #Note that simple_bca_list_py expects number densities in 1/Angstrom^3
+    # Note - simple_bca_list_py is unseeded and nondeterministic
     output = np.array(simple_bca_list_py(energies_eV, ux, uy, uz, ion['Z'],
         ion['m'], ion['Ec'], ion['Es'], target['Z'], target['m'],
         target['Ec'], target['Es'], target['n']/10**30, target['Eb']))
@@ -129,6 +194,9 @@ def main():
     ux = output[:, 6]
     uy = output[:, 7]
     uz = output[:, 8]
+
+    # check that mean implantation depth is reasonable
+    assert(20 < np.mean(x) < 30)
 
     #For the python bindings, these conditionals can be used to distinguish
     #between sputtered, reflected, and implanted particles in the output list
@@ -156,6 +224,12 @@ def main():
     print(f'RustBCA R: {len(reflected[:, 0])/number_ions} Thomas R: {thomas}')
     print(f'Time per ion: {delta_time/number_ions} s/{ion["symbol"]}')
 
+    # check that reflection/sputtering are reasonable
+    assert(0.01 < len(sputtered[:, 0])/number_ions < 0.03)
+    assert(0.4 < len(reflected[:, 0])/number_ions < 0.6)
+
+    number_ions = 10000
+
     #Next up is the layered target version. I'll add a 50 Angstrom layer of W-H to the top of the target.
 
     #1 keV is above the He on W sputtering threshold of ~150 eV
@@ -179,7 +253,6 @@ def main():
         [target['Ec'], 1.0], [target['Es'], 1.5], [target['Eb'], 0.0], [[target['n']/10**30, target['n']/10**30], [target['n']/10**30, 0.0]], [50.0, 1e6]
     )
 
-
     output = np.array(output)
 
     Z = output[:, 0]
@@ -199,6 +272,8 @@ def main():
     heights, _, _ = plt.hist(x[np.logical_and(incident, stopped)], bins=100, density=True, histtype='step')
     plt.plot([50.0, 50.0], [0.0, np.max(heights)*1.1])
     plt.gca().set_ylim([0.0, np.max(heights)*1.1])
+
+    np.testing.assert_approx_equal(np.mean(x), 10.424570485829282)
 
     number_ions = 10000
 
@@ -268,13 +343,20 @@ def main():
     print(f'RustBCA R: {len(reflected[:, 0])/number_ions} Thomas R: {thomas}')
     print(f'Time per ion: {delta_time/number_ions} s/{ion["symbol"]}')
 
+    np.testing.assert_approx_equal(len(sputtered[:, 0])/number_ions, 0.027)
+    np.testing.assert_approx_equal(len(reflected[:, 0])/number_ions, 0.5155)
+
     plt.figure()
     plt.plot(incident_index)
     plt.xlabel('Particle number')
     plt.ylabel('Particle index')
     plt.legend(['Incident', 'Indicies'])
 
-    plt.show()
+    show_plot = False
+    if show_plot:
+        plt.show()
+    else:
+        plt.savefig('test_rustbca.png')
 
 if __name__ == '__main__':
     main()
