@@ -45,3 +45,5 @@ pub const TABLE_SIZE: usize = Z_MAX*(Z_MAX + 1)/2;
 pub const GL_X: [f64; 5] = [0./2. + 1./2., -0.538469/2. + 1./2., 0.538469/2. + 1./2., -0.90618/2. + 1./2., 0.90618/2. + 1./2.];
 /// Gauss-Legendre Weights
 pub const GL_W: [f64; 5] = [0.568889/2., 0.478629/2., 0.478629/2., 0.236927/2., 0.236927/2.];
+/// Enforced maximum number density
+pub const MAX_DENSITY: f64 = 1e32;
