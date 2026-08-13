@@ -77,6 +77,7 @@ impl Geometry for ParryBall {
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
         let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
         let total_density: f64 = densities.iter().sum();
+        assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
         let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
         let radius = input.radius*length_unit;
@@ -201,6 +202,7 @@ impl Geometry for ParryTriMesh {
         let electronic_stopping_correction_factor = input.electronic_stopping_correction_factor;
         let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
         let total_density: f64 = densities.iter().sum();
+        assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
         let energy_barrier_thickness = total_density.powf(-1./3.)/SQRTPI*2.;
         let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
         let points = input.vertices.iter().map(|p| Point::new(p[0]*length_unit , p[1]*length_unit , p[2]*length_unit)).collect();
