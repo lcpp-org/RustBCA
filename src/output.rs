@@ -1,6 +1,25 @@
 use super::*;
 use std::fs::File;
 use std::path::Path;
+#[cfg(feature = "distributions")]
+extern crate ndarray;
+#[cfg(feature = "distributions")]
+use ndarray::prelude::*;
+
+macro_rules! open_output_file {
+    ($output_path:expr, $name:expr, $options:expr) => {{
+    //Open output files for streaming output
+    let file_path = $output_path.join(format!("{}{}{}", $options.name, $name, ".output"));
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(file_path)
+        .context(format!("Could not open {} output file.", $options.name,))
+        .unwrap();
+    BufWriter::with_capacity($options.write_buffer_size, file)
+    }}
+}
 
 #[derive(Clone, Debug)]
 pub struct OutputUnits {
@@ -21,12 +40,6 @@ pub fn energy_angle_from_particle(particle: &particle::Particle, units: &OutputU
 
     (energy, angle)
 }
-
-#[cfg(feature = "distributions")]
-extern crate ndarray;
-
-#[cfg(feature = "distributions")]
-use ndarray::prelude::*;
 
 /// Distribution tracker for tracking EADs and implantation distributions
 #[derive(Serialize)]
@@ -68,17 +81,22 @@ impl Distributions {
     /// Write distributions to toml
     pub fn print(&self, options: &Options) {
 
+        let output_path = Path::new(&options.output_dir);
+        assert!(output_path.try_exists().unwrap());
+        assert!(output_path.is_dir());
+
+        let file_path = output_path.join(format!("{}{}{}", options.name, "distributions", ".toml"));
         let distribution_output_file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
-            .open(format!("{}{}{}", options.output_dir, options.name, "distributions.toml"))
+            .open(file_path)
             .context("Could not open distributions output file.")
             .unwrap();
-        let mut distribution_file_stream = BufWriter::with_capacity(8000, distribution_output_file);
+        let mut distribution_file_stream = BufWriter::with_capacity(options.write_buffer_size, distribution_output_file);
         let toml = toml::to_string(&self).unwrap();
+        
         writeln!(distribution_file_stream, "{}", toml).unwrap();
-
     }
 
     /// Updates distributions with a single particle
@@ -204,14 +222,15 @@ pub struct SummaryPerSpecies {
 impl SummaryPerSpecies {
     pub fn new(options: &Options) -> SummaryPerSpecies {
 
-        let summary_output_file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(format!("{}{}{}", options.output_dir, options.name, "summary.output"))
-            .context("Could not open output file.")
-            .unwrap();
-        let writer = BufWriter::with_capacity(8000, summary_output_file);
+        let output_path = Path::new(&options.output_dir);
+        assert!(output_path.try_exists().unwrap());
+        assert!(output_path.is_dir());
+
+        let writer = open_output_file!(
+            output_path,
+            "summary",
+            options
+        );
 
         SummaryPerSpecies {
             m: vec![],
@@ -258,21 +277,6 @@ impl SummaryPerSpecies {
     }
 }
 
-macro_rules! open_file {
-    ($output_path:expr, $name:expr, $options:expr) => {{
-    //Open output files for streaming output
-    let file_path = $output_path.join(format!("{}{}{}", $options.name, $name, ".output"));
-    let file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(file_path)
-        .context(format!("Could not open {} output file.", $options.name,))
-        .unwrap();
-    BufWriter::with_capacity($options.write_buffer_size, file)
-    }}
-}
-
 /// Open list output files for streaming write
 pub fn open_output_lists(options: &Options) -> OutputListStreams {
 
@@ -281,43 +285,43 @@ pub fn open_output_lists(options: &Options) -> OutputListStreams {
     assert!(output_path.is_dir());
 
     //Open output files for streaming output
-    let reflected_file_stream = open_file!(
+    let reflected_file_stream = open_output_file!(
         output_path,
         "reflected",
         options
     );
 
-    let sputtered_file_stream = open_file!(
+    let sputtered_file_stream = open_output_file!(
         output_path,
         "sputtered",
         options
     );
 
-    let deposited_file_stream = open_file!(
+    let deposited_file_stream = open_output_file!(
         output_path,
         "deposited",
         options
     );
 
-    let trajectory_file_stream = open_file!(
+    let trajectory_file_stream = open_output_file!(
         output_path,
         "trajectories",
         options
     );
 
-    let trajectory_data_stream = open_file!(
+    let trajectory_data_stream = open_output_file!(
         output_path,
         "trajectory_data",
         options
     );
 
-    let displacements_file_stream = open_file!(
+    let displacements_file_stream = open_output_file!(
         output_path,
         "displacements",
         options
     );
 
-    let energy_loss_file_stream = open_file!(
+    let energy_loss_file_stream = open_output_file!(
         output_path,
         "energy_loss",
         options
