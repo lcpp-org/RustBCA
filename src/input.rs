@@ -432,7 +432,7 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
     assert!(material.m.len() == material.Eb.len(), "Input error: material input arrays of unequal length.");
     assert!(material.m.len() == material.Es.len(), "Input error: material input arrays of unequal length.");
 
-    if material.Ed.len() <= 1 {
+    if material.interaction_index.len() <= 1 {
         material.interaction_index = vec![material.interaction_index[0]; material.m.len()];
     }
 
