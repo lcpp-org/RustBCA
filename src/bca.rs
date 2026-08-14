@@ -622,16 +622,16 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
         interactions::scaling_function(r, impact_parameter, interaction_potential)};
 
-    let upper_bound = 10.0*impact_parameter + interactions::crossing_point_doca(interaction_potential);
+    let upper_bound = impact_parameter + interactions::crossing_point_doca(interaction_potential);
 
     let roots = match derivative_free {
-        true => find_roots_with_secant_polishing(&g, &f, 1e-15, upper_bound,
+        true => find_roots_with_secant_polishing(&g, &f, 1e-13, upper_bound,
             n0, epsilon, nmax, complex_threshold,
             truncation_threshold, interval_limit, far_from_zero),
 
         false => {
             let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
-            find_roots_with_newton_polishing(&g, &f, &df, 1e-15, upper_bound,
+            find_roots_with_newton_polishing(&g, &f, &df, 1e-13, upper_bound,
             n0, epsilon, nmax, complex_threshold,
             truncation_threshold, interval_limit, far_from_zero)
         }
