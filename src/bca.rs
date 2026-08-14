@@ -612,6 +612,8 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     complex_threshold: f64, truncation_threshold: f64, far_from_zero: f64,
     interval_limit: f64, derivative_free: bool) -> Result <f64, anyhow::Error> {
 
+    println!("yes");
+
     //Lindhard screening length and reduced energy
     let a = interactions::screening_length(Za, Zb, interaction_potential);
     let reduced_energy = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
