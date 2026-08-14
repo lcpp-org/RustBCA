@@ -8,7 +8,7 @@ setup(
         RustExtension(
             "libRustBCA",
             binding=Binding.PyO3,
-            features=["python", "parry3d", "pythonize"],
+            features=["python", "parry3d", "pythonize", "cpr_rootfinder"],
         )
     ],
     # rust extensions are not zip safe, just like C-extensions.
