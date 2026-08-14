@@ -612,8 +612,6 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     complex_threshold: f64, truncation_threshold: f64, far_from_zero: f64,
     interval_limit: f64, derivative_free: bool) -> Result <f64, anyhow::Error> {
 
-    println!("yes");
-
     //Lindhard screening length and reduced energy
     let a = interactions::screening_length(Za, Zb, interaction_potential);
     let reduced_energy = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
@@ -624,7 +622,7 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
         interactions::scaling_function(r, impact_parameter, interaction_potential)};
 
-    let upper_bound = impact_parameter + interactions::crossing_point_doca(interaction_potential);
+    let upper_bound = 10.0*impact_parameter + interactions::crossing_point_doca(interaction_potential);
 
     let roots = match derivative_free {
         true => find_roots_with_secant_polishing(&g, &f, 1e-15, upper_bound,
@@ -638,8 +636,7 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
             truncation_threshold, interval_limit, far_from_zero)
         }
     }.with_context(|| format!("Numerical error: CPR Rootfinder failed to converge when calculating distance of closest approach for Er = {} eV p = {} A using {}.",
-        relative_energy/EV, impact_parameter/ANGSTROM, interaction_potential))
-    .unwrap();
+        relative_energy/EV, impact_parameter/ANGSTROM, interaction_potential))?;
 
     let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
 
