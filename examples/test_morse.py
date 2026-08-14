@@ -87,7 +87,7 @@ def run_krc_morse_potential(energy, index, num_samples=10000, run_sim=True):
     mean_free_path_model = "LIQUID"
     interaction_potential = [[{{"KRC_MORSE"={{D=5.4971E-20, r0=2.782E-10, alpha=1.4198E10, k=7E10, x0=0.75E-10}}}}]]
     scattering_integral = [["GAUSS_LEGENDRE"]]
-    root_finder = [[{{"CPR"={{n0=2, nmax=100, epsilon=1E-9, complex_threshold=1E-3, truncation_threshold=1E-9, far_from_zero=1E9, interval_limit=1E-12, derivative_free=true}}}}]]
+    root_finder = [[{{"CPR"={{n0=2, nmax=100, epsilon=1E-3, complex_threshold=1E-3, truncation_threshold=1E-9, far_from_zero=1E9, interval_limit=1E-12, derivative_free=true}}}}]]
     num_threads = 4
     num_chunks = 10
 
@@ -172,7 +172,7 @@ plt.semilogx(energies, r_benchmark, marker='^', linestyle='', label='Exp.')
 #Running and plotting the H-Ni simulations with the Morse potential and updated Es
 num_energies = 15
 energies = np.logspace(-1, 4, num_energies)
-run_sim = True
+run_sim = False
 num_samples = 10000
 R_N = np.zeros(num_energies)
 R_E = np.zeros(num_energies)
@@ -180,8 +180,8 @@ R_N_2 = np.zeros(num_energies)
 R_E_2 = np.zeros(num_energies)
 
 for index, energy in enumerate(energies):
-    R_N[index], R_E[index] = run_krc_morse_potential(energy, index, num_samples=num_samples, run_sim=True)
-    R_N_2[index], R_E_2[index] = run_morse_potential(energy, index, num_samples=num_samples, run_sim=True)
+    R_N[index], R_E[index] = run_krc_morse_potential(energy, index, num_samples=num_samples, run_sim=run_sim)
+    R_N_2[index], R_E_2[index] = run_morse_potential(energy, index, num_samples=num_samples, run_sim=run_sim)
 
 plt.semilogx(energies, R_N, label='R_N Morse-Kr-C H-Ni, Es=1.5eV', color='purple')
 plt.semilogx(energies, R_N_2, label='R_N Morse H-Ni, Es=1.5eV', color='green')
