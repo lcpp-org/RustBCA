@@ -173,7 +173,7 @@ plt.semilogx(energies, r_benchmark, marker='^', linestyle='', label='Exp.')
 num_energies = 15
 energies = np.logspace(-1, 4, num_energies)
 run_sim = True
-num_samples = 1000
+num_samples = 100
 R_N = np.zeros(num_energies)
 R_E = np.zeros(num_energies)
 R_N_2 = np.zeros(num_energies)
@@ -182,6 +182,21 @@ R_E_2 = np.zeros(num_energies)
 for index, energy in enumerate(energies):
     R_N[index], R_E[index] = run_krc_morse_potential(energy, index, num_samples=num_samples, run_sim=run_sim)
     R_N_2[index], R_E_2[index] = run_morse_potential(energy, index, num_samples=num_samples, run_sim=run_sim)
+
+R_N_test = [
+    0.00, 0.01, 0.28, 0.60, 0.90,
+    0.95, 0.88, 0.81, 0.70, 0.49,
+    0.30, 0.24, 0.17, 0.11, 0.10
+]
+
+R_N_2_test = [
+    0.00, 0.01, 0.28, 0.60, 0.90,
+    0.95, 0.88, 0.81, 0.74, 0.60,
+    0.46, 0.23, 0.05, 0.00, 0.00
+]
+
+np.testing.assert_allclose(R_N, R_N_test)
+np.testing.assert_allclose(R_N_2, R_N_2_test)
 
 plt.semilogx(energies, R_N, label='R_N Morse-Kr-C H-Ni, Es=1.5eV', color='purple')
 plt.semilogx(energies, R_N_2, label='R_N Morse H-Ni, Es=1.5eV', color='green')
