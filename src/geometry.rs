@@ -65,8 +65,9 @@ impl Geometry for Mesh0D {
 
         let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
         assert!(!densities.is_empty(), "Input Error: density list empty.");
-
+        
         let total_density: f64 = densities.iter().sum();
+        assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
 
         let energy_barrier_thickness = 1./total_density.cbrt()/SQRTPI*2.;
 
@@ -154,6 +155,7 @@ impl Geometry for Mesh1D {
         let densities: Vec<Vec<f64>> = geometry_input.densities
             .iter()
             .map( |row| row.iter().map(|element| element/(length_unit).powi(3)).collect() ).collect();
+    
 
         //Assert all layer density lists are equal length
         assert!(
@@ -170,6 +172,7 @@ impl Geometry for Mesh1D {
             layer_bottom += layer_thickness*length_unit;
 
             let total_density: f64 = densities.iter().sum();
+            assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
             let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
 
             layers.push(Layer1D::new(layer_top, layer_bottom, densities, concentrations, ck));
@@ -308,6 +311,7 @@ impl Geometry for HomogeneousMesh2D {
         let densities: Vec<f64> = input.densities.iter().map(|element| element/(length_unit).powi(3)).collect();
 
         let total_density: f64 = densities.iter().sum();
+        assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
 
         let energy_barrier_thickness = 1./total_density.cbrt()/SQRTPI*2.;
 
@@ -476,6 +480,7 @@ impl Geometry for Mesh2D {
                 y3*length_unit,
             );
             let total_density: f64 = densities.iter().sum();
+            assert!(total_density < MAX_DENSITY, "Input Error: total density {}/m^3 exceeds realistic values; check values or units.", total_density);
             let concentrations: Vec<f64> = densities.iter().map(|&density| density/total_density).collect::<Vec<f64>>();
 
             cells.push(Cell2D::new(coordinate_set_converted, densities, concentrations, ck));

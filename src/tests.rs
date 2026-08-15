@@ -230,6 +230,7 @@ fn test_distributions() {
         track_displacements: false,
         track_energy_losses: true,
         seed: 0,
+        output_dir: ".".to_string(),
         energy_min: 0.0,
         energy_max: 10.0,
         energy_num: 11,
@@ -885,6 +886,7 @@ fn test_momentum_conservation() {
                             track_displacements: false,
                             track_energy_losses: false,
                             seed: 0,
+                            output_dir: ".".to_string(),
                         };
 
                         #[cfg(feature = "distributions")]
@@ -907,6 +909,7 @@ fn test_momentum_conservation() {
                             track_displacements: false,
                             track_energy_losses: false,
                             seed: 0,
+                            output_dir: ".".to_string(),
                             energy_min: 0.0,
                             energy_max: 10.0,
                             energy_num: 11,
@@ -1119,6 +1122,7 @@ fn test_quadrature() {
         track_displacements: false,
         track_energy_losses: false,
         seed: 0,
+        output_dir: ".".to_string(),
     };
 
     #[cfg(feature = "distributions")]
@@ -1141,6 +1145,7 @@ fn test_quadrature() {
         track_displacements: false,
         track_energy_losses: false,
         seed: 0,
+        output_dir: ".".to_string(),
         energy_min: 0.0,
         energy_max: 10.0,
         energy_num: 11,

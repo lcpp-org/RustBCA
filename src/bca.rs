@@ -623,21 +623,21 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
         interactions::scaling_function(r, impact_parameter, interaction_potential)};
 
     let upper_bound = impact_parameter + interactions::crossing_point_doca(interaction_potential);
+    let lower_bound = impact_parameter / 1000.0;
 
     let roots = match derivative_free {
-        true => find_roots_with_secant_polishing(&g, &f, 1e-15, upper_bound,
+        true => find_roots_with_secant_polishing(&g, &f, lower_bound, upper_bound,
             n0, epsilon, nmax, complex_threshold,
             truncation_threshold, interval_limit, far_from_zero),
 
         false => {
             let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
-            find_roots_with_newton_polishing(&g, &f, &df, 1e-15, upper_bound,
+            find_roots_with_newton_polishing(&g, &f, &df, lower_bound, upper_bound,
             n0, epsilon, nmax, complex_threshold,
             truncation_threshold, interval_limit, far_from_zero)
         }
     }.with_context(|| format!("Numerical error: CPR Rootfinder failed to converge when calculating distance of closest approach for Er = {} eV p = {} A using {}.",
-        relative_energy/EV, impact_parameter/ANGSTROM, interaction_potential))
-    .unwrap();
+        relative_energy/EV, impact_parameter/ANGSTROM, interaction_potential))?;
 
     let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
 

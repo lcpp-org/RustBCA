@@ -1196,19 +1196,19 @@ pub fn compound_bca_list_tracked_py<'py>(energies: Vec<f64>, ux: Vec<f64>, uy: V
 ///Returns:
 ///    vx, vy, vz (float): final x, y, and z velocity in m/s. When ion implants in material, vx, vy, and vz will all be zero.
 #[pyfunction]
-pub fn reflect_single_ion_py<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDict>, vx: f64, vy: f64, vz: f64) -> (f64, f64, f64){
+pub fn reflect_single_ion_py<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, PyDict>, vx: f64, vy: f64, vz: f64) -> PyResult<(f64, f64, f64)> {
     
-    let Z1: f64 = ion.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from ion dict.").extract().unwrap();
-    let m1: f64 = ion.get_item("m").unwrap().expect("Error: Cannot get key 'm' from ion dict.").extract().unwrap();
-    let Es1: f64 = ion.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from ion dict.").extract().unwrap();
-    let Ec1: f64 = ion.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from ion dict.").extract().unwrap();
+    let Z1: f64 = get_value_from_dict!(ion, "Z")?;
+    let m1: f64 = get_value_from_dict!(ion, "m")?;
+    let Es1: f64 = get_value_from_dict!(ion, "Es")?;
+    let Ec1: f64 = get_value_from_dict!(ion, "Ec")?;
 
-    let Z2: f64 = target.get_item("Z").unwrap().expect("Error: Cannot get key 'Z' from target dict.").extract().unwrap();
-    let m2: f64 = target.get_item("m").unwrap().expect("Error: Cannot get key 'm' from target dict.").extract().unwrap();
-    let Es2: f64 = target.get_item("Es").unwrap().expect("Error: Cannot get key 'Es' from target dict.").extract().unwrap();
-    let Ec2: f64 = target.get_item("Ec").unwrap().expect("Error: Cannot get key 'Ec' from target dict.").extract().unwrap();
-    let Eb2: f64 = target.get_item("Eb").unwrap().expect("Error: Cannot get key 'Eb' from target dict.").extract().unwrap();
-    let n2: f64 = target.get_item("n").unwrap().expect("Error: Cannot get key 'n' from target dict.").extract().unwrap();
+    let Z2: f64 = get_value_from_dict!(target, "Z")?;
+    let m2: f64 = get_value_from_dict!(target, "m")?;
+    let Es2: f64 = get_value_from_dict!(target, "Es")?;
+    let Ec2: f64 = get_value_from_dict!(target, "Ec")?;
+    let Eb2: f64 = get_value_from_dict!(target, "Eb")?;
+    let n2: f64 = get_value_from_dict!(target, "n")?;
 
     assert!(vx > 0.0, "Input error: vx must be greater than zero for incident particles to hit surface at x=0.");
 
@@ -1271,9 +1271,9 @@ pub fn reflect_single_ion_py<'py>(ion: &Bound<'py, PyDict>, target: &Bound<'py, 
     let vz2 = output[0].dir.z*reflected_velocity;
 
     if output[0].E > 0.0 && output[0].dir.x < 0.0 && output[0].left && output[0].incident {
-        (vx2, vy2, vz2)
+        Ok((vx2, vy2, vz2))
     } else {
-        (0.0, 0.0, 0.0)
+        Ok((0.0, 0.0, 0.0))
     }
 }
 

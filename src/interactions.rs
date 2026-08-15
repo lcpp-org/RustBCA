@@ -8,7 +8,7 @@ pub fn crossing_point_doca(interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         InteractionPotential::LENNARD_JONES_12_6{sigma, ..} | InteractionPotential::LENNARD_JONES_65_6{sigma, ..} => sigma,
         InteractionPotential::MORSE{D, alpha, r0} => (alpha*r0 - (2.0_f64).ln())/alpha,
-        InteractionPotential::WW => 50.*ANGSTROM,
+        InteractionPotential::WW => 10.*ANGSTROM,
         _ => 10.*ANGSTROM,
     }
 }
@@ -176,7 +176,7 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
             1./(1. + (r*alpha).powi(2))
         }
         InteractionPotential::WW => {
-            1.
+            1./(1. + (r/ANGSTROM).powi(2))
         },
         InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
             1./(1. + (r*alpha).powi(2))
@@ -465,8 +465,10 @@ pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
     let x2 = 2.10004200084;
 
     if x <= x1 {
-
-        let a = screening_length(74., 74., InteractionPotential::ZBL);
+        // This correction factor is necessary to correct for a discrepancy in the 
+        // published interaction potential - it is slightly off from the "correct"
+        // ZBL screening length. Without this, the doca function is discontinuous.
+        let a = screening_length(74., 74., InteractionPotential::ZBL)*1.000_250_544_359;
         screened_coulomb(r, a, 74., 74., InteractionPotential::ZBL)
 
     } else if x <= x2 {
@@ -512,17 +514,8 @@ pub fn tungsten_tungsten_cubic_spline(r: f64) -> f64 {
 
 /// Distance of closest approach function for the W-W cublic spline potential from Bjorkas et al.
 pub fn doca_tungsten_tungsten_cubic_spline(r: f64, p: f64, relative_energy: f64) -> f64 {
-
     let x = r/ANGSTROM;
-    let x1 = 1.10002200044;
-    let x2 = 2.10004200084;
-
-    if x <= x1 {
-        let a = screening_length(74., 74., InteractionPotential::ZBL);
-        distance_of_closest_approach_function_singularity_free(r, a, 74., 74., relative_energy, p, InteractionPotential::ZBL)
-    } else {
-        (r/ANGSTROM).powi(2) - (r/ANGSTROM).powi(2)*tungsten_tungsten_cubic_spline(r)/relative_energy - p.powi(2)/ANGSTROM.powi(2)
-    }
+    x.powi(2) - x.powi(2)*tungsten_tungsten_cubic_spline(r)/relative_energy - (p/ANGSTROM).powi(2)
 }
 
 fn heaviside(x: f64) -> f64 {

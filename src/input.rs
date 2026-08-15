@@ -212,6 +212,10 @@ fn default_rootfinder() -> Vec<Vec<Rootfinder>> {
     vec![vec![Rootfinder::DEFAULTNEWTON]]
 }
 
+fn default_output_dir() -> String {
+    "./".to_string()
+}
+
 /// Rustbca's internal representation of the simulation-level options.
 #[cfg(not(feature = "distributions"))]
 #[derive(Deserialize, Clone)]
@@ -250,7 +254,9 @@ pub struct Options {
     #[serde(default = "default_false")]
     pub track_energy_losses: bool,
     #[serde(default = "default_seed")]
-    pub seed: i32
+    pub seed: i32,
+    #[serde(default = "default_output_dir")]
+    pub output_dir: String,
 }
 
 #[cfg(not(feature = "distributions"))]
@@ -275,6 +281,7 @@ impl Options {
             track_displacements: false,
             track_energy_losses: false,
             seed: default_seed(),
+            output_dir: default_output_dir(),
         }
     }
 }
@@ -331,7 +338,9 @@ pub struct Options {
     pub y_num: usize,
     pub z_num: usize,
     #[serde(default = "default_seed")]
-    pub seed: i32
+    pub seed: i32,
+    #[serde(default = "default_output_dir")]
+    pub output_dir: String,
 }
 
 #[cfg(feature = "distributions")]
@@ -370,7 +379,8 @@ impl Options {
             x_num: 0,
             y_num: 0,
             z_num: 0,
-            seed: default_seed()
+            seed: default_seed(),
+            output_dir: default_output_dir(),
         }
     }
 }
@@ -423,7 +433,7 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
     assert!(material.m.len() == material.Es.len(), "Input error: material input arrays of unequal length.");
 
     if material.interaction_index.len() <= 1 {
-        material.interaction_index = vec![0; material.m.len()];
+        material.interaction_index = vec![material.interaction_index[0]; material.m.len()];
     }
 
     if material.Ed.len() <= 1 {

@@ -255,16 +255,22 @@ elif mode == '0D':
     'geometry_input': geometry_0D
 }
 
+# Test rustbca_py and 'output_dir' option
 input_data['options']['name'] = 'rustbca_input_file'
+if not os.path.exists(r'./outputs'):
+    os.makedirs('outputs')
+input_data['options']['output_dir'] = 'outputs'
 rustbca_py(input_data, mode)
-s = np.genfromtxt('rustbca_input_filesputtered.output', delimiter=',')
+s = np.genfromtxt('outputs/rustbca_input_filesputtered.output', delimiter=',')
 
 arrays = rustbca_local_py(input_data, mode)
 sputtered = arrays['sputtered']
 
 np.testing.assert_approx_equal(s[0, 2], np.array(arrays['energy'])[sputtered][0])
 
+# reset these options before running from command line
 input_data['options']['name'] = 'input_file'
+input_data['options']['output_dir'] = '.'
 
 # Attempt to cleanup line endings
 input_string = dumps(input_data).replace('\r', '')
