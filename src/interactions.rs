@@ -286,7 +286,7 @@ pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPote
         //Lindhard/Firsov screening length, Eckstein (4.1.5)
         InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN | InteractionPotential::WW => lindhard_screening_length_lookup(Za as u64, Zb as u64),
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
-        InteractionPotential::MORSE{D, alpha, r0} => alpha,
+        InteractionPotential::MORSE{D, alpha, r0} => 1./alpha,
         InteractionPotential::COULOMB{Za: Z1, Zb: Z2} => zbl_screening_length_lookup(Za as u64, Zb as u64),
         InteractionPotential::KRC_MORSE{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
         InteractionPotential::FOUR_EIGHT{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
