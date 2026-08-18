@@ -3,6 +3,7 @@ use rand::RngExt;
 
 #[cfg(feature = "cpr_rootfinder")]
 use rcpr::rootfinders::{
+    find_roots,
     real_polynomial_roots,
     find_roots_with_newton_polishing,
     find_roots_with_secant_polishing,
@@ -642,17 +643,7 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
         interval_limit
     );
 
-    let roots = match derivative_free {
-        true => find_roots_with_secant_polishing(&g, &f, lower_bound, upper_bound,
-            config),
-
-        false => {
-            let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
-            find_roots_with_newton_polishing(&g, &f, &df, lower_bound, upper_bound,
-            config)
-        }
-    }.with_context(|| format!("Numerical error: CPR Rootfinder failed to converge when calculating distance of closest approach for Er = {} eV p = {} A using {}.",
-        relative_energy/EV, impact_parameter/ANGSTROM, interaction_potential))?;
+    let roots = find_roots(&g, vec![(lower_bound, upper_bound)], config)?;
 
     let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
 
