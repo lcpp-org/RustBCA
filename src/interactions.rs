@@ -179,7 +179,7 @@ pub fn scaling_function(r: f64, a: f64, interaction_potential: InteractionPotent
             1./(1. + (r/ANGSTROM).powi(2))
         },
         InteractionPotential::KRC_MORSE{D, alpha, r0, k, x0} => {
-            1./(1. + (r*alpha).powi(2))
+            1.
         }
         InteractionPotential::COULOMB{..} => panic!("Coulombic potential cannot be used with rootfinder.")
     }
@@ -282,9 +282,9 @@ pub fn dphi(xi: f64, interaction_potential: InteractionPotential) -> f64 {
 pub fn screening_length(Za: f64, Zb: f64, interaction_potential: InteractionPotential) -> f64 {
     match interaction_potential {
         //ZBL screening length, Eckstein (4.1.8)
-        InteractionPotential::ZBL => zbl_screening_length_lookup(Za as u64, Zb as u64),
+        InteractionPotential::ZBL | InteractionPotential::WW => zbl_screening_length_lookup(Za as u64, Zb as u64),
         //Lindhard/Firsov screening length, Eckstein (4.1.5)
-        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN | InteractionPotential::WW => lindhard_screening_length_lookup(Za as u64, Zb as u64),
+        InteractionPotential::MOLIERE | InteractionPotential::KR_C | InteractionPotential::LENZ_JENSEN | InteractionPotential::TRIDYN  => lindhard_screening_length_lookup(Za as u64, Zb as u64),
         InteractionPotential::LENNARD_JONES_12_6{..} | InteractionPotential::LENNARD_JONES_65_6{..} => lindhard_screening_length_lookup(Za as u64, Zb as u64),
         InteractionPotential::MORSE{D, alpha, r0} => 1./alpha,
         InteractionPotential::COULOMB{Za: Z1, Zb: Z2} => zbl_screening_length_lookup(Za as u64, Zb as u64),
@@ -434,7 +434,13 @@ pub fn doca_morse(r: f64, impact_parameter: f64, relative_energy: f64, D: f64, a
 
 /// Distance of closest approach function for Morse potential.
 pub fn doca_krc_morse(r: f64, impact_parameter: f64, relative_energy: f64, a: f64, Za: f64, Zb: f64, D: f64, alpha: f64, r0: f64, k: f64, x0: f64) -> f64 {
-    (r*alpha).powi(2) - (r*alpha).powi(2)/relative_energy*krc_morse(r, a, Za, Zb, D, alpha, r0, k, x0) - (impact_parameter*alpha).powi(2)
+    let K = coulomb_constant(Za, Zb);
+    let ralpha = r*alpha;
+    let term_1 = (ralpha).powi(2) - (impact_parameter*alpha).powi(2);
+    let term_2 = -(ralpha)*alpha*(K/relative_energy)*phi(r/a, InteractionPotential::KR_C)*smootherstep(r, -k, x0);
+    let term_3 = -(ralpha).powi(2)*(morse(r, D, alpha, r0)/relative_energy)*smootherstep(r, k, x0);
+    let scale = 1./(1. + ralpha).powi(2);
+    term_1*scale + term_2*scale + term_3*scale
 }
 
 /// Distance of closest approach function for LJ 6.5-6 potential.

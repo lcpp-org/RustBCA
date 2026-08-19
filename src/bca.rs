@@ -5,8 +5,6 @@ use rand::RngExt;
 use rcpr::rootfinders::{
     find_roots,
     real_polynomial_roots,
-    find_roots_with_newton_polishing,
-    find_roots_with_secant_polishing,
     Config
 };
 
@@ -593,6 +591,15 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
     }
 }
 
+const L: f64 = 8.0;
+fn transform(x: f64) -> f64 {
+    L/(x*PI/2.).tan().powi(2)
+}
+
+fn inverse_transform(x: f64) -> f64 {
+    2./PI*((L/x).sqrt()).atan()
+}
+
 #[cfg(feature = "cpr_rootfinder")]
 /// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an arbitrary interaction potential (e.g., Morse) for a given impact parameter and incident energy `E0` using the Chebyshev-Proxy Root-Finder method.
 ///
@@ -612,7 +619,7 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
 /// `derivative_free`: if false, use Newton's method to polish roots from the CPR. If true, use the secant method.
 ///
 /// # Returns
-/// Returns the distance of closest approach or an error if the root-finder failed.
+/// Returns the distance of closest approach (reduced by a) or an error if the root-finder failed.
 pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     interaction_potential: InteractionPotential, n0: usize, nmax: usize, epsilon: f64,
     complex_threshold: f64, truncation_threshold: f64, far_from_zero: f64,
@@ -624,11 +631,13 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     let relative_energy = E0*Mb/(Ma + Mb);
     let p = impact_parameter;
 
-    let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
-        interactions::scaling_function(r, impact_parameter, interaction_potential)};
+    let g = |r: f64| -> f64 {
+        interactions::distance_of_closest_approach_function_singularity_free(transform(r)*a, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
+            interactions::scaling_function(transform(r)*a, a, interaction_potential)
+    };
 
-    let upper_bound = impact_parameter + interactions::crossing_point_doca(interaction_potential);
-    let lower_bound = impact_parameter / 1000.0;
+    let upper_bound = 1.0;
+    let lower_bound = 1e-5;
 
     let delta = 1e-5;
     let config = Config::new(
@@ -644,7 +653,8 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
 
     let roots = find_roots(&g, vec![(lower_bound, upper_bound)], config)?;
 
-    let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
+    // Since above the arg to doca is transform(r)*a, this is already scaled as output
+    let max_root = roots.iter().map(|&x| transform(x)).fold(f64::NAN, f64::max);
 
     if roots.is_empty() || max_root.is_nan() {
         return Err(anyhow!("Numerical error: CPR rootfinder failed to find root. x0: {}, F(a): {}, F(b): {};", max_root, g(0.), g(upper_bound)));
