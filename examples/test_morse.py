@@ -176,7 +176,7 @@ plt.semilogx(energies, r_benchmark, marker='^', linestyle='', label='Exp.')
 #Running and plotting the H-Ni simulations with the Morse potential and updated Es
 num_energies = 20
 energies = np.logspace(-1, 4, num_energies)
-run_sim = False
+run_sim = True
 num_samples = 1000
 R_N = np.zeros(num_energies)
 R_E = np.zeros(num_energies)
