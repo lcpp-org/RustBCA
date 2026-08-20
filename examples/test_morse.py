@@ -13,9 +13,10 @@ from formulas import *
 hydrogen['Ec'] = 0.1
 hydrogen['Es'] = 1.5
 
-epsilon = 1e-3
-interval_limit = 1e-6
-nmax = 64
+epsilon = 1e-4
+interval_limit = 1e-3
+nmax = 32
+n0=3
 #This function simply contains an entire input file as a multi-line f-string to modify some inputs.
 def run_morse_potential(energy, index, num_samples=10000, run_sim=True):
 
@@ -28,7 +29,7 @@ def run_morse_potential(energy, index, num_samples=10000, run_sim=True):
     mean_free_path_model = "LIQUID"
     interaction_potential = [[{{"MORSE"={{D=5.4971E-20, r0=2.782E-10, alpha=1.4198E10}}}}]]
     scattering_integral = [["GAUSS_LEGENDRE"]]
-    root_finder = [[{{"CPR"={{n0=3, nmax={nmax}, epsilon={epsilon}, complex_threshold=1E-9, truncation_threshold=1E-9, far_from_zero=1E22, interval_limit={interval_limit}, derivative_free=true}}}}]]
+    root_finder = [[{{"CPR"={{n0={n0}, nmax={nmax}, epsilon={epsilon}, complex_threshold=1E-9, truncation_threshold=1E-9, far_from_zero=1E22, interval_limit={interval_limit}, derivative_free=true}}}}]]
     num_threads = 4
     num_chunks = 10
 
@@ -86,9 +87,9 @@ def run_krc_morse_potential(energy, index, num_samples=10000, run_sim=True):
     name = "krc_morse_{index}"
     track_recoils = false
     weak_collision_order = 0
-    electronic_stopping_mode = "LOW_ENERGY_NONLOCAL"
+    electronic_stopping_mode = "INTERPOLATED"
     mean_free_path_model = "LIQUID"
-    interaction_potential = [[{{"KRC_MORSE"={{D=5.4971E-20, r0=2.782E-10, alpha=1.4198E10, k=7E10, x0=0.75E-10}}}}]]
+    interaction_potential = [[{{"KRC_MORSE"={{D=5.4971E-20, r0=2.782E-10, alpha=1.4198E10, k=8E10, x0=0.75E-10}}}}]]
     scattering_integral = [["GAUSS_LEGENDRE"]]
     root_finder = [[{{"CPR"={{n0=3, nmax={nmax}, epsilon={epsilon}, complex_threshold=1E-9, truncation_threshold=1E-9, far_from_zero=1E22, interval_limit={interval_limit}, derivative_free=true}}}}]]
     num_threads = 6
@@ -173,10 +174,10 @@ r_benchmark = data[6:, 1]
 plt.semilogx(energies, r_benchmark, marker='^', linestyle='', label='Exp.')
 
 #Running and plotting the H-Ni simulations with the Morse potential and updated Es
-num_energies = 15
+num_energies = 20
 energies = np.logspace(-1, 4, num_energies)
-run_sim = True
-num_samples = 100
+run_sim = False
+num_samples = 1000
 R_N = np.zeros(num_energies)
 R_E = np.zeros(num_energies)
 R_N_2 = np.zeros(num_energies)
@@ -187,26 +188,26 @@ for index, energy in enumerate(energies):
     R_N_2[index], R_E_2[index] = run_morse_potential(energy, index, num_samples=num_samples, run_sim=run_sim)
 
 R_N_test = [
-    0.00, 0.01, 0.28, 0.60, 0.90,
-    0.95, 0.88, 0.81, 0.70, 0.49,
-    0.30, 0.24, 0.17, 0.11, 0.10
+    0.0, 0.028, 0.141, 0.327, 0.65, 0.832, 0.913, 0.926,
+    0.889, 0.844, 0.783, 0.652, 0.47, 0.38, 0.344, 0.292,
+    0.253, 0.197, 0.139, 0.084
 ]
 
 R_N_2_test = [
-    0.00, 0.01, 0.28, 0.60, 0.90,
-    0.95, 0.88, 0.81, 0.74, 0.60,
-    0.46, 0.23, 0.05, 0.00, 0.00
+    0.0, 0.028, 0.141, 0.327, 0.65, 0.832, 0.913, 0.926,
+    0.889, 0.844, 0.786, 0.722, 0.622, 0.531, 0.411, 0.254,
+    0.104, 0.022, 0.003, 0.0
 ]
 
-np.testing.assert_allclose(R_N, R_N_test, rtol=0.5)
-np.testing.assert_allclose(R_N_2, R_N_2_test, rtol=0.5)
+np.testing.assert_allclose(R_N, R_N_test, atol=0.1)
+np.testing.assert_allclose(R_N_2, R_N_2_test, atol=0.1)
 
 plt.semilogx(energies, R_N, label='R_N Morse-Kr-C H-Ni, Es=1.5eV', color='purple')
 plt.semilogx(energies, R_N_2, label='R_N Morse H-Ni, Es=1.5eV', color='green')
 
 #Plotting RustBCA data points, using the ergonomic helper function reflection_coefficient().
 energies = np.logspace(-1, 4, 50)
-r_rustbca = np.array([reflection_coefficient(hydrogen, nickel, energy, 0.0, 10000) for energy in energies])
+r_rustbca = np.array([reflection_coefficient(hydrogen, nickel, energy, 0.0, 1000) for energy in energies])
 r_n = r_rustbca[:, 0]
 r_e = r_rustbca[:, 1]
 plt.semilogx(energies, r_n, label='R_N, Default Settings', color='black')

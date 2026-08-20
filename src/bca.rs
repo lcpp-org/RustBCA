@@ -591,13 +591,14 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
     }
 }
 
-const L: f64 = 8.0;
+#[cfg(feature = "cpr_rootfinder")]
 fn transform(x: f64) -> f64 {
-    L/(x*PI/2.).tan().powi(2)
+    2.0/(x*PI/2.).tan().powi(2)
 }
 
+#[cfg(feature = "cpr_rootfinder")]
 fn inverse_transform(x: f64) -> f64 {
-    2./PI*((L/x).sqrt()).atan()
+    2./PI*((2.0/x).sqrt()).atan()
 }
 
 #[cfg(feature = "cpr_rootfinder")]
@@ -627,9 +628,7 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
 
     //Lindhard screening length and reduced energy
     let a = interactions::screening_length(Za, Zb, interaction_potential);
-    let reduced_energy = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
     let relative_energy = E0*Mb/(Ma + Mb);
-    let p = impact_parameter;
 
     let g = |r: f64| -> f64 {
         interactions::distance_of_closest_approach_function_singularity_free(transform(r)*a, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
@@ -637,7 +636,7 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     };
 
     let upper_bound = 1.0;
-    let lower_bound = 1e-5;
+    let lower_bound = 1e-4;
 
     let delta = 1e-5;
     let config = Config::new(
@@ -654,7 +653,8 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     let roots = find_roots(&g, vec![(lower_bound, upper_bound)], config)?;
 
     // Since above the arg to doca is transform(r)*a, this is already scaled as output
-    let max_root = roots.iter().map(|&x| transform(x)).fold(f64::NAN, f64::max);
+    //let max_root = roots.iter().map(|&x| transform(x)).fold(f64::NAN, f64::max);
+    let max_root = roots.iter().map(|&x| transform(x)).max_by(f64::total_cmp).expect("Numerical error: failed to find maximum root.");
 
     if roots.is_empty() || max_root.is_nan() {
         return Err(anyhow!("Numerical error: CPR rootfinder failed to find root. x0: {}, F(a): {}, F(b): {};", max_root, g(0.), g(upper_bound)));
