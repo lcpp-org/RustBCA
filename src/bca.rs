@@ -1,5 +1,6 @@
 use super::*;
 use rand::RngExt;
+use anyhow::ensure;
 
 #[cfg(feature = "cpr_rootfinder")]
 use rcpr::rootfinders::{
@@ -634,6 +635,8 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
         interactions::distance_of_closest_approach_function_singularity_free(transform(r)*a, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
             interactions::scaling_function(transform(r)*a, a, interaction_potential)
     };
+
+    ensure!(1.0 - inverse_transform(impact_parameter/a) > interval_limit, "Numerical error: impact parameter {} A smaller than interval limit.", impact_parameter/a);
 
     let upper_bound = 1.0;
     let lower_bound = 1e-4;
