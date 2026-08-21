@@ -3,6 +3,9 @@ use rand::RngExt;
 use anyhow::ensure;
 
 #[cfg(feature = "cpr_rootfinder")]
+const CPR_ROOTFINDER_LOWER_BOUND: f64 = 1e-4;
+
+#[cfg(feature = "cpr_rootfinder")]
 use rcpr::rootfinders::{
     find_roots,
     real_polynomial_roots,
@@ -635,11 +638,9 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
         interactions::distance_of_closest_approach_function_singularity_free(transform(r)*a, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
             interactions::scaling_function(transform(r)*a, a, interaction_potential)
     };
-
-    ensure!(1.0 - inverse_transform(impact_parameter/a) > interval_limit, "Numerical error: impact parameter {} A smaller than interval limit.", impact_parameter/a);
-
-    let upper_bound = 1.0;
-    let lower_bound = 1e-4;
+    
+    let lower_bound = CPR_ROOTFINDER_LOWER_BOUND;
+    let upper_bound = 1.0_f64;
 
     let delta = 1e-5;
     let config = Config::new(
@@ -660,7 +661,7 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     let max_root = roots.iter().map(|&x| transform(x)).max_by(f64::total_cmp).expect("Numerical error: failed to find maximum root.");
 
     if roots.is_empty() || max_root.is_nan() {
-        return Err(anyhow!("Numerical error: CPR rootfinder failed to find root. x0: {}, F(a): {}, F(b): {};", max_root, g(0.), g(upper_bound)));
+        return Err(anyhow!("Numerical error: CPR rootfinder failed to find root. x0: {}, F(a): {}, F(b): {};", max_root, g(lower_bound), g(upper_bound)));
     } else {
         return Ok(max_root);
     }
