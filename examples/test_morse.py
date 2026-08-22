@@ -29,7 +29,7 @@ def run_morse_potential(energy, index, num_samples=10000, run_sim=True):
     mean_free_path_model = "LIQUID"
     interaction_potential = [[{{"MORSE"={{D=5.4971E-20, r0=2.782E-10, alpha=1.4198E10}}}}]]
     scattering_integral = [["GAUSS_LEGENDRE"]]
-    root_finder = [[{{"CPR"={{n0={n0}, nmax={nmax}, epsilon={epsilon}, complex_threshold=1E-9, truncation_threshold=1E-9, far_from_zero=1E22, interval_limit={interval_limit}, derivative_free=true}}}}]]
+    root_finder = [[{{"CPR"={{n0={n0}, nmax={nmax}, epsilon={epsilon}, complex_threshold=1E-9, far_from_zero=1E22, interval_limit={interval_limit}, derivative_free=true}}}}]]
     num_threads = 4
     num_chunks = 10
 
@@ -91,7 +91,7 @@ def run_krc_morse_potential(energy, index, num_samples=10000, run_sim=True):
     mean_free_path_model = "LIQUID"
     interaction_potential = [[{{"KRC_MORSE"={{D=5.4971E-20, r0=2.782E-10, alpha=1.4198E10, k=8E10, x0=0.75E-10}}}}]]
     scattering_integral = [["GAUSS_LEGENDRE"]]
-    root_finder = [[{{"CPR"={{n0=3, nmax={nmax}, epsilon={epsilon}, complex_threshold=1E-9, truncation_threshold=1E-9, far_from_zero=1E22, interval_limit={interval_limit}, derivative_free=true}}}}]]
+    root_finder = [[{{"CPR"={{n0=3, nmax={nmax}, epsilon={epsilon}, complex_threshold=1E-9, far_from_zero=1E22, interval_limit={interval_limit}, derivative_free=true}}}}]]
     num_threads = 6
     num_chunks = 1
 

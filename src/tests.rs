@@ -788,7 +788,6 @@ fn test_momentum_conservation() {
     #[cfg(not(feature = "cpr_rootfinder"))]
     let  rootfinders = vec![Rootfinder::NEWTON{max_iterations: 100, tolerance: 1E-3}; 4];
 
-    //[[{"CPR"={n0=2, nmax=100, epsilon=1E-9, complex_threshold=1E-3, truncation_threshold=1E-9, far_from_zero=1E9, interval_limit=1E-12, derivative_free=true}}]]
     #[cfg(feature = "cpr_rootfinder")]
     rootfinders.push(
         Rootfinder::CPR{
@@ -796,7 +795,6 @@ fn test_momentum_conservation() {
             nmax: 100,
             epsilon: 1e-9,
             complex_threshold: 1e-3,
-            truncation_threshold: 1e-9,
             far_from_zero: 1e9,
             interval_limit:1e-12,
             derivative_free: true
@@ -1171,7 +1169,7 @@ fn test_quadrature() {
 
     //If cpr_rootfinder is enabled, compare Newton to CPR - they should be nearly identical
     #[cfg(feature = "cpr_rootfinder")]
-    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 2, 10000, 1E-6, 1E-6, 1E-9, 1E9, 1E-13, true) {
+    if let Ok(x0_cpr) = bca::cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, 2, 10000, 1E-6, 1E-6, 1E-9, 1E9, true) {
         println!("CPR: {} Newton: {}", x0_cpr, x0_newton);
         assert!(approx_eq!(f64, x0_newton, x0_cpr, epsilon=1E-3));
     };

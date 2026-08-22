@@ -27,7 +27,7 @@ def input_file(ion, target, incident_energy, angle, number_ions=1000, pot="WW", 
     else:
         pot_name = "MORSE"
 
-    cpr = {'CPR': {'n0': 2, 'nmax': 32, 'epsilon': 5e-4, 'complex_threshold': 1E-9, 'truncation_threshold': 1E-9, 'far_from_zero': 1e3, 'interval_limit': 1E-4, 'derivative_free': True}}
+    cpr = {'CPR': {'n0': 2, 'nmax': 32, 'epsilon': 5e-4, 'complex_threshold': 1E-9, 'far_from_zero': 1e3, 'interval_limit': 1E-4, 'derivative_free': True}}
     options = {
         'name': f'input_file_{ion["symbol"]}_{target["symbol"]}_{np.round(angle, 1)}_{np.round(incident_energy/1000, 4)}_{pot_name}_{Es}',
         'track_trajectories': False, # whether to track trajectories for plotting; memory intensive
