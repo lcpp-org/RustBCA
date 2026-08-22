@@ -1,9 +1,15 @@
 use super::*;
 use rand::RngExt;
-use anyhow::ensure;
 
 #[cfg(feature = "cpr_rootfinder")]
 const CPR_ROOTFINDER_LOWER_BOUND: f64 = 1e-4;
+
+
+#[cfg(feature = "cpr_rootfinder")]
+// Boyd suggests that the CPR is insensitive to this parameter
+// Empirical testing with rcpr suggests best convergence for Morse
+// potential at ~3; other potentials, ~2; 2.5 seems a good compromise.
+const L: f64 = 2.5;
 
 #[cfg(feature = "cpr_rootfinder")]
 use rcpr::rootfinders::{
@@ -597,12 +603,7 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
 
 #[cfg(feature = "cpr_rootfinder")]
 fn transform(x: f64) -> f64 {
-    2.0/(x*PI/2.).tan().powi(2)
-}
-
-#[cfg(feature = "cpr_rootfinder")]
-fn inverse_transform(x: f64) -> f64 {
-    2./PI*((2.0/x).sqrt()).atan()
+    L/(x*PI/2.).tan().powi(2)
 }
 
 #[cfg(feature = "cpr_rootfinder")]
@@ -638,7 +639,7 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
         interactions::distance_of_closest_approach_function_singularity_free(transform(r)*a, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
             interactions::scaling_function(transform(r)*a, a, interaction_potential)
     };
-    
+
     let lower_bound = CPR_ROOTFINDER_LOWER_BOUND;
     let upper_bound = 1.0_f64;
 
@@ -658,7 +659,10 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
 
     // Since above the arg to doca is transform(r)*a, this is already scaled as output
     //let max_root = roots.iter().map(|&x| transform(x)).fold(f64::NAN, f64::max);
-    let max_root = roots.iter().map(|&x| transform(x)).max_by(f64::total_cmp).expect("Numerical error: failed to find maximum root.");
+    let max_root = roots.iter()
+    .map(|&x| transform(x))
+    .max_by(f64::total_cmp)
+    .ok_or_else(|| {anyhow!("Numerical error: failed to find maximum root. F(a): {}, F(b): {}", g(lower_bound), g(upper_bound))})?;
 
     if roots.is_empty() || max_root.is_nan() {
         return Err(anyhow!("Numerical error: CPR rootfinder failed to find root. x0: {}, F(a): {}, F(b): {};", max_root, g(lower_bound), g(upper_bound)));
