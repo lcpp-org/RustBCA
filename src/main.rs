@@ -11,10 +11,6 @@ use anyhow::{Result, Context, anyhow};
 //Serializing/Deserializing crate
 use serde::*;
 
-//Parallelization
-//use rayon::prelude::*;
-//use rayon::ThreadPoolBuilder;
-
 //I/O
 use std::fs::OpenOptions;
 use std::io::prelude::*;
@@ -45,7 +41,6 @@ pub mod structs;
 pub mod sphere;
 pub mod physics;
 pub mod math;
-
 #[cfg(feature = "parry3d")]
 pub mod parry;
 
@@ -67,7 +62,6 @@ macro_rules! main_loop {
     ($geometry_type:ident, $input_file:expr) => {
         {
             let (particle_input_array, material, options, output_units) = input::input::<$geometry_type>($input_file);
-            //Initialize threads with rayon
             println!("Processing {} ions...", particle_input_array.len());
             println!("Initializing with {} threads...", options.num_threads);
             let _ = rayon::ThreadPoolBuilder::new().num_threads(options.num_threads).build_global();
@@ -98,7 +92,7 @@ fn main() {
         _ => panic!("Too many command line arguments. RustBCA accepts 0 (use 'input.toml') 1 (<input file name>) or 2 (<geometry type> <input file name>)"),
     };
 
-    // This invokes the above macro that expands into the physics loop invocation for each type
+    // This invokes the above macro that expands into the physics loop invocation for each geometry type
     match geometry_type {
         GeometryType::MESH0D => main_loop!(Mesh0D, input_file),
         GeometryType::MESH1D => main_loop!(Mesh1D, input_file),

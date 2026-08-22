@@ -54,6 +54,7 @@ use pyo3::exceptions::{PyValueError, PyRuntimeError};
 //Load internal modules
 pub mod material;
 pub mod particle;
+#[cfg(test)]
 pub mod tests;
 pub mod interactions;
 pub mod bca;

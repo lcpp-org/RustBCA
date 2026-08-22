@@ -4,6 +4,8 @@ use super::*;
 use float_cmp::*;
 #[cfg(test)]
 use rand::RngExt;
+#[cfg(feature = "cpr_rootfinder")]
+use rcpr::rootfinders::*;
 
 #[test]
 #[cfg(feature = "cpr_rootfinder")]

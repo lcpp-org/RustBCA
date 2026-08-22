@@ -2,7 +2,21 @@ use super::*;
 use rand::RngExt;
 
 #[cfg(feature = "cpr_rootfinder")]
-use rcpr::chebyshev::*;
+const CPR_ROOTFINDER_LOWER_BOUND: f64 = 1e-4;
+
+
+#[cfg(feature = "cpr_rootfinder")]
+// Boyd suggests that the CPR is insensitive to this parameter
+// Empirical testing with rcpr suggests best convergence for Morse
+// potential at ~3; other potentials, ~2; 2.5 seems a good compromise.
+const L: f64 = 2.5;
+
+#[cfg(feature = "cpr_rootfinder")]
+use rcpr::rootfinders::{
+    find_roots,
+    real_polynomial_roots,
+    Config
+};
 
 /// Geometrical quantities of binary collision.
 pub struct BinaryCollisionGeometry {
@@ -588,6 +602,11 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
 }
 
 #[cfg(feature = "cpr_rootfinder")]
+fn transform(x: f64) -> f64 {
+    L/(x*PI/2.).tan().powi(2)
+}
+
+#[cfg(feature = "cpr_rootfinder")]
 /// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an arbitrary interaction potential (e.g., Morse) for a given impact parameter and incident energy `E0` using the Chebyshev-Proxy Root-Finder method.
 ///
 /// # Args:
@@ -606,7 +625,7 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
 /// `derivative_free`: if false, use Newton's method to polish roots from the CPR. If true, use the secant method.
 ///
 /// # Returns
-/// Returns the distance of closest approach or an error if the root-finder failed.
+/// Returns the distance of closest approach (reduced by a) or an error if the root-finder failed.
 pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     interaction_potential: InteractionPotential, n0: usize, nmax: usize, epsilon: f64,
     complex_threshold: f64, truncation_threshold: f64, far_from_zero: f64,
@@ -614,35 +633,39 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
 
     //Lindhard screening length and reduced energy
     let a = interactions::screening_length(Za, Zb, interaction_potential);
-    let reduced_energy = LINDHARD_REDUCED_ENERGY_PREFACTOR*a*Mb/(Ma+Mb)/Za/Zb*E0;
     let relative_energy = E0*Mb/(Ma + Mb);
-    let p = impact_parameter;
 
-    let f = |r: f64| -> f64 {interactions::distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
-    let g = |r: f64| -> f64 {interactions::distance_of_closest_approach_function_singularity_free(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
-        interactions::scaling_function(r, impact_parameter, interaction_potential)};
+    let g = |r: f64| -> f64 {
+        interactions::distance_of_closest_approach_function_singularity_free(transform(r)*a, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
+            interactions::scaling_function(transform(r)*a, a, interaction_potential)
+    };
 
-    let upper_bound = impact_parameter + interactions::crossing_point_doca(interaction_potential);
-    let lower_bound = impact_parameter / 1000.0;
+    let lower_bound = CPR_ROOTFINDER_LOWER_BOUND;
+    let upper_bound = 1.0_f64;
 
-    let roots = match derivative_free {
-        true => find_roots_with_secant_polishing(&g, &f, lower_bound, upper_bound,
-            n0, epsilon, nmax, complex_threshold,
-            truncation_threshold, interval_limit, far_from_zero),
+    let delta = 1e-5;
+    let config = Config::new(
+        epsilon,
+        delta,
+        n0,
+        nmax,
+        complex_threshold,
+        truncation_threshold,
+        far_from_zero,
+        interval_limit
+    );
 
-        false => {
-            let df = |r: f64| -> f64 {interactions::diff_distance_of_closest_approach_function(r, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)};
-            find_roots_with_newton_polishing(&g, &f, &df, lower_bound, upper_bound,
-            n0, epsilon, nmax, complex_threshold,
-            truncation_threshold, interval_limit, far_from_zero)
-        }
-    }.with_context(|| format!("Numerical error: CPR Rootfinder failed to converge when calculating distance of closest approach for Er = {} eV p = {} A using {}.",
-        relative_energy/EV, impact_parameter/ANGSTROM, interaction_potential))?;
+    let roots = find_roots(&g, vec![(lower_bound, upper_bound)], config)?;
 
-    let max_root = roots.iter().cloned().fold(f64::NAN, f64::max)/a;
+    // Since above the arg to doca is transform(r)*a, this is already scaled as output
+    //let max_root = roots.iter().map(|&x| transform(x)).fold(f64::NAN, f64::max);
+    let max_root = roots.iter()
+    .map(|&x| transform(x))
+    .max_by(f64::total_cmp)
+    .ok_or_else(|| {anyhow!("Numerical error: failed to find maximum root. F(a): {}, F(b): {}", g(lower_bound), g(upper_bound))})?;
 
     if roots.is_empty() || max_root.is_nan() {
-        return Err(anyhow!("Numerical error: CPR rootfinder failed to find root. x0: {}, F(a): {}, F(b): {};", max_root, g(0.), g(upper_bound)));
+        return Err(anyhow!("Numerical error: CPR rootfinder failed to find root. x0: {}, F(a): {}, F(b): {};", max_root, g(lower_bound), g(upper_bound)));
     } else {
         return Ok(max_root);
     }
