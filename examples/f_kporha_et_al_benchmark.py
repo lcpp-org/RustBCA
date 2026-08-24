@@ -190,7 +190,7 @@ datasets = [w_sp, ne, ar]
 colors = []
 
 num_ions = 10000
-run_sim = False
+run_sim = True
 
 tungsten["Es"] = 8.79
 tungsten["Eb"] = 0.0
