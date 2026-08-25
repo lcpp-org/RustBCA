@@ -145,6 +145,9 @@ mod libRustBCA {
 
     #[pymodule_export]
     use super::rustbca_local_py;
+
+    #[pymodule_export]
+    use super::scattering_integral_morse;
 }
 
 #[cfg(feature = "python")]
@@ -2129,6 +2132,7 @@ pub fn compound_reflection_coefficient<'py>(ion: &Bound<'py, PyDict>, targets: V
 /// E. Kadric et al., IEEE Transactions on Computers 65 11
 /// doi: 10.1109/TC.2016.2532874
 #[cfg(feature = "python")]
+#[allow(dead_code)]
 fn moller_knuth_two_sum(a: f64, b: f64) -> (f64, f64) {
     let s = a + b;
     let b_prime = s - a;
@@ -2167,6 +2171,36 @@ fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_g
     let theta_magic = bca::magic(Za, Zb, Ma, Mb, E0, p, x0_newton, screening_length, potential);
 
     Ok((theta_gm, theta_gl, theta_mw, theta_magic))
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature = (Za, Zb, Ma, Mb, E0, p, d, alpha, r0, n0=2, nmax=64, epsilon=1e-6, complex_threshold=0.0, far_from_zero=1e22, interval_limit=1e-3, n_gl_points=100, interaction_potential="KR_C"))]
+fn scattering_integral_morse(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, d: f64, alpha: f64, r0: f64, n0: usize, nmax: usize, epsilon: f64, complex_threshold: f64, far_from_zero: f64, interval_limit: f64, n_gl_points: usize, interaction_potential: &str) -> PyResult<(f64, f64, f64)> {
+    let E0 = E0*EV;
+    let p = p*ANGSTROM;
+    let d = d*EV;
+    let alpha = alpha/ANGSTROM;
+    let r0 = r0*ANGSTROM;
+
+    let potential = InteractionPotential::MORSE{D: d, alpha: alpha, r0: r0};
+    let screening_length = interactions::screening_length(Za, Zb, potential);
+
+    let x0 = bca::cpr_rootfinder(
+        Za, Zb, Ma, Mb, E0, p,
+        potential, n0, nmax, epsilon,
+        complex_threshold,
+        far_from_zero, interval_limit, true
+    ).map_err(|e| PyValueError::new_err(format!(
+        "Failed to find root: {}; p={}, E={}", e, p/ANGSTROM, E0/EV
+    )))?;
+
+    //Compute center of mass deflection angle with each algorithm
+    let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0, screening_length, potential, n_gl_points);
+    let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0, screening_length, potential);
+
+
+    Ok((x0, theta_gm, theta_gl))
 }
 
 #[cfg(feature = "python")]

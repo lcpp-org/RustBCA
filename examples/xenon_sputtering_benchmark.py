@@ -14,7 +14,7 @@ def input_file(ion, target, incident_energy, angle, number_ions=1000):
 
     mfp = (target["n"]/10**30)**(-1./3.)
 
-    cpr = {'CPR': {'n0': 2, 'nmax': 32, 'epsilon': 1e-3, 'complex_threshold': 1E-9, 'truncation_threshold': 1E-12, 'far_from_zero': 1e3, 'interval_limit': 1E-3, 'derivative_free': True}}
+    cpr = {'CPR': {'n0': 2, 'nmax': 32, 'epsilon': 1e-3, 'complex_threshold': 1E-9, 'far_from_zero': 1e3, 'interval_limit': 1E-3, 'derivative_free': True}}
     options = {
         'name': f'input_file_{ion["symbol"]}_{target["symbol"]}_{np.round(angle, 1)}_{np.round(incident_energy/1000, 4)}',
         'track_trajectories': False, # whether to track trajectories for plotting; memory intensive
@@ -196,7 +196,7 @@ rosenberg = np.array([
 
 num_ions = 10000
 num_energies = 25
-run_sim = True
+run_sim = False
 energies = np.logspace(np.log10(25), np.log10(1600), num_energies)
 angle = 0.0
 
@@ -231,8 +231,57 @@ for dataset_name, dataset in zip(dataset_names, datasets):
 
 plt.plot(energies, Y_Xe_Mo, label='RustBCA Default')
 plt.gca().set_xscale('log')
+plt.gca().set_yscale('log')
 plt.legend()
 plt.xlabel('E [eV]')
 plt.ylabel('Y [at/ion]')
 plt.title('Xe on Mo Sputtering Yields')
+
+ # Xe on Ti
+
+data = np.array([
+[0.06339144215530546, 0.1428571428571308],
+[29.920760697305866, 0.39030612244896945],
+[44.88114104595877, 0.5459183673469292],
+[59.968304278922346, 0.6530612244897864],
+[69.79397781299527, 0.5586734693877453],
+[0.1267828843106198, 0.33928571428570375],
+[30.047543581616488, 0.7755102040816233],
+[44.8811410459588, 1.0714285714285632],
+[59.96830427892236, 1.2602040816326459],
+[69.79397781299525, 1.1938775510204005],
+[0.25356576862123426, 0.4846938775510101],
+[29.920760697305866, 1.030612244897951],
+[45.00792393026942, 1.4285714285714222],
+[59.96830427892236, 1.6173469387755044],
+[69.98415213946117, 1.6632653061224434],
+[0.06339144215530546, 0.8061224489795826],
+[29.984152139461166, 1.5255102040816264],
+[45.00792393026942, 2.056122448979588],
+[59.96830427892236, 2.4693877551020385],
+[69.85736925515056, 2.6377551020408143],
+[0.12678288431062157, 1.0076530612244818],
+[29.98415213946116, 1.834183673469383],
+[44.94453248811412, 2.461734693877548],
+[59.96830427892236, 3.229591836734694],
+[69.92076069730587, 3.357142857142858],
+])
+
+run_sim = True
+num_angles = 15
+num_ions = 1000
+angles = np.linspace(0, 89, num_angles)
+energies = [200, 400, 600, 1000, 1400]
+titanium['Eb'] = 3.0
+
+plt.figure()
+for energy in energies:
+    Y_Xe_Ti = np.zeros(num_angles)
+    for index, angle in enumerate(angles):
+            input_data = input_file(xenon, titanium, energy, angle, num_ions)
+            if run_sim: rustbca_py(input_data, geometry_mode="0D")
+            sputtered = np.genfromtxt(f'{input_data["options"]["name"]}sputtered.output', delimiter=',')
+            Y_Xe_Ti[index] = np.shape(sputtered)[0]/num_ions
+    plt.plot(angles, Y_Xe_Ti, label=f'{energy} eV')
+plt.scatter(data[:, 0], data[:, 1])
 plt.show()

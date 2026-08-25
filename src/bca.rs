@@ -412,8 +412,8 @@ fn distance_of_closest_approach(particle_1: &particle::Particle, particle_2: &pa
         Rootfinder::POLYNOMIAL{complex_threshold} => polynomial_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, complex_threshold)
             .with_context(|| format!("Numerical error: Polynomial rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
-        Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, derivative_free} =>
-            cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, n0, nmax, epsilon, complex_threshold, truncation_threshold, far_from_zero, interval_limit, derivative_free)
+        Rootfinder::CPR{n0, nmax, epsilon, complex_threshold, far_from_zero, interval_limit, derivative_free} =>
+            cpr_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, n0, nmax, epsilon, complex_threshold, far_from_zero, interval_limit, derivative_free)
             .with_context(|| format!("Numerical error: CPR rootfinder failed for {} at {} eV with p = {} A.", interaction_potential, E0/EV, p/ANGSTROM))
             .unwrap(),
         Rootfinder::NEWTON{max_iterations, tolerance} => newton_rootfinder(Za, Zb, Ma, Mb, E0, p, interaction_potential, max_iterations, tolerance)
@@ -620,7 +620,6 @@ fn transform(x: f64) -> f64 {
 /// `epsilon`: absolute tolerance of Chebyshev interpolant.
 /// `complex_threshold`: slightly-complex roots with an imaginary part below this value are considered real.
 /// `far_from_zero`: if the distance of closest approach function, evaluated over an interval [a, b] on the Lobatto grid, is always greater than this value, it is assumed that there are no roots in the interval [a, b].
-/// `truncation_threshold`: trailing terms of the Chebyshev interpolant with coefficients smaller than this value are ignored.
 /// `interval_limit`: if subdivision produces an interval smaller than this value, the root-finder will panic.
 /// `derivative_free`: if false, use Newton's method to polish roots from the CPR. If true, use the secant method.
 ///
@@ -628,7 +627,7 @@ fn transform(x: f64) -> f64 {
 /// Returns the distance of closest approach (reduced by a) or an error if the root-finder failed.
 pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parameter: f64,
     interaction_potential: InteractionPotential, n0: usize, nmax: usize, epsilon: f64,
-    complex_threshold: f64, truncation_threshold: f64, far_from_zero: f64,
+    complex_threshold: f64, far_from_zero: f64,
     interval_limit: f64, derivative_free: bool) -> Result <f64, anyhow::Error> {
 
     //Lindhard screening length and reduced energy
@@ -650,7 +649,6 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
         n0,
         nmax,
         complex_threshold,
-        truncation_threshold,
         far_from_zero,
         interval_limit
     );
