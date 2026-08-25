@@ -10,7 +10,6 @@ use rcpr::rootfinders::*;
 #[test]
 #[cfg(feature = "cpr_rootfinder")]
 fn test_polynom() {
-    use rcpr::chebyshev::*;
     let interaction_potential = InteractionPotential::FOUR_EIGHT{alpha: 1., beta: 1.};
     let coefficients = interactions::polynomial_coefficients(1., 1., interaction_potential);
     let roots = real_polynomial_roots(coefficients.clone(), 1e-9).unwrap();
