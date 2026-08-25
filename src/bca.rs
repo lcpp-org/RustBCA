@@ -602,9 +602,11 @@ pub fn polynomial_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact
 }
 
 #[cfg(feature = "cpr_rootfinder")]
-fn transform(x: f64) -> f64 {
-    L/(x*PI/2.).tan().powi(2)
+fn transform(x: f64, l: f64) -> f64 {
+    l/(x*PI/2.).tan().powi(2)
 }
+
+
 
 #[cfg(feature = "cpr_rootfinder")]
 /// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an arbitrary interaction potential (e.g., Morse) for a given impact parameter and incident energy `E0` using the Chebyshev-Proxy Root-Finder method.
@@ -633,10 +635,13 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     //Lindhard screening length and reduced energy
     let a = interactions::screening_length(Za, Zb, interaction_potential);
     let relative_energy = E0*Mb/(Ma + Mb);
+    // Guess at scaling for rootfinder - enforce p -> 0.5 in transformed coords
+    // If smaller than defined constant L, default to L (which was found empirically)
+    let l: f64 = (impact_parameter*(PI/4.).tan().powi(2)/a).max(L);
 
-    let g = |r: f64| -> f64 {
-        interactions::distance_of_closest_approach_function_singularity_free(transform(r)*a, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
-            interactions::scaling_function(transform(r)*a, a, interaction_potential)
+    let g = |r: f64| -> Result<f64, std::convert::Infallible> {
+        Ok(interactions::distance_of_closest_approach_function_singularity_free(transform(r, l)*a, a, Za, Zb, relative_energy, impact_parameter, interaction_potential)*
+            interactions::scaling_function(transform(r, l)*a, a, interaction_potential))
     };
 
     let lower_bound = CPR_ROOTFINDER_LOWER_BOUND;
@@ -658,12 +663,12 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
     // Since above the arg to doca is transform(r)*a, this is already scaled as output
     //let max_root = roots.iter().map(|&x| transform(x)).fold(f64::NAN, f64::max);
     let max_root = roots.iter()
-    .map(|&x| transform(x))
+    .map(|&x| transform(x, l))
     .max_by(f64::total_cmp)
-    .ok_or_else(|| {anyhow!("Numerical error: failed to find maximum root. F(a): {}, F(b): {}", g(lower_bound), g(upper_bound))})?;
+    .ok_or_else(|| {anyhow!("Numerical error: failed to find maximum root. F(a): {}, F(b): {}", g(lower_bound).unwrap(), g(upper_bound).unwrap())})?;
 
     if roots.is_empty() || max_root.is_nan() {
-        return Err(anyhow!("Numerical error: CPR rootfinder failed to find root. x0: {}, F(a): {}, F(b): {};", max_root, g(lower_bound), g(upper_bound)));
+        return Err(anyhow!("Numerical error: CPR rootfinder failed to find root. x0: {}, F(a): {}, F(b): {};", max_root, g(lower_bound).unwrap(), g(upper_bound).unwrap()));
     } else {
         return Ok(max_root);
     }
