@@ -1,6 +1,7 @@
 use super::*;
 use rand::RngExt;
 
+
 #[cfg(feature = "cpr_rootfinder")]
 const CPR_ROOTFINDER_LOWER_BOUND: f64 = 1e-4;
 
@@ -17,6 +18,8 @@ use rcpr::rootfinders::{
     real_polynomial_roots,
     Config
 };
+#[cfg(feature = "cpr_rootfinder")]
+use rcpr::chebyshev::ErrorCalc;
 
 /// Geometrical quantities of binary collision.
 pub struct BinaryCollisionGeometry {
@@ -606,8 +609,6 @@ fn transform(x: f64, l: f64) -> f64 {
     l/(x*PI/2.).tan().powi(2)
 }
 
-
-
 #[cfg(feature = "cpr_rootfinder")]
 /// Computes the distance of closest approach of two particles with atomic numbers `Za`, `Zb` and masses `Ma`, `Mb` for an arbitrary interaction potential (e.g., Morse) for a given impact parameter and incident energy `E0` using the Chebyshev-Proxy Root-Finder method.
 ///
@@ -655,7 +656,8 @@ pub fn cpr_rootfinder(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, impact_parame
         nmax,
         complex_threshold,
         far_from_zero,
-        interval_limit
+        interval_limit,
+        ErrorCalc::Relative,
     );
 
     let roots = find_roots(&g, vec![(lower_bound, upper_bound)], config)?;
