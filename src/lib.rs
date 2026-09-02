@@ -2175,8 +2175,8 @@ fn scattering_integrals(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, n_g
 
 #[cfg(feature = "python")]
 #[pyfunction]
-#[pyo3(signature = (Za, Zb, Ma, Mb, E0, p, d, alpha, r0, n0=2, nmax=64, epsilon=1e-6, complex_threshold=0.0, far_from_zero=1e22, interval_limit=1e-3, n_gl_points=100, interaction_potential="KR_C"))]
-fn scattering_integral_morse(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, d: f64, alpha: f64, r0: f64, n0: usize, nmax: usize, epsilon: f64, complex_threshold: f64, far_from_zero: f64, interval_limit: f64, n_gl_points: usize, interaction_potential: &str) -> PyResult<(f64, f64, f64)> {
+#[pyo3(signature = (Za, Zb, Ma, Mb, E0, p, d, alpha, r0, n0=2, nmax=64, epsilon=1e-6, complex_threshold=0.0, far_from_zero=1e22, interval_limit=1e-3, n_gl_points=100))]
+fn scattering_integral_morse(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64, d: f64, alpha: f64, r0: f64, n0: usize, nmax: usize, epsilon: f64, complex_threshold: f64, far_from_zero: f64, interval_limit: f64, n_gl_points: usize) -> PyResult<(f64, f64, f64)> {
     let E0 = E0*EV;
     let p = p*ANGSTROM;
     let d = d*EV;
@@ -2198,7 +2198,6 @@ fn scattering_integral_morse(Za: f64, Zb: f64, Ma: f64, Mb: f64, E0: f64, p: f64
     //Compute center of mass deflection angle with each algorithm
     let theta_gm = bca::gauss_mehler(Za, Zb, Ma, Mb, E0, p, x0, screening_length, potential, n_gl_points);
     let theta_gl = bca::gauss_legendre(Za, Zb, Ma, Mb, E0, p, x0, screening_length, potential);
-
 
     Ok((x0, theta_gm, theta_gl))
 }
