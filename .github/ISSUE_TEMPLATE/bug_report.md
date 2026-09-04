@@ -24,3 +24,6 @@ OS:
 
 **Additional context**
 Add any other context about the problem here.
+
+**Generative AI Use**
+Please read the generative AI policy [here](https://forge.rust-lang.org/policies/llm-usage.html) and ensure you are in compliance.
