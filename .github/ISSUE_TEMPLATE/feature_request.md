@@ -18,3 +18,6 @@ A clear and concise description of any alternative solutions or features you've 
 
 **Additional context**
 Add any other context, including but not limited to references, figures, or examples.
+
+**Generative AI Use**
+Please read the generative AI policy [here](https://forge.rust-lang.org/policies/llm-usage.html) and ensure you are in compliance.
