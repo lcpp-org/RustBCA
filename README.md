@@ -300,3 +300,7 @@ Also have a look at the examples on the [Wiki] to see some examples of RustBCA i
 [Rust]: https://en.wikipedia.org/wiki/Rust_(programming_language)
 [TOML]: https://en.wikipedia.org/wiki/TOML
 [Wiki]: https://github.com/lcpp-org/RustBCA/wiki
+
+## Generative AI Policy
+
+RustBCA's generative AI policy is the same as the Rust language project, `rust-lang/rust`. That policy can be found [here](https://forge.rust-lang.org/policies/llm-usage.html).
