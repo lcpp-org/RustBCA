@@ -8,22 +8,28 @@ assignees: ''
 ---
 
 **Description**
-A clear and concise description of what the bug is.
+A complete, clear, and concise description of what the bug is. 
+
+**Location**
+Specify the relevant line number(s), definition(s), etc.
 
 **To Reproduce**
-Please attach the relevant TOML input file and list the command line arguments used.
+For issues with the standalone code, please attach the relevant TOML input file and list the command line arguments used. For issues with libRustBCA, please include the function call used. For other issues, include any necessary input to reproduce.
 
 **Expected behavior**
-A clear and concise description of what you expected to happen.
+A complete, clear, and concise description of what you expected to happen.
+
+**Actual behavior**
+A complete, clear, and concise description of what happened instead.
 
 **Error messages, output files, or figures**
-Please include error messages, output files or figures that demonstrate the error if applicable.
+Please include error messages, output files, or figures that demonstrate the error if applicable.
 
-**System (please complete the following information):**
+**System (if relevant):**
 OS: 
 
 **Additional context**
-Add any other context about the problem here.
+Add any other context here.
 
 **Generative AI Use**
 Please read the generative AI policy [here](https://forge.rust-lang.org/policies/llm-usage.html) and ensure you are in compliance.
