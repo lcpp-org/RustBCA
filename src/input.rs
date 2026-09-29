@@ -591,18 +591,18 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
                             Distributions::POINT(z) => z*length_unit,
                         },
                         ux: match cosx {
-                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
-                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
+                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)},
+                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)},
                             Distributions::POINT(ux) => ux
                         },
                         uy: match cosy {
-                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
-                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
+                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)},
+                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)},
                             Distributions::POINT(uy) => uy,
                         },
                         uz: match cosz {
-                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)*length_unit},
-                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)*length_unit},
+                            Distributions::NORMAL{mean, std} => {let normal = Normal::new(mean, std).unwrap(); normal.sample(&mut rng)},
+                            Distributions::UNIFORM{min, max} => {let uniform = Uniform::new(min, max).unwrap();  uniform.sample(&mut rng)},
                             Distributions::POINT(uz) => uz,
                         },
                         interaction_index,
