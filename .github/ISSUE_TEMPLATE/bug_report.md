@@ -1,5 +1,5 @@
 ---
-name: Bug report
+name: Bug report (affects results)
 about: Report a problem with the code
 title: "[bug]"
 labels: bug
