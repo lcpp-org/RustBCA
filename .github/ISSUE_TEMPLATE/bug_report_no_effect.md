@@ -1,8 +1,8 @@
 ---
 name: Bug report (minor)
 about: Report a problem with the code
-title: "[bug (does not affect results)]"
-labels: bug (does not affect results)
+title: "[bug (minor)]"
+labels: bug (minor)
 assignees: ''
 
 ---
