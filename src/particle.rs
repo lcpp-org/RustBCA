@@ -148,8 +148,8 @@ impl Particle {
             number_collision_events: 0,
             backreflected: false,
             interaction_index: input.interaction_index,
-            weight: 1.0,
-            tag: 0,
+            weight: input.weight,
+            tag: input.tag,
             tracked_vector: Vector::new(0.0, 0.0, 0.0),
         }
     }
