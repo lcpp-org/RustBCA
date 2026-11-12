@@ -1,24 +1,68 @@
 use super::*;
 
+// These default_* functions are a workaround to
+// this issue: https://github.com/serde-rs/serde/issues/368
+// in serde. Unimplemented since 2016!
 fn default_vec_zero() -> Vec<usize> {
     vec![0]
 }
 
+fn default_vec_empty_f64() -> Vec<f64> {
+    vec![]
+}
+
+fn default_vec_empty_distributions() -> Vec<Distributions> {
+    vec![]
+}
+
+fn default_vec_empty_distributions_triple() -> Vec<(Distributions, Distributions, Distributions)> {
+    vec![]
+}
+
+fn default_empty_string() -> String {
+    "".to_string()
+}
+
+fn default_length_unit() -> String {
+    "ANGSTROM".to_string()
+}
+
+fn default_energy_unit() -> String {
+    "EV".to_string()
+}
+
+fn default_mass_unit() -> String {
+    "AMU".to_string()
+}
+
 #[derive(Deserialize, Clone)]
 pub struct ParticleParameters {
+    #[serde(default = "default_length_unit")]
     pub length_unit: String,
+    #[serde(default = "default_energy_unit")]
     pub energy_unit: String,
+    #[serde(default = "default_mass_unit")]
     pub mass_unit: String,
+    #[serde(default = "default_vec_zero")]
     pub N: Vec<usize>,
+    #[serde(default = "default_vec_empty_f64")]
     pub m: Vec<f64>,
+    #[serde(default = "default_vec_empty_f64")]
     pub Z: Vec<f64>,
+    #[serde(default = "default_vec_empty_distributions")]
     pub E: Vec<Distributions>,
+    #[serde(default = "default_vec_empty_f64")]
     pub Ec: Vec<f64>,
+    #[serde(default = "default_vec_empty_f64")]
     pub Es: Vec<f64>,
+    #[serde(default = "default_vec_empty_distributions_triple")]
     pub pos: Vec<(Distributions, Distributions, Distributions)>,
+    #[serde(default = "default_vec_empty_distributions_triple")]
     pub dir: Vec<(Distributions, Distributions, Distributions)>,
     #[serde(default = "default_vec_zero")]
     pub interaction_index: Vec<usize>,
+    #[serde(default = "default_empty_string")]
+    pub particle_input_filename: String
 }
 
 #[derive(Clone, PartialEq, Debug, Copy)]

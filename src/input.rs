@@ -514,9 +514,6 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
     assert!(particle_parameters.interaction_index.iter().max().unwrap() < &options.interaction_potential.len(),
         "Input error: interaction matrix too small for particle interaction indices.");
 
-    //N is the number of distinct particles.
-    let N = particle_parameters.Z.len();
-
     //Determine the length, energy, and mass units for particle input
     let length_unit: f64 = match particle_parameters.length_unit.as_str() {
         "MICRON" => MICRON,
@@ -546,9 +543,89 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
             .unwrap_or_else(|_| panic!("Input errror: could nor parse mass unit {}. Use a valid float or one of AMU, KG", &particle_parameters.mass_unit.as_str())),
     };
 
-    let particle_input_array: Vec<particle::ParticleInput> = {
+    let particle_input_array: Vec<particle::ParticleInput> = if particle_parameters.particle_input_filename != "".to_string() {
 
-    let mut particle_input: Vec<particle::ParticleInput> = Vec::new();
+        let mut particle_input_string = String::new();
+        let mut particle_input_file = OpenOptions::new()
+            .read(true)
+            .write(false)
+            .create(false)
+            .open(&particle_parameters.particle_input_filename)
+            .unwrap_or_else(|_| panic!("Input error: cannot open particle input file {}", particle_parameters.particle_input_filename));
+        particle_input_file.read_to_string(&mut particle_input_string).expect("Input error: failed to read particle input file to string.");
+
+        let mut particle_input: Vec<particle::ParticleInput> = Vec::new();
+
+        for (line_index, line) in particle_input_string.lines().enumerate() {
+            
+            let [ m,
+                Z,
+                energy,
+                Ec,
+                Es,
+                x,
+                y,
+                z,
+                ux,
+                uy,
+                uz,
+                i,
+                w,
+                t,
+            ] = line.split(',')
+                .map(|s| s.trim())
+                .collect::<Vec<&str>>()
+                .as_slice()
+                .try_into()
+                .unwrap_or_else(|_| panic!(
+                    "Input error: failed to read line {} of particle input file {}; ensure row has 14 values.",
+                     line_index,
+                      particle_parameters.particle_input_filename
+                ));
+
+            assert!(i.parse::<usize>().unwrap() < options.interaction_potential.len(),
+            "Input error: interaction matrix too small for particle interaction indices.");
+
+            particle_input.push(
+                particle::ParticleInput {
+                    m: m.parse::<f64>()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse mass on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename))*mass_unit,
+                    Z: Z.parse()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse atomic number on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename)),
+                    E: energy.parse::<f64>()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse energy on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename))*energy_unit,
+                    Ec: Ec.parse::<f64>()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse cutoff energy on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename))*energy_unit,
+                    Es: Es.parse::<f64>()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse SBE on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename))*energy_unit,
+                    x: x.parse::<f64>()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse x on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename))*length_unit,
+                    y: y.parse::<f64>()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse y on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename))*length_unit,
+                    z: z.parse::<f64>()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse z on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename))*length_unit,
+                    ux: ux.parse()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse ux on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename)),
+                    uy: uy.parse()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse uy on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename)),
+                    uz: uz.parse()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse uz on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename)),
+                    interaction_index: i.parse()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse interaction index on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename)),
+                    weight: w.parse()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse weight on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename)),
+                    tag: t.parse()
+                        .unwrap_or_else(|_| panic!("Input error: failed to parse tag on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename)),
+                }
+            )
+        }
+
+        particle_input
+    } else {
+    
+        let N = particle_parameters.Z.len();
+
+        let mut particle_input: Vec<particle::ParticleInput> = Vec::new();
 
         for particle_index in 0..N {
             let N_ = particle_parameters.N[particle_index];
@@ -614,5 +691,6 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
         }
         particle_input
     };
+
     (particle_input_array, material, options, OutputUnits {length_unit, energy_unit, mass_unit})
 }
