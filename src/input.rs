@@ -492,28 +492,6 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
         }
     }
 
-    //Check that particle arrays are equal length
-    assert_eq!(particle_parameters.Z.len(), particle_parameters.m.len(),
-        "Input error: particle input arrays of unequal length.");
-    assert_eq!(particle_parameters.Z.len(), particle_parameters.E.len(),
-        "Input error: particle input arrays of unequal length.");
-    assert_eq!(particle_parameters.Z.len(), particle_parameters.pos.len(),
-        "Input error: particle input arrays of unequal length.");
-    assert_eq!(particle_parameters.Z.len(), particle_parameters.dir.len(),
-        "Input error: particle input arrays of unequal length.");
-
-    if particle_parameters.interaction_index.len() <= 1 {
-        particle_parameters.interaction_index = vec![0; particle_parameters.Z.len()];
-    }
-
-    //Check that interaction indices are all within interaction matrices
-    assert!(material.interaction_index.iter().max().unwrap() < &options.interaction_potential.len(),
-        "Input error: interaction matrix too small for material interaction indices. If interaction
-        matrix is not specified, interaction_indices should be a vector of as many zeroes as there
-        are material species.");
-    assert!(particle_parameters.interaction_index.iter().max().unwrap() < &options.interaction_potential.len(),
-        "Input error: interaction matrix too small for particle interaction indices.");
-
     //Determine the length, energy, and mass units for particle input
     let length_unit: f64 = match particle_parameters.length_unit.as_str() {
         "MICRON" => MICRON,
@@ -556,7 +534,10 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
 
         let mut particle_input: Vec<particle::ParticleInput> = Vec::new();
 
-        for (line_index, line) in particle_input_string.lines().enumerate() {
+        let particle_input_lines: Vec<&str> = particle_input_string.lines().collect();
+        assert!(particle_input_lines.len() > 0, "Input error: particle input file cannot have 0 lines.");
+
+        for (line_index, line) in particle_input_lines.iter().enumerate() {
             
             let [ m,
                 Z,
@@ -579,11 +560,14 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
                 .try_into()
                 .unwrap_or_else(|_| panic!(
                     "Input error: failed to read line {} of particle input file {}; ensure row has 14 values.",
-                     line_index,
+                     line_index + 1,
                       particle_parameters.particle_input_filename
                 ));
 
-            assert!(i.parse::<usize>().unwrap() < options.interaction_potential.len(),
+            let interaction_index = i.parse::<usize>()
+                .unwrap_or_else(|_| panic!("Input error: failed to parse interaction index on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename));
+
+            assert!(interaction_index < options.interaction_potential.len(),
             "Input error: interaction matrix too small for particle interaction indices.");
 
             particle_input.push(
@@ -610,8 +594,7 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
                         .unwrap_or_else(|_| panic!("Input error: failed to parse uy on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename)),
                     uz: uz.parse()
                         .unwrap_or_else(|_| panic!("Input error: failed to parse uz on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename)),
-                    interaction_index: i.parse()
-                        .unwrap_or_else(|_| panic!("Input error: failed to parse interaction index on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename)),
+                    interaction_index: interaction_index,
                     weight: w.parse()
                         .unwrap_or_else(|_| panic!("Input error: failed to parse weight on line {} of particle input file {}", line_index + 1, particle_parameters.particle_input_filename)),
                     tag: t.parse()
@@ -622,6 +605,28 @@ pub fn process_input_file<T: Geometry>(input: <T as Geometry>::InputFileFormat) 
 
         particle_input
     } else {
+
+        //Check that particle arrays are equal length
+        assert_eq!(particle_parameters.Z.len(), particle_parameters.m.len(),
+        "Input error: particle input arrays of unequal length.");
+        assert_eq!(particle_parameters.Z.len(), particle_parameters.E.len(),
+        "Input error: particle input arrays of unequal length.");
+        assert_eq!(particle_parameters.Z.len(), particle_parameters.pos.len(),
+        "Input error: particle input arrays of unequal length.");
+        assert_eq!(particle_parameters.Z.len(), particle_parameters.dir.len(),
+        "Input error: particle input arrays of unequal length.");
+
+        if particle_parameters.interaction_index.len() <= 1 {
+        particle_parameters.interaction_index = vec![0; particle_parameters.Z.len()];
+        }
+
+        //Check that interaction indices are all within interaction matrices
+        assert!(material.interaction_index.iter().max().unwrap() < &options.interaction_potential.len(),
+        "Input error: interaction matrix too small for material interaction indices. If interaction
+        matrix is not specified, interaction_indices should be a vector of as many zeroes as there
+        are material species.");
+        assert!(particle_parameters.interaction_index.iter().max().unwrap() < &options.interaction_potential.len(),
+        "Input error: interaction matrix too small for particle interaction indices.");
     
         let N = particle_parameters.Z.len();
 
